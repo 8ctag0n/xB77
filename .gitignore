@@ -2,3 +2,6 @@ circuits/agent_badge/target/
 sdk/src/artifacts/
 sdk/target/
 .localnet/
+contracts/target/
+test-ledger/
+private/
