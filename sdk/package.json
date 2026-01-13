@@ -3,6 +3,9 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "proof:badge": "bun run scripts/generate_badge_proof.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },

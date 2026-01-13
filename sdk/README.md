@@ -18,6 +18,19 @@ To validate the Noir proof pipeline (Node.js):
 node test_badge.mjs
 ```
 
+To generate Groth16 proofs and instruction data for on-chain verification:
+
+```bash
+# Requires Sunspot in PATH and the Noir container runtime.
+bun run scripts/generate_badge_proof.ts
+# or
+bun run proof:badge
+```
+
+Outputs:
+- `sdk/target/agent_badge.instruction.bin` (binary `proof || public_witness`)
+- `sdk/target/agent_badge.instruction.b64` (base64 for transport)
+
 To (re)generate the Noir artifact used by the scripts (via container):
 
 ```bash
