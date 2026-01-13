@@ -1,0 +1,5 @@
+[workspace]
+resolver = "2"
+members = [
+    "programs/xb77_gateway",
+]
