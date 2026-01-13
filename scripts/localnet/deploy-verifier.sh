@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CIRCUIT_DIR="${ROOT_DIR}/circuits/agent_badge"
 TARGET_DIR="${CIRCUIT_DIR}/target"
 LOCALNET_DIR="${ROOT_DIR}/.localnet"
-SOLANA_URL="${SOLANA_URL:-http://127.0.0.1:8899}"
+SOLANA_URL="${SOLANA_URL:-http://localhost:8899}"
 PAYER_KEYPAIR="${LOCALNET_DIR}/payer.json"
 PROGRAM_ID_PATH="${LOCALNET_DIR}/verifier_program_id.txt"
 
@@ -36,15 +36,19 @@ if [ ! -f "${TARGET_DIR}/agent_badge.json" ]; then
   "${ROOT_DIR}/scripts/build-noir-artifacts.sh"
 fi
 
+ACIR_REL="circuits/agent_badge/target/agent_badge.json"
+CCS_REL="circuits/agent_badge/target/agent_badge.ccs"
+VK_REL="circuits/agent_badge/target/agent_badge.vk"
+
 if [ ! -f "${TARGET_DIR}/agent_badge.ccs" ]; then
-  "${ROOT_DIR}/scripts/sunspot.sh" compile "${TARGET_DIR}/agent_badge.json"
+  "${ROOT_DIR}/scripts/sunspot.sh" compile "${ACIR_REL}"
 fi
 
 if [ ! -f "${TARGET_DIR}/agent_badge.vk" ] || [ ! -f "${TARGET_DIR}/agent_badge.pk" ]; then
-  "${ROOT_DIR}/scripts/sunspot.sh" setup "${TARGET_DIR}/agent_badge.ccs"
+  "${ROOT_DIR}/scripts/sunspot.sh" setup "${CCS_REL}"
 fi
 
-"${ROOT_DIR}/scripts/sunspot.sh" deploy "${TARGET_DIR}/agent_badge.vk"
+"${ROOT_DIR}/scripts/sunspot.sh" deploy "${VK_REL}"
 
 SO_PATH="$(ls -t "${TARGET_DIR}"/*.so 2>/dev/null | head -n 1 || true)"
 KEYPAIR_PATH="$(ls -t "${TARGET_DIR}"/*keypair*.json 2>/dev/null | head -n 1 || true)"

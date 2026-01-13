@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LOCALNET_DIR="${ROOT_DIR}/.localnet"
-SOLANA_URL="${SOLANA_URL:-http://127.0.0.1:8899}"
+SOLANA_URL="${SOLANA_URL:-http://localhost:8899}"
 PAYER_KEYPAIR="${LOCALNET_DIR}/payer.json"
 PROGRAM_ID_PATH="${LOCALNET_DIR}/gateway_program_id.txt"
 

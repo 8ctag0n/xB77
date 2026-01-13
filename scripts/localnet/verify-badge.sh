@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SOLANA_URL="${SOLANA_URL:-http://127.0.0.1:8899}"
+SOLANA_URL="${SOLANA_URL:-http://localhost:8899}"
 
 if [ ! -f "${ROOT_DIR}/.localnet/gateway_program_id.txt" ]; then
   echo "Missing .localnet/gateway_program_id.txt. Deploy the gateway first." >&2
