@@ -21,7 +21,7 @@ node test_badge.mjs
 To generate Groth16 proofs and instruction data for on-chain verification:
 
 ```bash
-# Requires Sunspot in PATH and the Noir container runtime.
+# Uses the Noir + Sunspot container runtime.
 bun run scripts/generate_badge_proof.ts
 # or
 bun run proof:badge

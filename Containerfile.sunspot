@@ -1,0 +1,37 @@
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    bash \
+    ca-certificates \
+    build-essential \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Go (needed for Sunspot build)
+RUN curl -L https://go.dev/dl/go1.24.0.linux-amd64.tar.gz -o /tmp/go.tar.gz \
+    && tar -C /usr/local -xzf /tmp/go.tar.gz \
+    && rm /tmp/go.tar.gz
+
+ENV PATH="/usr/local/go/bin:/root/.nargo/bin:/root/sunspot/go:$PATH"
+
+# Configure git to use https always and no prompt
+RUN git config --global url."https://github.com/".insteadOf git@github.com:
+RUN git config --global url."https://".insteadOf git://
+
+# Install noirup (pinned)
+RUN curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
+RUN /root/.nargo/bin/noirup -v 0.36.0
+
+# Build Sunspot
+RUN git clone https://github.com/reilabs/sunspot.git /root/sunspot \
+    && cd /root/sunspot/go \
+    && go build -o sunspot .
+
+# Required by Sunspot verifier tooling.
+ENV GNARK_VERIFIER_BIN="/root/sunspot/gnark-solana/crates/verifier-bin"
+
+WORKDIR /app
+
+ENTRYPOINT ["bash"]

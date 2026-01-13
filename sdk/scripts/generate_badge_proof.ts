@@ -77,20 +77,20 @@ async function main() {
   const proofPath = path.join(targetDir, "agent_badge.proof");
   const witnessPublicPath = path.join(targetDir, "agent_badge.pw");
 
-  const sunspotCheck = spawnSync("sunspot", ["--help"], { stdio: "ignore" });
-  if (sunspotCheck.status !== 0) {
-    throw new Error("sunspot CLI not found. Install it and ensure it's in PATH.");
+  const sunspotScript = path.join(rootDir, "scripts/sunspot.sh");
+  if (!existsSync(sunspotScript)) {
+    throw new Error("Missing scripts/sunspot.sh.");
   }
 
   if (!existsSync(ccsPath)) {
-    run("sunspot", ["compile", acirPath, ccsPath], circuitDir);
+    run(sunspotScript, ["compile", acirPath, ccsPath], rootDir);
   }
   if (!existsSync(pkPath) || !existsSync(vkPath)) {
-    run("sunspot", ["setup", ccsPath, pkPath, vkPath], circuitDir);
+    run(sunspotScript, ["setup", ccsPath, pkPath, vkPath], rootDir);
   }
 
   console.log("Generating Groth16 proof with Sunspot...");
-  run("sunspot", ["prove", acirPath, witnessPath, ccsPath, pkPath], circuitDir);
+  run(sunspotScript, ["prove", acirPath, witnessPath, ccsPath, pkPath], rootDir);
 
   const proof = readFileSync(proofPath);
   const publicWitness = readFileSync(witnessPublicPath);
