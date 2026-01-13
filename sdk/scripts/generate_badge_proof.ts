@@ -83,10 +83,10 @@ async function main() {
   }
 
   if (!existsSync(ccsPath)) {
-    run(sunspotScript, ["compile", acirPath, ccsPath], rootDir);
+    run(sunspotScript, ["compile", acirPath], rootDir);
   }
   if (!existsSync(pkPath) || !existsSync(vkPath)) {
-    run(sunspotScript, ["setup", ccsPath, pkPath, vkPath], rootDir);
+    run(sunspotScript, ["setup", ccsPath], rootDir);
   }
 
   console.log("Generating Groth16 proof with Sunspot...");

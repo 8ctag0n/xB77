@@ -74,3 +74,9 @@
 1.  **Initialize Noir:** `./circuits`.
 2.  **Initialize SDK:** `./sdk`.
 3.  **Check Arcium Docs:** Verify C-SPL devnet availability.
+
+## 🧪 LOCALNET TOOLING
+Common helpers:
+- `make localnet-start` (run Solana local validator)
+- `make localnet-verifier` (build + deploy Sunspot verifier to localnet)
+- `make proof-badge` (generate proof + instruction data)
