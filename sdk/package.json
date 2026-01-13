@@ -1,0 +1,22 @@
+{
+  "name": "sdk",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@noir-lang/backend_barretenberg": "0.36.0",
+    "@noir-lang/noir_js": "0.36.0",
+    "@solana-program/compute-budget": "^0.11.0",
+    "@solana-program/memo": "^0.10.0",
+    "@solana-program/system": "^0.10.0",
+    "@solana-program/token": "^0.9.0",
+    "@solana/kit": "^5.3.0",
+    "circomlibjs": "^0.1.7"
+  }
+}
