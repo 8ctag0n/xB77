@@ -53,6 +53,7 @@ async function main() {
     current = bit === 0n ? poseidon([current, sibling]) : poseidon([sibling, current]);
   }
   const root = field.toString(current);
+  const rootHex = `0x${BigInt(root).toString(16).padStart(64, "0")}`;
 
   const tomlLines = [
     `root = "${root}"`,
@@ -99,15 +100,28 @@ async function main() {
   mkdirSync(outputDir, { recursive: true });
   const outputBin = path.join(outputDir, "agent_badge.instruction.bin");
   const outputB64 = path.join(outputDir, "agent_badge.instruction.b64");
+  const outputMeta = path.join(outputDir, "agent_badge.meta.json");
 
   writeFileSync(outputBin, instructionData);
   writeFileSync(outputB64, instructionData.toString("base64"));
+  writeFileSync(
+    outputMeta,
+    JSON.stringify(
+      {
+        merkle_root_hex: rootHex,
+        merkle_index: input.merkleIndex,
+      },
+      null,
+      2
+    )
+  );
 
   console.log(`Proof bytes: ${proof.length}`);
   console.log(`Public witness bytes: ${publicWitness.length}`);
   console.log(`Instruction data bytes: ${instructionData.length}`);
   console.log(`Wrote ${outputBin}`);
   console.log(`Wrote ${outputB64}`);
+  console.log(`Wrote ${outputMeta}`);
 }
 
 main().catch((error) => {

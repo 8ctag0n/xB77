@@ -79,4 +79,7 @@
 Common helpers:
 - `make localnet-start` (run Solana local validator)
 - `make localnet-verifier` (build + deploy Sunspot verifier to localnet)
+- `make localnet-gateway` (build + deploy gateway program)
 - `make proof-badge` (generate proof + instruction data)
+- `make localnet-init` (initialize gateway with verifier + root)
+- `make localnet-verify` (send verify_badge with proof)

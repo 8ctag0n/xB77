@@ -1,4 +1,4 @@
-.PHONY: noir-compile noir-execute sunspot proof-badge localnet-start localnet-verifier
+.PHONY: noir-compile noir-execute sunspot proof-badge localnet-start localnet-verifier localnet-gateway localnet-init localnet-verify localnet-setup
 
 noir-compile:
 	./scripts/build-noir-artifacts.sh
@@ -17,3 +17,14 @@ localnet-start:
 
 localnet-verifier:
 	./scripts/localnet/deploy-verifier.sh
+
+localnet-gateway:
+	./scripts/localnet/deploy-gateway.sh
+
+localnet-init:
+	./scripts/localnet/init-gateway.sh
+
+localnet-verify:
+	./scripts/localnet/verify-badge.sh
+
+localnet-setup: localnet-verifier localnet-gateway localnet-init
