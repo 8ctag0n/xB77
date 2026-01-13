@@ -1,0 +1,16 @@
+{
+  "inputs": [
+    {
+      "secret": "5",
+      "salt": "99",
+      "path": ["10", "20", "30"],
+      "merkleIndex": "0"
+    },
+    {
+      "secret": "7",
+      "salt": "123",
+      "path": ["3", "11", "19"],
+      "merkleIndex": "5"
+    }
+  ]
+}

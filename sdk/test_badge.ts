@@ -2,6 +2,7 @@ import { BarretenbergBackend } from '@noir-lang/backend_barretenberg';
 import { Noir } from '@noir-lang/noir_js';
 import badgeCircuit from './src/artifacts/agent_badge.json';
 import { buildPoseidonReference } from 'circomlibjs';
+import { readFile } from 'node:fs/promises';
 
 // Explicitly import and initialize WASM if needed
 import initACVM from '@noir-lang/acvm_js';
@@ -57,10 +58,24 @@ async function main() {
         };
     };
 
-    const inputs = [
-        buildInput(5n, 99n, [10n, 20n, 30n], 0n),
-        buildInput(7n, 123n, [3n, 11n, 19n], 5n),
-    ];
+    const fixtureRaw = await readFile(new URL("./fixtures/agent_badge_inputs.json", import.meta.url), "utf8");
+    const fixture = JSON.parse(fixtureRaw) as {
+        inputs: Array<{
+            secret: string;
+            salt: string;
+            path: string[];
+            merkleIndex: string;
+        }>;
+    };
+
+    const inputs = fixture.inputs.map((entry) =>
+        buildInput(
+            BigInt(entry.secret),
+            BigInt(entry.salt),
+            entry.path.map((value) => BigInt(value)),
+            BigInt(entry.merkleIndex)
+        )
+    );
 
     for (const [index, input] of inputs.entries()) {
         console.log(`Generating Witness (${index + 1}/${inputs.length})...`);

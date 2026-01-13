@@ -2,6 +2,7 @@ import { BarretenbergBackend } from "@noir-lang/backend_barretenberg";
 import { Noir } from "@noir-lang/noir_js";
 import badgeCircuit from "./src/artifacts/agent_badge.json" with { type: "json" };
 import { buildPoseidonReference } from "circomlibjs";
+import { readFile } from "node:fs/promises";
 
 import initACVM from "@noir-lang/acvm_js";
 import initNoircAbi from "@noir-lang/noirc_abi";
@@ -46,10 +47,19 @@ async function main() {
     };
   };
 
-  const inputs = [
-    buildInput(5n, 99n, [10n, 20n, 30n], 0n),
-    buildInput(7n, 123n, [3n, 11n, 19n], 5n),
-  ];
+  const fixtureRaw = await readFile(
+    new URL("./fixtures/agent_badge_inputs.json", import.meta.url),
+    "utf8"
+  );
+  const fixture = JSON.parse(fixtureRaw);
+  const inputs = fixture.inputs.map((entry) =>
+    buildInput(
+      BigInt(entry.secret),
+      BigInt(entry.salt),
+      entry.path.map((value) => BigInt(value)),
+      BigInt(entry.merkleIndex)
+    )
+  );
 
   try {
     for (const [index, input] of inputs.entries()) {
