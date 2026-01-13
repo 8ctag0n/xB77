@@ -22,7 +22,7 @@ Serialization: `wincode` (bincode-compatible) for instruction/state layouts.
 Current account order (minimal):
 - `init_gateway`: `[payer signer, gateway_state (PDA), system_program]`
 - `update_gateway`: `[admin signer, gateway_state]`
-- `verify_badge`: `[payer signer, gateway_state]`
+- `verify_badge`: `[payer signer, gateway_state, zk_verifier_program]`
 
 Tests (Mollusk):
 1) `cargo build-sbf` from `contracts/` to produce `target/deploy/xb77_gateway.so`.

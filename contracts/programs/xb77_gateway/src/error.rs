@@ -15,6 +15,8 @@ pub enum GatewayError {
     InvalidMerkleRoot = 10,
     InvalidPublicInputs = 11,
     EmptyProof = 12,
+    EmptyPublicWitness = 13,
+    InvalidZkVerifier = 14,
 }
 
 impl From<GatewayError> for ProgramError {

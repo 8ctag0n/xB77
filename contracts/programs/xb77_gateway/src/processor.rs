@@ -1,9 +1,11 @@
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
+    instruction::Instruction,
     msg,
+    program::invoke,
     program_error::ProgramError,
-    program::{invoke_signed},
+    program::invoke_signed,
     pubkey::Pubkey,
     rent::Rent,
     system_instruction,
@@ -16,6 +18,7 @@ use crate::state::{GatewayConfig, GATEWAY_STATE_SEED};
 
 const MERKLE_DEPTH: u32 = 3;
 const MAX_LEAVES: u32 = 1 << MERKLE_DEPTH;
+const ZERO_PUBKEY: [u8; 32] = [0u8; 32];
 
 pub fn process_instruction(
     _program_id: &Pubkey,
@@ -56,6 +59,8 @@ fn process_verify_badge(
         .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
     let gateway_state = next_account_info(&mut accounts_iter)
         .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    let zk_verifier = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
 
     if !payer.is_signer {
         return Err(GatewayError::MissingSigner.into());
@@ -85,8 +90,27 @@ fn process_verify_badge(
         return Err(GatewayError::EmptyProof.into());
     }
 
-    if payload.public_inputs.len() != 1 || payload.public_inputs[0] != payload.root {
-        return Err(GatewayError::InvalidPublicInputs.into());
+    if payload.public_witness.is_empty() {
+        return Err(GatewayError::EmptyPublicWitness.into());
+    }
+
+    // Skip CPI when verifier is not configured (all-zero pubkey).
+    if config.zk_verifier != ZERO_PUBKEY {
+        if zk_verifier.key.to_bytes() != config.zk_verifier {
+            return Err(GatewayError::InvalidZkVerifier.into());
+        }
+
+        let mut verifier_data =
+            Vec::with_capacity(payload.proof.len() + payload.public_witness.len());
+        verifier_data.extend_from_slice(&payload.proof);
+        verifier_data.extend_from_slice(&payload.public_witness);
+
+        let verify_ix = Instruction {
+            program_id: *zk_verifier.key,
+            accounts: vec![],
+            data: verifier_data,
+        };
+        invoke(&verify_ix, &[])?;
     }
 
     msg!("verify_badge: gateway_state seed={:?}", GATEWAY_STATE_SEED);
@@ -181,6 +205,7 @@ fn process_init_gateway(
     let config = GatewayConfig {
         admin: payload.admin,
         merkle_root: payload.merkle_root,
+        zk_verifier: payload.zk_verifier,
         bump,
     };
     let serialized = wincode::serialize(&config)

@@ -4,6 +4,7 @@ use wincode::{SchemaRead, SchemaWrite};
 pub struct GatewayConfig {
     pub admin: [u8; 32],
     pub merkle_root: [u8; 32],
+    pub zk_verifier: [u8; 32],
     pub bump: u8,
 }
 
