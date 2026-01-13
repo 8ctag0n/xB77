@@ -1,0 +1,6 @@
+[package]
+name = "agent_badge"
+type = "bin"
+authors = ["xB77"]
+
+[dependencies]
