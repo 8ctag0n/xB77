@@ -4,3 +4,4 @@ type = "bin"
 authors = ["xB77"]
 
 [dependencies]
+poseidon = { tag = "v0.1.1", git = "https://github.com/noir-lang/poseidon" }

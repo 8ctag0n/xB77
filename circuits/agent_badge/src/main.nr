@@ -1,4 +1,4 @@
-use dep::std::hash::poseidon::bn254::hash_2;
+use dep::poseidon::poseidon::bn254::hash_2 as poseidon_hash;
 
 fn main(
     root: pub Field, 
@@ -10,7 +10,7 @@ fn main(
     let index_u32 = merkle_index as u32;
     assert(index_u32 < 8);
 
-    let leaf = hash_2([agent_secret, agent_salt]);
+    let leaf = poseidon_hash([agent_secret, agent_salt]);
     
     let mut current = leaf;
 
@@ -18,9 +18,9 @@ fn main(
         let path_bit = (index_u32 >> i) & 1;
         let elem = merkle_path[i];
         if path_bit == 0 {
-            current = hash_2([current, elem]);
+            current = poseidon_hash([current, elem]);
         } else {
-            current = hash_2([elem, current]);
+            current = poseidon_hash([elem, current]);
         }
     }
 
