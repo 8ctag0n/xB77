@@ -17,11 +17,9 @@ RUN curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | ba
 # Add to PATH
 ENV PATH="/root/.nargo/bin:$PATH"
 
-# Install specific version (latest stable usually better, but let's try explicit bleeding edge if needed, or just run noirup)
-# Running noirup without args installs latest stable.
-RUN /root/.nargo/bin/noirup
+# Pin Noir to a known-good version that matches SDK dependencies.
+RUN /root/.nargo/bin/noirup -v 0.36.0
 
 WORKDIR /app
 
 ENTRYPOINT ["nargo"]
-

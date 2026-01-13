@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CIRCUIT_DIR="${ROOT_DIR}/circuits/agent_badge"
 SDK_ARTIFACT_DIR="${ROOT_DIR}/sdk/src/artifacts"
-IMAGE_NAME="xb77-noir"
+IMAGE_NAME="xb77-noir:0.36.0"
 
 if command -v podman >/dev/null 2>&1; then
   CONTAINER_CMD="podman"
