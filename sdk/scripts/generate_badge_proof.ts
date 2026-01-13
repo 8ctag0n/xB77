@@ -64,11 +64,11 @@ async function main() {
   ];
   writeFileSync(proverTomlPath, `${tomlLines.join("\n")}\n`);
 
-  console.log("Compiling circuit in container...");
-  run(path.join(rootDir, "scripts/build-noir-artifacts.sh"), [], rootDir);
+  console.log("Compiling circuit (Sunspot Noir toolchain)...");
+  run(path.join(rootDir, "scripts/noir-compile-sunspot.sh"), [], rootDir);
 
-  console.log("Generating witness in container...");
-  run(path.join(rootDir, "scripts/noir-execute.sh"), [], rootDir);
+  console.log("Generating witness (Sunspot Noir toolchain)...");
+  run(path.join(rootDir, "scripts/noir-execute-sunspot.sh"), [], rootDir);
 
   const acirPath = path.join(targetDir, "agent_badge.json");
   const witnessPath = path.join(targetDir, "agent_badge.gz");
@@ -83,15 +83,20 @@ async function main() {
     throw new Error("Missing scripts/sunspot.sh.");
   }
 
+  const acirRel = path.relative(rootDir, acirPath);
+  const witnessRel = path.relative(rootDir, witnessPath);
+  const ccsRel = path.relative(rootDir, ccsPath);
+  const pkRel = path.relative(rootDir, pkPath);
+
   if (!existsSync(ccsPath)) {
-    run(sunspotScript, ["compile", acirPath], rootDir);
+    run(sunspotScript, ["compile", acirRel], rootDir);
   }
   if (!existsSync(pkPath) || !existsSync(vkPath)) {
-    run(sunspotScript, ["setup", ccsPath], rootDir);
+    run(sunspotScript, ["setup", ccsRel], rootDir);
   }
 
   console.log("Generating Groth16 proof with Sunspot...");
-  run(sunspotScript, ["prove", acirPath, witnessPath, ccsPath, pkPath], rootDir);
+  run(sunspotScript, ["prove", acirRel, witnessRel, ccsRel, pkRel], rootDir);
 
   const proof = readFileSync(proofPath);
   const publicWitness = readFileSync(witnessPublicPath);
