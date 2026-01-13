@@ -18,7 +18,7 @@ To validate the Noir proof pipeline (Node.js):
 node test_badge.mjs
 ```
 
-To (re)generate the Noir artifact used by the scripts:
+To (re)generate the Noir artifact used by the scripts (via container):
 
 ```bash
 ./scripts/build-noir-artifacts.sh
