@@ -11,6 +11,10 @@ pub enum GatewayError {
     GatewayStateNotWritable = 6,
     InvalidSystemProgram = 7,
     InvalidGatewayAdmin = 8,
+    InvalidMerkleIndex = 9,
+    InvalidMerkleRoot = 10,
+    InvalidPublicInputs = 11,
+    EmptyProof = 12,
 }
 
 impl From<GatewayError> for ProgramError {

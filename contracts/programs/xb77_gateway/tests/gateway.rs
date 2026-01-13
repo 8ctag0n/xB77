@@ -71,6 +71,30 @@ fn update_instruction(program_id: Pubkey, admin: Pubkey, merkle_root: [u8; 32]) 
     )
 }
 
+fn verify_instruction(
+    program_id: Pubkey,
+    payer: Pubkey,
+    merkle_root: [u8; 32],
+    merkle_index: u32,
+) -> Instruction {
+    let payload = xb77_gateway::instruction::ProofPayload {
+        root: merkle_root,
+        merkle_index,
+        proof: vec![1, 2, 3],
+        public_inputs: vec![merkle_root],
+    };
+    let data = wincode::serialize(&GatewayInstruction::VerifyBadge(payload)).unwrap();
+
+    let (gateway_state, _bump) =
+        Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
+
+    Instruction::new_with_bytes(
+        program_id,
+        &data,
+        vec![AccountMeta::new(payer, true), AccountMeta::new(gateway_state, false)],
+    )
+}
+
 #[test]
 fn init_gateway_creates_state() {
     let program_id = Pubkey::new_unique();
@@ -155,4 +179,44 @@ fn update_gateway_changes_root() {
 
     let config: GatewayConfig = wincode::deserialize(state_account.data()).unwrap();
     assert_eq!(config.merkle_root, new_root);
+}
+
+#[test]
+fn verify_badge_checks_root_and_index() {
+    let program_id = Pubkey::new_unique();
+    let admin = Pubkey::new_unique();
+    let merkle_root = [9u8; 32];
+
+    let mollusk = setup_mollusk(&program_id);
+    let mut store: HashMap<Pubkey, Account> = HashMap::new();
+
+    let (gateway_state, _bump) =
+        Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
+
+    store.insert(
+        admin,
+        Account::new(1_000_000_000, 0, &system_program::ID),
+    );
+    store.insert(
+        gateway_state,
+        Account::new(0, 0, &system_program::ID),
+    );
+    store.insert(
+        system_program::ID,
+        Account::new(0, 0, &system_program::ID),
+    );
+
+    let context = mollusk.with_context(store);
+    let init_ix = init_instruction(program_id, admin, merkle_root);
+    let init_result = context.process_instruction(&init_ix);
+    assert!(init_result.program_result.is_ok());
+
+    let verify_ix = verify_instruction(program_id, admin, merkle_root, 2);
+    let verify_result = context.process_instruction(&verify_ix);
+    assert!(verify_result.program_result.is_ok());
+
+    let bad_root = [3u8; 32];
+    let bad_verify_ix = verify_instruction(program_id, admin, bad_root, 2);
+    let bad_verify_result = context.process_instruction(&bad_verify_ix);
+    assert!(bad_verify_result.program_result.is_err());
 }

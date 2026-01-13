@@ -14,6 +14,9 @@ use crate::error::GatewayError;
 use crate::instruction::{GatewayInstruction, InitGatewayPayload, UpdateGatewayPayload};
 use crate::state::{GatewayConfig, GATEWAY_STATE_SEED};
 
+const MERKLE_DEPTH: u32 = 3;
+const MAX_LEAVES: u32 = 1 << MERKLE_DEPTH;
+
 pub fn process_instruction(
     _program_id: &Pubkey,
     _accounts: &[AccountInfo],
@@ -30,24 +33,7 @@ pub fn process_instruction(
             process_update_gateway(_program_id, _accounts, payload)
         }
         GatewayInstruction::VerifyBadge(payload) => {
-            let mut accounts_iter = _accounts.iter();
-            let payer = next_account_info(&mut accounts_iter)
-                .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
-            let gateway_state = next_account_info(&mut accounts_iter)
-                .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
-
-            if !payer.is_signer {
-                return Err(GatewayError::MissingSigner.into());
-            }
-
-            if gateway_state.owner != _program_id {
-                return Err(GatewayError::InvalidGatewayStateOwner.into());
-            }
-
-            msg!("verify_badge: gateway_state seed={:?}", GATEWAY_STATE_SEED);
-            msg!("verify_badge: proof bytes={}", payload.proof.len());
-            msg!("verify_badge: merkle index={}", payload.merkle_index);
-            Ok(())
+            process_verify_badge(_program_id, _accounts, payload)
         }
         GatewayInstruction::ExecuteConfidentialTransfer { amount } => {
             msg!("execute_confidential_transfer: amount={}", amount);
@@ -58,6 +44,56 @@ pub fn process_instruction(
             Ok(())
         }
     }
+}
+
+fn process_verify_badge(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    payload: crate::instruction::ProofPayload,
+) -> ProgramResult {
+    let mut accounts_iter = accounts.iter();
+    let payer = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    let gateway_state = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+
+    if !payer.is_signer {
+        return Err(GatewayError::MissingSigner.into());
+    }
+
+    let (expected_pda, _bump) = Pubkey::find_program_address(&[GATEWAY_STATE_SEED], program_id);
+    if gateway_state.key != &expected_pda {
+        return Err(GatewayError::InvalidGatewayStatePda.into());
+    }
+
+    if gateway_state.owner != program_id {
+        return Err(GatewayError::InvalidGatewayStateOwner.into());
+    }
+
+    let config: GatewayConfig = wincode::deserialize(&gateway_state.data.borrow())
+        .map_err(|_| ProgramError::from(GatewayError::InvalidInstruction))?;
+
+    if payload.merkle_index >= MAX_LEAVES {
+        return Err(GatewayError::InvalidMerkleIndex.into());
+    }
+
+    if payload.root != config.merkle_root {
+        return Err(GatewayError::InvalidMerkleRoot.into());
+    }
+
+    if payload.proof.is_empty() {
+        return Err(GatewayError::EmptyProof.into());
+    }
+
+    if payload.public_inputs.len() != 1 || payload.public_inputs[0] != payload.root {
+        return Err(GatewayError::InvalidPublicInputs.into());
+    }
+
+    msg!("verify_badge: gateway_state seed={:?}", GATEWAY_STATE_SEED);
+    msg!("verify_badge: proof bytes={}", payload.proof.len());
+    msg!("verify_badge: merkle index={}", payload.merkle_index);
+    msg!("verify_badge: merkle root matches config");
+    Ok(())
 }
 
 fn process_update_gateway(
