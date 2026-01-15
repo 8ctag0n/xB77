@@ -20,11 +20,11 @@ fi
 
 mkdir -p "${LOCALNET_DIR}"
 
-if ! solana cluster-version --url "${SOLANA_URL}" >/dev/null 2>&1; then
-  echo "Local validator not reachable at ${SOLANA_URL}." >&2
-  echo "Run: ./scripts/localnet/start-validator.sh" >&2
-  exit 1
-fi
+# if ! solana cluster-version --url "${SOLANA_URL}" >/dev/null 2>&1; then
+#   echo "Local validator not reachable at ${SOLANA_URL}." >&2
+#   echo "Run: ./scripts/localnet/start-validator.sh" >&2
+#   exit 1
+# fi
 
 if [ ! -f "${PAYER_KEYPAIR}" ]; then
   solana-keygen new --no-bip39-passphrase -o "${PAYER_KEYPAIR}"
@@ -66,7 +66,7 @@ fi
 DEPLOY_OUTPUT="$(solana "${DEPLOY_ARGS[@]}")"
 echo "${DEPLOY_OUTPUT}"
 
-PROGRAM_ID="$(printf "%s\n" "${DEPLOY_OUTPUT}" | rg -o "Program Id: ([A-Za-z0-9]+)" -r '$1' | head -n 1)"
+PROGRAM_ID="$(printf "%s\n" "${DEPLOY_OUTPUT}" | grep "Program Id:" | sed 's/Program Id: //')"
 if [ -z "${PROGRAM_ID}" ]; then
   echo "Unable to parse program id from deploy output." >&2
   exit 1

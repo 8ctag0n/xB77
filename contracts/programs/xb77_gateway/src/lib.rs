@@ -4,6 +4,7 @@
 use solana_program::entrypoint;
 
 extern crate alloc;
+use alloc::format;
 
 mod error;
 mod instruction;
@@ -26,4 +27,6 @@ fn custom_getrandom(buf: &mut [u8]) -> Result<(), getrandom::Error> {
 register_custom_getrandom!(custom_getrandom);
 
 #[cfg(not(feature = "no-entrypoint"))]
-entrypoint!(processor::process_instruction);
+use processor::process_instruction;
+#[cfg(not(feature = "no-entrypoint"))]
+entrypoint!(process_instruction);

@@ -3,6 +3,9 @@ name = "xb77_gateway"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+no-entrypoint = []
+
 [lib]
 crate-type = ["cdylib", "lib"]
 

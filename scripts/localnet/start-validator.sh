@@ -26,8 +26,5 @@ MINT_PUBKEY="$(solana-keygen pubkey "${PAYER_KEYPAIR}")"
 exec solana-test-validator \
   --reset \
   --ledger "${LEDGER_DIR}" \
-  --rpc-port 8899 \
-  --bind-address 127.0.0.1 \
-  --faucet-port 0 \
   --limit-ledger-size 10000 \
   --mint "${MINT_PUBKEY}"
