@@ -36,4 +36,4 @@ localnet-verify:
 
 localnet-setup: localnet-verifier localnet-gateway localnet-init
 
-localnet-e2e: localnet-start-bg localnet-setup proof-badge localnet-verify
+localnet-e2e: localnet-start-bg proof-badge localnet-setup localnet-verify

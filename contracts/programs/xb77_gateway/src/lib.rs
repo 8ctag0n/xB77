@@ -6,10 +6,10 @@ use solana_program::entrypoint;
 extern crate alloc;
 use alloc::format;
 
-mod error;
-mod instruction;
-mod processor;
-mod state;
+pub mod error;
+pub mod instruction;
+pub mod processor;
+pub mod state;
 
 // Fix for getrandom on Solana
 #[cfg(target_os = "solana")]

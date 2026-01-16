@@ -35,5 +35,6 @@ cargo run -p xb77_gateway_cli -- verify \
   --config-dir "${ROOT_DIR}/.localnet" \
   --meta "${ROOT_DIR}/sdk/target/agent_badge.meta.json" \
   --proof "${ROOT_DIR}/circuits/agent_badge/target/agent_badge.proof" \
-  --public-witness "${ROOT_DIR}/circuits/agent_badge/target/agent_badge.pw"
+  --public-witness "${ROOT_DIR}/circuits/agent_badge/target/agent_badge.pw" \
+  --compute-units 1000000
 popd >/dev/null

@@ -5,6 +5,7 @@ use std::str::FromStr;
 use clap::{Parser, Subcommand};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
+    compute_budget::ComputeBudgetInstruction,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
     signature::{read_keypair_file, Keypair, Signer},
@@ -68,6 +69,10 @@ struct VerifyArgs {
     proof: PathBuf,
     #[arg(long, default_value = "circuits/agent_badge/target/agent_badge.pw")]
     public_witness: PathBuf,
+    #[arg(long, default_value_t = 1_000_000)]
+    compute_units: u32,
+    #[arg(long, default_value_t = 0)]
+    compute_unit_price: u64,
 }
 
 #[derive(serde::Deserialize)]
@@ -134,13 +139,13 @@ fn resolve_gateway_config(
 fn send_transaction(
     rpc: &RpcClient,
     payer: &Keypair,
-    instruction: Instruction,
+    instructions: Vec<Instruction>,
 ) -> Result<String, String> {
     let recent_blockhash = rpc
         .get_latest_blockhash()
         .map_err(|err| format!("Failed to fetch blockhash: {}", err))?;
     let tx = Transaction::new_signed_with_payer(
-        &[instruction],
+        &instructions,
         Some(&payer.pubkey()),
         &[payer],
         recent_blockhash,
@@ -191,7 +196,7 @@ fn main() -> Result<(), String> {
             );
 
             let rpc = RpcClient::new(args.url);
-            let sig = send_transaction(&rpc, &payer, instruction)?;
+            let sig = send_transaction(&rpc, &payer, vec![instruction])?;
             println!("Initialized gateway: {}", sig);
         }
         Command::Verify(args) => {
@@ -236,8 +241,19 @@ fn main() -> Result<(), String> {
                 ],
             );
 
+            let mut instructions = Vec::new();
+            instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(
+                args.compute_units,
+            ));
+            if args.compute_unit_price > 0 {
+                instructions.push(ComputeBudgetInstruction::set_compute_unit_price(
+                    args.compute_unit_price,
+                ));
+            }
+            instructions.push(instruction);
+
             let rpc = RpcClient::new(args.url);
-            let sig = send_transaction(&rpc, &payer, instruction)?;
+            let sig = send_transaction(&rpc, &payer, instructions)?;
             println!("Verified badge: {}", sig);
         }
     }
