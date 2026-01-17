@@ -5,6 +5,7 @@ use std::{
     sync::Once,
 };
 
+use mollusk_svm::program::keyed_account_for_system_program;
 use mollusk_svm::Mollusk;
 use solana_account::Account;
 use solana_instruction::{AccountMeta, Instruction};
@@ -14,9 +15,18 @@ use solana_pubkey::Pubkey;
 use xb77_gateway::instruction::{
     ConfidentialTransferPayload, GatewayInstruction, InitGatewayPayload, ProofPayload, ReceiptPayload,
 };
-use xb77_gateway::state::{GatewayConfig, GATEWAY_STATE_SEED};
+use xb77_gateway::state::GATEWAY_STATE_SEED;
 
 static INIT: Once = Once::new();
+
+fn program_pubkey(id: solana_program::pubkey::Pubkey) -> Pubkey {
+    Pubkey::new_from_array(id.to_bytes())
+}
+
+fn insert_system_program(store: &mut HashMap<Pubkey, Account>) {
+    let (key, account) = keyed_account_for_system_program();
+    store.insert(key, account);
+}
 
 fn setup_mollusk(program_id: &Pubkey) -> Mollusk {
     INIT.call_once(|| {
@@ -57,10 +67,10 @@ fn worktree_b_full_flow() {
         Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
 
     // Setup Accounts
-    store.insert(admin, Account::new(1_000_000_000, 0, &system_program::ID));
-    store.insert(payer, Account::new(1_000_000_000, 0, &system_program::ID));
-    store.insert(gateway_state, Account::new(0, 0, &system_program::ID));
-    store.insert(system_program::ID, Account::new(0, 0, &system_program::ID));
+    store.insert(admin, Account::new(1_000_000_000, 0, &program_pubkey(system_program::ID)));
+    store.insert(payer, Account::new(1_000_000_000, 0, &program_pubkey(system_program::ID)));
+    store.insert(gateway_state, Account::new(0, 0, &program_pubkey(system_program::ID)));
+    insert_system_program(&mut store);
     // We need to mock SPL Token program presence if we want CPI to succeed (or fail nicely)
     // For now we just add accounts, but without the program ELF, CPI will fail with "ProgramNotFound".
     // That's acceptable for this unit test if we catch the error or just verify up to that point.
@@ -74,6 +84,13 @@ fn worktree_b_full_flow() {
         admin: admin.to_bytes(),
         merkle_root,
         zk_verifier: zk_verifier.to_bytes(),
+        auditor: [0u8; 32],
+        credit_root: [0u8; 32],
+        orderbook_root: [0u8; 32],
+        mxe_program_id: [0u8; 32],
+        light_system_program: [0u8; 32],
+        light_account_compression_program: [0u8; 32],
+        light_noop_program: [0u8; 32],
     };
     let init_data = wincode::serialize(&GatewayInstruction::InitGateway(init_payload)).unwrap();
     let init_ix = Instruction::new_with_bytes(
@@ -82,7 +99,7 @@ fn worktree_b_full_flow() {
         vec![
             AccountMeta::new(payer, true),
             AccountMeta::new(gateway_state, false),
-            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(program_pubkey(system_program::ID), false),
         ],
     );
     let init_result = context.process_instruction(&init_ix);
@@ -135,8 +152,8 @@ fn worktree_b_full_flow() {
             AccountMeta::new_readonly(treasury_mint, false),
             AccountMeta::new(gateway_ata, false),
             AccountMeta::new(user_ata, false),
-            AccountMeta::new_readonly(spl_token::ID, false),
-            AccountMeta::new_readonly(solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(program_pubkey(spl_token::ID), false),
+            AccountMeta::new_readonly(program_pubkey(solana_program::sysvar::instructions::ID), false),
         ],
     );
 
@@ -154,7 +171,7 @@ fn worktree_b_full_flow() {
         vec![
             AccountMeta::new(payer, true),
             AccountMeta::new(gateway_state, false),
-            AccountMeta::new_readonly(solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(program_pubkey(solana_program::sysvar::instructions::ID), false),
         ],
     );
 

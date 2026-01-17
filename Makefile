@@ -6,6 +6,17 @@ noir-compile:
 noir-execute:
 	./scripts/noir-execute.sh
 
+.PHONY: light-bootstrap light-up light-down
+
+light-bootstrap:
+	./scripts/light/bootstrap.sh
+
+light-up:
+	./scripts/light/start-validator.sh
+
+light-down:
+	./scripts/light/stop-validator.sh
+
 sunspot:
 	./scripts/sunspot.sh --help
 

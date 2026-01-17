@@ -66,6 +66,13 @@ fn init_instruction(
         admin: admin.to_bytes(),
         merkle_root,
         zk_verifier: zk_verifier.to_bytes(),
+        auditor: [0u8; 32],
+        credit_root: [0u8; 32],
+        orderbook_root: [0u8; 32],
+        mxe_program_id: [0u8; 32],
+        light_system_program: [0u8; 32],
+        light_account_compression_program: [0u8; 32],
+        light_noop_program: [0u8; 32],
     };
     let data = wincode::serialize(&GatewayInstruction::InitGateway(payload)).unwrap();
 
@@ -84,7 +91,16 @@ fn init_instruction(
 }
 
 fn update_instruction(program_id: Pubkey, admin: Pubkey, merkle_root: [u8; 32]) -> Instruction {
-    let payload = UpdateGatewayPayload { merkle_root };
+    let payload = UpdateGatewayPayload {
+        merkle_root,
+        auditor: [0u8; 32],
+        credit_root: [0u8; 32],
+        orderbook_root: [0u8; 32],
+        mxe_program_id: [0u8; 32],
+        light_system_program: [0u8; 32],
+        light_account_compression_program: [0u8; 32],
+        light_noop_program: [0u8; 32],
+    };
     let data = wincode::serialize(&GatewayInstruction::UpdateGateway(payload)).unwrap();
 
     let (gateway_state, _bump) =

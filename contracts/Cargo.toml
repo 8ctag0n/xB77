@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "cli",
     "programs/xb77_gateway",
+    "programs/xb77_receipts",
 ]
 default-members = [
     "programs/xb77_gateway",

@@ -218,6 +218,13 @@ fn main() -> Result<(), String> {
                 admin: payer.pubkey().to_bytes(),
                 merkle_root,
                 zk_verifier: verifier_program_id.to_bytes(),
+                auditor: [0u8; 32],
+                credit_root: [0u8; 32],
+                orderbook_root: [0u8; 32],
+                mxe_program_id: [0u8; 32],
+                light_system_program: [0u8; 32],
+                light_account_compression_program: [0u8; 32],
+                light_noop_program: [0u8; 32],
             };
             let data = wincode::serialize(&GatewayInstruction::InitGateway(payload))
                 .map_err(|err| format!("Failed to serialize init payload: {}", err))?;

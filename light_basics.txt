@@ -1,0 +1,231 @@
+# zkCompression on Solana: Program Development Quickstart with Light Protocol
+
+zkCompression, developed by Light Protocol, is a zero-knowledge (ZK) compression primitive on Solana that dramatically reduces on-chain storage costs by compressing state data off-chain while maintaining integrity through ZK validity proofs. This enables rent-free accounts and tokens, making it ideal for scalable applications like DeFi, payments, and large-scale state management. Compressed accounts use a UTXO-like model where updates consume old hashes and produce new ones, avoiding traditional overwrites. It integrates with existing Solana programs for full composability, with costs reduced by up to 5,000x for token accounts and 98% for program-derived addresses (PDAs).
+
+Light Protocol provides SDKs for both client-side (TypeScript) and on-chain program development (Rust). Below is a quickstart guide covering SDK installation, creating/managing compressed accounts, instructions, and state updates. For full details, refer to the [official documentation](https://lightprotocol-migration.mintlify.app/) or [zkcompression.com](https://www.zkcompression.com/).
+
+## Client-Side Quickstart: Compressed Tokens with TypeScript SDK
+
+This focuses on minting and managing compressed SPL-compatible tokens using the `@lightprotocol/stateless.js` and `@lightprotocol/compressed-token` SDKs. It's suitable for dApp frontends or scripts.
+
+### Prerequisites
+- Node.js and a package manager (npm, yarn, or pnpm).
+- Solana CLI for wallet management.
+- Helius API key for Devnet RPC (get one at [helius.dev](https://helius.dev)).
+- Fund your Devnet wallet via `solana airdrop 1 --url devnet` or the Solana faucet.
+
+### Step 1: Install Dependencies
+Install the SDKs and supporting libraries:
+
+```bash
+# Using npm
+npm install --save-dev typescript tsx @types/node
+npm install @lightprotocol/stateless.js @lightprotocol/compressed-token @solana/web3.js @solana/spl-token
+```
+
+(Adapt for yarn or pnpm as needed.)
+
+### Step 2: Create RPC Connection
+In a file like `test-connection.ts`:
+
+```ts
+import { createRpc } from "@lightprotocol/stateless.js";
+
+const RPC_ENDPOINT = "https://devnet.helius-rpc.com?api-key=<your-api-key>";
+const connection = createRpc(RPC_ENDPOINT, RPC_ENDPOINT, RPC_ENDPOINT);
+
+console.log("Connection created");
+console.log("RPC Endpoint:", RPC_ENDPOINT);
+```
+
+Run with `tsx test-connection.ts` to verify.
+
+### Step 3: Mint Compressed Tokens
+Create `quickstart.ts` and run it with `tsx quickstart.ts`:
+
+```ts
+import { createRpc } from "@lightprotocol/stateless.js";
+import { createMint, mintTo } from "@lightprotocol/compressed-token";
+import { Keypair } from "@solana/web3.js";
+import { readFileSync } from "fs";
+import { homedir } from "os";
+
+const payer = Keypair.fromSecretKey(
+  new Uint8Array(
+    JSON.parse(
+      readFileSync(`${homedir()}/.config/solana/id.json`, "utf8")
+    )
+  )
+);
+
+const RPC_ENDPOINT = "https://devnet.helius-rpc.com?api-key=<your-api-key>";
+const connection = createRpc(RPC_ENDPOINT, RPC_ENDPOINT, RPC_ENDPOINT);
+
+const main = async () => {
+  try {
+    // Create SPL mint with token pool for compression
+    console.log("\nCreating SPL mint with token pool for compression");
+    const { mint, transactionSignature } = await createMint(
+      connection,
+      payer,
+      payer.publicKey, // mintAuthority
+      9 // decimals
+    );
+    console.log(`Mint address: ${mint.toBase58()}`);
+    console.log(
+      `Create mint transaction: https://explorer.solana.com/tx/${transactionSignature}?cluster=devnet`
+    );
+
+    // Mint compressed tokens to recipient
+    console.log("\nMinting compressed token...");
+    const mintAmount = 1_000_000_000; // 1 token with 9 decimals
+    const mintToTxId = await mintTo(
+      connection,
+      payer,
+      mint,
+      payer.publicKey, // recipient
+      payer, // mintAuthority
+      mintAmount
+    );
+    console.log(`Compressed Token minted ${mintAmount / 1e9} token`);
+    console.log(
+      `Transaction: https://explorer.solana.com/tx/${mintToTxId}?cluster=devnet`
+    );
+
+    // Verify balance
+    const tokenAccounts = await connection.getCompressedTokenAccountsByOwner(
+      payer.publicKey,
+      { mint }
+    );
+    console.log("Compressed token accounts:", tokenAccounts);
+  } catch (error: any) {
+    console.error("Error:", error.message);
+  }
+};
+
+main().catch(console.error);
+```
+
+This creates a compressed mint, mints tokens, and queries the balance. For localnet testing, use `light test-validator` and adjust endpoints.
+
+## On-Chain Program Development: Compressed PDAs/Accounts with Rust SDK
+
+For building Solana programs that use compressed state (e.g., counters, custom data storage), use the `light-sdk` in Rust. This involves creating instructions for account creation/updates via CPIs to the Light System Program. Programs interact with compressed accounts, which store data off-chain but verify via ZK proofs.
+
+### Prerequisites
+- Rust and Cargo.
+- Anchor framework (optional, for easier development) or native Solana program setup.
+- Supporting RPC (e.g., Helius ZK Compression RPC) for validity proofs.
+
+### Step 1: Set Up Dependencies in `Cargo.toml`
+For Anchor:
+```toml
+[dependencies]
+light-sdk = "0.16.0"
+anchor-lang = "0.31.1"
+```
+
+For native Rust:
+```toml
+[dependencies]
+light-sdk = "0.16.0"
+borsh = "0.10.0"
+solana-program = "2.2"
+```
+
+### Step 2: Define Compressed Account Struct
+Your account data must derive `LightDiscriminator` and implement serialization traits:
+
+```rust
+use light_sdk::LightDiscriminator; // Import from light-sdk
+
+#[derive(Clone, Debug, Default, LightDiscriminator)]
+pub struct MyCompressedAccount {
+    pub owner: Pubkey,
+    pub message: String,
+}
+```
+
+### Step 3: Create a Compressed Account
+In your program (`lib.rs`), add an instruction to create the account via CPI. Clients provide validity proofs and metadata.
+
+Example (Anchor):
+```rust
+use light_sdk::{LightAccount, LightSystemProgramCpi, CpiAccounts, ValidityProof};
+
+#[program]
+pub mod my_program {
+    use super::*;
+
+    pub fn create_account(ctx: Context<CreateAccount>, proof: ValidityProof, account_data: MyCompressedAccount, account_meta: CompressedAccountMeta) -> Result<()> {
+        let program_id = ctx.program_id;
+        let light_cpi_signer = derive_light_cpi_signer!("my_program_id"); // Replace with your program ID
+
+        let mut new_account = LightAccount::new_mut(&program_id, &account_meta, account_data)?;
+        // Set initial data if needed
+
+        let light_cpi_accounts = CpiAccounts::new(
+            ctx.accounts.signer.as_ref(),
+            ctx.remaining_accounts,
+            light_cpi_signer,
+        );
+
+        LightSystemProgramCpi::new_cpi(light_cpi_signer, proof)
+            .with_light_account(new_account)
+            .invoke(light_cpi_accounts)?;
+        
+        Ok(())
+    }
+}
+```
+
+Build and deploy with `anchor build` and `anchor deploy`.
+
+### Step 4: Update a Compressed Account
+Updates follow the UTXO pattern: Consume old hash, produce new one.
+
+Example instruction (Anchor):
+```rust
+pub fn update_account(ctx: Context<UpdateAccount>, proof: ValidityProof, current_account: MyCompressedAccount, account_meta: CompressedAccountMeta, new_message: String) -> Result<()> {
+    let program_id = ctx.program_id;
+    let light_cpi_signer = derive_light_cpi_signer!("my_program_id");
+
+    let mut my_compressed_account = LightAccount::<MyCompressedAccount>::new_mut(
+        &program_id,
+        &account_meta,
+        current_account,
+    )?;
+    my_compressed_account.message = new_message;
+
+    let light_cpi_accounts = CpiAccounts::new(
+        ctx.accounts.signer.as_ref(),
+        ctx.remaining_accounts,
+        light_cpi_signer,
+    );
+
+    LightSystemProgramCpi::new_cpi(light_cpi_signer, proof)
+        .with_light_account(my_compressed_account)
+        .invoke(light_cpi_accounts)?;
+
+    Ok(())
+}
+```
+
+- `ValidityProof`: Fetched client-side via RPC (e.g., `getValidityProof()`).
+- `CompressedAccountMeta`: Includes tree info, address, and output index.
+- Remaining accounts: Include Light System Program, Account Compression Program, state trees, etc.
+
+### Step 5: Testing and Deployment
+- Use `light test-validator` for local testing.
+- Fetch proofs and metas client-side using `@lightprotocol/stateless.js`.
+- For full examples, see [GitHub program examples](https://github.com/Lightprotocol/program-examples).
+
+| Component | Description | SDK Usage |
+|-----------|-------------|-----------|
+| **Compressed Account** | Stores state off-chain; hashed on-chain. | `LightAccount::new_mut()` for updates. |
+| **Instruction** | Program entrypoints for create/update. | Pass proof, meta, data; invoke CPI. |
+| **Light System Program** | Handles state transitions via ZK proofs. | CPI with `LightSystemProgramCpi`. |
+| **Account Compression Program** | Manages Merkle trees for compressed state. | Included in remaining_accounts. |
+| **Validity Proof** | ZK proof verifying account existence. | Client-fetched; passed to instruction. |
+
+This setup allows programs to manage compressed state efficiently. For advanced topics like token integrations or AI tools, check the docs' Cookbooks section. If you need specific code tweaks or examples, provide more details!

@@ -61,7 +61,6 @@ pub fn process_instruction(
     }
 }
 
-/// Helper to ensure VerifyBadge was called in the same transaction for this program.
 fn check_badge_verified(
     program_id: &Pubkey,
     instructions_sysvar: &AccountInfo,
