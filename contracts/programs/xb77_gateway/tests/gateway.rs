@@ -5,11 +5,12 @@ use std::{
     sync::Once,
 };
 
-use mollusk_svm::Mollusk;
-use solana_account::Account;
+use mollusk_svm::{program::keyed_account_for_system_program, result::ProgramResult, Mollusk};
+use solana_account::{Account, ReadableAccount};
 use solana_instruction::{AccountMeta, Instruction};
+use solana_program::pubkey::Pubkey as ProgramPubkey;
 use solana_program::system_program;
-use solana_program::program_error::ProgramError;
+use solana_program_error::ProgramError;
 use solana_pubkey::Pubkey;
 
 use xb77_gateway::error::GatewayError;
@@ -17,11 +18,23 @@ use xb77_gateway::instruction::{
     GatewayInstruction,
     InitGatewayPayload,
     ProofPayload,
+    SubmitPrivateOrderPayload,
     UpdateGatewayPayload,
 };
-use xb77_gateway::state::{GatewayConfig, GATEWAY_STATE_SEED};
+use xb77_gateway::state::{GatewayConfig, GATEWAY_STATE_SEED, NULLIFIER_SEED};
 
 static INIT: Once = Once::new();
+const SYSTEM_PROGRAM_ID: Pubkey = Pubkey::new_from_array(system_program::ID.to_bytes());
+
+fn system_program_account() -> Account {
+    keyed_account_for_system_program().1
+}
+
+fn find_program_address(seeds: &[&[u8]], program_id: Pubkey) -> (Pubkey, u8) {
+    let program_id_sp = ProgramPubkey::new_from_array(program_id.to_bytes());
+    let (pda, bump) = ProgramPubkey::find_program_address(seeds, &program_id_sp);
+    (Pubkey::new_from_array(pda.to_bytes()), bump)
+}
 
 fn setup_mollusk(program_id: &Pubkey) -> Mollusk {
     INIT.call_once(|| {
@@ -57,7 +70,7 @@ fn init_instruction(
     let data = wincode::serialize(&GatewayInstruction::InitGateway(payload)).unwrap();
 
     let (gateway_state, _bump) =
-        Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
 
     Instruction::new_with_bytes(
         program_id,
@@ -65,7 +78,7 @@ fn init_instruction(
         vec![
             AccountMeta::new(admin, true),
             AccountMeta::new(gateway_state, false),
-            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM_ID, false),
         ],
     )
 }
@@ -75,7 +88,7 @@ fn update_instruction(program_id: Pubkey, admin: Pubkey, merkle_root: [u8; 32]) 
     let data = wincode::serialize(&GatewayInstruction::UpdateGateway(payload)).unwrap();
 
     let (gateway_state, _bump) =
-        Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
 
     Instruction::new_with_bytes(
         program_id,
@@ -110,7 +123,7 @@ fn verify_instruction_with_payload(
     let data = wincode::serialize(&GatewayInstruction::VerifyBadge(payload)).unwrap();
 
     let (gateway_state, _bump) =
-        Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
 
     Instruction::new_with_bytes(
         program_id,
@@ -119,6 +132,29 @@ fn verify_instruction_with_payload(
             AccountMeta::new(payer, payer_is_signer),
             AccountMeta::new(gateway_state, false),
             AccountMeta::new_readonly(zk_verifier, false),
+        ],
+    )
+}
+
+fn submit_instruction(
+    program_id: Pubkey,
+    payer: Pubkey,
+    payload: SubmitPrivateOrderPayload,
+    nullifier_pda: Pubkey,
+) -> Instruction {
+    let data = wincode::serialize(&GatewayInstruction::SubmitPrivateOrder(payload)).unwrap();
+
+    let (gateway_state, _bump) =
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
+
+    Instruction::new_with_bytes(
+        program_id,
+        &data,
+        vec![
+            AccountMeta::new(payer, true),
+            AccountMeta::new(gateway_state, false),
+            AccountMeta::new(nullifier_pda, false),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM_ID, false),
         ],
     )
 }
@@ -132,21 +168,21 @@ fn init_gateway_creates_state() {
 
     let mollusk = setup_mollusk(&program_id);
     let (gateway_state, _bump) =
-        Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
 
     let instruction = init_instruction(program_id, admin, merkle_root, zk_verifier);
     let accounts = vec![
         (
             admin,
-            Account::new(1_000_000_000, 0, &system_program::ID),
+            Account::new(1_000_000_000, 0, &SYSTEM_PROGRAM_ID),
         ),
         (
             gateway_state,
-            Account::new(0, 0, &system_program::ID),
+            Account::new(0, 0, &SYSTEM_PROGRAM_ID),
         ),
         (
-            system_program::ID,
-            Account::new(0, 0, &system_program::ID),
+            SYSTEM_PROGRAM_ID,
+            system_program_account(),
         ),
     ];
 
@@ -178,19 +214,19 @@ fn update_gateway_changes_root() {
     let mut store: HashMap<Pubkey, Account> = HashMap::new();
 
     let (gateway_state, _bump) =
-        Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
 
     store.insert(
         admin,
-        Account::new(1_000_000_000, 0, &system_program::ID),
+        Account::new(1_000_000_000, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
         gateway_state,
-        Account::new(0, 0, &system_program::ID),
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
-        system_program::ID,
-        Account::new(0, 0, &system_program::ID),
+        SYSTEM_PROGRAM_ID,
+            system_program_account(),
     );
 
     let context = mollusk.with_context(store);
@@ -224,19 +260,19 @@ fn verify_badge_checks_root_and_index() {
     let mut store: HashMap<Pubkey, Account> = HashMap::new();
 
     let (gateway_state, _bump) =
-        Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
 
     store.insert(
         admin,
-        Account::new(1_000_000_000, 0, &system_program::ID),
+        Account::new(1_000_000_000, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
         gateway_state,
-        Account::new(0, 0, &system_program::ID),
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
-        system_program::ID,
-        Account::new(0, 0, &system_program::ID),
+        SYSTEM_PROGRAM_ID,
+            system_program_account(),
     );
 
     let context = mollusk.with_context(store);
@@ -252,8 +288,10 @@ fn verify_badge_checks_root_and_index() {
     let bad_verify_ix = verify_instruction(program_id, admin, bad_root, 2, zk_verifier);
     let bad_verify_result = context.process_instruction(&bad_verify_ix);
     assert_eq!(
-        bad_verify_result.program_result.unwrap_err(),
-        ProgramError::Custom(GatewayError::InvalidMerkleRoot as u32)
+        bad_verify_result.program_result,
+        ProgramResult::Failure(ProgramError::Custom(
+            GatewayError::InvalidMerkleRoot as u32
+        ))
     );
 }
 
@@ -268,19 +306,19 @@ fn verify_badge_rejects_index_out_of_range() {
     let mut store: HashMap<Pubkey, Account> = HashMap::new();
 
     let (gateway_state, _bump) =
-        Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
 
     store.insert(
         admin,
-        Account::new(1_000_000_000, 0, &system_program::ID),
+        Account::new(1_000_000_000, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
         gateway_state,
-        Account::new(0, 0, &system_program::ID),
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
-        system_program::ID,
-        Account::new(0, 0, &system_program::ID),
+        SYSTEM_PROGRAM_ID,
+            system_program_account(),
     );
 
     let context = mollusk.with_context(store);
@@ -291,8 +329,10 @@ fn verify_badge_rejects_index_out_of_range() {
     let verify_ix = verify_instruction(program_id, admin, merkle_root, 8, zk_verifier);
     let verify_result = context.process_instruction(&verify_ix);
     assert_eq!(
-        verify_result.program_result.unwrap_err(),
-        ProgramError::Custom(GatewayError::InvalidMerkleIndex as u32)
+        verify_result.program_result,
+        ProgramResult::Failure(ProgramError::Custom(
+            GatewayError::InvalidMerkleIndex as u32
+        ))
     );
 }
 
@@ -307,19 +347,19 @@ fn verify_badge_rejects_empty_proof() {
     let mut store: HashMap<Pubkey, Account> = HashMap::new();
 
     let (gateway_state, _bump) =
-        Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
 
     store.insert(
         admin,
-        Account::new(1_000_000_000, 0, &system_program::ID),
+        Account::new(1_000_000_000, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
         gateway_state,
-        Account::new(0, 0, &system_program::ID),
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
-        system_program::ID,
-        Account::new(0, 0, &system_program::ID),
+        SYSTEM_PROGRAM_ID,
+            system_program_account(),
     );
 
     let context = mollusk.with_context(store);
@@ -336,8 +376,8 @@ fn verify_badge_rejects_empty_proof() {
     let verify_ix = verify_instruction_with_payload(program_id, admin, true, zk_verifier, payload);
     let verify_result = context.process_instruction(&verify_ix);
     assert_eq!(
-        verify_result.program_result.unwrap_err(),
-        ProgramError::Custom(GatewayError::EmptyProof as u32)
+        verify_result.program_result,
+        ProgramResult::Failure(ProgramError::Custom(GatewayError::EmptyProof as u32))
     );
 }
 
@@ -352,19 +392,19 @@ fn verify_badge_rejects_empty_public_witness() {
     let mut store: HashMap<Pubkey, Account> = HashMap::new();
 
     let (gateway_state, _bump) =
-        Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
 
     store.insert(
         admin,
-        Account::new(1_000_000_000, 0, &system_program::ID),
+        Account::new(1_000_000_000, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
         gateway_state,
-        Account::new(0, 0, &system_program::ID),
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
-        system_program::ID,
-        Account::new(0, 0, &system_program::ID),
+        SYSTEM_PROGRAM_ID,
+            system_program_account(),
     );
 
     let context = mollusk.with_context(store);
@@ -381,8 +421,10 @@ fn verify_badge_rejects_empty_public_witness() {
     let verify_ix = verify_instruction_with_payload(program_id, admin, true, zk_verifier, payload);
     let verify_result = context.process_instruction(&verify_ix);
     assert_eq!(
-        verify_result.program_result.unwrap_err(),
-        ProgramError::Custom(GatewayError::EmptyPublicWitness as u32)
+        verify_result.program_result,
+        ProgramResult::Failure(ProgramError::Custom(
+            GatewayError::EmptyPublicWitness as u32
+        ))
     );
 }
 
@@ -391,26 +433,26 @@ fn verify_badge_rejects_invalid_verifier_program() {
     let program_id = Pubkey::new_unique();
     let admin = Pubkey::new_unique();
     let merkle_root = [12u8; 32];
-    let zk_verifier = Pubkey::default();
+    let zk_verifier = Pubkey::new_unique();
     let wrong_verifier = Pubkey::new_unique();
 
     let mollusk = setup_mollusk(&program_id);
     let mut store: HashMap<Pubkey, Account> = HashMap::new();
 
     let (gateway_state, _bump) =
-        Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
 
     store.insert(
         admin,
-        Account::new(1_000_000_000, 0, &system_program::ID),
+        Account::new(1_000_000_000, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
         gateway_state,
-        Account::new(0, 0, &system_program::ID),
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
-        system_program::ID,
-        Account::new(0, 0, &system_program::ID),
+        SYSTEM_PROGRAM_ID,
+            system_program_account(),
     );
 
     let context = mollusk.with_context(store);
@@ -428,8 +470,10 @@ fn verify_badge_rejects_invalid_verifier_program() {
         verify_instruction_with_payload(program_id, admin, true, wrong_verifier, payload);
     let verify_result = context.process_instruction(&verify_ix);
     assert_eq!(
-        verify_result.program_result.unwrap_err(),
-        ProgramError::Custom(GatewayError::InvalidZkVerifier as u32)
+        verify_result.program_result,
+        ProgramResult::Failure(ProgramError::Custom(
+            GatewayError::InvalidZkVerifier as u32
+        ))
     );
 }
 
@@ -444,19 +488,19 @@ fn verify_badge_rejects_missing_signer() {
     let mut store: HashMap<Pubkey, Account> = HashMap::new();
 
     let (gateway_state, _bump) =
-        Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &program_id);
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
 
     store.insert(
         admin,
-        Account::new(1_000_000_000, 0, &system_program::ID),
+        Account::new(1_000_000_000, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
         gateway_state,
-        Account::new(0, 0, &system_program::ID),
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
-        system_program::ID,
-        Account::new(0, 0, &system_program::ID),
+        SYSTEM_PROGRAM_ID,
+            system_program_account(),
     );
 
     let context = mollusk.with_context(store);
@@ -473,8 +517,8 @@ fn verify_badge_rejects_missing_signer() {
     let verify_ix = verify_instruction_with_payload(program_id, admin, false, zk_verifier, payload);
     let verify_result = context.process_instruction(&verify_ix);
     assert_eq!(
-        verify_result.program_result.unwrap_err(),
-        ProgramError::Custom(GatewayError::MissingSigner as u32)
+        verify_result.program_result,
+        ProgramResult::Failure(ProgramError::Custom(GatewayError::MissingSigner as u32))
     );
 }
 
@@ -491,15 +535,15 @@ fn verify_badge_rejects_invalid_pda() {
 
     store.insert(
         admin,
-        Account::new(1_000_000_000, 0, &system_program::ID),
+        Account::new(1_000_000_000, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
         invalid_state,
-        Account::new(0, 0, &system_program::ID),
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
     );
     store.insert(
-        system_program::ID,
-        Account::new(0, 0, &system_program::ID),
+        SYSTEM_PROGRAM_ID,
+            system_program_account(),
     );
 
     let context = mollusk.with_context(store);
@@ -522,7 +566,187 @@ fn verify_badge_rejects_invalid_pda() {
     );
     let verify_result = context.process_instruction(&verify_ix);
     assert_eq!(
-        verify_result.program_result.unwrap_err(),
-        ProgramError::Custom(GatewayError::InvalidGatewayStatePda as u32)
+        verify_result.program_result,
+        ProgramResult::Failure(ProgramError::Custom(
+            GatewayError::InvalidGatewayStatePda as u32
+        ))
+    );
+}
+
+#[test]
+fn submit_private_order_creates_nullifier_pda() {
+    let program_id = Pubkey::new_unique();
+    let admin = Pubkey::new_unique();
+    let merkle_root = [5u8; 32];
+    let zk_verifier = Pubkey::default();
+    let nullifier = [7u8; 32];
+
+    let mollusk = setup_mollusk(&program_id);
+    let mut store: HashMap<Pubkey, Account> = HashMap::new();
+
+    let (gateway_state, _bump) =
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
+    let (nullifier_pda, _nullifier_bump) =
+        find_program_address(&[NULLIFIER_SEED, &nullifier], program_id);
+
+    store.insert(
+        admin,
+        Account::new(1_000_000_000, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        gateway_state,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        nullifier_pda,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        SYSTEM_PROGRAM_ID,
+            system_program_account(),
+    );
+
+    let context = mollusk.with_context(store);
+    let init_ix = init_instruction(program_id, admin, merkle_root, zk_verifier);
+    let init_result = context.process_instruction(&init_ix);
+    assert!(init_result.program_result.is_ok());
+
+    let payload = SubmitPrivateOrderPayload {
+        order_id: 1,
+        amount: 5,
+        token: Pubkey::new_unique().to_bytes(),
+        recipient: Pubkey::new_unique().to_bytes(),
+        nullifier,
+    };
+    let submit_ix = submit_instruction(program_id, admin, payload, nullifier_pda);
+    let submit_result = context.process_instruction(&submit_ix);
+    assert!(submit_result.program_result.is_ok());
+
+    let (_, nullifier_account) = submit_result
+        .resulting_accounts
+        .iter()
+        .find(|(key, _)| key == &nullifier_pda)
+        .expect("nullifier account missing from results");
+    assert_eq!(nullifier_account.owner(), &program_id);
+    assert_eq!(nullifier_account.data(), &[1u8]);
+}
+
+#[test]
+fn submit_private_order_rejects_nullifier_reuse() {
+    let program_id = Pubkey::new_unique();
+    let admin = Pubkey::new_unique();
+    let merkle_root = [6u8; 32];
+    let zk_verifier = Pubkey::default();
+    let nullifier = [9u8; 32];
+
+    let mollusk = setup_mollusk(&program_id);
+    let mut store: HashMap<Pubkey, Account> = HashMap::new();
+
+    let (gateway_state, _bump) =
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
+    let (nullifier_pda, _nullifier_bump) =
+        find_program_address(&[NULLIFIER_SEED, &nullifier], program_id);
+
+    store.insert(
+        admin,
+        Account::new(1_000_000_000, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        gateway_state,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        nullifier_pda,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        SYSTEM_PROGRAM_ID,
+            system_program_account(),
+    );
+
+    let context = mollusk.with_context(store);
+    let init_ix = init_instruction(program_id, admin, merkle_root, zk_verifier);
+    let init_result = context.process_instruction(&init_ix);
+    assert!(init_result.program_result.is_ok());
+
+    let payload = SubmitPrivateOrderPayload {
+        order_id: 1,
+        amount: 5,
+        token: Pubkey::new_unique().to_bytes(),
+        recipient: Pubkey::new_unique().to_bytes(),
+        nullifier,
+    };
+    let submit_ix = submit_instruction(program_id, admin, payload, nullifier_pda);
+    let submit_result = context.process_instruction(&submit_ix);
+    assert!(submit_result.program_result.is_ok());
+
+    let reuse_payload = SubmitPrivateOrderPayload {
+        order_id: 2,
+        amount: 8,
+        token: Pubkey::new_unique().to_bytes(),
+        recipient: Pubkey::new_unique().to_bytes(),
+        nullifier,
+    };
+    let reuse_ix = submit_instruction(program_id, admin, reuse_payload, nullifier_pda);
+    let reuse_result = context.process_instruction(&reuse_ix);
+    assert_eq!(
+        reuse_result.program_result,
+        ProgramResult::Failure(ProgramError::Custom(
+            GatewayError::NullifierAlreadyUsed as u32
+        ))
+    );
+}
+
+#[test]
+fn submit_private_order_rejects_invalid_nullifier_pda() {
+    let program_id = Pubkey::new_unique();
+    let admin = Pubkey::new_unique();
+    let merkle_root = [10u8; 32];
+    let zk_verifier = Pubkey::default();
+    let nullifier = [11u8; 32];
+
+    let mollusk = setup_mollusk(&program_id);
+    let mut store: HashMap<Pubkey, Account> = HashMap::new();
+
+    let (gateway_state, _bump) =
+        find_program_address(&[GATEWAY_STATE_SEED], program_id);
+    let wrong_nullifier_pda = Pubkey::new_unique();
+
+    store.insert(
+        admin,
+        Account::new(1_000_000_000, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        gateway_state,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        wrong_nullifier_pda,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        SYSTEM_PROGRAM_ID,
+            system_program_account(),
+    );
+
+    let context = mollusk.with_context(store);
+    let init_ix = init_instruction(program_id, admin, merkle_root, zk_verifier);
+    let init_result = context.process_instruction(&init_ix);
+    assert!(init_result.program_result.is_ok());
+
+    let payload = SubmitPrivateOrderPayload {
+        order_id: 1,
+        amount: 5,
+        token: Pubkey::new_unique().to_bytes(),
+        recipient: Pubkey::new_unique().to_bytes(),
+        nullifier,
+    };
+    let submit_ix = submit_instruction(program_id, admin, payload, wrong_nullifier_pda);
+    let submit_result = context.process_instruction(&submit_ix);
+    assert_eq!(
+        submit_result.program_result,
+        ProgramResult::Failure(ProgramError::Custom(
+            GatewayError::InvalidNullifierPda as u32
+        ))
     );
 }

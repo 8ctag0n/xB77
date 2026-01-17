@@ -9,3 +9,4 @@ pub struct GatewayConfig {
 }
 
 pub const GATEWAY_STATE_SEED: &[u8] = b"gateway_state";
+pub const NULLIFIER_SEED: &[u8] = b"nullifier";

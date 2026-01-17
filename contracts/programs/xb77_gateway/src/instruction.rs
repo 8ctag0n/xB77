@@ -10,6 +10,15 @@ pub struct ProofPayload {
 }
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
+pub struct SubmitPrivateOrderPayload {
+    pub order_id: u64,
+    pub amount: u64,
+    pub token: [u8; 32],
+    pub recipient: [u8; 32],
+    pub nullifier: [u8; 32],
+}
+
+#[derive(Debug, SchemaRead, SchemaWrite)]
 pub struct InitGatewayPayload {
     pub admin: [u8; 32],
     pub merkle_root: [u8; 32],
@@ -26,6 +35,7 @@ pub enum GatewayInstruction {
     InitGateway(InitGatewayPayload),
     UpdateGateway(UpdateGatewayPayload),
     VerifyBadge(ProofPayload),
+    SubmitPrivateOrder(SubmitPrivateOrderPayload),
     ExecuteConfidentialTransfer { amount: u64 },
     RecordReceipt { receipt_hash: [u8; 32] },
 }

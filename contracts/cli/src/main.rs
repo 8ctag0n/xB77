@@ -13,8 +13,10 @@ use solana_sdk::{
     transaction::Transaction,
 };
 
-use xb77_gateway::instruction::{GatewayInstruction, InitGatewayPayload, ProofPayload};
-use xb77_gateway::state::GATEWAY_STATE_SEED;
+use xb77_gateway::instruction::{
+    GatewayInstruction, InitGatewayPayload, ProofPayload, SubmitPrivateOrderPayload,
+};
+use xb77_gateway::state::{GATEWAY_STATE_SEED, NULLIFIER_SEED};
 
 #[derive(Parser)]
 #[command(name = "xb77-gateway-cli", version)]
@@ -27,6 +29,7 @@ struct Cli {
 enum Command {
     Init(InitArgs),
     Verify(VerifyArgs),
+    SubmitOrder(SubmitOrderArgs),
 }
 
 #[derive(Parser)]
@@ -75,10 +78,41 @@ struct VerifyArgs {
     compute_unit_price: u64,
 }
 
+#[derive(Parser)]
+struct SubmitOrderArgs {
+    #[arg(long, default_value = "http://127.0.0.1:8899")]
+    url: String,
+    #[arg(long)]
+    gateway_program_id: Option<String>,
+    #[arg(long)]
+    keypair: Option<PathBuf>,
+    #[arg(long, default_value = ".localnet")]
+    config_dir: PathBuf,
+    #[arg(long)]
+    order_id: Option<u64>,
+    #[arg(long)]
+    amount: u64,
+    #[arg(long)]
+    token: Option<String>,
+    #[arg(long)]
+    recipient: Option<String>,
+    #[arg(long)]
+    nullifier_hex: Option<String>,
+    #[arg(long, default_value = "sdk/target/agent_badge.meta.json")]
+    meta: PathBuf,
+    #[arg(long, default_value_t = 200_000)]
+    compute_units: u32,
+    #[arg(long, default_value_t = 0)]
+    compute_unit_price: u64,
+}
+
 #[derive(serde::Deserialize)]
 struct MetaFile {
     merkle_root_hex: String,
     merkle_index: String,
+    order_id: Option<String>,
+    nullifier: Option<String>,
+    nullifier_hex: Option<String>,
 }
 
 fn load_localnet_value(path: &Path) -> Result<String, String> {
@@ -90,6 +124,12 @@ fn load_localnet_value(path: &Path) -> Result<String, String> {
 fn load_pubkey(path: &Path) -> Result<Pubkey, String> {
     let value = load_localnet_value(path)?;
     Pubkey::from_str(&value).map_err(|err| format!("Invalid pubkey {}: {}", value, err))
+}
+
+fn parse_pubkey_bytes(input: &str) -> Result<[u8; 32], String> {
+    let pubkey =
+        Pubkey::from_str(input).map_err(|err| format!("Invalid pubkey {}: {}", input, err))?;
+    Ok(pubkey.to_bytes())
 }
 
 fn load_keypair(path: &Path) -> Result<Keypair, String> {
@@ -255,6 +295,94 @@ fn main() -> Result<(), String> {
             let rpc = RpcClient::new(args.url);
             let sig = send_transaction(&rpc, &payer, instructions)?;
             println!("Verified badge: {}", sig);
+        }
+        Command::SubmitOrder(args) => {
+            let (gateway_program_id, _verifier_program_id, payer) = resolve_gateway_config(
+                &args.config_dir,
+                args.gateway_program_id,
+                None,
+                args.keypair,
+            )?;
+
+            let meta = load_meta(&args.meta)?;
+            let order_id = match args.order_id {
+                Some(value) => value,
+                None => meta
+                    .order_id
+                    .as_deref()
+                    .ok_or_else(|| "Missing order_id in meta or args".to_string())?
+                    .parse::<u64>()
+                    .map_err(|err| format!("Invalid order_id in meta: {}", err))?,
+            };
+            let nullifier_hex = match args.nullifier_hex {
+                Some(value) => value,
+                None => match meta.nullifier_hex {
+                    Some(value) => value,
+                    None => match meta.nullifier {
+                        Some(value) if value.starts_with("0x") => value,
+                        Some(_) => {
+                            return Err(
+                                "Meta nullifier is not hex; regenerate proof or pass --nullifier-hex"
+                                    .to_string(),
+                            )
+                        }
+                        None => return Err("Missing nullifier in meta or args".to_string()),
+                    },
+                },
+            };
+            let nullifier = decode_hex_32(&nullifier_hex)?;
+
+            let token = args
+                .token
+                .as_deref()
+                .ok_or_else(|| "Missing --token".to_string())
+                .and_then(parse_pubkey_bytes)?;
+            let recipient = args
+                .recipient
+                .as_deref()
+                .ok_or_else(|| "Missing --recipient".to_string())
+                .and_then(parse_pubkey_bytes)?;
+
+            let payload = SubmitPrivateOrderPayload {
+                order_id,
+                amount: args.amount,
+                token,
+                recipient,
+                nullifier,
+            };
+            let data = wincode::serialize(&GatewayInstruction::SubmitPrivateOrder(payload))
+                .map_err(|err| format!("Failed to serialize submit payload: {}", err))?;
+
+            let (gateway_state, _bump) =
+                Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &gateway_program_id);
+            let (nullifier_pda, _nullifier_bump) =
+                Pubkey::find_program_address(&[NULLIFIER_SEED, &nullifier], &gateway_program_id);
+
+            let instruction = Instruction::new_with_bytes(
+                gateway_program_id,
+                &data,
+                vec![
+                    AccountMeta::new(payer.pubkey(), true),
+                    AccountMeta::new(gateway_state, false),
+                    AccountMeta::new(nullifier_pda, false),
+                    AccountMeta::new_readonly(system_program::ID, false),
+                ],
+            );
+
+            let mut instructions = Vec::new();
+            instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(
+                args.compute_units,
+            ));
+            if args.compute_unit_price > 0 {
+                instructions.push(ComputeBudgetInstruction::set_compute_unit_price(
+                    args.compute_unit_price,
+                ));
+            }
+            instructions.push(instruction);
+
+            let rpc = RpcClient::new(args.url);
+            let sig = send_transaction(&rpc, &payer, instructions)?;
+            println!("Submitted private order: {}", sig);
         }
     }
 

@@ -17,6 +17,13 @@ pub enum GatewayError {
     EmptyProof = 12,
     EmptyPublicWitness = 13,
     InvalidZkVerifier = 14,
+    InvalidOrderId = 15,
+    InvalidAmount = 16,
+    InvalidToken = 17,
+    InvalidRecipient = 18,
+    InvalidNullifier = 19,
+    InvalidNullifierPda = 20,
+    NullifierAlreadyUsed = 21,
 }
 
 impl From<GatewayError> for ProgramError {
