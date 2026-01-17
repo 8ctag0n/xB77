@@ -4,3 +4,6 @@ members = [
     "cli",
     "programs/xb77_gateway",
 ]
+default-members = [
+    "programs/xb77_gateway",
+]

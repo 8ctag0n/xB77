@@ -22,10 +22,25 @@ pub struct UpdateGatewayPayload {
 }
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
+pub struct ConfidentialTransferPayload {
+    pub encrypted_amount: [u8; 32],
+    pub nonce: [u8; 12],
+    pub public_key: [u8; 32],
+}
+
+#[derive(Debug, SchemaRead, SchemaWrite)]
+pub struct ReceiptPayload {
+    pub vendor_id: [u8; 32],
+    pub item_hash: [u8; 32],
+    pub amount: u64,
+    pub timestamp: i64,
+}
+
+#[derive(Debug, SchemaRead, SchemaWrite)]
 pub enum GatewayInstruction {
     InitGateway(InitGatewayPayload),
     UpdateGateway(UpdateGatewayPayload),
     VerifyBadge(ProofPayload),
-    ExecuteConfidentialTransfer { amount: u64 },
-    RecordReceipt { receipt_hash: [u8; 32] },
+    ExecuteConfidentialTransfer(ConfidentialTransferPayload),
+    RecordReceipt(ReceiptPayload),
 }
