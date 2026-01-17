@@ -8,8 +8,10 @@ type Fixture = {
   inputs: Array<{
     secret: string;
     salt: string;
+    orderId: string;
     path: string[];
     merkleIndex: string;
+    nullifier?: string;
   }>;
 };
 
@@ -43,6 +45,7 @@ async function main() {
 
   const secret = BigInt(input.secret);
   const salt = BigInt(input.salt);
+  const orderId = BigInt(input.orderId);
   const pathValues = input.path.map((value) => BigInt(value));
   const merkleIndex = BigInt(input.merkleIndex);
 
@@ -54,9 +57,15 @@ async function main() {
   }
   const root = field.toString(current);
   const rootHex = `0x${BigInt(root).toString(16).padStart(64, "0")}`;
+  const computedNullifier = poseidon([secret, orderId]);
+  const computedNullifierStr = field.toString(computedNullifier);
+  const nullifierValue = input.nullifier ?? computedNullifierStr;
+  const nullifierHex = `0x${BigInt(nullifierValue).toString(16).padStart(64, "0")}`;
 
   const tomlLines = [
     `root = "${root}"`,
+    `order_id = "${input.orderId}"`,
+    `nullifier = "${nullifierValue}"`,
     `agent_secret = "${input.secret}"`,
     `agent_salt = "${input.salt}"`,
     `merkle_path = [${input.path.map((value) => `"${value}"`).join(", ")}]`,
@@ -115,6 +124,9 @@ async function main() {
       {
         merkle_root_hex: rootHex,
         merkle_index: input.merkleIndex,
+        order_id: input.orderId,
+        nullifier: nullifierValue,
+        nullifier_hex: nullifierHex,
       },
       null,
       2

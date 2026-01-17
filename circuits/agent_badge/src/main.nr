@@ -2,6 +2,8 @@ use dep::poseidon::poseidon::bn254::hash_2 as poseidon_hash;
 
 fn main(
     root: pub Field, 
+    order_id: pub Field,
+    nullifier: pub Field,
     agent_secret: Field, 
     agent_salt: Field,
     merkle_path: [Field; 3], 
@@ -11,6 +13,7 @@ fn main(
     assert(index_u32 < 8);
 
     let leaf = poseidon_hash([agent_secret, agent_salt]);
+    let computed_nullifier = poseidon_hash([agent_secret, order_id]);
     
     let mut current = leaf;
 
@@ -24,5 +27,8 @@ fn main(
         }
     }
 
+    if nullifier != 0 {
+        assert(nullifier == computed_nullifier);
+    }
     assert(current == root);
 }

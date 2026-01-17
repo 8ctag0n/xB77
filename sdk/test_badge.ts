@@ -38,8 +38,10 @@ async function main() {
     const buildInput = (
         secret: bigint,
         salt: bigint,
+        orderId: bigint,
         path: bigint[],
-        merkleIndex: bigint
+        merkleIndex: bigint,
+        nullifierOverride?: bigint
     ) => {
         let current = poseidon([secret, salt]);
 
@@ -49,8 +51,13 @@ async function main() {
             current = bit === 0n ? poseidon([current, sibling]) : poseidon([sibling, current]);
         }
 
+        const computedNullifier = poseidon([secret, orderId]);
+        const nullifierValue = nullifierOverride ?? computedNullifier;
+
         return {
             root: field.toString(current),
+            order_id: orderId.toString(),
+            nullifier: field.toString(nullifierValue),
             agent_secret: secret.toString(),
             agent_salt: salt.toString(),
             merkle_path: path.map((value) => value.toString()),
@@ -63,8 +70,10 @@ async function main() {
         inputs: Array<{
             secret: string;
             salt: string;
+            orderId: string;
             path: string[];
             merkleIndex: string;
+            nullifier?: string;
         }>;
     };
 
@@ -72,8 +81,10 @@ async function main() {
         buildInput(
             BigInt(entry.secret),
             BigInt(entry.salt),
+            BigInt(entry.orderId),
             entry.path.map((value) => BigInt(value)),
-            BigInt(entry.merkleIndex)
+            BigInt(entry.merkleIndex),
+            entry.nullifier ? BigInt(entry.nullifier) : undefined
         )
     );
 
