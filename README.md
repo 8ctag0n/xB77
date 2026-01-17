@@ -83,3 +83,5 @@ Common helpers:
 - `make proof-badge` (generate proof + instruction data)
 - `make localnet-init` (initialize gateway with verifier + root)
 - `make localnet-verify` (send verify_badge with proof)
+- `scripts/localnet/submit-private-order.sh` (submit_private_order call; requires TOKEN_MINT + RECIPIENT)
+- `scripts/localnet/demo-private-order.sh` (prints the required manual steps; run scripts separately)

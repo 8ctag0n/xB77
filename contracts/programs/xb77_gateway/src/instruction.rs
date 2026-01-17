@@ -10,15 +10,38 @@ pub struct ProofPayload {
 }
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
+pub struct SubmitPrivateOrderPayload {
+    pub order_id: u64,
+    pub amount: u64,
+    pub token: [u8; 32],
+    pub recipient: [u8; 32],
+    pub nullifier: [u8; 32],
+}
+
+#[derive(Debug, SchemaRead, SchemaWrite)]
 pub struct InitGatewayPayload {
     pub admin: [u8; 32],
     pub merkle_root: [u8; 32],
     pub zk_verifier: [u8; 32],
+    pub auditor: [u8; 32],
+    pub credit_root: [u8; 32],
+    pub orderbook_root: [u8; 32],
+    pub mxe_program_id: [u8; 32],
+    pub light_system_program: [u8; 32],
+    pub light_account_compression_program: [u8; 32],
+    pub light_noop_program: [u8; 32],
 }
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
 pub struct UpdateGatewayPayload {
     pub merkle_root: [u8; 32],
+    pub auditor: [u8; 32],
+    pub credit_root: [u8; 32],
+    pub orderbook_root: [u8; 32],
+    pub mxe_program_id: [u8; 32],
+    pub light_system_program: [u8; 32],
+    pub light_account_compression_program: [u8; 32],
+    pub light_noop_program: [u8; 32],
 }
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
@@ -37,10 +60,27 @@ pub struct ReceiptPayload {
 }
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
+pub struct ResolvePrivateOrderPayload {
+    pub order_commitment: [u8; 32],
+    pub receipt_leaf_hash: [u8; 32],
+    pub new_orderbook_root: [u8; 32],
+    pub receipt_instruction_data: Vec<u8>,
+}
+
+#[derive(Debug, SchemaRead, SchemaWrite)]
+pub struct AuditRevealPayload {
+    pub order_commitment: [u8; 32],
+    pub audit_hash: [u8; 32],
+}
+
+#[derive(Debug, SchemaRead, SchemaWrite)]
 pub enum GatewayInstruction {
     InitGateway(InitGatewayPayload),
     UpdateGateway(UpdateGatewayPayload),
     VerifyBadge(ProofPayload),
+    SubmitPrivateOrder(SubmitPrivateOrderPayload),
     ExecuteConfidentialTransfer(ConfidentialTransferPayload),
     RecordReceipt(ReceiptPayload),
+    ResolvePrivateOrder(ResolvePrivateOrderPayload),
+    AuditReveal(AuditRevealPayload),
 }

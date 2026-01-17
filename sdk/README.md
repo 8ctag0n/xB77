@@ -104,7 +104,7 @@ To (re)generate the Noir artifact used by the scripts (via container):
 ./scripts/build-noir-artifacts.sh
 ```
 
-Proof inputs live in `sdk/fixtures/agent_badge_inputs.json`.
+Proof inputs live in `sdk/fixtures/agent_badge_inputs.json` and include `orderId` plus optional `nullifier`.
 
 First run downloads the CRS into `sdk/.bb-crs` and requires network access.
 

@@ -19,4 +19,5 @@ spl-token = { version = "4.0.0", default-features = false, features = ["no-entry
 mollusk-svm = { git = "https://github.com/anza-xyz/mollusk", package = "mollusk-svm" }
 solana-account = "3.2.0"
 solana-instruction = "3.0"
+solana-program-error = "3.0"
 solana-pubkey = "4.0"
