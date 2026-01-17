@@ -1,4 +1,4 @@
-.PHONY: noir-compile noir-execute sunspot proof-badge localnet-start localnet-start-bg localnet-stop localnet-verifier localnet-gateway localnet-init localnet-verify localnet-setup localnet-e2e
+.PHONY: noir-compile noir-execute sunspot proof-badge localnet-start localnet-start-bg localnet-stop localnet-verifier localnet-gateway localnet-init localnet-verify localnet-setup localnet-e2e demo-payment
 
 noir-compile:
 	./scripts/build-noir-artifacts.sh
@@ -37,3 +37,6 @@ localnet-verify:
 localnet-setup: localnet-verifier localnet-gateway localnet-init
 
 localnet-e2e: localnet-start-bg proof-badge localnet-setup localnet-verify
+
+demo-payment:
+	cd sdk && bun run scripts/demo_payment.ts
