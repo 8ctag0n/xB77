@@ -1,0 +1,37 @@
+FROM ubuntu:24.04
+
+USER root
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    jq \
+    pkg-config \
+    build-essential \
+    libudev-dev \
+    llvm \
+    libclang-dev \
+    protobuf-compiler \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd --create-home --shell /bin/bash node
+RUN mkdir -p /work
+
+ENV HOME="/home/node"
+ENV RUSTUP_HOME="/home/node/.rustup"
+ENV CARGO_HOME="/home/node/.cargo"
+ENV PATH="/home/node/.local/share/solana/install/active_release/bin:/home/node/.cargo/bin:/home/node/.local/bin:$PATH"
+
+RUN chown -R node:node /home/node /work
+USER node
+WORKDIR /work
+
+ENV LIGHT_PROTOCOL_PROGRAMS_DIR=/work/cli/bin
+
+# Install Solana CLI + tooling as node so HOME/euid match.
+RUN curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+
+RUN rustc --version && solana --version && anchor --version && surfpool --version && node --version && yarn --version
+RUN npm i -g @lightprotocol/zk-compression-cli@alpha

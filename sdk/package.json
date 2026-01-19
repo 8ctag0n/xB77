@@ -4,17 +4,22 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "proof:badge": "bun run scripts/generate_badge_proof.ts"
+    "proof:badge": "bun run scripts/generate_badge_proof.ts",
+    "receipt:light": "bun run scripts/build_receipt_light.ts"
   },
   "devDependencies": {
+    "@types/bn.js": "^5.1.5",
     "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "@coral-xyz/borsh": "^0.29.0",
+    "@lightprotocol/stateless.js": "0.22.1-alpha.6",
     "@noir-lang/backend_barretenberg": "0.36.0",
     "@noir-lang/noir_js": "0.36.0",
+    "@noble/hashes": "^1.5.0",
     "@radr/shadowwire": "^1.1.2",
     "@solana-program/compute-budget": "^0.11.0",
     "@solana-program/memo": "^0.10.0",

@@ -14,7 +14,8 @@ use solana_sdk::{
 };
 
 use xb77_gateway::instruction::{
-    GatewayInstruction, InitGatewayPayload, ProofPayload, SubmitPrivateOrderPayload,
+    GatewayInstruction, InitGatewayPayload, ProofPayload, ResolvePrivateOrderPayload,
+    SubmitPrivateOrderPayload,
 };
 use xb77_gateway::state::{GATEWAY_STATE_SEED, NULLIFIER_SEED};
 
@@ -30,6 +31,7 @@ enum Command {
     Init(InitArgs),
     Verify(VerifyArgs),
     SubmitOrder(SubmitOrderArgs),
+    Resolve(ResolveArgs),
 }
 
 #[derive(Parser)]
@@ -106,6 +108,34 @@ struct SubmitOrderArgs {
     compute_unit_price: u64,
 }
 
+#[derive(Parser)]
+struct ResolveArgs {
+    #[arg(long, default_value = "http://127.0.0.1:8899")]
+    url: String,
+    #[arg(long)]
+    gateway_program_id: Option<String>,
+    #[arg(long)]
+    keypair: Option<PathBuf>,
+    #[arg(long, default_value = ".localnet")]
+    config_dir: PathBuf,
+    #[arg(long)]
+    order_commitment_hex: String,
+    #[arg(long)]
+    receipt_leaf_hash_hex: String,
+    #[arg(long)]
+    new_orderbook_root_hex: String,
+    #[arg(long)]
+    receipt_instruction_data: Option<PathBuf>,
+    #[arg(long)]
+    receipt_program_id: Option<String>,
+    #[arg(long)]
+    receipt_accounts: Option<PathBuf>,
+    #[arg(long, default_value_t = 400_000)]
+    compute_units: u32,
+    #[arg(long, default_value_t = 0)]
+    compute_unit_price: u64,
+}
+
 #[derive(serde::Deserialize)]
 struct MetaFile {
     merkle_root_hex: String,
@@ -115,10 +145,38 @@ struct MetaFile {
     nullifier_hex: Option<String>,
 }
 
+#[derive(serde::Deserialize)]
+struct ReceiptAccountSpec {
+    pubkey: String,
+    #[serde(default)]
+    is_signer: bool,
+    #[serde(default)]
+    is_writable: bool,
+}
+
 fn load_localnet_value(path: &Path) -> Result<String, String> {
     fs::read_to_string(path)
         .map(|value| value.trim().to_string())
         .map_err(|err| format!("Failed to read {}: {}", path.display(), err))
+}
+
+fn load_receipt_accounts(path: &Path) -> Result<Vec<AccountMeta>, String> {
+    let raw = fs::read_to_string(path)
+        .map_err(|err| format!("Failed to read {}: {}", path.display(), err))?;
+    let specs: Vec<ReceiptAccountSpec> = serde_json::from_str(&raw)
+        .map_err(|err| format!("Invalid receipt accounts JSON: {}", err))?;
+    specs
+        .into_iter()
+        .map(|spec| {
+            let pubkey = Pubkey::from_str(&spec.pubkey)
+                .map_err(|err| format!("Invalid pubkey {}: {}", spec.pubkey, err))?;
+            Ok(AccountMeta {
+                pubkey,
+                is_signer: spec.is_signer,
+                is_writable: spec.is_writable,
+            })
+        })
+        .collect()
 }
 
 fn load_pubkey(path: &Path) -> Result<Pubkey, String> {
@@ -390,6 +448,77 @@ fn main() -> Result<(), String> {
             let rpc = RpcClient::new(args.url);
             let sig = send_transaction(&rpc, &payer, instructions)?;
             println!("Submitted private order: {}", sig);
+        }
+        Command::Resolve(args) => {
+            let (gateway_program_id, _verifier_program_id, payer) = resolve_gateway_config(
+                &args.config_dir,
+                args.gateway_program_id,
+                None,
+                args.keypair,
+            )?;
+
+            let order_commitment = decode_hex_32(&args.order_commitment_hex)?;
+            let receipt_leaf_hash = decode_hex_32(&args.receipt_leaf_hash_hex)?;
+            let new_orderbook_root = decode_hex_32(&args.new_orderbook_root_hex)?;
+
+            let receipt_instruction_data = match args.receipt_instruction_data {
+                Some(ref path) => fs::read(path)
+                    .map_err(|err| format!("Failed to read receipt instruction data: {}", err))?,
+                None => Vec::new(),
+            };
+
+            let payload = ResolvePrivateOrderPayload {
+                order_commitment,
+                receipt_leaf_hash,
+                new_orderbook_root,
+                receipt_instruction_data,
+            };
+            let data = wincode::serialize(&GatewayInstruction::ResolvePrivateOrder(payload))
+                .map_err(|err| format!("Failed to serialize resolve payload: {}", err))?;
+
+            let (gateway_state, _bump) =
+                Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &gateway_program_id);
+
+            let mut metas = vec![
+                AccountMeta::new(payer.pubkey(), true),
+                AccountMeta::new(gateway_state, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ];
+
+            if args.receipt_instruction_data.is_some() {
+                let receipt_program_id = args
+                    .receipt_program_id
+                    .ok_or_else(|| "Missing --receipt-program-id".to_string())
+                    .and_then(|value| {
+                        Pubkey::from_str(&value)
+                            .map_err(|err| format!("Invalid receipt program id {}: {}", value, err))
+                    })?;
+                let receipt_accounts_path = args
+                    .receipt_accounts
+                    .as_ref()
+                    .ok_or_else(|| "Missing --receipt-accounts".to_string())?;
+                let receipt_accounts = load_receipt_accounts(receipt_accounts_path)?;
+
+                metas.push(AccountMeta::new_readonly(receipt_program_id, false));
+                metas.extend(receipt_accounts);
+            }
+
+            let instruction = Instruction::new_with_bytes(gateway_program_id, &data, metas);
+
+            let mut instructions = Vec::new();
+            instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(
+                args.compute_units,
+            ));
+            if args.compute_unit_price > 0 {
+                instructions.push(ComputeBudgetInstruction::set_compute_unit_price(
+                    args.compute_unit_price,
+                ));
+            }
+            instructions.push(instruction);
+
+            let rpc = RpcClient::new(args.url);
+            let sig = send_transaction(&rpc, &payer, instructions)?;
+            println!("Resolved private order: {}", sig);
         }
     }
 

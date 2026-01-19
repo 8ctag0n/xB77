@@ -1,0 +1,13 @@
+services:
+  arcium-dev:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: xb77-arcium:local
+    container_name: arcium-dev
+    network_mode: "host"
+    working_dir: /work
+    entrypoint: ["bash", "-lc"]
+    command: ["tail -f /dev/null"]
+    volumes:
+      - ${ARCIUM_REPO}:/work
