@@ -13,6 +13,7 @@ This directory contains the specific execution plans for each worktree/branch of
 | Branch 2 | Payments (ShadowWire + Privacy Cash) | Pending | [branch_payments.md](./branch_payments.md) |
 | Branch 3 | SDK Unified + MCP Server | Pending | [branch_sdk_mcp.md](./branch_sdk_mcp.md) |
 | Branch 4 | Infra + Observability (Helius + Receipts) | Pending | [branch_infra_observability.md](./branch_infra_observability.md) |
+| Integration | Merge & Demo Plan | Strategic | [INTEGRATION_PLAN.md](./INTEGRATION_PLAN.md) |
 | E2E Vision | Full Integration Strategy | Strategic | [MASTER_PLAN.md](./MASTER_PLAN.md) |
 
 ## Status Definitions
