@@ -1,4 +1,5 @@
 import { Keypair } from '@solana/web3.js';
+import nacl from 'tweetnacl';
 import {
   InMemoryReceiptStore,
   PrivacyAgent,
@@ -22,9 +23,18 @@ type ToolResponse = {
 };
 
 const VALID_TOKENS: SupportedToken[] = ['SOL', 'USD1', 'USDC'];
+const VALID_PROVIDERS = ['shadowwire', 'privacy_cash'] as const;
+type PaymentProvider = (typeof VALID_PROVIDERS)[number];
 
 function normalizeToken(value: unknown, fallback: SupportedToken): SupportedToken {
   if (value === 'SOL' || value === 'USD1' || value === 'USDC') {
+    return value;
+  }
+  return fallback;
+}
+
+function normalizeProvider(value: unknown, fallback: PaymentProvider): PaymentProvider {
+  if (value === 'shadowwire' || value === 'privacy_cash') {
     return value;
   }
   return fallback;
@@ -64,6 +74,14 @@ async function loadKeypairFromEnv(): Promise<Keypair> {
   return Keypair.fromSecretKey(parseKeypairJson(text));
 }
 
+function makeWalletSigner(keypair: Keypair) {
+  return {
+    signMessage: async (message: Uint8Array) => {
+      return nacl.sign.detached(message, keypair.secretKey);
+    },
+  };
+}
+
 export async function buildAgentContext(options?: {
   keypair?: Keypair;
   offline?: boolean;
@@ -71,6 +89,12 @@ export async function buildAgentContext(options?: {
   balances?: Partial<Record<SupportedToken, number>>;
 }): Promise<AgentContext> {
   const offline = options?.offline ?? process.env.XB77_OFFLINE === 'true';
+  const paymentMode =
+    process.env.XB77_PAYMENT_MODE === 'live' && !offline ? 'live' : 'mock';
+  const paymentProvider = normalizeProvider(
+    process.env.XB77_PAYMENT_PROVIDER,
+    'shadowwire'
+  );
   const defaultToken = normalizeToken(
     options?.defaultToken ?? process.env.XB77_TOKEN_DEFAULT,
     'USD1'
@@ -85,6 +109,12 @@ export async function buildAgentContext(options?: {
     debug: process.env.XB77_DEBUG === 'true',
     balanceProvider,
     receiptStore,
+    paymentProvider,
+    paymentGatewayOptions: {
+      mode: paymentMode,
+      defaultProvider: paymentProvider,
+      shadowwire: paymentMode === 'live' ? { walletSigner: makeWalletSigner(keypair) } : undefined,
+    },
   });
 
   return {
@@ -122,6 +152,10 @@ export function listTools() {
             type: 'string',
             enum: VALID_TOKENS,
           },
+          provider: {
+            type: 'string',
+            enum: VALID_PROVIDERS,
+          },
         },
         required: ['recipient', 'amount'],
       },
@@ -141,6 +175,10 @@ export function listTools() {
           type: {
             type: 'string',
             enum: ['internal', 'external'],
+          },
+          provider: {
+            type: 'string',
+            enum: VALID_PROVIDERS,
           },
         },
         required: ['recipient', 'amount'],
@@ -278,9 +316,10 @@ export async function handleToolCall(
         const recipient = requireString(args?.recipient, 'recipient');
         const amount = requireNumber(args?.amount, 'amount');
         const token = normalizeToken(args?.token, context.defaultToken);
+        const provider = normalizeProvider(args?.provider, 'shadowwire');
         const result = context.offline
           ? await handleOfflinePayment(context, recipient, amount, token, 'internal')
-          : await context.agent.pay(recipient, amount, token, 'internal');
+          : await context.agent.pay(recipient, amount, token, 'internal', provider);
         return okResponse(result);
       }
       case 'agent.pay': {
@@ -288,9 +327,10 @@ export async function handleToolCall(
         const amount = requireNumber(args?.amount, 'amount');
         const token = normalizeToken(args?.token, context.defaultToken);
         const type = args?.type === 'internal' ? 'internal' : 'external';
+        const provider = normalizeProvider(args?.provider, 'shadowwire');
         const result = context.offline
           ? await handleOfflinePayment(context, recipient, amount, token, type)
-          : await context.agent.pay(recipient, amount, token, type);
+          : await context.agent.pay(recipient, amount, token, type, provider);
         return okResponse(result);
       }
       case 'agent.status':
