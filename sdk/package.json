@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "proof:badge": "bun run scripts/generate_badge_proof.ts",
-    "receipt:light": "bun run scripts/build_receipt_light.ts"
+    "receipt:light": "bun run scripts/build_receipt_light.ts",
+    "test": "bun test"
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.5",

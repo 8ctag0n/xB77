@@ -3,12 +3,22 @@ import { AgentWallet, PaymentResult, SupportedToken } from './economy/wallet';
 import { BalanceProvider } from './economy/balance';
 import { IdentityManager } from './identity/manager';
 import { PaymentReceipt, PaymentType, ReceiptStore } from './economy/receipts';
+import {
+  buildPaymentReceipt,
+  PaymentGateway,
+  PaymentProvider,
+  PaymentRequest,
+} from './economy/payments';
+import { createMockPaymentGateway, createPaymentGateway, PaymentGatewayOptions } from './economy/payment_defaults';
 
 export interface AgentConfig {
   keypair: Keypair;
   debug?: boolean;
   balanceProvider?: BalanceProvider;
   receiptStore?: ReceiptStore;
+  paymentGateway?: PaymentGateway;
+  paymentProvider?: PaymentProvider;
+  paymentGatewayOptions?: PaymentGatewayOptions;
 }
 
 export class PrivacyAgent {
@@ -16,12 +26,20 @@ export class PrivacyAgent {
   public identity: IdentityManager;
   private balanceProvider?: BalanceProvider;
   private receiptStore?: ReceiptStore;
+  private paymentGateway: PaymentGateway;
+  private paymentProvider: PaymentProvider;
 
   constructor(config: AgentConfig) {
     this.wallet = new AgentWallet(config.keypair, config.debug);
     this.identity = new IdentityManager();
     this.balanceProvider = config.balanceProvider;
     this.receiptStore = config.receiptStore;
+    this.paymentGateway =
+      config.paymentGateway ??
+      (config.paymentGatewayOptions
+        ? createPaymentGateway(config.paymentGatewayOptions)
+        : createMockPaymentGateway(config.paymentProvider));
+    this.paymentProvider = config.paymentProvider ?? 'shadowwire';
     console.log(`[PrivacyAgent] Initialized agent with public key: ${config.keypair.publicKey.toBase58()}`);
   }
 
@@ -33,30 +51,35 @@ export class PrivacyAgent {
     recipient: string,
     amount: number,
     token: SupportedToken = 'USD1',
-    type: PaymentType = 'external'
+    type: PaymentType = 'external',
+    provider?: PaymentProvider
   ): Promise<PaymentResult> {
-    // 1. In a real scenario, we might want to generate a proof of authority first
-    // await this.identity.proveAccess();
-    
-    // 2. Execute payment
-    const result = await this.wallet.pay(recipient, amount, token, type);
+    const request: PaymentRequest = {
+      amount,
+      currency: token,
+      agentId: this.wallet.publicKey.toBase58(),
+      vendor: recipient,
+      type,
+      provider: provider ?? this.paymentProvider,
+    };
+
+    const execution = await this.paymentGateway.execute(request);
 
     if (this.receiptStore) {
-      const receipt: PaymentReceipt = {
-        sender: this.wallet.publicKey.toBase58(),
-        recipient,
-        token,
-        amount,
-        type,
-        proofPda: result.proofPda,
-        nonce: result.nonce,
-        txSignature: result.txSignature,
-        timestamp: Date.now()
-      };
+      const receipt: PaymentReceipt = buildPaymentReceipt(request, execution);
       await this.receiptStore.recordPayment(receipt);
     }
 
-    return result;
+    if (execution.status !== 'success') {
+      throw new Error('Payment failed');
+    }
+
+    return {
+      txSignature: execution.txSignature,
+      proofPda: execution.proofPda,
+      nonce: execution.nonce,
+      raw: execution.raw,
+    };
   }
 
   /**
