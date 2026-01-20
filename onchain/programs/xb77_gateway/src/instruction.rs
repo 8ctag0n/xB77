@@ -73,6 +73,23 @@ pub struct AuditRevealPayload {
     pub audit_hash: [u8; 32],
 }
 
+// --- Core Program CPI Types ---
+#[derive(Debug, SchemaRead, SchemaWrite)]
+pub struct VerifyAndCreditPayload {
+    pub agent_id: [u8; 32],
+    pub proof_ref: [u8; 32],
+    pub credit_amount: u64,
+}
+
+#[derive(Debug, SchemaRead, SchemaWrite)]
+pub enum CoreInstruction {
+    InitCore, // Placeholder, 0
+    RegisterAgent, // Placeholder, 1
+    VerifyAndCredit(VerifyAndCreditPayload), // Target, 2
+    RequestPayment, // Placeholder, 3
+}
+// -----------------------------
+
 #[derive(Debug, SchemaRead, SchemaWrite)]
 pub enum GatewayInstruction {
     InitGateway(InitGatewayPayload),
