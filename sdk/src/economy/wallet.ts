@@ -1,7 +1,7 @@
 import { ShadowWireClient, TokenUtils } from '@radr/shadowwire';
 import { Keypair, PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
-import { PaymentType } from './receipts';
+import type { PaymentType } from './receipts';
 
 export type SupportedToken = 'SOL' | 'USD1' | 'USDC';
 

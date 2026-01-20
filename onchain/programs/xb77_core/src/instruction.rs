@@ -1,4 +1,5 @@
 use wincode::{SchemaRead, SchemaWrite};
+use alloc::vec::Vec;
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
 pub struct InitCorePayload {
@@ -27,6 +28,10 @@ pub struct RequestPaymentPayload {
     pub amount: u64,
     pub vendor: [u8; 32],
     pub memo_hash: [u8; 32],
+    // Light Protocol / Receipts params
+    pub proof: Vec<u8>,
+    pub address_tree_info: Vec<u8>,
+    pub output_state_tree_index: u8,
 }
 
 #[derive(Debug, SchemaRead, SchemaWrite)]

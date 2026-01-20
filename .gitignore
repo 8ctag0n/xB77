@@ -1,6 +1,5 @@
-circuits/agent_badge/target/
+**/target/
 sdk/src/artifacts/
-sdk/target/
 .localnet/
 contracts/target/
 onchain/target/
@@ -9,6 +8,5 @@ test-ledger/
 private/
 
 # Onchain builds
-onchain/target/
 **/*.so
 **/*.ds_store

@@ -8,6 +8,7 @@ use solana_program::{
 };
 extern crate alloc;
 use alloc::format;
+use alloc::vec::Vec;
 
 use crate::{
     error::CoreError,
@@ -172,13 +173,28 @@ fn process_request_payment(
     payload: RequestPaymentPayload,
 ) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
-    let _config_account = next_account_info(account_info_iter)?;
+    let config_account = next_account_info(account_info_iter)?;
     let credit_line_account = next_account_info(account_info_iter)?;
     let agent_signer = next_account_info(account_info_iter)?;
+    // Explicitly expect the Receipts Program account next
+    let receipts_program_account = next_account_info(account_info_iter)?;
 
     // Verify Agent Signature
     if !agent_signer.is_signer {
         return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    // Load Config (to get receipts program ID)
+    let config_data = config_account.try_borrow_data()?;
+    let config: CoreConfig = wincode::deserialize(&config_data).map_err(|_| ProgramError::InvalidAccountData)?;
+
+    // Verify Receipts Program ID
+    let receipts_program_id = Pubkey::new_from_array(config.receipts_program);
+    if *receipts_program_account.key != receipts_program_id {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+    if !receipts_program_account.executable {
+        return Err(ProgramError::IncorrectProgramId);
     }
 
     // Load Credit Line
@@ -206,6 +222,74 @@ fn process_request_payment(
     msg!("Payment Request Emitted: ID={}, Amount={}, Vendor={:?}", 
         payload.request_id, payload.amount, payload.vendor);
 
+    // --- CPI to Receipts Program ---
+    
+    // Collect remaining accounts (Light Protocol accounts passed by client)
+    let remaining_accounts: Vec<AccountInfo> = account_info_iter.cloned().collect();
+
+    // Prepare CPI Data
+    #[derive(borsh::BorshSerialize)]
+    struct RecordReceiptInstructionData {
+        pub proof: Vec<u8>,
+        pub address_tree_info: Vec<u8>,
+        pub output_state_tree_index: u8,
+        pub vendor: [u8; 32],
+        pub amount: u64,
+        pub memo_hash: [u8; 32],
+    }
+
+    let receipt_data = RecordReceiptInstructionData {
+        proof: payload.proof,
+        address_tree_info: payload.address_tree_info,
+        output_state_tree_index: payload.output_state_tree_index,
+        vendor: payload.vendor,
+        amount: payload.amount,
+        memo_hash: payload.memo_hash,
+    };
+
+    let mut instruction_data = Vec::new();
+    instruction_data.push(0u8); // Discriminator: RecordReceipt = 0
+    borsh::BorshSerialize::serialize(&receipt_data, &mut instruction_data)
+        .map_err(|_| ProgramError::InvalidInstructionData)?;
+
+    // Prepare CPI Accounts
+    // xb77_receipts expects: [Signer, Owner, ...LightAccounts]
+    
+    let mut cpi_accounts = Vec::with_capacity(2 + remaining_accounts.len());
+    
+    // 1. Signer (Agent)
+    cpi_accounts.push(solana_program::instruction::AccountMeta::new_readonly(*agent_signer.key, true));
+    // 2. Owner (Agent) - duplicate, but distinct role in receipts program
+    cpi_accounts.push(solana_program::instruction::AccountMeta::new_readonly(*agent_signer.key, false));
+    
+    // 3. Remaining Light Accounts
+    for acc in &remaining_accounts {
+        if acc.is_writable {
+            cpi_accounts.push(solana_program::instruction::AccountMeta::new(*acc.key, acc.is_signer));
+        } else {
+            cpi_accounts.push(solana_program::instruction::AccountMeta::new_readonly(*acc.key, acc.is_signer));
+        }
+    }
+
+    let instruction = solana_program::instruction::Instruction {
+        program_id: receipts_program_id,
+        accounts: cpi_accounts,
+        data: instruction_data,
+    };
+
+    // AccountInfos for invoke must include the program being invoked
+    let mut invoke_account_infos = Vec::with_capacity(4 + remaining_accounts.len());
+    invoke_account_infos.push(receipts_program_account.clone()); // Executable
+    invoke_account_infos.push(agent_signer.clone()); // Signer
+    invoke_account_infos.push(agent_signer.clone()); // Owner
+    invoke_account_infos.extend(remaining_accounts); // Light Accounts
+    
+    solana_program::program::invoke(
+        &instruction,
+        &invoke_account_infos,
+    )?;
+
+    msg!("Receipt CPI Success");
     Ok(())
 }
 
