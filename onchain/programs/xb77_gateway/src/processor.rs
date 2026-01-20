@@ -229,6 +229,18 @@ fn process_verify_badge(
         return Err(GatewayError::EmptyPublicWitness.into());
     }
 
+    // Strict Verification: Ensure public_witness matches expected constraints
+    // Expected Layout: [Root (32), OrderId (32), Nullifier (32)]
+    if payload.public_witness.len() != 96 {
+         msg!("verify_badge: invalid public witness length expected 96, got {}", payload.public_witness.len());
+         return Err(GatewayError::InvalidInstruction.into());
+    }
+
+    if payload.public_witness[0..32] != config.merkle_root {
+        msg!("verify_badge: public witness root mismatch");
+        return Err(GatewayError::InvalidMerkleRoot.into());
+    }
+
     if config.zk_verifier != ZERO_PUBKEY {
         if zk_verifier.key.to_bytes() != config.zk_verifier {
             return Err(GatewayError::InvalidZkVerifier.into());

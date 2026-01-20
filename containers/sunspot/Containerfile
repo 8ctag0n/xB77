@@ -31,6 +31,8 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 
 # Build Sunspot
 RUN git clone https://github.com/reilabs/sunspot.git /root/sunspot \
+    && cd /root/sunspot \
+    && git checkout 7edafaf6a3b47cdcb8d008e87d477abe82e5ca1d \
     && cd /root/sunspot/go \
     && go build -o sunspot .
 
