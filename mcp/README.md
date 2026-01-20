@@ -17,6 +17,8 @@ bun run src/index.ts
 - `XB77_DEBUG`: `true` to enable ShadowWire debug.
 - `XB77_TOKEN_DEFAULT`: Default token for balance/state (default: `USD1`).
 - `XB77_OFFLINE`: `true` to avoid network calls and simulate payments.
+- `XB77_PAYMENT_MODE`: `mock` (default) or `live` to enable live ShadowWire calls.
+- `XB77_PAYMENT_PROVIDER`: `shadowwire` (default) or `privacy_cash`.
 - `XB77_BALANCES_JSON`: JSON object of token balances for offline mode (e.g. `{"USD1": 2500}`).
 
 If both keypair vars are set, `XB77_KEYPAIR_JSON` takes precedence.
@@ -68,7 +70,7 @@ Replace the `command`, `args`, or path as needed for your environment.
 {
   "name": "xb77-agent-mcp",
   "command": "bun",
-  "args": ["run", "/home/deploy/2026_working/zyb_source/xB77/worktrees/branch-sdk-mcp/mcp/src/index.ts"],
+  "args": ["run", "/path/to/repo/mcp/src/index.ts"],
   "env": {
     "XB77_KEYPAIR_PATH": "/path/to/solana-keypair.json",
     "XB77_DEBUG": "true",
@@ -83,7 +85,7 @@ Replace the `command`, `args`, or path as needed for your environment.
 {
   "name": "xb77-agent-mcp",
   "command": "bun",
-  "args": ["run", "/home/deploy/2026_working/zyb_source/xB77/worktrees/branch-sdk-mcp/mcp/src/index.ts"],
+  "args": ["run", "/path/to/repo/mcp/src/index.ts"],
   "env": {
     "XB77_KEYPAIR_PATH": "/path/to/solana-keypair.json",
     "XB77_TOKEN_DEFAULT": "USD1"
@@ -97,7 +99,7 @@ Replace the `command`, `args`, or path as needed for your environment.
 {
   "name": "xb77-agent-mcp",
   "command": "bun",
-  "args": ["run", "/home/deploy/2026_working/zyb_source/xB77/worktrees/branch-sdk-mcp/mcp/src/index.ts"],
+  "args": ["run", "/path/to/repo/mcp/src/index.ts"],
   "env": {
     "XB77_KEYPAIR_PATH": "/path/to/solana-keypair.json"
   }
@@ -110,7 +112,7 @@ Replace the `command`, `args`, or path as needed for your environment.
 {
   "name": "xb77-agent-mcp",
   "command": "bun",
-  "args": ["run", "/home/deploy/2026_working/zyb_source/xB77/worktrees/branch-sdk-mcp/mcp/src/index.ts"],
+  "args": ["run", "/path/to/repo/mcp/src/index.ts"],
   "env": {
     "XB77_KEYPAIR_PATH": "/path/to/solana-keypair.json"
   }
