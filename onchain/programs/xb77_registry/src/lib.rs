@@ -4,6 +4,7 @@
 use solana_program::entrypoint;
 
 extern crate alloc;
+use alloc::format;
 
 pub mod error;
 pub mod instruction;

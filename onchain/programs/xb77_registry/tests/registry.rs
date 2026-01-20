@@ -5,7 +5,7 @@ use std::{
     sync::Once,
 };
 
-use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
+use mollusk_svm::{program::keyed_account_for_system_program, result::ProgramResult, Mollusk};
 use solana_account::{Account, ReadableAccount};
 use solana_instruction::{AccountMeta, Instruction};
 use solana_program::pubkey::Pubkey as ProgramPubkey;
@@ -213,7 +213,7 @@ fn add_catalog_creates_catalog_account() {
     let program_id = Pubkey::new_unique();
     let payer = Pubkey::new_unique();
     let merchant_id = b"merchant-beta";
-    let catalog_id = 7;
+    let catalog_id: u64 = 7;
     let category = 3;
     let catalog_url = b"https://merchant.test/catalog.json";
 
@@ -266,7 +266,7 @@ fn update_catalog_changes_fields() {
     let program_id = Pubkey::new_unique();
     let payer = Pubkey::new_unique();
     let merchant_id = b"merchant-gamma";
-    let catalog_id = 42;
+    let catalog_id: u64 = 42;
 
     let mollusk = setup_mollusk(&program_id);
     let mut store: HashMap<Pubkey, Account> = HashMap::new();
@@ -326,7 +326,7 @@ fn deactivate_catalog_marks_inactive() {
     let program_id = Pubkey::new_unique();
     let payer = Pubkey::new_unique();
     let merchant_id = b"merchant-delta";
-    let catalog_id = 99;
+    let catalog_id: u64 = 99;
 
     let mollusk = setup_mollusk(&program_id);
     let mut store: HashMap<Pubkey, Account> = HashMap::new();
@@ -380,7 +380,7 @@ fn add_catalog_rejects_wrong_owner() {
     let payer = Pubkey::new_unique();
     let attacker = Pubkey::new_unique();
     let merchant_id = b"merchant-epsilon";
-    let catalog_id = 5;
+    let catalog_id: u64 = 5;
 
     let mollusk = setup_mollusk(&program_id);
     let mut store: HashMap<Pubkey, Account> = HashMap::new();
@@ -415,7 +415,7 @@ fn add_catalog_rejects_wrong_owner() {
     let result = context.process_instruction(&add_ix);
     assert_eq!(
         result.program_result,
-        Err(ProgramError::Custom(RegistryError::InvalidOwner as u32))
+        ProgramResult::Failure(ProgramError::Custom(RegistryError::InvalidOwner as u32))
     );
 }
 
@@ -439,7 +439,9 @@ fn init_merchant_rejects_empty_id() {
     let result = mollusk.process_instruction(&instruction, &accounts);
     assert_eq!(
         result.program_result,
-        Err(ProgramError::Custom(RegistryError::InvalidMerchantId as u32))
+        ProgramResult::Failure(ProgramError::Custom(
+            RegistryError::InvalidMerchantId as u32
+        ))
     );
 }
 
@@ -448,7 +450,7 @@ fn add_catalog_rejects_long_url() {
     let program_id = Pubkey::new_unique();
     let payer = Pubkey::new_unique();
     let merchant_id = b"merchant-zeta";
-    let catalog_id = 1;
+    let catalog_id: u64 = 1;
 
     let mollusk = setup_mollusk(&program_id);
     let mut store: HashMap<Pubkey, Account> = HashMap::new();
@@ -483,6 +485,8 @@ fn add_catalog_rejects_long_url() {
     let result = context.process_instruction(&add_ix);
     assert_eq!(
         result.program_result,
-        Err(ProgramError::Custom(RegistryError::CatalogUrlTooLong as u32))
+        ProgramResult::Failure(ProgramError::Custom(
+            RegistryError::CatalogUrlTooLong as u32
+        ))
     );
 }
