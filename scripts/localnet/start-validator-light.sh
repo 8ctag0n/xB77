@@ -16,7 +16,31 @@ SYSTEM_SO="${BIN_DIR}/light_system_program_pinocchio.so"
 TOKEN_SO="${BIN_DIR}/light_compressed_token.so"
 COMPRESSION_SO="${BIN_DIR}/account_compression.so"
 
-echo "Starting Solana Test Validator with Light Protocol programs..."
+echo "--- Setup Check ---"
+echo "Root Dir: ${ROOT_DIR}"
+echo "Bin Dir:  ${BIN_DIR}"
+
+# Validate Binaries
+missing=0
+for bin in "${SYSTEM_SO}" "${TOKEN_SO}" "${COMPRESSION_SO}"; do
+    if [ ! -f "$bin" ]; then
+        echo "ERROR: Missing binary: $bin"
+        missing=1
+    else
+        echo "OK: Found $(basename "$bin")"
+    fi
+done
+
+if [ $missing -eq 1 ]; then
+    echo "--------------------------------------------------------"
+    echo "FATAL: One or more Light Protocol binaries are missing."
+    echo "Please ensure you have extracted the artifacts to:"
+    echo "  ${BIN_DIR}"
+    echo "--------------------------------------------------------"
+    exit 1
+fi
+
+echo "--- Starting Validator ---"
 echo "System Program: ${SYSTEM_PROGRAM_ID}"
 echo "Token Program:  ${TOKEN_PROGRAM_ID}"
 echo "Compression:    ${COMPRESSION_PROGRAM_ID}"
@@ -24,12 +48,12 @@ echo "Compression:    ${COMPRESSION_PROGRAM_ID}"
 # Ensure ledger directory exists
 mkdir -p "${ROOT_DIR}/.localnet"
 
+# Run without --quiet to show progress
 solana-test-validator \
     --ledger "${LEDGER_DIR}" \
     --bpf-program "${SYSTEM_PROGRAM_ID}" "${SYSTEM_SO}" \
     --bpf-program "${TOKEN_PROGRAM_ID}" "${TOKEN_SO}" \
     --bpf-program "${COMPRESSION_PROGRAM_ID}" "${COMPRESSION_SO}" \
     --rpc-port 8899 \
-    --dynamic-port-range 8000-8020 \
-    --reset \
-    --quiet
+    --dynamic-port-range 8000-8025 \
+    --reset
