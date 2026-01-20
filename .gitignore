@@ -5,3 +5,8 @@ sdk/target/
 contracts/target/
 test-ledger/
 private/
+
+# Onchain builds
+onchain/target/
+**/*.so
+**/*.ds_store

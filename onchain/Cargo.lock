@@ -7280,6 +7280,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "xb77_core"
+version = "0.1.0"
+dependencies = [
+ "mollusk-svm",
+ "solana-account 3.3.0",
+ "solana-instruction 3.1.0",
+ "solana-program",
+ "solana-program-error 3.0.0",
+ "solana-pubkey 4.0.0",
+ "spl-token 4.0.2",
+ "wincode",
+]
+
+[[package]]
 name = "xb77_gateway"
 version = "0.1.0"
 dependencies = [
@@ -7292,6 +7306,7 @@ dependencies = [
  "solana-pubkey 4.0.0",
  "spl-token 4.0.2",
  "wincode",
+ "xb77_core",
 ]
 
 [[package]]

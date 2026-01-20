@@ -19,16 +19,20 @@
     *   Run `./scripts/localnet/start-validator-light.sh`.
     *   Verify RPC is up and programs are loaded.
 
-## Phase 1: Core Program Scaffolding
-*Goal: Create the `xb77_core` program structure defined in the branch plan.*
+## Phase 1: Core Program Scaffolding (The "Public Core" Psyop)
+*Goal: Create the `xb77_core` program structure with PUBLIC state first to guarantee E2E delivery.*
+
+**Strategy (The Psyop):**
+Instead of fighting with encrypted state (Arcium) immediately, we will build the core logic using standard Solana accounts (`u64` balances). This allows the Frontend/SDK to be built against real RPC data. Once the flow is solid, we swap `u64` for `Encrypted<u64>` without changing the instruction flow.
 
 1.  **Workspace Setup**:
     *   Initialize `onchain/programs/xb77_core`.
     *   Update root `Cargo.toml` to include the new member.
-2.  **State Definition (Arcium Style)**:
+    *   **Dependencies**: Match `xb77_gateway` (solana-program 2.1.0, wincode 0.2.5).
+2.  **State Definition (Public v0)**:
     *   Define `CreditLine` struct:
         *   `owner`: Pubkey (Agent ID)
-        *   `balance`: u64 (Encrypted placeholder or plain u64 for v0)
+        *   `balance`: u64 (Public for now!)
         *   `limit`: u64
         *   `last_update`: i64
     *   Define `CoreConfig` (Global registry).
