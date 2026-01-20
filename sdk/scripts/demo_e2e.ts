@@ -25,7 +25,6 @@ function getProgramId(name: string): PublicKey {
 
 // --- Borsh Layouts (Automatic Serialization) ---
 
-// Custom Layout for PublicKey (32 bytes)
 const publicKeyLayout = (property: string) => {
     return {
         decode: (buffer: Buffer, offset = 0) => {
@@ -41,11 +40,8 @@ const publicKeyLayout = (property: string) => {
     };
 };
 
-// Instruction Schemas
-// Note: We use 'u32' for the Enum discriminator (Wincode default for enums is u32)
-
 const InitCoreLayout = struct([
-    u32('instruction'), // 0
+    u32('instruction'),
     publicKeyLayout('admin'),
     publicKeyLayout('gateway_program'),
     publicKeyLayout('receipts_program'),
@@ -53,46 +49,56 @@ const InitCoreLayout = struct([
 ]);
 
 const RegisterAgentLayout = struct([
-    u32('instruction'), // 1
+    u32('instruction'),
     publicKeyLayout('agent_id'),
     u64('initial_limit'),
 ]);
 
 const VerifyBadgeLayout = struct([
-    u32('instruction'), // 2
+    u32('instruction'),
     array(u8(), 32, 'root'),
     u32('merkle_index'),
     vec(u8(), 'proof'),
     vec(u8(), 'public_witness'),
 ]);
 
-// --- Main Script ---
+const RequestPaymentLayout = struct([
+    u32('instruction'),
+    u64('request_id'),
+    u64('amount'),
+    array(u8(), 32, 'vendor'),
+    array(u8(), 32, 'memo_hash'),
+    vec(u8(), 'proof'),
+    vec(u8(), 'address_tree_info'),
+    u8('output_state_tree_index'),
+]);
+
 async function main() {
     const connection = new Connection(RPC_URL, 'confirmed');
     const payer = loadKeypair(PAYER_KEYPAIR_PATH);
     const coreProgramId = getProgramId('xb77_core');
     const gatewayProgramId = getProgramId('xb77_gateway');
+    const receiptsProgramId = getProgramId('xb77_receipts');
 
     console.log('--- Config ---');
     console.log('Payer:', payer.publicKey.toBase58());
     console.log('Core ID:', coreProgramId.toBase58());
     console.log('Gateway ID:', gatewayProgramId.toBase58());
+    console.log('Receipts ID:', receiptsProgramId.toBase58());
 
-    // --- 1. Init Core ---
-    console.log('\n--- 1. Init Core ---');
     const [coreConfigPda] = PublicKey.findProgramAddressSync([Buffer.from("config")], coreProgramId);
     
+    // 1. Init Core
+    console.log('\n--- 1. Init Core ---');
     const coreConfigInfo = await connection.getAccountInfo(coreConfigPda);
     if (!coreConfigInfo) {
-        console.log('Initializing Core...');
-        
-        const buffer = Buffer.alloc(1000); // Alloc enough space
+        const buffer = Buffer.alloc(1000);
         const len = InitCoreLayout.encode({
-            instruction: 0, // InitCore
+            instruction: 0,
             admin: payer.publicKey,
             gateway_program: gatewayProgramId,
-            receipts_program: PublicKey.default, // Placeholder
-            treasury_mint: PublicKey.default,    // Placeholder
+            receipts_program: receiptsProgramId,
+            treasury_mint: PublicKey.default,
         }, buffer);
 
         const initIx = new TransactionInstruction({
@@ -103,35 +109,27 @@ async function main() {
             ],
             data: buffer.slice(0, len),
         });
-        
-        try {
-            const tx = new Transaction().add(initIx);
-            const sig = await sendAndConfirmTransaction(connection, tx, [payer]);
-            console.log('Core Initialized:', sig);
-        } catch (e) {
-            console.error("Init Core Failed:", e);
-        }
+        const tx = new Transaction().add(initIx);
+        await sendAndConfirmTransaction(connection, tx, [payer]);
+        console.log('Core Initialized');
     } else {
-        console.log('Core already initialized.');
+        console.log('Core already initialized');
     }
 
-    // --- 2. Register Agent ---
+    // 2. Register Agent
     console.log('\n--- 2. Register Agent ---');
     const agent = payer; 
     const [creditLinePda] = PublicKey.findProgramAddressSync(
         [Buffer.from("credit_line"), agent.publicKey.toBuffer()],
         coreProgramId
     );
-    
     const creditInfo = await connection.getAccountInfo(creditLinePda);
     if (!creditInfo) {
-        console.log('Registering Agent...');
-        
         const buffer = Buffer.alloc(1000);
         const len = RegisterAgentLayout.encode({
-            instruction: 1, // RegisterAgent
+            instruction: 1,
             agent_id: agent.publicKey,
-            initial_limit: 10000n, // BN or BigInt depending on Borsh version, usually BN for @coral-xyz/borsh < 1.0
+            initial_limit: 10000n,
         }, buffer);
 
         const regIx = new TransactionInstruction({
@@ -143,74 +141,73 @@ async function main() {
             ],
             data: buffer.slice(0, len),
         });
-
-        try {
-            const tx = new Transaction().add(regIx);
-            const sig = await sendAndConfirmTransaction(connection, tx, [payer]);
-            console.log('Agent Registered:', sig);
-        } catch (e) {
-            console.error("Register Agent Failed:", e);
-        }
+        await sendAndConfirmTransaction(connection, tx, [payer]);
+        console.log('Agent Registered');
     } else {
-        console.log('Agent already registered.');
+        console.log('Agent already registered');
     }
 
-    // --- 3. Verify Badge (Gateway -> Core CPI) ---
+    // 3. Verify Badge (Credit Agent)
     console.log('\n--- 3. Verify Badge (CPI) ---');
     const [gatewayStatePda] = PublicKey.findProgramAddressSync([Buffer.from("gateway_state")], gatewayProgramId);
-
-    // Ensure Gateway Init (Simplified check)
-    // ... skipping explicit init check for demo speed, assume deployed means ready or we'd init it.
-
-    const buffer = Buffer.alloc(2000);
-    const len = VerifyBadgeLayout.encode({
-        instruction: 2, // VerifyBadge
-        root: Array(32).fill(0), // Mock Root
+    const bufferVerify = Buffer.alloc(2000);
+    const lenVerify = VerifyBadgeLayout.encode({
+        instruction: 2,
+        root: Array(32).fill(0),
         merkle_index: 0,
-        proof: Buffer.from([1, 2, 3]), // Mock Proof
-        public_witness: Buffer.from([4, 5, 6]), // Mock Witness
-    }, buffer);
+        proof: Buffer.from([1, 2, 3]),
+        public_witness: Buffer.from([4, 5, 6]),
+    }, bufferVerify);
 
     const verifyIx = new TransactionInstruction({
         programId: gatewayProgramId,
         keys: [
             { pubkey: payer.publicKey, isSigner: true, isWritable: true },
             { pubkey: gatewayStatePda, isSigner: false, isWritable: true },
-            { pubkey: PublicKey.default, isSigner: false, isWritable: false }, // ZK Verifier
-            // --- CPI Accounts ---
-            { pubkey: coreProgramId, isSigner: false, isWritable: false }, // Executable
+            { pubkey: PublicKey.default, isSigner: false, isWritable: false },
+            { pubkey: coreProgramId, isSigner: false, isWritable: false },
             { pubkey: coreConfigPda, isSigner: false, isWritable: false },
             { pubkey: creditLinePda, isSigner: false, isWritable: true },
         ],
-        data: buffer.slice(0, len),
+        data: bufferVerify.slice(0, lenVerify),
     });
+    await sendAndConfirmTransaction(connection, new Transaction().add(verifyIx), [payer]);
+    console.log('Badge Verified (Credit Updated)');
 
+    // 5. Request Payment (Deduct Credit + Record Receipt)
+    console.log('\n--- 5. Request Payment (CPI) ---');
+    const mockProof = Buffer.alloc(128);
+    const mockAddressTreeInfo = Buffer.alloc(34);
+    const bufferPay = Buffer.alloc(2000);
+    const lenPay = RequestPaymentLayout.encode({
+        instruction: 3,
+        request_id: 123n,
+        amount: 500n,
+        vendor: Array(32).fill(7),
+        memo_hash: Array(32).fill(8),
+        proof: mockProof,
+        address_tree_info: mockAddressTreeInfo,
+        output_state_tree_index: 0,
+    }, bufferPay);
+
+    const requestPaymentIx = new TransactionInstruction({
+        programId: coreProgramId,
+        keys: [
+            { pubkey: coreConfigPda, isSigner: false, isWritable: false },
+            { pubkey: creditLinePda, isSigner: false, isWritable: true },
+            { pubkey: agent.publicKey, isSigner: true, isWritable: false },
+            { pubkey: receiptsProgramId, isSigner: false, isWritable: false },
+            { pubkey: PublicKey.default, isSigner: false, isWritable: false }, // Address Tree (Mock)
+            { pubkey: PublicKey.default, isSigner: false, isWritable: false }, // State Tree (Mock)
+        ],
+        data: bufferPay.slice(0, lenPay),
+    });
+    
     try {
-        const tx = new Transaction().add(verifyIx);
-        const sig = await sendAndConfirmTransaction(connection, tx, [payer]);
-        console.log('VerifyBadge (CPI) Success:', sig);
+        await sendAndConfirmTransaction(connection, new Transaction().add(requestPaymentIx), [payer]);
+        console.log('RequestPayment CPI Success');
     } catch (e) {
-        console.error('VerifyBadge Failed (Check logs):', e);
-    }
-
-    // --- 4. Check Credit Balance ---
-    const updatedCreditInfo = await connection.getAccountInfo(creditLinePda);
-    if (updatedCreditInfo) {
-        // Deserialize State
-        const CreditLineState = struct([
-            publicKeyLayout('owner'),
-            u64('balance'),
-            u64('credit_limit'),
-            // ... other fields
-        ]);
-        try {
-            const state = CreditLineState.decode(updatedCreditInfo.data);
-            console.log(`Updated Agent Balance: ${state.balance.toString()}`);
-        } catch (e) {
-            console.log("Could not decode credit state (might be partial or different layout):", e);
-            // Fallback manual read if layout mismatch
-            console.log("Raw Balance (offset 32):", updatedCreditInfo.data.readBigUInt64LE(32));
-        }
+        console.log('RequestPayment Failed (Expected if mock accounts are invalid for Light):', e);
     }
 }
 

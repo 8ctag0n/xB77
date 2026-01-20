@@ -1,7 +1,7 @@
-import { PublicKey } from '@solana/web3.js';
-import { BalanceInfo, BalanceProvider } from './balance';
-import { PaymentReceipt, ReceiptStore } from './receipts';
-import { SupportedToken } from './wallet';
+import type { PublicKey } from '@solana/web3.js';
+import type { BalanceInfo, BalanceProvider } from './balance';
+import type { PaymentReceipt, ReceiptStore } from './receipts';
+import type { SupportedToken } from './wallet';
 
 export class InMemoryReceiptStore implements ReceiptStore {
   private receipts: PaymentReceipt[] = [];
@@ -12,6 +12,15 @@ export class InMemoryReceiptStore implements ReceiptStore {
 
   getAll(): PaymentReceipt[] {
     return [...this.receipts];
+  }
+
+  async listReceipts(limit?: number): Promise<PaymentReceipt[]> {
+    const receipts = this.getAll().reverse();
+    return typeof limit === 'number' ? receipts.slice(0, limit) : receipts;
+  }
+
+  async getLatestReceipt(): Promise<PaymentReceipt | null> {
+    return this.receipts.length ? this.receipts[this.receipts.length - 1] : null;
   }
 }
 
@@ -44,6 +53,14 @@ export class CompressedReceiptStoreStub implements ReceiptStore {
   constructor(private client: unknown) {}
 
   async recordPayment(_: PaymentReceipt): Promise<void> {
+    throw new Error('CompressedReceiptStoreStub not implemented. Wire receipts client here.');
+  }
+
+  async listReceipts(_: number | undefined = undefined): Promise<PaymentReceipt[]> {
+    throw new Error('CompressedReceiptStoreStub not implemented. Wire receipts client here.');
+  }
+
+  async getLatestReceipt(): Promise<PaymentReceipt | null> {
     throw new Error('CompressedReceiptStoreStub not implemented. Wire receipts client here.');
   }
 }
