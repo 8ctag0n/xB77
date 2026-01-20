@@ -7,14 +7,14 @@ Enable on-chain merchant discovery via a lightweight registry and catalog accoun
 - New program `xb77_registry` (preferred) or minimal module inside `xb77_gateway`.
 - Merchant account + Catalog account model (one merchant, many catalogs).
 - Instructions to create/update merchants and catalogs.
-- Helius RPC query plan for the hub to read the registry.
-- SDK helper to fetch merchants/catalogs and apply category filters.
+- SDK helper stubs or interfaces for registry reads (no RPC wiring in this branch).
 - UI plan for the hub to list merchants and show catalogs.
 
 ## Out of Scope
 - Payment execution logic.
 - Checkout and receipt flows.
 - Full merchant onboarding UX.
+- Helius RPC integration (handled in Infra/Observability branch).
 
 ## Data Model
 **Merchant Account**
@@ -42,11 +42,9 @@ Enable on-chain merchant discovery via a lightweight registry and catalog accoun
 3) `update_catalog(merchant_id, catalog_id, category?, catalog_url?, metadata_hash?)`
 4) `deactivate_catalog(merchant_id, catalog_id)` (optional)
 
-## Hub Integration (Helius)
-- List all merchants via Helius account query on `merchant` PDA prefix.
-- For each merchant, fetch catalogs via `catalog` PDA prefix.
-- Filter catalogs by `category` (u8) in the hub UI.
-- Cache results with TTL for fast UI refresh.
+## Hub Integration (Deferred)
+- Hub should consume registry data via SDK helper interfaces.
+- Helius RPC wiring and caching live in Infra/Observability branch.
 
 ## SDK Integration
 - Add `registry` helpers: `listMerchants`, `listCatalogs`, `listCatalogsByCategory`.
