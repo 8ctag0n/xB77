@@ -1,12 +1,12 @@
 # Branch Plan: Payments (ShadowWire + Privacy Cash)
 
 ## Objective
-Integrate private payment rails for the demo: ShadowWire private transfers and Privacy Cash SDK flows, both callable from the unified SDK.
+Integrate private payment rails for the demo: ShadowWire private transfers and Privacy Cash SDK flows, both callable from the unified SDK surface.
 
 ## Scope
 - ShadowWire transfer integration (bulletproofs, private amount).
 - Privacy Cash SDK integration (private lending/whale wallet flow).
-- USD1 usage where applicable.
+- USD1 usage where supported by the SDKs.
 - Payment sequence contract: gateway -> payment -> receipt (SDK-driven).
 
 ## Out of Scope
@@ -15,8 +15,8 @@ Integrate private payment rails for the demo: ShadowWire private transfers and P
 - Light receipts integration (handled in Infra branch).
 
 ## Milestones
-1) ShadowWire transfer works in devnet or mocked.
-2) Privacy Cash flow works in devnet or mocked.
+1) ShadowWire transfer works in devnet or in a mock harness.
+2) Privacy Cash flow works in devnet or in a mock harness.
 3) Common interface contract documented for SDK consumption (gateway -> payment -> receipt).
 
 ## Interface Mapping (ShadowWire)
@@ -32,7 +32,7 @@ Integrate private payment rails for the demo: ShadowWire private transfers and P
 
 ## Notes (ShadowWire)
 - Transfer `type` choice:
-  - `internal` when recipient is ShadowWire user (amount hidden).
+  - `internal` when recipient is a ShadowWire user (amount hidden).
   - `external` for non-users (amount visible, sender anonymous).
 - Proof generation default: backend proofs; client-side proofs optional.
 
@@ -49,7 +49,7 @@ Integrate private payment rails for the demo: ShadowWire private transfers and P
 ## Notes (Privacy Cash)
 - Flow is 2-step: deposit -> withdraw to recipient.
 - For SPL tokens, use `depositSPL` / `withdrawSPL` with mint address.
-- SDK uses relayer backend and returns `{ tx: signature }` for deposits.
+- SDK uses a relayer backend and returns `{ tx: signature }` for deposits.
 
 ## Deliverables
 - Payment adapter modules with example scripts.

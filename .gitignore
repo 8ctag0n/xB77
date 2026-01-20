@@ -3,6 +3,8 @@ sdk/src/artifacts/
 sdk/target/
 .localnet/
 contracts/target/
+onchain/target/
+target/
 test-ledger/
 private/
 
