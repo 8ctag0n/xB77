@@ -1,37 +1,49 @@
-FROM ubuntu:24.04
+FROM --platform=linux/amd64 ubuntu:24.04
 
-USER root
 ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=UTC
+
+# Install base dependencies
 RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    curl \
-    jq \
-    pkg-config \
     build-essential \
+    pkg-config \
     libudev-dev \
     llvm \
     libclang-dev \
     protobuf-compiler \
     libssl-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd --create-home --shell /bin/bash node
-RUN mkdir -p /work
+# Clean any existing Rust/Solana installs and install Rust fresh
+RUN rm -rf /root/.rustup /root/.cargo /root/.local/share/solana \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    && . "$HOME/.cargo/env" \
+    && rustup default stable \
+    && rustc --version
 
-ENV HOME="/home/node"
-ENV RUSTUP_HOME="/home/node/.rustup"
-ENV CARGO_HOME="/home/node/.cargo"
-ENV PATH="/home/node/.local/share/solana/install/active_release/bin:/home/node/.cargo/bin:/home/node/.local/bin:$PATH"
+# Install Solana and verify
+RUN sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)" \
+    && /root/.local/share/solana/install/active_release/bin/solana --version
 
-RUN chown -R node:node /home/node /work
-USER node
-WORKDIR /work
+# Set persistent PATH for Solana and Rust
+ENV PATH="/root/.cargo/bin:/root/.local/share/solana/install/active_release/bin:${PATH}"
 
-ENV LIGHT_PROTOCOL_PROGRAMS_DIR=/work/cli/bin
+# Install nvm and Node.js
+ENV NVM_DIR="/root/.nvm"
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash \
+    && . "$NVM_DIR/nvm.sh" \
+    && echo "node" > .nvmrc \
+    && nvm install 22 \
+    && nvm use 22 \
+    && node --version
 
-# Install Solana CLI + tooling as node so HOME/euid match.
-RUN curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+# Install zk-compression-cli (source nvm again for this RUN)
+RUN . "$NVM_DIR/nvm.sh" \
+    && npm install -g @lightprotocol/zk-compression-cli@alpha \
+    && light --help  # Verify CLI works
 
-RUN rustc --version && solana --version && anchor --version && surfpool --version && node --version && yarn --version
-RUN npm i -g @lightprotocol/zk-compression-cli@alpha
+# Set a working directory
+WORKDIR /app
+
+# Example entrypoint
+CMD ["/bin/bash"]

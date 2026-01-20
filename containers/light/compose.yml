@@ -6,13 +6,12 @@ services:
     image: xb77-light-devcontainer:local
     container_name: light-devcontainer
     network_mode: "host"
-    user: "node"
-    working_dir: /work
+    working_dir: /app
     environment:
-      - LIGHT_PROTOCOL_PROGRAMS_DIR=/work/cli/bin
+      - LIGHT_PROTOCOL_PROGRAMS_DIR=/app/cli/bin
     volumes:
-      - ${LIGHT_REPO}:/work
-      - lightprotocol-solana-config:/home/node/.config/solana
+      - ${LIGHT_REPO}:/app
+      - lightprotocol-solana-config:/root/.config/solana
     command: ["tail", "-f", "/dev/null"]
 
 volumes:

@@ -78,6 +78,7 @@
 ## 🧪 LOCALNET TOOLING
 Common helpers:
 - `make localnet-start` (run Solana local validator)
+- `make localnet-start-light` (run solana-test-validator with Light Protocol programs)
 - `make localnet-verifier` (build + deploy Sunspot verifier to localnet)
 - `make localnet-gateway` (build + deploy gateway program)
 - `make proof-badge` (generate proof + instruction data)
