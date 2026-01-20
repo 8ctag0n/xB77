@@ -46,6 +46,7 @@ Ship a unified SDK and a local MCP wrapper so each agent can operate via a stabl
 ## Risks
 - MCP tool surface too broad or unstable.
 - Version drift between SDK adapters.
+- Integration note: other branches implementing `ReceiptStore` must add `listReceipts` + `getLatestReceipt`.
 
 ## Fallback
 - Expose minimal tool set (credit + transfer) and defer advanced flows.
