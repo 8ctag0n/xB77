@@ -22,6 +22,12 @@
           <span id="hub-port">:7777</span>
         </div>
       </header>
+      <div class="token-bar">
+        <label>
+          Hub Token (optional)
+          <input id="hub-token" placeholder="Set if HUB_TOKEN is enabled" />
+        </label>
+      </div>
 
       <main class="grid">
         <section class="panel" id="agents-panel">
@@ -55,6 +61,13 @@
               <input name="mcp_url" placeholder="http://localhost:7001/mcp" required />
             </label>
             <label>
+              Transport
+              <select name="transport">
+                <option value="http">http</option>
+                <option value="stdio">stdio</option>
+              </select>
+            </label>
+            <label>
               Capabilities (comma)
               <input name="capabilities" placeholder="pay, balance, status" />
             </label>
@@ -65,6 +78,36 @@
             <button type="submit">Register Agent</button>
           </form>
           <p class="hint">Tip: agents can auto-register via POST /register.</p>
+        </section>
+
+        <section class="panel" id="spawn-panel">
+          <div class="panel-header">
+            <h2>Launch CLI Agent</h2>
+          </div>
+          <form id="spawn-form" class="form">
+            <label>
+              Agent ID
+              <input name="agent_id" placeholder="agent-alpha" required />
+            </label>
+            <label>
+              Command
+              <input name="command" placeholder="bun" required />
+            </label>
+            <label>
+              Args (space separated)
+              <input name="args" placeholder="run mcp/src/index.ts" />
+            </label>
+            <label>
+              Working Dir (optional)
+              <input name="cwd" placeholder="/path/to/repo" />
+            </label>
+            <label>
+              Env (JSON)
+              <textarea name="env" rows="4">{}</textarea>
+            </label>
+            <button type="submit">Spawn Process</button>
+          </form>
+          <p class="hint">Requires HUB_ALLOW_SPAWN=true on the hub server.</p>
         </section>
 
         <section class="panel" id="tool-panel">
@@ -83,6 +126,14 @@
             <button type="submit">Send Tool Call</button>
           </form>
           <pre id="tool-response" class="response muted">No response yet.</pre>
+        </section>
+
+        <section class="panel" id="process-panel">
+          <div class="panel-header">
+            <h2>Processes</h2>
+            <button id="refresh-processes">Refresh</button>
+          </div>
+          <div id="process-list" class="process-list muted">No processes yet.</div>
         </section>
       </main>
     </div>

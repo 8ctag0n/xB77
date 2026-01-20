@@ -1,3 +1,4 @@
+use alloc::format;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
@@ -13,12 +14,13 @@ use solana_program::{
 };
 use alloc::vec;
 use alloc::vec::Vec;
+use alloc::format;
 
 use crate::error::GatewayError;
 use crate::instruction::{
-    AuditRevealPayload, ConfidentialTransferPayload, GatewayInstruction, InitGatewayPayload,
-    ProofPayload, ReceiptPayload, ResolvePrivateOrderPayload, SubmitPrivateOrderPayload,
-    UpdateGatewayPayload,
+    AuditRevealPayload, ConfidentialTransferPayload, CoreInstruction, GatewayInstruction,
+    InitGatewayPayload, ProofPayload, ReceiptPayload, ResolvePrivateOrderPayload,
+    SubmitPrivateOrderPayload, UpdateGatewayPayload, VerifyAndCreditPayload,
 };
 use crate::state::{GatewayConfig, GATEWAY_STATE_SEED, NULLIFIER_SEED};
 
@@ -250,6 +252,57 @@ fn process_verify_badge(
     msg!("verify_badge: proof bytes={}", payload.proof.len());
     msg!("verify_badge: merkle index={}", payload.merkle_index);
     msg!("verify_badge: merkle root matches config");
+
+    // --- CPI to Core Program (Optional) ---
+    // If the caller provided the Core Program account + dependencies, we invoke VerifyAndCredit.
+    if let Ok(core_program_info) = next_account_info(&mut accounts_iter) {
+        msg!("verify_badge: attempting CPI to Core");
+        
+        // We expect: [Core Program, Core Config, Credit Line]
+        let core_config_info = next_account_info(&mut accounts_iter)
+            .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+        let credit_line_info = next_account_info(&mut accounts_iter)
+            .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+
+        // Construct CPI Payload
+        let cpi_payload = VerifyAndCreditPayload {
+            agent_id: payer.key.to_bytes(),
+            proof_ref: payload.root,
+            credit_amount: 100, // Fixed credit per verification for Phase 1
+        };
+
+        let cpi_instruction = CoreInstruction::VerifyAndCredit(cpi_payload);
+        let cpi_data = wincode::serialize(&cpi_instruction)
+            .map_err(|_| ProgramError::from(GatewayError::InvalidInstruction))?;
+
+        let instruction = Instruction {
+            program_id: *core_program_info.key,
+            accounts: vec![
+                solana_program::instruction::AccountMeta::new_readonly(*core_config_info.key, false),
+                solana_program::instruction::AccountMeta::new(*credit_line_info.key, false),
+                solana_program::instruction::AccountMeta::new_readonly(*gateway_state.key, true), // Gateway signs!
+            ],
+            data: cpi_data,
+        };
+
+        // Gateway signs with its PDA seeds
+        let seeds = &[GATEWAY_STATE_SEED, &[_bump]];
+        let signer_seeds = &[&seeds[..]];
+
+        invoke_signed(
+            &instruction,
+            &[
+                core_program_info.clone(),
+                core_config_info.clone(),
+                credit_line_info.clone(),
+                gateway_state.clone(), // Signer
+            ],
+            signer_seeds,
+        )?;
+
+        msg!("verify_badge: CPI success");
+    }
+
     Ok(())
 }
 
