@@ -1,12 +1,13 @@
 # Branch Plan: SDK Unified + MCP Server
 
 ## Objective
-Ship a unified SDK and MCP server so agents can operate via a stable API that abstracts proof, credit state, and payments.
+Ship a unified SDK and a local MCP wrapper so each agent can operate via a stable API that abstracts proof, credit state, and payments.
 
 ## Scope
 - SDK package with modules: identity, credit_state, shadowwire, privacycash, receipts.
-- MCP server exposing tools like: agent.credit, agent.transfer_private, agent.pay, agent.status.
-- Thin orchestration over other branches (no heavy business logic here).
+- Local MCP wrapper exposing tools like: agent.credit, agent.transfer_private, agent.pay, agent.status, agent.receipts.list, agent.receipts.latest, agent.state.get.
+- MCP is tied to the agent runtime (CLI/local/devbox); not a shared multi-tenant backend.
+- Thin orchestration over other branches (no heavy business logic here); MCP just surfaces SDK/agent actions.
 - Orchestrate sequence: gateway -> payment -> receipt.
 - ShadowWire wallet signature requirement handled by SDK wrapper.
 
@@ -14,6 +15,7 @@ Ship a unified SDK and MCP server so agents can operate via a stable API that ab
 - On-chain program implementation.
 - Payment rail implementation details.
 - Helius integration or receipts wiring (handled in Infra branch).
+- Multi-tenant MCP service; defer to a future enterprise/gateway mode.
 
 ## Milestones
 1) SDK skeleton + configs + example usage.
@@ -27,6 +29,10 @@ Ship a unified SDK and MCP server so agents can operate via a stable API that ab
 - Privacy Cash adapter should implement `deposit` + `withdraw` (SOL) and `depositSPL` + `withdrawSPL` (SPL).
 - Privacy Cash requires `RPC_url` and `owner` in client setup.
 - Privacy Cash returns `tx` on deposit/withdraw; map to `payment_result.tx_sig`.
+
+## MCP Data Access Expectations
+- MCP should expose recent receipts (latest and list) via SDK receipts module.
+- MCP should expose latest agent state/credit snapshot for tooling (read-only).
 
 ## Deliverables
 - SDK package with types and minimal docs.

@@ -67,6 +67,8 @@ export interface PaymentReceipt {
 
 export interface ReceiptStore {
   recordPayment(receipt: PaymentReceipt): Promise<void>;
+  listReceipts(limit?: number): Promise<PaymentReceipt[]>;
+  getLatestReceipt(): Promise<PaymentReceipt | null>;
 }
 
 export type ReceiptInstructionKind = 'create' | 'update';

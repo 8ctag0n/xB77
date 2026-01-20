@@ -11,6 +11,14 @@ export interface AgentConfig {
   receiptStore?: ReceiptStore;
 }
 
+export interface AgentStateSnapshot<TBalance = unknown> {
+  publicKey: string;
+  token: SupportedToken;
+  balance: TBalance;
+  latestReceipt: PaymentReceipt | null;
+  updatedAt: number;
+}
+
 export class PrivacyAgent {
   public wallet: AgentWallet;
   public identity: IdentityManager;
@@ -67,6 +75,33 @@ export class PrivacyAgent {
       return await this.balanceProvider.getBalance(this.wallet.publicKey, token);
     }
     return await this.wallet.getBalance(token);
+  }
+
+  async listReceipts(limit: number = 25): Promise<PaymentReceipt[]> {
+    if (!this.receiptStore) {
+      return [];
+    }
+    return await this.receiptStore.listReceipts(limit);
+  }
+
+  async getLatestReceipt(): Promise<PaymentReceipt | null> {
+    if (!this.receiptStore) {
+      return null;
+    }
+    return await this.receiptStore.getLatestReceipt();
+  }
+
+  async getState(token: SupportedToken = 'USD1'): Promise<AgentStateSnapshot> {
+    const balance = await this.getBalance(token);
+    const latestReceipt = await this.getLatestReceipt();
+
+    return {
+      publicKey: this.wallet.publicKey.toBase58(),
+      token,
+      balance,
+      latestReceipt,
+      updatedAt: Date.now(),
+    };
   }
 
   /**
