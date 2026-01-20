@@ -15,7 +15,7 @@ else
 fi
 
 if ! "${CONTAINER_CMD}" image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
-  "${CONTAINER_CMD}" build -t "${IMAGE_NAME}" -f "${ROOT_DIR}/Containerfile.sunspot" "${ROOT_DIR}"
+  "${CONTAINER_CMD}" build -t "${IMAGE_NAME}" -f "${ROOT_DIR}/containers/sunspot/Containerfile" "${ROOT_DIR}"
 fi
 
 TMP_DIR="$(mktemp -d)"
