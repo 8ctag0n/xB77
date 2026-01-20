@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MiniHub Control</title>
+    <link rel="stylesheet" href="./hub.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <div>
+          <p class="kicker">Private Agent Control Plane</p>
+          <h1>MiniHub Control</h1>
+          <p class="subhead">
+            Register MCP agents, inspect status, and dispatch tool calls from a single local hub.
+          </p>
+        </div>
+        <div class="status-pill">
+          <span class="dot"></span>
+          <span>Local Hub</span>
+          <span id="hub-port">:7777</span>
+        </div>
+      </header>
+
+      <main class="grid">
+        <section class="panel" id="agents-panel">
+          <div class="panel-header">
+            <h2>Agents</h2>
+            <button id="refresh-btn">Refresh</button>
+          </div>
+          <div id="agents-list" class="agents-list"></div>
+        </section>
+
+        <section class="panel" id="details-panel">
+          <div class="panel-header">
+            <h2>Agent Detail</h2>
+          </div>
+          <div id="agent-detail" class="agent-detail muted">
+            Select an agent to see details.
+          </div>
+        </section>
+
+        <section class="panel" id="register-panel">
+          <div class="panel-header">
+            <h2>Connect MCP</h2>
+          </div>
+          <form id="register-form" class="form">
+            <label>
+              Agent ID
+              <input name="agent_id" placeholder="agent-alpha" required />
+            </label>
+            <label>
+              MCP URL
+              <input name="mcp_url" placeholder="http://localhost:7001/mcp" required />
+            </label>
+            <label>
+              Capabilities (comma)
+              <input name="capabilities" placeholder="pay, balance, status" />
+            </label>
+            <label>
+              Public Key (optional)
+              <input name="pubkey" placeholder="base58..." />
+            </label>
+            <button type="submit">Register Agent</button>
+          </form>
+          <p class="hint">Tip: agents can auto-register via POST /register.</p>
+        </section>
+
+        <section class="panel" id="tool-panel">
+          <div class="panel-header">
+            <h2>Tool Runner</h2>
+          </div>
+          <form id="tool-form" class="form">
+            <label>
+              Tool Name
+              <input name="tool" placeholder="agent.pay" required />
+            </label>
+            <label>
+              Payload (JSON)
+              <textarea name="payload" rows="6">{}</textarea>
+            </label>
+            <button type="submit">Send Tool Call</button>
+          </form>
+          <pre id="tool-response" class="response muted">No response yet.</pre>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./hub.ts"></script>
+  </body>
+</html>

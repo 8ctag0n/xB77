@@ -1,0 +1,35 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`payment execution and receipt contract snapshot 1`] = `
+{
+  "nonce": 1700000000,
+  "paidAmount": 12.5,
+  "proofPda": "mock_proof_df762a44f7af5ca329f19d72a89ccc21",
+  "provider": "shadowwire",
+  "raw": {
+    "proof": {
+      "nonce": 1700000000,
+      "proof_pda": "mock_proof_df762a44f7af5ca329f19d72a89ccc21",
+    },
+    "transfer": {
+      "tx_signature": "mock_tx_68f7ad00c2643c3e3147424c43a7fffe",
+    },
+  },
+  "status": "success",
+  "txSignature": "mock_tx_68f7ad00c2643c3e3147424c43a7fffe",
+}
+`;
+
+exports[`payment execution and receipt contract snapshot 2`] = `
+{
+  "amount": 12.5,
+  "nonce": 1700000000,
+  "proofPda": "mock_proof_df762a44f7af5ca329f19d72a89ccc21",
+  "recipient": "vendor_snapshot",
+  "sender": "agent_snapshot",
+  "timestamp": 1700000000000,
+  "token": "USD1",
+  "txSignature": "mock_tx_68f7ad00c2643c3e3147424c43a7fffe",
+  "type": "internal",
+}
+`;
