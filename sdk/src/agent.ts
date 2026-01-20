@@ -1,8 +1,9 @@
 import { Keypair } from '@solana/web3.js';
-import { AgentWallet, PaymentResult, SupportedToken } from './economy/wallet';
-import { BalanceProvider } from './economy/balance';
+import { AgentWallet } from './economy/wallet';
+import type { PaymentResult, SupportedToken } from './economy/wallet';
+import type { BalanceProvider } from './economy/balance';
 import { IdentityManager } from './identity/manager';
-import { PaymentReceipt, PaymentType, ReceiptStore } from './economy/receipts';
+import type { PaymentReceipt, PaymentType, ReceiptStore } from './economy/receipts';
 
 export interface AgentConfig {
   keypair: Keypair;

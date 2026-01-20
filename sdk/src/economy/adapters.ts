@@ -1,7 +1,7 @@
-import { PublicKey } from '@solana/web3.js';
-import { BalanceInfo, BalanceProvider } from './balance';
-import { PaymentReceipt, ReceiptStore } from './receipts';
-import { SupportedToken } from './wallet';
+import type { PublicKey } from '@solana/web3.js';
+import type { BalanceInfo, BalanceProvider } from './balance';
+import type { PaymentReceipt, ReceiptStore } from './receipts';
+import type { SupportedToken } from './wallet';
 
 export class InMemoryReceiptStore implements ReceiptStore {
   private receipts: PaymentReceipt[] = [];

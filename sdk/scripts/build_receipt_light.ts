@@ -5,24 +5,21 @@ import {
   selectStateTreeInfo,
   TreeType
 } from '@lightprotocol/stateless.js';
-import { keccak_256 } from '@noble/hashes/sha3';
 import { randomBytes } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import {
-  buildLightCreateReceiptContext,
+  buildLightRecordReceiptContext,
   toReceiptAccountSpecs,
 } from '../src/economy/receipts';
 
 type ArgMap = Map<string, string>;
 
-const RECEIPT_DOMAIN_SEPARATOR = Buffer.from('xb77:receipt:v1', 'utf8');
-
 function parseArgs(argv: string[]): ArgMap {
   const args = new Map<string, string>();
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i];
-    if (!key.startsWith('--')) {
+    if (key === undefined || !key.startsWith('--')) {
       continue;
     }
     const value = argv[i + 1];
@@ -76,25 +73,14 @@ function ensureHex32(
   return new Uint8Array(randomBytes(32));
 }
 
-function computeReceiptHash(orderCommitment: Uint8Array, receiptLeafHash: Uint8Array): Uint8Array {
-  const buffer = Buffer.concat([
-    RECEIPT_DOMAIN_SEPARATOR,
-    Buffer.from(orderCommitment),
-    Buffer.from(receiptLeafHash)
-  ]);
-  return new Uint8Array(keccak_256(buffer));
-}
-
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
   const receiptProgramId = new PublicKey(requireArg(args, 'receipt-program-id'));
-  const orderCommitment = ensureHex32(args, 'order-commitment', 'order-commitment');
-  const receiptLeafHash = ensureHex32(args, 'receipt-leaf-hash', 'receipt-leaf-hash');
-  const orderbookRoot = ensureHex32(args, 'orderbook-root', 'orderbook-root');
-  const receiptHash = args.get('receipt-hash')
-    ? parseHex32(requireArg(args, 'receipt-hash'), 'receipt-hash')
-    : computeReceiptHash(orderCommitment, receiptLeafHash);
+  const vendor = ensureHex32(args, 'vendor', 'vendor');
+  const memoHash = ensureHex32(args, 'memo-hash', 'memo-hash');
+  const amountStr = args.get('amount') ?? '0';
+  const amount = BigInt(amountStr);
 
   const rpcEndpoint = args.get('rpc');
   const compressionEndpoint = args.get('compression');
@@ -103,7 +89,6 @@ async function main() {
   const rpc = createRpc(rpcEndpoint, compressionEndpoint, proverEndpoint);
 
   const addressTreeArg = args.get('address-tree');
-  const addressQueueArg = args.get('address-queue');
   const addressTreeInfo = addressTreeArg
     ? {
         tree: new PublicKey(addressTreeArg),
@@ -114,7 +99,6 @@ async function main() {
     : getDefaultAddressTreeInfo();
 
   const stateTreeArg = args.get('state-tree');
-  const stateQueueArg = args.get('state-queue');
   const stateTreeInfo = stateTreeArg
     ? {
         tree: new PublicKey(stateTreeArg),
@@ -124,14 +108,14 @@ async function main() {
       }
     : selectStateTreeInfo(await rpc.getStateTreeInfos(), TreeType.StateV1);
 
-  const context = await buildLightCreateReceiptContext({
+  const context = await buildLightRecordReceiptContext({
     rpc,
     receiptProgramId,
     addressTreeInfo,
     outputStateTreeInfo: stateTreeInfo,
-    orderCommitment,
-    receiptHash,
-    orderbookRoot,
+    vendor,
+    amount,
+    memoHash,
   });
 
   const outDir = args.get('out-dir') ?? path.join('sdk', 'target');
@@ -153,10 +137,9 @@ async function main() {
     payloadPath,
     JSON.stringify(
       {
-        order_commitment: toHex32(orderCommitment),
-        receipt_leaf_hash: toHex32(receiptLeafHash),
-        receipt_hash: toHex32(receiptHash),
-        orderbook_root: toHex32(orderbookRoot),
+        vendor: toHex32(vendor),
+        amount: amount.toString(),
+        memo_hash: toHex32(memoHash),
         derived_address: context.derivedAddress.toBase58()
       },
       null,
@@ -168,10 +151,9 @@ async function main() {
   console.log('Receipt accounts written:', accountsPath);
   console.log('Receipt payload written:', payloadPath);
   console.log('Derived address:', context.derivedAddress.toBase58());
-  console.log('Order commitment:', toHex32(orderCommitment));
-  console.log('Receipt leaf hash:', toHex32(receiptLeafHash));
-  console.log('Receipt hash:', toHex32(receiptHash));
-  console.log('Orderbook root:', toHex32(orderbookRoot));
+  console.log('Vendor:', toHex32(vendor));
+  console.log('Amount:', amount.toString());
+  console.log('Memo hash:', toHex32(memoHash));
 }
 
 main().catch((error) => {

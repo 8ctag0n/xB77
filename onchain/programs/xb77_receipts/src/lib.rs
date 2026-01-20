@@ -1,7 +1,7 @@
 #![allow(unexpected_cfgs)]
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use light_macros::pubkey;
+use solana_program::pubkey;
 use light_sdk::{
     account::sha::LightAccount,
     address::v1::derive_address,
@@ -9,9 +9,10 @@ use light_sdk::{
         v1::{CpiAccounts, LightSystemProgramCpi},
         CpiSigner,
         InvokeLightSystemProgram,
+        LightCpiInstruction,
     },
     derive_light_cpi_signer,
-    instruction::{account_meta::CompressedAccountMeta, PackedAddressTreeInfo, ValidityProof},
+    instruction::{PackedAddressTreeInfo, ValidityProof},
     LightDiscriminator,
 };
 use solana_program::{
@@ -19,12 +20,12 @@ use solana_program::{
     entrypoint,
     program_error::ProgramError,
     pubkey::Pubkey,
+    sysvar::{clock::Clock, Sysvar},
 };
 
-pub const ID: Pubkey = pubkey!("Recpt11111111111111111111111111111111");
-// Update this constant to the deployed program ID.
+pub const ID: Pubkey = pubkey!("9kknYrFBjkBUuMyZZhksoHcj29gjfzGsDMgnyfp3Y6VM");
 pub const LIGHT_CPI_SIGNER: CpiSigner = derive_light_cpi_signer!(
-    "Recpt11111111111111111111111111111111"
+    "9kknYrFBjkBUuMyZZhksoHcj29gjfzGsDMgnyfp3Y6VM"
 );
 
 entrypoint!(process_instruction);
@@ -32,8 +33,7 @@ entrypoint!(process_instruction);
 #[repr(u8)]
 #[derive(Debug)]
 pub enum ReceiptInstruction {
-    Create = 0,
-    Update = 1,
+    RecordReceipt = 0,
 }
 
 impl TryFrom<u8> for ReceiptInstruction {
@@ -41,8 +41,7 @@ impl TryFrom<u8> for ReceiptInstruction {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0 => Ok(ReceiptInstruction::Create),
-            1 => Ok(ReceiptInstruction::Update),
+            0 => Ok(ReceiptInstruction::RecordReceipt),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }
@@ -51,28 +50,20 @@ impl TryFrom<u8> for ReceiptInstruction {
 #[derive(Debug, Clone, Default, BorshSerialize, BorshDeserialize, LightDiscriminator)]
 pub struct CompressedReceipt {
     pub owner: Pubkey,
-    pub order_commitment: [u8; 32],
-    pub receipt_hash: [u8; 32],
-    pub orderbook_root: [u8; 32],
+    pub vendor: [u8; 32],
+    pub amount: u64,
+    pub timestamp: i64,
+    pub memo_hash: [u8; 32],
 }
 
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct CreateReceiptInstructionData {
+pub struct RecordReceiptInstructionData {
     pub proof: Vec<u8>,
     pub address_tree_info: Vec<u8>,
     pub output_state_tree_index: u8,
-    pub order_commitment: [u8; 32],
-    pub receipt_hash: [u8; 32],
-    pub orderbook_root: [u8; 32],
-}
-
-#[derive(BorshSerialize, BorshDeserialize)]
-pub struct UpdateReceiptInstructionData {
-    pub proof: Vec<u8>,
-    pub account_meta: Vec<u8>,
-    pub order_commitment: [u8; 32],
-    pub receipt_hash: [u8; 32],
-    pub orderbook_root: [u8; 32],
+    pub vendor: [u8; 32],
+    pub amount: u64,
+    pub memo_hash: [u8; 32],
 }
 
 pub fn process_instruction(
@@ -89,28 +80,71 @@ pub fn process_instruction(
 
     let instruction = ReceiptInstruction::try_from(instruction_data[0])?;
     match instruction {
-        ReceiptInstruction::Create => {
-            let data = CreateReceiptInstructionData::try_from_slice(&instruction_data[1..])
+        ReceiptInstruction::RecordReceipt => {
+            let data = RecordReceiptInstructionData::try_from_slice(&instruction_data[1..])
                 .map_err(|_| ProgramError::InvalidInstructionData)?;
-            create_receipt(accounts, data)
-        }
-        ReceiptInstruction::Update => {
-            let data = UpdateReceiptInstructionData::try_from_slice(&instruction_data[1..])
-                .map_err(|_| ProgramError::InvalidInstructionData)?;
-            update_receipt(accounts, data)
+            record_receipt(accounts, data)
         }
     }
 }
 
-fn create_receipt(
+fn record_receipt(
     accounts: &[AccountInfo],
-    instruction_data: CreateReceiptInstructionData,
+    instruction_data: RecordReceiptInstructionData,
 ) -> Result<(), ProgramError> {
     let signer = accounts
         .first()
         .ok_or(ProgramError::NotEnoughAccountKeys)?;
 
-    let light_cpi_accounts = CpiAccounts::new(signer, &accounts[1..], LIGHT_CPI_SIGNER);
+    // Signer should be the Core program if it's a CPI, or the User if creating directly.
+    // In our architecture, the Core program invokes this.
+    // The 'owner' of the receipt will be the first account passed (signer), 
+    // BUT we might want to allow specifying the owner if the Core program is the signer.
+    // For simplicity: The signer becomes the owner. 
+    // If Core signs, Core is owner? No, we want the Agent to own it.
+    // So if Core calls this, Core must sign, but we want the receipt.owner to be the Agent.
+    // NOTE: LightAccount::new_init defaults owner to the signer? No, we set it manually.
+    
+    // Adjust logic: The 'signer' account here is the one paying for the transaction / signing the CPI.
+    // If this is called via CPI from Core, 'signer' is the Core Program (as a PDA or Keypair).
+    // But we want the receipt to belong to the Agent.
+    // So we should probably pass the Agent's Pubkey as an argument or another account.
+    // Let's assume for now the 'signer' IS the Agent (if Core just passes signature) 
+    // OR 'signer' is Core and we rely on 'RecordReceiptInstructionData' to carry the owner?
+    // OR we pass the Agent as account[1] (non-signer, just for address).
+    
+    // Let's modify: `signer` is the payer/authority.
+    // `owner_account` is the intended owner (Agent).
+    // accounts[0] = signer (Core Program or User)
+    // accounts[1] = owner_account (Agent)
+    // ... rest of light accounts ...
+    
+    // Actually, looking at CpiAccounts::new, it takes `signer` and `remaining_accounts`.
+    // Let's stick to: accounts[0] is signer. We set receipt.owner = *signer.key.
+    // If Core calls this, Core is owner. The Agent can "view" it if they derive the address?
+    // No, Core program cannot "own" compressed accounts in the same way (it's not a user wallet).
+    // If Core is the signer, the receipt is owned by Core.
+    // This is fine if the Core program manages the receipts.
+    // BUT, if we want the Agent to "see" it in their wallet, Agent should be owner.
+    // Can Core sign *for* the Agent? No.
+    // Can Core create an account owned by Agent?
+    // Yes! `receipt.owner` is just a field. We can set it to anything.
+    // So let's add `owner` to the InstructionData or pass it as an account.
+    // Passing as account is safer/cleaner.
+    
+    // REVISED ACCOUNTS:
+    // 0. Signer (Payer/Authority)
+    // 1. Agent (Owner of the receipt)
+    // 2... Light accounts
+    
+    let signer = &accounts[0];
+    let agent_account = &accounts[1];
+    
+    if !signer.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    let light_cpi_accounts = CpiAccounts::new(signer, &accounts[2..], LIGHT_CPI_SIGNER);
 
     let proof = ValidityProof::try_from_slice(&instruction_data.proof)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
@@ -121,8 +155,16 @@ fn create_receipt(
         .get_tree_pubkey(&light_cpi_accounts)
         .map_err(|_| ProgramError::NotEnoughAccountKeys)?;
 
+    // Derive deterministic address based on seed.
+    // Seed: "receipt" + vendor + memo_hash
+    // This ensures uniqueness per payment.
+    let mut seed = Vec::with_capacity(64);
+    seed.extend_from_slice(b"receipt");
+    seed.extend_from_slice(&instruction_data.vendor);
+    seed.extend_from_slice(&instruction_data.memo_hash);
+
     let (address, address_seed) = derive_address(
-        &[b"receipt", &instruction_data.order_commitment],
+        &[&seed],
         &tree_pubkey,
         &ID,
     );
@@ -134,54 +176,19 @@ fn create_receipt(
         Some(address),
         instruction_data.output_state_tree_index,
     );
-    receipt.owner = *signer.key;
-    receipt.order_commitment = instruction_data.order_commitment;
-    receipt.receipt_hash = instruction_data.receipt_hash;
-    receipt.orderbook_root = instruction_data.orderbook_root;
+    
+    // Set the owner to the Agent!
+    receipt.owner = *agent_account.key;
+    
+    receipt.vendor = instruction_data.vendor;
+    receipt.amount = instruction_data.amount;
+    receipt.timestamp = Clock::get()?.unix_timestamp;
+    receipt.memo_hash = instruction_data.memo_hash;
 
     LightSystemProgramCpi::new_cpi(LIGHT_CPI_SIGNER, proof)
         .with_light_account(receipt)
         .map_err(|_| ProgramError::InvalidInstructionData)?
         .with_new_addresses(&[new_address_params])
-        .invoke(light_cpi_accounts)
-        .map_err(|_| ProgramError::InvalidInstructionData)?;
-
-    Ok(())
-}
-
-fn update_receipt(
-    accounts: &[AccountInfo],
-    instruction_data: UpdateReceiptInstructionData,
-) -> Result<(), ProgramError> {
-    let signer = accounts
-        .first()
-        .ok_or(ProgramError::NotEnoughAccountKeys)?;
-
-    let light_cpi_accounts = CpiAccounts::new(signer, &accounts[1..], LIGHT_CPI_SIGNER);
-
-    let proof = ValidityProof::try_from_slice(&instruction_data.proof)
-        .map_err(|_| ProgramError::InvalidInstructionData)?;
-    let account_meta = CompressedAccountMeta::try_from_slice(&instruction_data.account_meta)
-        .map_err(|_| ProgramError::InvalidInstructionData)?;
-
-    let mut receipt = LightAccount::<CompressedReceipt>::new_mut(
-        &ID,
-        &account_meta,
-        CompressedReceipt {
-            owner: *signer.key,
-            order_commitment: instruction_data.order_commitment,
-            receipt_hash: instruction_data.receipt_hash,
-            orderbook_root: instruction_data.orderbook_root,
-        },
-    )
-    .map_err(|_| ProgramError::InvalidInstructionData)?;
-
-    receipt.receipt_hash = instruction_data.receipt_hash;
-    receipt.orderbook_root = instruction_data.orderbook_root;
-
-    LightSystemProgramCpi::new_cpi(LIGHT_CPI_SIGNER, proof)
-        .with_light_account(receipt)
-        .map_err(|_| ProgramError::InvalidInstructionData)?
         .invoke(light_cpi_accounts)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 

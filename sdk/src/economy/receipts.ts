@@ -1,9 +1,6 @@
-import { array, bool, option, struct, u16, u32, u8 } from '@coral-xyz/borsh';
+import { array, option, struct, u16, u8 } from '@coral-xyz/borsh';
 import type {
-  CompressedAccountMeta,
-  CompressedAccountWithMerkleContext,
   PackedAddressTreeInfo,
-  PackedStateTreeInfo,
   Rpc,
   TreeInfo,
   ValidityProof,
@@ -19,7 +16,7 @@ import {
 import type { AccountMeta } from '@solana/web3.js';
 import { PublicKey } from '@solana/web3.js';
 import { Buffer } from 'buffer';
-import { SupportedToken } from './wallet';
+import type { SupportedToken } from './wallet';
 
 const RECEIPT_ADDRESS_SEED = new TextEncoder().encode('receipt');
 
@@ -31,24 +28,10 @@ const CompressedProofLayout = struct([
 
 const ValidityProofLayout = struct([option(CompressedProofLayout, 'proof')]);
 
-const PackedStateTreeInfoLayout = struct([
-  u16('rootIndex'),
-  bool('proveByIndex'),
-  u8('merkleTreePubkeyIndex'),
-  u8('queuePubkeyIndex'),
-  u32('leafIndex'),
-]);
-
 const PackedAddressTreeInfoLayout = struct([
   u8('addressMerkleTreePubkeyIndex'),
   u8('addressQueuePubkeyIndex'),
   u16('rootIndex'),
-]);
-
-const CompressedAccountMetaLayout = struct([
-  PackedStateTreeInfoLayout.replicate('treeInfo'),
-  array(u8(), 32, 'address'),
-  u8('outputStateTreeIndex'),
 ]);
 
 export type PaymentType = 'internal' | 'external';
@@ -69,18 +52,16 @@ export interface ReceiptStore {
   recordPayment(receipt: PaymentReceipt): Promise<void>;
 }
 
-export type ReceiptInstructionKind = 'create' | 'update';
+export type ReceiptInstructionKind = 'record';
 
 export const RECEIPT_INSTRUCTION_DISCRIMINATORS: Record<ReceiptInstructionKind, number> = {
-  create: 0,
-  update: 1,
+  record: 0,
 };
 
 export function buildReceiptInstructionData(
   kind: ReceiptInstructionKind,
   payloadBytes: Uint8Array
 ): Uint8Array {
-  // payloadBytes must be Borsh-serialized for xb77_receipts.
   const discriminator = RECEIPT_INSTRUCTION_DISCRIMINATORS[kind];
   const data = new Uint8Array(1 + payloadBytes.length);
   data[0] = discriminator;
@@ -103,26 +84,24 @@ export function buildReceiptProgramAccounts(
   };
 }
 
-export interface CreateReceiptInstructionInput {
+export interface RecordReceiptInstructionInput {
   proofBytes: Uint8Array;
   addressTreeInfoBytes: Uint8Array;
   outputStateTreeIndex: number;
-  orderCommitment: Uint8Array;
-  receiptHash: Uint8Array;
-  orderbookRoot: Uint8Array;
-}
-
-export interface UpdateReceiptInstructionInput {
-  proofBytes: Uint8Array;
-  accountMetaBytes: Uint8Array;
-  orderCommitment: Uint8Array;
-  receiptHash: Uint8Array;
-  orderbookRoot: Uint8Array;
+  vendor: Uint8Array;
+  amount: bigint;
+  memoHash: Uint8Array;
 }
 
 function encodeU32LE(value: number): Uint8Array {
   const buffer = new ArrayBuffer(4);
   new DataView(buffer).setUint32(0, value, true);
+  return new Uint8Array(buffer);
+}
+
+function encodeU64LE(value: bigint): Uint8Array {
+  const buffer = new ArrayBuffer(8);
+  new DataView(buffer).setBigUint64(0, value, true);
   return new Uint8Array(buffer);
 }
 
@@ -148,16 +127,6 @@ function normalizeFixedBytes(
   return bytes;
 }
 
-function toPackedStateTreeInfo(treeInfo: PackedStateTreeInfo): PackedStateTreeInfo {
-  return {
-    rootIndex: treeInfo.rootIndex,
-    proveByIndex: treeInfo.proveByIndex,
-    merkleTreePubkeyIndex: treeInfo.merkleTreePubkeyIndex,
-    queuePubkeyIndex: treeInfo.queuePubkeyIndex,
-    leafIndex: treeInfo.leafIndex,
-  };
-}
-
 export function serializeValidityProof(proof: ValidityProof | null): Uint8Array {
   const proofValue = proof
     ? {
@@ -178,21 +147,6 @@ export function serializePackedAddressTreeInfo(info: PackedAddressTreeInfo): Uin
   });
 }
 
-export function serializeCompressedAccountMeta(meta: CompressedAccountMeta): Uint8Array {
-  if (!meta.address) {
-    throw new Error('CompressedAccountMeta.address is required for receipts');
-  }
-  if (meta.lamports !== null && meta.lamports !== undefined) {
-    throw new Error('CompressedAccountMeta.lamports is not supported for receipts');
-  }
-
-  return encodeBorsh(CompressedAccountMetaLayout, {
-    treeInfo: toPackedStateTreeInfo(meta.treeInfo),
-    address: normalizeFixedBytes('CompressedAccountMeta.address', meta.address, 32),
-    outputStateTreeIndex: meta.outputStateTreeIndex,
-  });
-}
-
 function ensureLength(name: string, value: Uint8Array, length: number): void {
   if (value.length !== length) {
     throw new Error(`${name} must be ${length} bytes, got ${value.length}`);
@@ -210,12 +164,11 @@ function concatBytes(parts: Uint8Array[]): Uint8Array {
   return out;
 }
 
-export function serializeCreateReceiptInstruction(
-  input: CreateReceiptInstructionInput
+export function serializeRecordReceiptInstruction(
+  input: RecordReceiptInstructionInput
 ): Uint8Array {
-  ensureLength('orderCommitment', input.orderCommitment, 32);
-  ensureLength('receiptHash', input.receiptHash, 32);
-  ensureLength('orderbookRoot', input.orderbookRoot, 32);
+  ensureLength('vendor', input.vendor, 32);
+  ensureLength('memoHash', input.memoHash, 32);
 
   return concatBytes([
     encodeU32LE(input.proofBytes.length),
@@ -223,73 +176,35 @@ export function serializeCreateReceiptInstruction(
     encodeU32LE(input.addressTreeInfoBytes.length),
     input.addressTreeInfoBytes,
     new Uint8Array([input.outputStateTreeIndex]),
-    input.orderCommitment,
-    input.receiptHash,
-    input.orderbookRoot,
+    input.vendor,
+    encodeU64LE(input.amount),
+    input.memoHash,
   ]);
 }
 
-export function serializeUpdateReceiptInstruction(
-  input: UpdateReceiptInstructionInput
-): Uint8Array {
-  ensureLength('orderCommitment', input.orderCommitment, 32);
-  ensureLength('receiptHash', input.receiptHash, 32);
-  ensureLength('orderbookRoot', input.orderbookRoot, 32);
-
-  return concatBytes([
-    encodeU32LE(input.proofBytes.length),
-    input.proofBytes,
-    encodeU32LE(input.accountMetaBytes.length),
-    input.accountMetaBytes,
-    input.orderCommitment,
-    input.receiptHash,
-    input.orderbookRoot,
-  ]);
-}
-
-export interface CreateReceiptInstructionLightInput {
+export interface RecordReceiptInstructionLightInput {
   proof: ValidityProof | null;
   addressTreeInfo: PackedAddressTreeInfo;
   outputStateTreeIndex: number;
-  orderCommitment: Uint8Array;
-  receiptHash: Uint8Array;
-  orderbookRoot: Uint8Array;
+  vendor: Uint8Array;
+  amount: bigint;
+  memoHash: Uint8Array;
 }
 
-export interface UpdateReceiptInstructionLightInput {
-  proof: ValidityProof | null;
-  accountMeta: CompressedAccountMeta;
-  orderCommitment: Uint8Array;
-  receiptHash: Uint8Array;
-  orderbookRoot: Uint8Array;
-}
-
-export function serializeCreateReceiptInstructionFromLight(
-  input: CreateReceiptInstructionLightInput
+export function serializeRecordReceiptInstructionFromLight(
+  input: RecordReceiptInstructionLightInput
 ): Uint8Array {
-  return serializeCreateReceiptInstruction({
+  return serializeRecordReceiptInstruction({
     proofBytes: serializeValidityProof(input.proof),
     addressTreeInfoBytes: serializePackedAddressTreeInfo(input.addressTreeInfo),
     outputStateTreeIndex: input.outputStateTreeIndex,
-    orderCommitment: input.orderCommitment,
-    receiptHash: input.receiptHash,
-    orderbookRoot: input.orderbookRoot,
+    vendor: input.vendor,
+    amount: input.amount,
+    memoHash: input.memoHash,
   });
 }
 
-export function serializeUpdateReceiptInstructionFromLight(
-  input: UpdateReceiptInstructionLightInput
-): Uint8Array {
-  return serializeUpdateReceiptInstruction({
-    proofBytes: serializeValidityProof(input.proof),
-    accountMetaBytes: serializeCompressedAccountMeta(input.accountMeta),
-    orderCommitment: input.orderCommitment,
-    receiptHash: input.receiptHash,
-    orderbookRoot: input.orderbookRoot,
-  });
-}
-
-export interface LightCreateReceiptContext {
+export interface LightRecordReceiptContext {
   instructionData: Uint8Array;
   remainingAccounts: AccountMeta[];
   derivedAddress: PublicKey;
@@ -304,14 +219,6 @@ export interface ReceiptAccountSpec {
   isWritable: boolean;
 }
 
-export interface LightUpdateReceiptContext {
-  instructionData: Uint8Array;
-  remainingAccounts: AccountMeta[];
-  proof: ValidityProof | null;
-  accountMeta: CompressedAccountMeta;
-  outputStateTreeIndex: number;
-}
-
 export function toReceiptAccountSpecs(accounts: AccountMeta[]): ReceiptAccountSpec[] {
   return accounts.map((account) => ({
     pubkey: account.pubkey.toBase58(),
@@ -320,17 +227,19 @@ export function toReceiptAccountSpecs(accounts: AccountMeta[]): ReceiptAccountSp
   }));
 }
 
-export async function buildLightCreateReceiptContext(input: {
+export async function buildLightRecordReceiptContext(input: {
   rpc: Rpc;
   receiptProgramId: PublicKey;
   addressTreeInfo: TreeInfo;
   outputStateTreeInfo: TreeInfo;
-  orderCommitment: Uint8Array;
-  receiptHash: Uint8Array;
-  orderbookRoot: Uint8Array;
-}): Promise<LightCreateReceiptContext> {
+  vendor: Uint8Array;
+  amount: bigint;
+  memoHash: Uint8Array;
+}): Promise<LightRecordReceiptContext> {
+  const seeds = [RECEIPT_ADDRESS_SEED, input.vendor, input.memoHash];
+  
   const addressSeed = deriveAddressSeed(
-    [RECEIPT_ADDRESS_SEED, input.orderCommitment],
+    seeds,
     input.receiptProgramId
   );
   const derivedAddress = deriveAddress(addressSeed, input.addressTreeInfo.tree);
@@ -343,7 +252,7 @@ export async function buildLightCreateReceiptContext(input: {
     }
   ]);
 
-  if (!validity.rootIndices.length) {
+  if (!validity.rootIndices.length || validity.rootIndices[0] === undefined) {
     throw new Error('No root indices returned from Light RPC for address proof');
   }
 
@@ -365,13 +274,13 @@ export async function buildLightCreateReceiptContext(input: {
     rootIndex: validity.rootIndices[0]
   };
 
-  const instructionData = serializeCreateReceiptInstructionFromLight({
+  const instructionData = serializeRecordReceiptInstructionFromLight({
     proof: validity.compressedProof,
     addressTreeInfo,
     outputStateTreeIndex,
-    orderCommitment: input.orderCommitment,
-    receiptHash: input.receiptHash,
-    orderbookRoot: input.orderbookRoot
+    vendor: input.vendor,
+    amount: input.amount,
+    memoHash: input.memoHash
   });
 
   return {
@@ -380,77 +289,6 @@ export async function buildLightCreateReceiptContext(input: {
     derivedAddress,
     proof: validity.compressedProof,
     addressTreeInfo,
-    outputStateTreeIndex
-  };
-}
-
-export async function buildLightUpdateReceiptContext(input: {
-  rpc: Rpc;
-  receiptProgramId: PublicKey;
-  compressedAccount: CompressedAccountWithMerkleContext;
-  outputStateTreeInfo: TreeInfo;
-  orderCommitment: Uint8Array;
-  receiptHash: Uint8Array;
-  orderbookRoot: Uint8Array;
-}): Promise<LightUpdateReceiptContext> {
-  if (!input.compressedAccount.address) {
-    throw new Error('Compressed account address is required to update a receipt');
-  }
-
-  const validity = await input.rpc.getValidityProofV0(
-    [
-      {
-        hash: input.compressedAccount.hash,
-        tree: input.compressedAccount.treeInfo.tree,
-        queue: input.compressedAccount.treeInfo.queue
-      }
-    ],
-    []
-  );
-
-  if (!validity.rootIndices.length) {
-    throw new Error('No root indices returned from Light RPC for account proof');
-  }
-
-  const packedAccounts = PackedAccounts.newWithSystemAccounts(
-    SystemAccountMetaConfig.new(input.receiptProgramId)
-  );
-
-  const merkleTreePubkeyIndex = packedAccounts.insertOrGet(
-    input.compressedAccount.treeInfo.tree
-  );
-  const queuePubkeyIndex = packedAccounts.insertOrGet(
-    input.compressedAccount.treeInfo.queue
-  );
-  const outputStateTreeIndex = packedAccounts.insertOrGet(
-    getOutputStateTreeAccount(input.outputStateTreeInfo)
-  );
-
-  const accountMeta: CompressedAccountMeta = {
-    treeInfo: {
-      rootIndex: validity.rootIndices[0],
-      proveByIndex: input.compressedAccount.proveByIndex,
-      merkleTreePubkeyIndex,
-      queuePubkeyIndex,
-      leafIndex: input.compressedAccount.leafIndex
-    },
-    address: input.compressedAccount.address,
-    outputStateTreeIndex
-  };
-
-  const instructionData = serializeUpdateReceiptInstructionFromLight({
-    proof: validity.compressedProof,
-    accountMeta,
-    orderCommitment: input.orderCommitment,
-    receiptHash: input.receiptHash,
-    orderbookRoot: input.orderbookRoot
-  });
-
-  return {
-    instructionData,
-    remainingAccounts: packedAccounts.toAccountMetas().remainingAccounts,
-    proof: validity.compressedProof,
-    accountMeta,
     outputStateTreeIndex
   };
 }
