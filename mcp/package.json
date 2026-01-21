@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "bun run src/index.ts",
+    "http": "bun run src/http.ts",
     "smoke": "bun run scripts/smoke.ts",
     "demo": "bun run scripts/demo_flow.ts"
   },

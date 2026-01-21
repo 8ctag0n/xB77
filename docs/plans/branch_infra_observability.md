@@ -62,3 +62,35 @@ Provide reliable infrastructure (Helius RPC/webhooks) and receipts (Light or moc
 - Validate Hub rendering with latest receipts and a recent payment.
 - Prepare localnet Light fallback (scripts + minimal runbook).
 - Document the demo execution order (step-by-step, reproducible).
+
+## 7-Day Execution Checklist (Localnet Demo)
+Day 1: Hub + MCP wiring
+- Run MCP in HTTP mode and register agent in Hub (`/tool` endpoint).
+- Verify Hub observability panel shows balance/receipts via MCP tools.
+- Consolidate env vars for MCP/SDK/Hub (`XB77_*`, `MCP_HTTP_PORT`).
+
+Day 2: Receipts pipeline
+- Run `sdk/scripts/build_receipt_light.ts` against localnet Light.
+- Validate receipt payload + accounts JSON output.
+- Confirm SDK receipt list/latest returns consistent data.
+
+Day 3: E2E demo (localnet)
+- Run `sdk/scripts/demo_e2e.ts` and capture output logs.
+- Confirm gateway -> receipt path emits expected receipts.
+- Capture a “golden run” transcript for demo.
+
+Day 4: Merchant Hub extension
+- Add/confirm merchant-focused labels and sections in Hub panel.
+- Ensure merchant flow maps to receipts and balance state.
+
+Day 5: Infra hardening
+- Run Helius smoke test (for optional devnet path).
+- Validate localnet Light fallback scripts and document runbook.
+
+Day 6: Demo rehearsal
+- Full dry run: Hub + MCP + demo flow.
+- Record common failure cases and quick fixes.
+
+Day 7: Final polish
+- Freeze env + scripts + runbook.
+- Final demo run and screenshots/logs.

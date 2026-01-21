@@ -10,6 +10,17 @@ bun --hot hub/index.ts
 
 Visit `http://localhost:7777`.
 
+## Observability panel
+
+The Hub can pull live state via MCP tool calls. To enable this, run the MCP server
+in HTTP mode and register the agent with the `/tool` endpoint.
+
+```bash
+MCP_HTTP_PORT=7001 bun run src/http.ts
+```
+
+Then register the agent with `mcp_url` set to `http://localhost:7001/tool`.
+
 ## Environment
 
 - `PORT`: Hub port (default: `7777`).
@@ -31,7 +42,7 @@ Visit `http://localhost:7777`.
 ```json
 {
   "agent_id": "agent-alpha",
-  "mcp_url": "http://localhost:7001/mcp",
+  "mcp_url": "http://localhost:7001/tool",
   "transport": "http",
   "capabilities": ["agent.pay", "agent.status"],
   "pubkey": "base58..."

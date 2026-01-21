@@ -257,6 +257,58 @@ button:disabled {
   overflow-x: auto;
 }
 
+.obs-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.obs-card {
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--bg-soft);
+}
+
+.obs-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.obs-value {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.obs-sub {
+  font-size: 12px;
+}
+
+.receipt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.receipt-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0f1419;
+  font-size: 12px;
+}
+
+.receipt-meta {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .process-row {
   display: flex;
   justify-content: space-between;
