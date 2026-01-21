@@ -94,3 +94,53 @@ Day 6: Demo rehearsal
 Day 7: Final polish
 - Freeze env + scripts + runbook.
 - Final demo run and screenshots/logs.
+
+## Next Session Runbook (Mock Receipts + Hub Observability)
+Goal: reproduce the demo without touching on-chain programs.
+
+Pre-reqs:
+- Use a local keypair at `.localnet/payer.json`.
+- Run MCP in offline mode with static balances.
+
+Step 1: Start MCP HTTP (offline)
+```
+cd mcp
+XB77_KEYPAIR_PATH=../.localnet/payer.json \
+XB77_OFFLINE=true \
+XB77_BALANCES_JSON='{"USD1":2500}' \
+MCP_HTTP_PORT=7001 \
+bun run src/http.ts
+```
+
+Step 2: Start Hub
+```
+bun --hot hub/index.ts
+```
+
+Step 3: Register agent in Hub
+```
+curl -s -X POST http://localhost:7777/register \
+  -H 'content-type: application/json' \
+  -d '{"agent_id":"agent-alpha","mcp_url":"http://localhost:7001/tool","transport":"http","capabilities":["agent.state.get","agent.receipts.list","agent.pay"],"pubkey":"<PAYER_PUBKEY>"}'
+```
+
+Step 4: Simulate payment (offline)
+```
+curl -s -X POST http://localhost:7777/agent/agent-alpha/tool \
+  -H 'content-type: application/json' \
+  -d '{"name":"agent.pay","arguments":{"recipient":"merchant-001","amount":42,"token":"USD1","type":"internal"}}'
+```
+
+Step 5: Verify receipts + state
+```
+curl -s -X POST http://localhost:7777/agent/agent-alpha/tool \
+  -H 'content-type: application/json' \
+  -d '{"name":"agent.receipts.list","arguments":{"limit":5}}'
+
+curl -s -X POST http://localhost:7777/agent/agent-alpha/tool \
+  -H 'content-type: application/json' \
+  -d '{"name":"agent.state.get","arguments":{"token":"USD1"}}'
+```
+
+Stop all:
+- Ctrl+C both MCP and Hub terminals.
