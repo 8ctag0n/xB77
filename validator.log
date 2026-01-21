@@ -1,0 +1,29 @@
+--- Setup Check ---
+Root Dir: /home/deploy/2026_working/zyb_source/xB77/worktrees/branch-noir-integration
+Bin Dir:  /home/deploy/2026_working/zyb_source/xB77/worktrees/branch-noir-integration/containers/surfpool/bin
+OK: Found light_system_program_pinocchio.so
+OK: Found light_compressed_token.so
+OK: Found account_compression.so
+--- Starting Validator ---
+System Program: SySTEM1eSU2p4BGQfQpimFEWWSC1XDFeun3Nqzz3rT7
+Token Program:  cTokenmWW8bLPjZEBAUgYy3zKxQZW6VKi7bqNFEVv3m
+Compression:    compr6CUsB5m2jS4Y3831ztGSTnDpnKJTKS95d64XVq
+--bpf-program argument ignored, ledger already exists
+--faucet-sol argument ignored, ledger already exists
+Ledger location: test-ledger
+Log: test-ledger/validator.log
+Initializing...
+Waiting for fees to stabilize 1...
+Waiting for fees to stabilize 2...
+Waiting for fees to stabilize 3...
+Waiting for fees to stabilize 4...
+Connecting...
+Identity: ApgDEAuLdBigFjP249CeWC6jTqbQmPtuoG3LvvAhUexj
+Genesis Hash: MD9sVjLUfSf93tPJ84mZG9WFaaDH7thUpHyGEdFmESZ
+Version: 3.0.10
+Shred Version: 15783
+Gossip Address: 127.0.0.1:8000
+TPU Address: 127.0.0.1:8003
+JSON RPC URL: http://127.0.0.1:8899
+WebSocket PubSub URL: ws://127.0.0.1:8900
+00:00:02 | Processed Slot: 27 | Confirmed Slot: 27 | Finalized Slot: 0 | Full Snapshot Slot: - | Incremental Snapshot Slot: - | Transactions: 23 | ◎499.999885000

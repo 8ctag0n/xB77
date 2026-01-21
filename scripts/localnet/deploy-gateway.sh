@@ -30,9 +30,9 @@ fi
 
 solana airdrop 5 --url "${SOLANA_URL}" --keypair "${PAYER_KEYPAIR}" >/dev/null || true
 
-cargo build-sbf --manifest-path "${ROOT_DIR}/contracts/programs/xb77_gateway/Cargo.toml"
+cargo build-sbf --manifest-path "${ROOT_DIR}/onchain/programs/xb77_gateway/Cargo.toml"
 
-SO_PATH="${ROOT_DIR}/contracts/target/deploy/xb77_gateway.so"
+SO_PATH="${ROOT_DIR}/onchain/target/deploy/xb77_gateway.so"
 if [ ! -f "${SO_PATH}" ]; then
   echo "Gateway program .so not found at ${SO_PATH}." >&2
   exit 1

@@ -7,6 +7,7 @@ target/
 test-ledger/
 private/
 
+*.sw?
 # Onchain builds
 **/*.so
 **/*.ds_store

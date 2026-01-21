@@ -12,4 +12,7 @@ solana-client = "2.1.0"
 solana-sdk = "2.1.0"
 wincode = { version = "0.2.5", default-features = false, features = ["alloc", "derive", "solana-short-vec"] }
 
-xb77_gateway = { path = "../programs/xb77_gateway" }
+xb77_gateway = { path = "../onchain/programs/xb77_gateway" }
+
+[workspace]
+

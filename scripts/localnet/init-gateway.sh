@@ -53,12 +53,12 @@ VERIFIER_PROGRAM_ID="$(cat "${ROOT_DIR}/.localnet/verifier_program_id.txt")"
 echo "Using gateway program id: ${GATEWAY_PROGRAM_ID}"
 echo "Using verifier program id: ${VERIFIER_PROGRAM_ID}"
 
-pushd "${ROOT_DIR}/contracts" >/dev/null
+pushd "${ROOT_DIR}/cli" >/dev/null
 attempt=1
 max_attempts=5
 while [ "${attempt}" -le "${max_attempts}" ]; do
   set +e
-  init_output="$(cargo run -p xb77_gateway_cli -- init \
+  init_output="$(cargo run -- init \
     --url "${SOLANA_URL}" \
     --config-dir "${ROOT_DIR}/.localnet" \
     --meta "${ROOT_DIR}/sdk/target/agent_badge.meta.json" 2>&1)"

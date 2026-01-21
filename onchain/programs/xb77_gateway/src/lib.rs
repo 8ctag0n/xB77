@@ -11,7 +11,7 @@ pub mod instruction;
 pub mod processor;
 pub mod state;
 
-// Fix for getrandom on Solana
+use solana_program::declare_id;// Fix for getrandom on Solana
 #[cfg(target_os = "solana")]
 use getrandom::register_custom_getrandom;
 
