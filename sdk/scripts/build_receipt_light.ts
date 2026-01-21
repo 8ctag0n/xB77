@@ -13,7 +13,7 @@ import {
   serializePackedAddressTreeInfo,
   serializeValidityProof,
   toReceiptAccountSpecs,
-} from '../src/economy/receipts';
+} from '../src/economy/receipts_light';
 
 type ArgMap = Map<string, string>;
 
