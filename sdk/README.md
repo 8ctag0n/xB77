@@ -111,6 +111,16 @@ We have a built-in demo script that generates a random identity and attempts a p
 bun run sdk/scripts/demo_payment.ts
 ```
 
+### 3b. Helius RPC Smoke Test
+
+Use the infra smoke test to validate your Helius RPC + priority fee setup:
+
+```bash
+bun run sdk/scripts/helius_rpc_smoke.ts --airdrop-sol 1 --lamports 1
+```
+
+RPC defaults come from `XB77_RPC_URL` or `XB77_HELIUS_API_KEY`.
+
 ### 4. Testing
 
 ```bash

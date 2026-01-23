@@ -1,12 +1,54 @@
-import { Connection, Keypair, PublicKey, Transaction, TransactionInstruction, sendAndConfirmTransaction } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey, Transaction, TransactionInstruction, sendAndConfirmTransaction, type AccountMeta } from '@solana/web3.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { struct, u32, u8, u64, vec, array } from '@coral-xyz/borsh';
 
+type ArgMap = Map<string, string>;
+
 // --- Configuration ---
-const RPC_URL = 'http://127.0.0.1:8899';
+const DEFAULT_RPC_URL = 'http://127.0.0.1:8899';
 const KEYPAIRS_DIR = path.resolve(__dirname, '../../.localnet/keypairs');
 const PAYER_KEYPAIR_PATH = path.resolve(__dirname, '../../.localnet/payer.json');
+
+function parseArgs(argv: string[]): ArgMap {
+    const args = new Map<string, string>();
+    for (let i = 0; i < argv.length; i += 1) {
+        const key = argv[i];
+        if (!key || !key.startsWith('--')) {
+            continue;
+        }
+        const value = argv[i + 1];
+        if (!value || value.startsWith('--')) {
+            throw new Error(`Missing value for ${key}`);
+        }
+        args.set(key.slice(2), value);
+        i += 1;
+    }
+    return args;
+}
+
+function parseHex32(value: string, name: string): Uint8Array {
+    const trimmed = value.startsWith('0x') ? value.slice(2) : value;
+    if (trimmed.length > 64) {
+        throw new Error(`${name} must be at most 32 bytes hex`);
+    }
+    const padded = trimmed.padStart(64, '0');
+    const buffer = Buffer.from(padded, 'hex');
+    if (buffer.length !== 32) {
+        throw new Error(`${name} must be 32 bytes`);
+    }
+    return new Uint8Array(buffer);
+}
+
+function loadReceiptAccounts(filePath: string): AccountMeta[] {
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const specs = JSON.parse(raw) as Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>;
+    return specs.map((spec) => ({
+        pubkey: new PublicKey(spec.pubkey),
+        isSigner: Boolean(spec.isSigner),
+        isWritable: Boolean(spec.isWritable),
+    }));
+}
 
 // --- Helper Functions ---
 function loadKeypair(filePath: string): Keypair {
@@ -74,13 +116,22 @@ const RequestPaymentLayout = struct([
 ]);
 
 async function main() {
-    const connection = new Connection(RPC_URL, 'confirmed');
+    const args = parseArgs(process.argv.slice(2));
+    const rpcUrl = args.get('rpc') ?? process.env.XB77_RPC_URL ?? DEFAULT_RPC_URL;
+    const connection = new Connection(rpcUrl, 'confirmed');
     const payer = loadKeypair(PAYER_KEYPAIR_PATH);
     const coreProgramId = getProgramId('xb77_core');
     const gatewayProgramId = getProgramId('xb77_gateway');
     const receiptsProgramId = getProgramId('xb77_receipts');
+    const receiptAccountsPath = args.get('receipt-accounts');
+    const receiptPayloadPath = args.get('receipt-payload');
+    const receiptAccounts = receiptAccountsPath ? loadReceiptAccounts(receiptAccountsPath) : [];
+    const receiptPayload = receiptPayloadPath
+        ? JSON.parse(fs.readFileSync(receiptPayloadPath, 'utf-8'))
+        : null;
 
     console.log('--- Config ---');
+    console.log('RPC:', rpcUrl);
     console.log('Payer:', payer.publicKey.toBase58());
     console.log('Core ID:', coreProgramId.toBase58());
     console.log('Gateway ID:', gatewayProgramId.toBase58());
@@ -141,6 +192,7 @@ async function main() {
             ],
             data: buffer.slice(0, len),
         });
+        const tx = new Transaction().add(regIx);
         await sendAndConfirmTransaction(connection, tx, [payer]);
         console.log('Agent Registered');
     } else {
@@ -177,30 +229,51 @@ async function main() {
 
     // 5. Request Payment (Deduct Credit + Record Receipt)
     console.log('\n--- 5. Request Payment (CPI) ---');
-    const mockProof = Buffer.alloc(128);
-    const mockAddressTreeInfo = Buffer.alloc(34);
+    const proofBytes = receiptPayload?.proof_b64
+        ? Buffer.from(String(receiptPayload.proof_b64), 'base64')
+        : Buffer.alloc(128);
+    const addressTreeInfoBytes = receiptPayload?.address_tree_info_b64
+        ? Buffer.from(String(receiptPayload.address_tree_info_b64), 'base64')
+        : Buffer.alloc(34);
+    const outputStateTreeIndex = receiptPayload?.output_state_tree_index ?? 0;
+    const vendorBytes = receiptPayload?.vendor
+        ? parseHex32(String(receiptPayload.vendor), 'vendor')
+        : new Uint8Array(Array(32).fill(7));
+    const memoHashBytes = receiptPayload?.memo_hash
+        ? parseHex32(String(receiptPayload.memo_hash), 'memo_hash')
+        : new Uint8Array(Array(32).fill(8));
+    const amountValue = receiptPayload?.amount ? BigInt(receiptPayload.amount) : 500n;
     const bufferPay = Buffer.alloc(2000);
     const lenPay = RequestPaymentLayout.encode({
         instruction: 3,
         request_id: 123n,
-        amount: 500n,
-        vendor: Array(32).fill(7),
-        memo_hash: Array(32).fill(8),
-        proof: mockProof,
-        address_tree_info: mockAddressTreeInfo,
-        output_state_tree_index: 0,
+        amount: amountValue,
+        vendor: Array.from(vendorBytes),
+        memo_hash: Array.from(memoHashBytes),
+        proof: proofBytes,
+        address_tree_info: addressTreeInfoBytes,
+        output_state_tree_index: outputStateTreeIndex,
     }, bufferPay);
+
+    const requestPaymentKeys: AccountMeta[] = [
+        { pubkey: coreConfigPda, isSigner: false, isWritable: false },
+        { pubkey: creditLinePda, isSigner: false, isWritable: true },
+        { pubkey: agent.publicKey, isSigner: true, isWritable: false },
+        { pubkey: receiptsProgramId, isSigner: false, isWritable: false },
+    ];
+
+    if (receiptAccounts.length) {
+        requestPaymentKeys.push(...receiptAccounts);
+    } else {
+        requestPaymentKeys.push(
+            { pubkey: PublicKey.default, isSigner: false, isWritable: false },
+            { pubkey: PublicKey.default, isSigner: false, isWritable: false }
+        );
+    }
 
     const requestPaymentIx = new TransactionInstruction({
         programId: coreProgramId,
-        keys: [
-            { pubkey: coreConfigPda, isSigner: false, isWritable: false },
-            { pubkey: creditLinePda, isSigner: false, isWritable: true },
-            { pubkey: agent.publicKey, isSigner: true, isWritable: false },
-            { pubkey: receiptsProgramId, isSigner: false, isWritable: false },
-            { pubkey: PublicKey.default, isSigner: false, isWritable: false }, // Address Tree (Mock)
-            { pubkey: PublicKey.default, isSigner: false, isWritable: false }, // State Tree (Mock)
-        ],
+        keys: requestPaymentKeys,
         data: bufferPay.slice(0, lenPay),
     });
     

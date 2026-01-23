@@ -47,6 +47,31 @@
           </div>
         </section>
 
+        <section class="panel" id="observability-panel">
+          <div class="panel-header">
+            <h2>Observability</h2>
+            <button id="refresh-observability">Refresh</button>
+          </div>
+          <div id="observability-status" class="muted">
+            Select an agent to load live state.
+          </div>
+          <div class="obs-grid">
+            <div class="obs-card">
+              <div class="obs-label">Balance</div>
+              <div id="obs-balance" class="obs-value">-</div>
+              <div id="obs-balance-meta" class="obs-sub muted"></div>
+            </div>
+            <div class="obs-card">
+              <div class="obs-label">Latest Receipt</div>
+              <pre id="obs-latest-receipt" class="response muted">No data yet.</pre>
+            </div>
+            <div class="obs-card">
+              <div class="obs-label">Recent Receipts</div>
+              <div id="obs-receipts" class="receipt-list muted">No receipts yet.</div>
+            </div>
+          </div>
+        </section>
+
         <section class="panel" id="register-panel">
           <div class="panel-header">
             <h2>Connect MCP</h2>
@@ -58,7 +83,7 @@
             </label>
             <label>
               MCP URL
-              <input name="mcp_url" placeholder="http://localhost:7001/mcp" required />
+              <input name="mcp_url" placeholder="http://localhost:7001/tool" required />
             </label>
             <label>
               Transport

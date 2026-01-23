@@ -36,6 +36,14 @@ const toolResponse = document.getElementById('tool-response') as HTMLPreElement;
 const processList = document.getElementById('process-list') as HTMLDivElement;
 const refreshProcesses = document.getElementById('refresh-processes') as HTMLButtonElement;
 const hubPort = document.getElementById('hub-port') as HTMLSpanElement | null;
+const observabilityStatus = document.getElementById('observability-status') as HTMLDivElement;
+const refreshObservability = document.getElementById(
+  'refresh-observability'
+) as HTMLButtonElement;
+const obsBalance = document.getElementById('obs-balance') as HTMLDivElement;
+const obsBalanceMeta = document.getElementById('obs-balance-meta') as HTMLDivElement;
+const obsLatestReceipt = document.getElementById('obs-latest-receipt') as HTMLPreElement;
+const obsReceipts = document.getElementById('obs-receipts') as HTMLDivElement;
 
 let selectedAgentId: string | null = null;
 let agents: AgentSummary[] = [];
@@ -163,10 +171,161 @@ function selectAgent(id: string) {
   selectedAgentId = id;
   renderAgents(agents);
   renderAgentDetail(agents.find((agent) => agent.id === selectedAgentId));
+  refreshObservabilityPanel().catch(() => null);
 }
 
 function getSelectedAgent() {
   return agents.find((agent) => agent.id === selectedAgentId) ?? null;
+}
+
+function unwrapToolResponse(response: any) {
+  const data = response?.data ?? response;
+  const text = data?.content?.[0]?.text;
+  if (typeof text === 'string') {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  }
+  return data;
+}
+
+function extractToolError(payload: any): string | null {
+  if (!payload) {
+    return 'No response.';
+  }
+  if (payload?.isError && Array.isArray(payload?.content)) {
+    const text = payload.content[0]?.text;
+    if (typeof text === 'string') {
+      try {
+        const parsed = JSON.parse(text);
+        return parsed?.error?.message ?? text;
+      } catch {
+        return text;
+      }
+    }
+  }
+  return null;
+}
+
+async function callTool(name: string, args: Record<string, unknown> = {}) {
+  if (!selectedAgentId) {
+    throw new Error('Select an agent first.');
+  }
+  return await fetchJson(`/agent/${selectedAgentId}/tool`, {
+    method: 'POST',
+    body: JSON.stringify({ name, arguments: args }),
+  });
+}
+
+function formatTimestamp(value: unknown): string {
+  if (typeof value !== 'number') {
+    return 'n/a';
+  }
+  return new Date(value).toLocaleString();
+}
+
+function renderBalance(balance: any) {
+  if (balance == null) {
+    obsBalance.textContent = '-';
+    obsBalanceMeta.textContent = '';
+    return;
+  }
+  if (typeof balance === 'number' || typeof balance === 'string') {
+    obsBalance.textContent = String(balance);
+    obsBalanceMeta.textContent = '';
+    return;
+  }
+  if (typeof balance === 'object' && 'available' in balance) {
+    obsBalance.textContent = String((balance as any).available);
+    obsBalanceMeta.textContent = JSON.stringify(balance);
+    return;
+  }
+  obsBalance.textContent = 'object';
+  obsBalanceMeta.textContent = JSON.stringify(balance);
+}
+
+function renderLatestReceipt(receipt: any) {
+  if (!receipt) {
+    obsLatestReceipt.classList.add('muted');
+    obsLatestReceipt.textContent = 'No data yet.';
+    return;
+  }
+  obsLatestReceipt.classList.remove('muted');
+  obsLatestReceipt.textContent = JSON.stringify(receipt, null, 2);
+}
+
+function renderReceiptsList(receipts: any) {
+  obsReceipts.innerHTML = '';
+  if (!Array.isArray(receipts) || receipts.length === 0) {
+    obsReceipts.classList.add('muted');
+    obsReceipts.textContent = 'No receipts yet.';
+    return;
+  }
+  obsReceipts.classList.remove('muted');
+  receipts.forEach((receipt: any) => {
+    const row = document.createElement('div');
+    row.className = 'receipt-item';
+    const summary = `${receipt?.amount ?? '-'} ${receipt?.token ?? ''} → ${
+      receipt?.recipient ?? 'unknown'
+    }`;
+    row.innerHTML = `
+      <div>${summary}</div>
+      <div class="receipt-meta">${receipt?.type ?? 'n/a'} · ${formatTimestamp(
+        receipt?.timestamp
+      )}</div>
+    `;
+    obsReceipts.appendChild(row);
+  });
+}
+
+async function refreshObservabilityPanel() {
+  const selected = getSelectedAgent();
+  if (!selected) {
+    observabilityStatus.classList.add('muted');
+    observabilityStatus.textContent = 'Select an agent to load live state.';
+    renderBalance(null);
+    renderLatestReceipt(null);
+    renderReceiptsList([]);
+    return;
+  }
+  if (selected.transport === 'stdio') {
+    observabilityStatus.classList.add('muted');
+    observabilityStatus.textContent = 'HTTP transport required for live tool calls.';
+    renderBalance(null);
+    renderLatestReceipt(null);
+    renderReceiptsList([]);
+    return;
+  }
+  observabilityStatus.classList.remove('muted');
+  observabilityStatus.textContent = 'Loading...';
+  try {
+    const [stateResponse, listResponse] = await Promise.all([
+      callTool('agent.state.get', {}),
+      callTool('agent.receipts.list', { limit: 5 }),
+    ]);
+
+    const statePayload = unwrapToolResponse(stateResponse);
+    const listPayload = unwrapToolResponse(listResponse);
+
+    const stateError = extractToolError(statePayload);
+    const listError = extractToolError(listPayload);
+    if (stateError || listError) {
+      throw new Error(stateError ?? listError ?? 'Tool error.');
+    }
+
+    renderBalance(statePayload?.balance ?? statePayload?.data?.balance);
+    renderLatestReceipt(statePayload?.latestReceipt ?? statePayload?.data?.latestReceipt);
+    renderReceiptsList(listPayload);
+    observabilityStatus.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+  } catch (error: any) {
+    observabilityStatus.classList.add('muted');
+    observabilityStatus.textContent = `Error: ${error.message ?? 'failed to load'}`;
+    renderBalance(null);
+    renderLatestReceipt(null);
+    renderReceiptsList([]);
+  }
 }
 
 async function submitRegister(event: SubmitEvent) {
@@ -265,13 +424,19 @@ async function stopProcess(id: string) {
 
 refreshBtn.addEventListener('click', () => refreshAgents());
 refreshProcesses.addEventListener('click', () => refreshProcessList());
+refreshObservability.addEventListener('click', () => refreshObservabilityPanel());
 registerForm.addEventListener('submit', submitRegister);
 spawnForm.addEventListener('submit', submitSpawn);
 toolForm.addEventListener('submit', submitTool);
 
 refreshAgents().catch(() => null);
 refreshProcessList().catch(() => null);
+refreshObservabilityPanel().catch(() => null);
 setInterval(() => {
   refreshAgents().catch(() => null);
   refreshProcessList().catch(() => null);
 }, 5000);
+
+setInterval(() => {
+  refreshObservabilityPanel().catch(() => null);
+}, 10000);

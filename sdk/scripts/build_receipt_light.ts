@@ -10,8 +10,10 @@ import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 import {
   buildLightRecordReceiptContext,
+  serializePackedAddressTreeInfo,
+  serializeValidityProof,
   toReceiptAccountSpecs,
-} from '../src/economy/receipts';
+} from '../src/economy/receipts_light';
 
 type ArgMap = Map<string, string>;
 
@@ -127,6 +129,8 @@ async function main() {
     args.get('accounts-out') ?? path.join(outDir, 'receipt_accounts.json');
   const payloadPath =
     args.get('payload-out') ?? path.join(outDir, 'receipt_payload.json');
+  const corePayloadPath =
+    args.get('core-payload-out') ?? path.join(outDir, 'receipt_core_payload.json');
 
   writeFileSync(instructionPath, Buffer.from(context.instructionData));
   writeFileSync(
@@ -146,10 +150,28 @@ async function main() {
       2
     )
   );
+  writeFileSync(
+    corePayloadPath,
+    JSON.stringify(
+      {
+        vendor: toHex32(vendor),
+        amount: amount.toString(),
+        memo_hash: toHex32(memoHash),
+        proof_b64: Buffer.from(serializeValidityProof(context.proof)).toString('base64'),
+        address_tree_info_b64: Buffer.from(
+          serializePackedAddressTreeInfo(context.addressTreeInfo)
+        ).toString('base64'),
+        output_state_tree_index: context.outputStateTreeIndex,
+      },
+      null,
+      2
+    )
+  );
 
   console.log('Receipt instruction written:', instructionPath);
   console.log('Receipt accounts written:', accountsPath);
   console.log('Receipt payload written:', payloadPath);
+  console.log('Core payload written:', corePayloadPath);
   console.log('Derived address:', context.derivedAddress.toBase58());
   console.log('Vendor:', toHex32(vendor));
   console.log('Amount:', amount.toString());
