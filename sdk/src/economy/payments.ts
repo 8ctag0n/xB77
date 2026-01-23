@@ -69,16 +69,25 @@ export function buildPaymentReceipt(
     throw new Error('Cannot build receipt from failed payment result');
   }
 
+  const raw = result.raw as any;
+
   return {
     sender: request.agentId,
     recipient: request.vendor,
     token: request.currency,
     amount: result.paidAmount ?? request.amount,
     type: request.type ?? 'external',
+    provider: result.provider,
     proofPda: result.proofPda,
     nonce: result.nonce,
     txSignature: result.txSignature,
     timestamp,
+    metadata: {
+      method: raw?.method,
+      providerName: result.provider === 'starpay' ? 'Starpay' : 'ShadowWire',
+      cardLast4: raw?.cardId?.slice(-4),
+      externalRef: raw?.cardId || raw?.transfer?.tx_signature
+    }
   };
 }
 

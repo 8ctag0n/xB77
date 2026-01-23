@@ -6,6 +6,7 @@ import {
   PaymentProvider
 } from './payments';
 import { RangeAdapter } from './payment_adapters/range';
+import { ComplianceError } from './errors';
 
 export interface RouterConfig {
   gateway: PaymentGateway;
@@ -24,7 +25,7 @@ export class PaymentRouter {
     // 1. Compliance Check
     const compliance = await this.config.range.preScreenPayment(request.vendor, request.amount);
     if (!compliance.isSafe) {
-      throw new Error(`Compliance Block: ${compliance.reason || 'Risk score too low'}`);
+      throw new ComplianceError(compliance.reason || 'Risk score too low', { score: compliance.score });
     }
 
     // 2. Routing Decision

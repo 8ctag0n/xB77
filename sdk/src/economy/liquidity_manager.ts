@@ -1,6 +1,7 @@
 import type { PublicKey } from '@solana/web3.js';
 import type { SupportedToken } from './wallet';
 import type { BalanceInfo, BalanceProvider } from './balance';
+import { LiquidityError } from './errors';
 
 export interface TreasurySnapshot {
   fiat: BalanceInfo;
