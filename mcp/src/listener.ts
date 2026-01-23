@@ -107,6 +107,25 @@ async function generateCompressedReceipt(params: {
     const signature = await context.agent.wallet.sendTransaction(connection, transaction);
     console.log(`[Listener] Receipt recorded on-chain! Sig: ${signature}`);
 
+    // High Priority Fix: Persist to SQLite even in online mode
+    await context.receiptStore.recordPayment({
+      sender: context.agent.wallet.publicKey.toBase58(),
+      recipient: params.recipient.toBase58(),
+      token: 'USD1', // Defaulting to USD1 for demo alignment, realistically could be inferred
+      amount: params.amount,
+      type: 'external',
+      provider: 'light-protocol',
+      metadata: {
+        vendorName: params.vendorName,
+        memo: params.memo,
+        onChain: true
+      },
+      timestamp: Date.now(),
+      txSignature: signature,
+      nonce: 0 // Using 0 as placeholder for non-nonce based receipts
+    });
+    console.log(`[Listener] Online receipt persisted to SQLite.`);
+
   } catch (error) {
     console.error('[Listener] Error generating compressed receipt:', error);
   }
@@ -152,6 +171,16 @@ const server = Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
 
+    // Security: Basic Webhook Secret Check
+    const secret = Bun.env.WEBHOOK_SECRET;
+    if (secret && url.pathname.startsWith('/webhooks/')) {
+      const headerSecret = req.headers.get('x-webhook-secret');
+      if (headerSecret !== secret) {
+        console.warn(`[Listener] Blocked unauthorized webhook request to ${url.pathname}`);
+        return new Response('Unauthorized', { status: 401 });
+      }
+    }
+
     if (url.pathname === '/health') {
       return new Response(JSON.stringify({ status: 'ok', agent: context?.agent.wallet.publicKey.toBase58() }), { headers: { 'Content-Type': 'application/json' } });
     }
@@ -166,6 +195,28 @@ const server = Bun.serve({
       const payload = await req.json();
       await handleStarpayWebhook(payload);
       return new Response('OK');
+    }
+
+    if (url.pathname === '/history' && req.method === 'GET') {
+      const limitParam = url.searchParams.get('limit');
+      const limit = limitParam ? parseInt(limitParam, 10) : 50;
+      const receipts = await context.receiptStore.listReceipts(limit);
+      return new Response(JSON.stringify({ receipts }), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
+
+    if (url.pathname === '/') {
+        return new Response(JSON.stringify({ 
+            service: 'xb77-listener', 
+            status: 'active', 
+            agent: context?.agent.wallet.publicKey.toBase58() 
+        }), { 
+            headers: { 'Content-Type': 'application/json' } 
+        });
     }
 
     return new Response('Not Found', { status: 404 });

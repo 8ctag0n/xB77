@@ -19,6 +19,8 @@ export class SQLiteReceiptStore implements ReceiptStore {
         token TEXT,
         amount REAL,
         type TEXT,
+        provider TEXT,
+        metadata TEXT,
         proofPda TEXT,
         nonce INTEGER,
         txSignature TEXT,
@@ -26,15 +28,19 @@ export class SQLiteReceiptStore implements ReceiptStore {
         raw_json TEXT
       )
     `);
+    
+    // Attempt migration for existing tables (ignore errors if columns exist)
+    try { this.db.run("ALTER TABLE receipts ADD COLUMN provider TEXT"); } catch {}
+    try { this.db.run("ALTER TABLE receipts ADD COLUMN metadata TEXT"); } catch {}
   }
 
   async recordPayment(receipt: PaymentReceipt): Promise<void> {
     const query = this.db.prepare(`
       INSERT INTO receipts (
-        sender, recipient, token, amount, type, 
+        sender, recipient, token, amount, type, provider, metadata,
         proofPda, nonce, txSignature, timestamp, raw_json
       ) VALUES (
-        $sender, $recipient, $token, $amount, $type, 
+        $sender, $recipient, $token, $amount, $type, $provider, $metadata,
         $proofPda, $nonce, $txSignature, $timestamp, $raw_json
       )
     `);
@@ -45,6 +51,8 @@ export class SQLiteReceiptStore implements ReceiptStore {
       $token: receipt.token,
       $amount: receipt.amount,
       $type: receipt.type,
+      $provider: receipt.provider || 'unknown',
+      $metadata: receipt.metadata ? JSON.stringify(receipt.metadata) : null,
       $proofPda: receipt.proofPda || null,
       $nonce: typeof receipt.nonce === 'bigint' ? Number(receipt.nonce) : (receipt.nonce || null),
       $txSignature: receipt.txSignature || null,
@@ -68,6 +76,8 @@ export class SQLiteReceiptStore implements ReceiptStore {
       token: row.token,
       amount: row.amount,
       type: row.type,
+      provider: row.provider,
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
       proofPda: row.proofPda,
       nonce: row.nonce,
       txSignature: row.txSignature,
@@ -89,6 +99,8 @@ export class SQLiteReceiptStore implements ReceiptStore {
       token: row.token,
       amount: row.amount,
       type: row.type,
+      provider: row.provider,
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
       proofPda: row.proofPda,
       nonce: row.nonce,
       txSignature: row.txSignature,
