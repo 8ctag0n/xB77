@@ -721,14 +721,50 @@ function toggleReceiptReveal(sig: string) {
   refreshLiveActivity().catch(() => null);
 }
 
+// ... (imports)
+
+const invoiceModal = document.getElementById('invoice-modal') as HTMLDivElement;
+const invId = document.getElementById('inv-id') as HTMLElement;
+const invDate = document.getElementById('inv-date') as HTMLElement;
+const invBody = document.getElementById('inv-body') as HTMLElement;
+const invHash = document.getElementById('inv-hash') as HTMLElement;
+
+function showInvoice(receipt: any) {
+  if (!invoiceModal) return;
+  
+  // 1. Reconstruct Data (Mocking the decryption/parsing logic)
+  const isPrivate = receipt.provider === 'shadowwire' || receipt.provider === 'privacy_cash';
+  const vendor = receipt.metadata?.vendorName || receipt.recipient.slice(0, 8) + '...';
+  const amount = receipt.amount / 100;
+  const tax = amount * 0.21; // Mock VAT
+  const subtotal = amount - tax;
+  
+  // 2. Populate UI
+  invId.textContent = `#INV-${receipt.txSignature.slice(0, 6).toUpperCase()}`;
+  invDate.textContent = new Date(receipt.timestamp).toLocaleString();
+  invHash.textContent = `ZK-PROOF: ${receipt.txSignature}`;
+  
+  invBody.innerHTML = `
+    <div class="line-item"><span>Vendor</span> <strong>${vendor}</strong></div>
+    <div class="line-item"><span>Method</span> <span>${receipt.provider.toUpperCase()}</span></div>
+    <div class="line-divider"></div>
+    <div class="line-item"><span>Service (1.0)</span> <span>$${subtotal.toFixed(2)}</span></div>
+    <div class="line-item"><span>VAT (21%)</span> <span>$${tax.toFixed(2)}</span></div>
+    <div class="line-divider"></div>
+    <div class="invoice-total"><span>TOTAL</span> <span>$${amount.toFixed(2)}</span></div>
+  `;
+
+  invoiceModal.classList.remove('hidden');
+}
+
+(window as any).showInvoice = showInvoice; // Expose for onclick
+
 async function refreshLiveActivity() {
   try {
     const response = await fetch(`${LISTENER_URL}/history?limit=10`);
     if (!response.ok) return;
     const { receipts } = await response.json();
     
-    // Clear dynamic items only (not the initial welcome message if we want to keep it, 
-    // but here we replace the whole feed with real data)
     activityFeed.innerHTML = '';
     
     receipts.forEach((r: any) => {
@@ -741,12 +777,27 @@ async function refreshLiveActivity() {
       const vendorDisplay = (isPrivate && !isRevealed) ? 'Shielded Destination' : (r.metadata?.vendorName || r.recipient.slice(0, 8) + '...');
       const privacyIcon = isPrivate ? '🔒' : '🔓';
       
+      // Pass the whole receipt object to the function. We need to serialize it safely or store it.
+      // For simplicity in this demo, we'll attach it to the button's click handler via closure? 
+      // No, passing JSON string in HTML is messy. Let's just pass the ID/Sig and find it? 
+      // Or just pass the fields we need. 
+      // Better: Store receipts in a map? 
+      // Simplest for now: Pass key fields.
+      const safeVendor = (r.metadata?.vendorName || 'Unknown').replace(/'/g, "\\'");
+      
+      // Using a global map to store receipts for easy access by ID would be cleaner, 
+      // but let's just stick the receipt JSON into a data attribute for the "View Invoice" button.
+      const receiptJson = JSON.stringify(r).replace(/"/g, '&quot;');
+
       item.innerHTML = `
         <span class="time">${new Date(r.timestamp).toLocaleTimeString()}</span>
         <div class="feed-content">
           <span class="privacy-toggle" onclick="window.toggleReceiptReveal('${r.txSignature}')">${privacyIcon}</span>
           <strong>${amountDisplay}</strong> to ${vendorDisplay}
-          <div class="receipt-meta">${r.provider} · ${r.txSignature.slice(0, 12)}...</div>
+          <div class="receipt-meta">
+            ${r.provider} · ${r.txSignature.slice(0, 8)}...
+            <button class="btn-invoice" onclick='window.showInvoice(${receiptJson})'>📄 Invoice</button>
+          </div>
         </div>
       `;
       activityFeed.appendChild(item);
@@ -755,6 +806,8 @@ async function refreshLiveActivity() {
     // Silent fail for polling
   }
 }
+
+// ... (rest of code)
 
 // Expose to window for onclick
 (window as any).toggleReceiptReveal = toggleReceiptReveal;

@@ -414,6 +414,89 @@ body {
   margin-right: 8px;
 }
 
+/* Invoice Modal */
+.invoice-modal {
+  background: #fff;
+  color: #000;
+  font-family: "IBM Plex Mono", monospace;
+  max-width: 380px;
+  padding: 0;
+  border-radius: 4px;
+  box-shadow: 0 0 50px rgba(0,0,0,0.5);
+}
+
+.invoice-header {
+  padding: 24px;
+  text-align: center;
+  border-bottom: 2px dashed #ccc;
+}
+
+.invoice-logo {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.invoice-meta {
+  font-size: 12px;
+  color: #666;
+}
+
+.invoice-body {
+  padding: 24px;
+}
+
+.line-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.line-divider {
+  border-top: 1px solid #eee;
+  margin: 12px 0;
+}
+
+.invoice-total {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 16px;
+  margin-top: 12px;
+}
+
+.invoice-footer {
+  background: #f9f9f9;
+  padding: 16px;
+  text-align: center;
+  font-size: 10px;
+  color: #888;
+  border-top: 1px solid #eee;
+}
+
+.zk-hash {
+  word-break: break-all;
+  margin-top: 4px;
+  font-size: 9px;
+  color: #aaa;
+}
+
+.btn-invoice {
+  font-size: 10px;
+  padding: 2px 6px;
+  margin-left: 8px;
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+  border: 1px solid var(--muted);
+}
+
+.btn-invoice:hover {
+  background: var(--text);
+  color: var(--bg);
+}
+
 /* Utils */
 .hidden { display: none !important; }
 

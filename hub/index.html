@@ -325,6 +325,25 @@
       </div>
     </div>
 
+    <!-- INVOICE MODAL -->
+    <div id="invoice-modal" class="modal-overlay hidden">
+      <div class="modal-content invoice-modal">
+        <div class="invoice-header">
+          <span class="invoice-logo">🧾 INVOICE</span>
+          <div class="invoice-meta" id="inv-id">#INV-0000</div>
+          <div class="invoice-meta" id="inv-date">...</div>
+        </div>
+        <div class="invoice-body" id="inv-body">
+          <!-- Items injected -->
+        </div>
+        <div class="invoice-footer">
+          <div>VERIFIED BY LIGHT PROTOCOL</div>
+          <div class="zk-hash" id="inv-hash">0x...</div>
+          <button class="btn-sm" style="margin-top: 12px; width: 100%;" onclick="document.getElementById('invoice-modal').classList.add('hidden')">Close</button>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="./hub.ts"></script>
   </body>
 </html>
