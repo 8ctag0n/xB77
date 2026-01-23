@@ -34,8 +34,13 @@ Enhanced to support sophisticated service listings.
 *   **Real-Time:** WebSockets from Track C update the Sales Feed.
 
 ## 4. Execution Plan
-1.  **Registry Upgrade:** Update Rust program to support payment methods metadata.
-2.  **Product UI:** Build the "Marketplace" view.
-3.  **Checkout Flow:** Connect the "Buy" button to `agent.pay(strategy)`.
-4.  **Starpay UI:** Build the Virtual Card display component.
-5.  **History Integration:** Connect the Activity Feed to the Track C API.
+1.  **Registry Upgrade:** Update Rust program to support payment methods metadata. (DONE)
+2.  **Product UI:** Build the "Marketplace" view. (DONE - Static Mock)
+3.  **Checkout Flow:** Connect the "Buy" button to `agent.pay(strategy)`. (DONE - Tool Call Dispatcher)
+4.  **Starpay UI:** Build the Virtual Card display component. (PENDING - Needs Track A Adapter)
+5.  **History Integration:** Connect the Activity Feed to the Track C API. (PENDING - Needs Track C Webhooks)
+
+## 5. Next Steps (After Merge)
+*   **On-Chain Catalogs:** Implement `AddProduct` instruction in `xb77_registry` to move products from static JSON in the Hub to on-chain state.
+*   **Agent Handshake:** Verify the `agent.pay` tool signature in the Hub to prevent unauthorized tool dispatch from the UI.
+*   **Live Stats:** Connect the "Total Sales" counter to the `xb77_receipts` program state.
