@@ -12,6 +12,7 @@
         <div class="nav-brand">xB77 Merchant</div>
         <div class="nav-links">
           <button class="nav-tab active" data-target="view-merchant">Terminal</button>
+          <button class="nav-tab" data-target="view-governance">Governance</button>
           <button class="nav-tab" data-target="view-control">Control Plane</button>
         </div>
         <div class="status-pill">
@@ -110,6 +111,42 @@
               </div>
             </section>
           </aside>
+        </main>
+      </div>
+
+      <!-- GOVERNANCE VIEW -->
+      <div id="view-governance" class="view hidden">
+        <header class="hero">
+          <div>
+            <p class="kicker">Security & Compliance</p>
+            <h1>Shadow Governance</h1>
+            <p class="subhead">
+              Approve or reject high-value transactions using privacy-preserving signals.
+            </p>
+          </div>
+          <div class="status-pill">
+            <span class="dot online"></span>
+            <span>Secure Channel</span>
+          </div>
+        </header>
+
+        <main class="grid">
+          <section class="panel" style="grid-column: span 2;">
+            <div class="panel-header">
+              <h2>Pending Approvals</h2>
+              <button class="btn-xs" id="refresh-gov">↻ Refresh</button>
+            </div>
+            <div id="governance-list" class="governance-list">
+              <div class="empty-state">No pending requests.</div>
+            </div>
+          </section>
+          
+          <section class="panel">
+            <div class="panel-header"><h2>Security Log</h2></div>
+             <div class="log-console" id="gov-log">
+               <div class="log-line">System initialized. Waiting for encrypted intents...</div>
+             </div>
+          </section>
         </main>
       </div>
 

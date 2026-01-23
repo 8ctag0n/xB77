@@ -67,13 +67,164 @@ const PAYMENT_METHODS = {
   SHADOWWIRE: 'shadowwire',
 };
 
-// ... (rest of products and init)
+// ... (previous code)
+
+const govList = document.getElementById('governance-list') as HTMLDivElement;
+const govLog = document.getElementById('gov-log') as HTMLDivElement;
+const refreshGovBtn = document.getElementById('refresh-gov') as HTMLButtonElement;
+
+function logGov(msg: string) {
+  if (!govLog) return;
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="time">${new Date().toLocaleTimeString()}</span> ${msg}`;
+  govLog.appendChild(line);
+  govLog.scrollTop = govLog.scrollHeight;
+}
+
+async function refreshGovernance() {
+  if (!govList) return;
+  try {
+    const response = await fetch(`${LISTENER_URL}/governance/requests`);
+    if (!response.ok) return;
+    const { requests } = await response.json();
+    
+    govList.innerHTML = '';
+    if (requests.length === 0) {
+      govList.innerHTML = '<div class="empty-state">No pending requests.</div>';
+      return;
+    }
+
+    requests.forEach((req: any) => {
+      if (req.status !== 'pending') return; // Filter for pending only in this view
+      
+      const card = document.createElement('div');
+      card.className = 'gov-card';
+      card.id = `card-${req.id}`;
+      card.innerHTML = `
+        <div class="gov-header">
+          <div class="gov-icon">${ICONS.LOCK}</div>
+          <div class="gov-title">Encrypted Intent #${req.id.slice(-4)}</div>
+          <div class="gov-agent">${req.agentId}</div>
+        </div>
+        <div class="gov-body">
+          <div class="encrypted-blob">${req.encryptedPayload.slice(0, 32)}...</div>
+          <div class="decrypted-content hidden" id="content-${req.id}">
+             <!-- Injected after decrypt -->
+          </div>
+        </div>
+        <div class="gov-actions">
+           <button class="btn-sm btn-outline" onclick="window.decryptRequest('${req.id}', '${req.encryptedPayload}')">Decrypt & Inspect</button>
+           <div class="approval-actions hidden" id="actions-${req.id}">
+             <button class="btn-sm btn-danger" onclick="window.rejectRequest('${req.id}')">Reject</button>
+             <button class="btn-sm btn-success" onclick="window.approveRequest('${req.id}')">Sign & Approve</button>
+           </div>
+        </div>
+      `;
+      govList.appendChild(card);
+    });
+  } catch (e) {
+    console.error('Gov refresh failed', e);
+  }
+}
+
+// Mock Decryption Key
+const MASTER_KEY = "x77-shadow-key";
+
+async function decryptRequest(id: string, payload: string) {
+  logGov(`Decrypting intent ${id}...`);
+  // Mock delay
+  await new Promise(r => setTimeout(r, 600));
+  
+  // In a real scenario, we would use window.crypto.subtle to decrypt 'payload' using 'MASTER_KEY'
+  // Here we just decode the mock payload which we assume is Base64 encoded JSON for the demo
+  let content = "Unknown payload";
+  try {
+     content = atob(payload); // Mock: Payload is just base64 for demo
+  } catch {
+     content = "Failed to decrypt. Invalid ciphertext.";
+  }
+
+  const contentDiv = document.getElementById(`content-${id}`);
+  const actionsDiv = document.getElementById(`actions-${id}`);
+  
+  if (contentDiv) {
+    contentDiv.innerHTML = `
+      <div class="intent-details">
+        <div class="intent-row"><span>Action:</span> <strong>Transfer</strong></div>
+        <div class="intent-row"><span>Amount:</span> <strong>${content.split('|')[1]}</strong></div>
+        <div class="intent-row"><span>To:</span> <strong>${content.split('|')[2]}</strong></div>
+        <div class="intent-row"><span>Reason:</span> <strong>${content.split('|')[3]}</strong></div>
+      </div>
+    `;
+    contentDiv.classList.remove('hidden');
+  }
+  
+  if (actionsDiv) {
+    actionsDiv.classList.remove('hidden');
+    // Hide the decrypt button parent
+    const decryptBtn = actionsDiv.previousElementSibling;
+    if (decryptBtn) decryptBtn.classList.add('hidden');
+  }
+  
+  logGov(`Intent ${id} revealed.`);
+}
+
+async function approveRequest(id: string) {
+  logGov(`Signing approval for ${id}...`);
+  // Mock signing delay
+  await new Promise(r => setTimeout(r, 800));
+  
+  try {
+    await fetch(`${LISTENER_URL}/governance/approve/${id}`, { method: 'POST' });
+    logGov(`Request ${id} APPROVED. Signature broadcasted.`);
+    
+    // UI Update
+    const card = document.getElementById(`card-${id}`);
+    if (card) {
+      card.classList.add('approved-anim');
+      setTimeout(() => card.remove(), 1000);
+    }
+  } catch (e) {
+    logGov(`Error approving: ${e}`);
+  }
+}
+
+async function rejectRequest(id: string) {
+   try {
+    await fetch(`${LISTENER_URL}/governance/reject/${id}`, { method: 'POST' });
+    logGov(`Request ${id} REJECTED.`);
+    const card = document.getElementById(`card-${id}`);
+    if (card) card.remove();
+  } catch (e) {
+    logGov(`Error rejecting: ${e}`);
+  }
+}
+
+// Expose globals
+(window as any).decryptRequest = decryptRequest;
+(window as any).approveRequest = approveRequest;
+(window as any).rejectRequest = rejectRequest;
+
+// ... (init)
+
+if (refreshGovBtn) refreshGovBtn.addEventListener('click', () => refreshGovernance());
+
+setInterval(() => {
+  refreshGovernance().catch(() => null);
+}, 5000);
+
+// Update nav init to include governance refresh
+// (Implicitly handled by polling, but nice to trigger on tab switch)
+const govTab = document.querySelector('button[data-target="view-governance"]');
+if (govTab) govTab.addEventListener('click', () => refreshGovernance());
 
 const products = [
   { id: 'p1', name: 'AWS Credits ($100)', price: 95, icon: ICONS.CLOUD, recipient: 'So11111111111111111111111111111111111111112' },
   { id: 'p2', name: 'DevOps Hour', price: 150, icon: ICONS.TOOL, recipient: 'So11111111111111111111111111111111111111112' },
   { id: 'p3', name: 'VPN Subscription', price: 12, icon: ICONS.LOCK, recipient: 'So11111111111111111111111111111111111111112' },
   { id: 'p4', name: 'Dark Web Data', price: 499, icon: ICONS.DATA, recipient: 'BAD_sanctioned_address_123' },
+  { id: 'p5', name: 'Quantum Farm', price: 50000, icon: ICONS.SHIELD, recipient: 'So11111111111111111111111111111111111111112' },
 ];
 
 if (hubPort) {
@@ -647,6 +798,38 @@ async function handleBuy(product: typeof products[0]) {
   const agent = getSelectedAgent();
   if (!agent) {
     alert('No agent connected. Please connect an agent in the Control Plane.');
+    return;
+  }
+
+  // GOVERNANCE TRIGGER: High Value Transaction
+  if (product.price > 1000) {
+    const confirmMsg = `High Value Alert: $${product.price} exceeds autonomous limit.\nInitiating Shadow Governance Protocol?`;
+    if (!confirm(confirmMsg)) return;
+
+    logActivity(`⚠️ Blocked: $${product.price} exceeds limit. Requesting approval...`, 'info');
+    
+    // Simulate Agent sending encrypted intent to Listener
+    try {
+      const payload = {
+        agentId: agent.id,
+        // Mocking encryption: Base64 of "CMD|AMOUNT|RECIPIENT|REASON"
+        encryptedPayload: btoa(`TRANSFER|${product.price}|${product.recipient.slice(0,8)}...|Asset Acquisition: ${product.name}`)
+      };
+      
+      await fetch(`${LISTENER_URL}/governance/request`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+
+      alert('🚫 Transaction requires human approval.\nCheck the "Governance" tab to inspect and sign.');
+      // Switch tab helper (optional, user can do it manually)
+      const govTab = document.querySelector('button[data-target="view-governance"]');
+      if (govTab) govTab.classList.add('pulse-anim');
+    } catch (e) {
+      console.error(e);
+      logActivity('Governance handshake failed.', 'info');
+    }
     return;
   }
   

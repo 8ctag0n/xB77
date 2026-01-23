@@ -209,6 +209,66 @@ const server = Bun.serve({
       });
     }
 
+interface GovernanceRequest {
+  id: string;
+  agentId: string;
+  encryptedPayload: string; // The secret intent
+  status: 'pending' | 'approved' | 'rejected';
+  timestamp: number;
+  signature?: string; // The authority signature
+}
+
+const governanceStore = new Map<string, GovernanceRequest>();
+
+// ... (inside server handler)
+
+    if (url.pathname === '/governance/request' && req.method === 'POST') {
+      const payload = await req.json();
+      const id = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const request: GovernanceRequest = {
+        id,
+        agentId: payload.agentId,
+        encryptedPayload: payload.encryptedPayload,
+        status: 'pending',
+        timestamp: Date.now()
+      };
+      governanceStore.set(id, request);
+      console.log(`[Governance] New encrypted request stored: ${id}`);
+      return new Response(JSON.stringify({ ok: true, id }), { headers: { 'Content-Type': 'application/json' } });
+    }
+
+    if (url.pathname === '/governance/requests' && req.method === 'GET') {
+      const requests = Array.from(governanceStore.values()).sort((a, b) => b.timestamp - a.timestamp);
+      return new Response(JSON.stringify({ requests }), {
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      });
+    }
+
+    if (url.pathname.startsWith('/governance/approve/') && req.method === 'POST') {
+      const id = url.pathname.split('/').pop()!;
+      const reqItem = governanceStore.get(id);
+      if (reqItem) {
+        reqItem.status = 'approved';
+        reqItem.signature = `sig-auth-${Date.now()}`; // Mocking the cryptographic approval
+        governanceStore.set(id, reqItem);
+        console.log(`[Governance] Request ${id} APPROVED.`);
+        return new Response(JSON.stringify({ ok: true }), { headers: { 'Access-Control-Allow-Origin': '*' } });
+      }
+      return new Response('Not Found', { status: 404 });
+    }
+
+    if (url.pathname.startsWith('/governance/reject/') && req.method === 'POST') {
+      const id = url.pathname.split('/').pop()!;
+      const reqItem = governanceStore.get(id);
+      if (reqItem) {
+        reqItem.status = 'rejected';
+        governanceStore.set(id, reqItem);
+        console.log(`[Governance] Request ${id} REJECTED.`);
+        return new Response(JSON.stringify({ ok: true }), { headers: { 'Access-Control-Allow-Origin': '*' } });
+      }
+      return new Response('Not Found', { status: 404 });
+    }
+
     if (url.pathname === '/') {
         return new Response(JSON.stringify({ 
             service: 'xb77-listener', 
