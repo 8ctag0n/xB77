@@ -11,6 +11,7 @@ pub const MAX_CATALOG_URL_LEN: usize = 256;
 pub struct MerchantAccount {
     pub merchant_id: Vec<u8>,
     pub owner: [u8; 32],
+    pub supported_methods: u64,
     pub catalog_count: u32,
     pub created_at: u64,
     pub updated_at: u64,

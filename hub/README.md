@@ -1,6 +1,17 @@
-# MiniHub (Owner Control Plane)
+# xB77 Merchant Hub
 
-Local hub that registers MCP agents, dispatches tool calls, and optionally spawns CLI agents.
+A dual-mode interface serving as both a **Commercial Terminal** for merchants and a **Control Plane** for the autonomous agent.
+
+## Modes
+
+1.  **Merchant Terminal:**
+    - POS-like interface for listing products and accepting payments.
+    - Strategy Selector (Privacy Cash vs Starpay).
+    - Real-time sales activity feed.
+
+2.  **Control Plane (MiniHub):**
+    - Technical dashboard to register and monitor MCP agents.
+    - Tool dispatcher and process manager.
 
 ## Run
 
@@ -10,16 +21,12 @@ bun --hot hub/index.ts
 
 Visit `http://localhost:7777`.
 
-## Observability panel
+## Usage Flow
 
-The Hub can pull live state via MCP tool calls. To enable this, run the MCP server
-in HTTP mode and register the agent with the `/tool` endpoint.
-
-```bash
-MCP_HTTP_PORT=7001 bun run src/http.ts
-```
-
-Then register the agent with `mcp_url` set to `http://localhost:7001/tool`.
+1.  **Start the Hub:** Run the command above.
+2.  **Start an Agent:** In a separate terminal, run `MCP_HTTP_PORT=7001 bun run mcp/src/http.ts`.
+3.  **Connect:** Go to the **Control Plane** tab in the Hub. Register the agent (`http://localhost:7001/tool`).
+4.  **Transact:** Switch to the **Terminal** tab. Select a strategy and click "Buy Now" on any product. The Hub will dispatch `agent.pay` commands to the connected agent.
 
 ## Environment
 

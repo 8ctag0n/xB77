@@ -4,6 +4,13 @@ use wincode::{SchemaRead, SchemaWrite};
 #[derive(Debug, SchemaRead, SchemaWrite)]
 pub struct InitMerchantPayload {
     pub merchant_id: Vec<u8>,
+    pub supported_methods: u64,
+}
+
+#[derive(Debug, SchemaRead, SchemaWrite)]
+pub struct UpdateMerchantPayload {
+    pub merchant_id: Vec<u8>,
+    pub supported_methods: Option<u64>,
 }
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
@@ -34,6 +41,7 @@ pub struct DeactivateCatalogPayload {
 #[derive(Debug, SchemaRead, SchemaWrite)]
 pub enum RegistryInstruction {
     InitMerchant(InitMerchantPayload),
+    UpdateMerchant(UpdateMerchantPayload),
     AddCatalog(AddCatalogPayload),
     UpdateCatalog(UpdateCatalogPayload),
     DeactivateCatalog(DeactivateCatalogPayload),

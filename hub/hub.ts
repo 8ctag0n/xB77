@@ -25,6 +25,7 @@ type ProcessSummary = {
   exitCode?: number;
 };
 
+// --- DOM Elements ---
 const agentsList = document.getElementById('agents-list') as HTMLDivElement;
 const agentDetail = document.getElementById('agent-detail') as HTMLDivElement;
 const refreshBtn = document.getElementById('refresh-btn') as HTMLButtonElement;
@@ -37,21 +38,55 @@ const processList = document.getElementById('process-list') as HTMLDivElement;
 const refreshProcesses = document.getElementById('refresh-processes') as HTMLButtonElement;
 const hubPort = document.getElementById('hub-port') as HTMLSpanElement | null;
 const observabilityStatus = document.getElementById('observability-status') as HTMLDivElement;
-const refreshObservability = document.getElementById(
-  'refresh-observability'
-) as HTMLButtonElement;
+const refreshObservability = document.getElementById('refresh-observability') as HTMLButtonElement;
 const obsBalance = document.getElementById('obs-balance') as HTMLDivElement;
 const obsBalanceMeta = document.getElementById('obs-balance-meta') as HTMLDivElement;
 const obsLatestReceipt = document.getElementById('obs-latest-receipt') as HTMLPreElement;
 const obsReceipts = document.getElementById('obs-receipts') as HTMLDivElement;
+const connectionStatus = document.getElementById('connection-status') as HTMLSpanElement;
 
+// Merchant Elements
+const statSales = document.getElementById('stat-sales') as HTMLSpanElement;
+const statPending = document.getElementById('stat-pending') as HTMLSpanElement;
+const productGrid = document.getElementById('product-grid') as HTMLDivElement;
+const activityFeed = document.getElementById('activity-feed') as HTMLDivElement;
+const btnAddProduct = document.getElementById('btn-add-product') as HTMLButtonElement;
+
+// --- State ---
 let selectedAgentId: string | null = null;
 let agents: AgentSummary[] = [];
+let salesTotal = 0;
+let pendingCount = 0;
+
+const products = [
+  { id: 'p1', name: 'AWS Credits ($100)', price: 95, icon: '☁️' },
+  { id: 'p2', name: 'DevOps Hour', price: 150, icon: '🛠️' },
+  { id: 'p3', name: 'VPN Subscription', price: 12, icon: '🔒' },
+  { id: 'p4', name: 'Storage (1TB)', price: 25, icon: '💾' },
+];
 
 if (hubPort) {
   hubPort.textContent = `:${window.location.port || '7777'}`;
 }
 
+// --- Navigation ---
+function initNav() {
+  const tabs = document.querySelectorAll('.nav-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+      
+      tab.classList.add('active');
+      const target = (tab as HTMLElement).dataset.target;
+      if (target) {
+        document.getElementById(target)?.classList.remove('hidden');
+      }
+    });
+  });
+}
+
+// --- API Helpers ---
 function getHubToken(): string | undefined {
   const value = hubTokenInput?.value?.trim();
   return value || undefined;
@@ -77,6 +112,8 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return response.json() as Promise<T>;
 }
+
+// --- Control Plane Logic ---
 
 function renderAgents(list: AgentSummary[]) {
   agentsList.innerHTML = '';
@@ -112,6 +149,8 @@ function renderAgentDetail(agent?: AgentSummary) {
   if (!agent) {
     agentDetail.classList.add('muted');
     agentDetail.textContent = 'Select an agent to see details.';
+    connectionStatus.textContent = 'Disconnected';
+    connectionStatus.style.color = 'var(--muted)';
     return;
   }
   agentDetail.classList.remove('muted');
@@ -126,6 +165,14 @@ function renderAgentDetail(agent?: AgentSummary) {
   `;
   if (agent.transport === 'stdio') {
     agentDetail.innerHTML += `<div class="detail-note">Tool calls are disabled for stdio agents.</div>`;
+  }
+  
+  if (agent.status === 'online') {
+    connectionStatus.textContent = `Connected: ${agent.id}`;
+    connectionStatus.style.color = 'var(--accent-2)';
+  } else {
+    connectionStatus.textContent = `Stale: ${agent.id}`;
+    connectionStatus.style.color = 'var(--danger)';
   }
 }
 
@@ -156,10 +203,21 @@ function renderProcesses(list: ProcessSummary[]) {
 }
 
 async function refreshAgents() {
-  const response = await fetchJson<{ ok: boolean; agents: AgentSummary[] }>('/agents');
-  agents = response.agents;
-  renderAgents(agents);
-  renderAgentDetail(agents.find((agent) => agent.id === selectedAgentId));
+  try {
+    const response = await fetchJson<{ ok: boolean; agents: AgentSummary[] }>('/agents');
+    agents = response.agents;
+    
+    // Auto-select first online agent if none selected
+    if (!selectedAgentId && agents.length > 0) {
+      const firstOnline = agents.find(a => a.status === 'online');
+      if (firstOnline) selectAgent(firstOnline.id);
+    }
+    
+    renderAgents(agents);
+    renderAgentDetail(agents.find((agent) => agent.id === selectedAgentId));
+  } catch (e) {
+    console.error('Failed to refresh agents', e);
+  }
 }
 
 async function refreshProcessList() {
@@ -422,6 +480,92 @@ async function stopProcess(id: string) {
   await refreshProcessList();
 }
 
+// --- Merchant Terminal Logic ---
+
+function logActivity(message: string, type: 'info' | 'sale' = 'info') {
+  const item = document.createElement('div');
+  item.className = `feed-item ${type}`;
+  item.innerHTML = `
+    <span class="time">${new Date().toLocaleTimeString()}</span>
+    ${message}
+  `;
+  activityFeed.prepend(item);
+  // Keep limit
+  if (activityFeed.children.length > 20) {
+    activityFeed.lastElementChild?.remove();
+  }
+}
+
+function renderProductGrid() {
+  productGrid.innerHTML = '';
+  products.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'product-card';
+    card.innerHTML = `
+      <div class="product-icon">${p.icon}</div>
+      <div class="product-info">
+        <h3>${p.name}</h3>
+        <div class="product-price">$${p.price.toFixed(2)}</div>
+      </div>
+      <button class="btn-sm" data-id="${p.id}">Buy Now</button>
+    `;
+    card.querySelector('button')?.addEventListener('click', () => handleBuy(p));
+    productGrid.appendChild(card);
+  });
+}
+
+async function handleBuy(product: typeof products[0]) {
+  const agent = getSelectedAgent();
+  if (!agent) {
+    alert('No agent connected. Please connect an agent in the Control Plane.');
+    return;
+  }
+  
+  // Get strategy
+  const strategyInput = document.querySelector('input[name="strategy"]:checked') as HTMLInputElement;
+  const strategy = strategyInput?.value || 'privacy_cash';
+  
+  logActivity(`Initiating purchase: ${product.name} via ${strategy}...`);
+  
+  try {
+    const response = await callTool('agent.pay', {
+      amount: product.price,
+      token: 'USDC',
+      recipient: 'merchant-pool', // Mock recipient
+      strategy: strategy
+    });
+    
+    const result = unwrapToolResponse(response);
+    const error = extractToolError(result);
+    
+    if (error) {
+      logActivity(`Payment failed: ${error}`, 'info');
+    } else {
+      salesTotal += product.price;
+      statSales.textContent = `$${salesTotal.toFixed(2)}`;
+      logActivity(`Payment confirmed! ${product.name} sold.`, 'sale');
+    }
+  } catch (e: any) {
+    logActivity(`Error: ${e.message}`, 'info');
+  }
+}
+
+btnAddProduct.addEventListener('click', () => {
+  const name = prompt('Product Name:');
+  const price = Number(prompt('Price:'));
+  if (name && price) {
+    products.push({ id: `p${Date.now()}`, name, price, icon: '📦' });
+    renderProductGrid();
+    logActivity(`New product listed: ${name}`);
+  }
+});
+
+// --- Initialization ---
+
+initNav();
+renderProductGrid();
+logActivity('Merchant Terminal initialized.');
+
 refreshBtn.addEventListener('click', () => refreshAgents());
 refreshProcesses.addEventListener('click', () => refreshProcessList());
 refreshObservability.addEventListener('click', () => refreshObservabilityPanel());
@@ -432,6 +576,7 @@ toolForm.addEventListener('submit', submitTool);
 refreshAgents().catch(() => null);
 refreshProcessList().catch(() => null);
 refreshObservabilityPanel().catch(() => null);
+
 setInterval(() => {
   refreshAgents().catch(() => null);
   refreshProcessList().catch(() => null);
