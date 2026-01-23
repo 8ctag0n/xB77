@@ -1,3 +1,4 @@
+import { PublicKey } from '@solana/web3.js';
 import {
   PaymentAdapter,
   PaymentContext,
@@ -5,6 +6,9 @@ import {
   PaymentRequest,
 } from '../payments';
 import { MockPrivacyCashClient, PrivacyCashMockClient } from '../payment_mocks/privacy_cash';
+import { PrivacyRail } from '../liquidity_manager';
+import { BalanceInfo } from '../balance';
+import { SupportedToken } from '../wallet';
 
 export type PrivacyCashAdapterMode = 'mock';
 
@@ -13,12 +17,40 @@ export interface PrivacyCashAdapterOptions {
   client?: PrivacyCashMockClient;
 }
 
-export class PrivacyCashAdapter implements PaymentAdapter {
+export class PrivacyCashAdapter implements PaymentAdapter, PrivacyRail {
   readonly provider = 'privacy_cash' as const;
+  readonly name = 'Privacy Cash';
   private client: PrivacyCashMockClient;
 
   constructor(options: PrivacyCashAdapterOptions = {}) {
     this.client = options.client ?? new MockPrivacyCashClient();
+  }
+
+  async getBalance(publicKey: PublicKey, token: SupportedToken): Promise<BalanceInfo> {
+    const balance = await this.client.getBalance(publicKey.toBase58(), token);
+    return {
+      available: balance.available,
+      source: 'Privacy Cash Mock'
+    };
+  }
+
+  async getLimit(_publicKey: PublicKey, _token: SupportedToken): Promise<number> {
+    return 10_000; // Mock limit
+  }
+
+  async deposit(publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
+    const isSol = token === 'SOL';
+    const depositRequest = {
+      owner: publicKey.toBase58(),
+      token,
+      amount,
+    };
+
+    if (isSol) {
+      await this.client.deposit(depositRequest);
+    } else {
+      await this.client.depositSPL(depositRequest);
+    }
   }
 
   async execute(request: PaymentRequest, _context?: PaymentContext): Promise<PaymentExecutionResult> {

@@ -10,6 +10,7 @@ import {
 import { MockShadowWireClient, ShadowWireMockClient } from '../payment_mocks/shadowwire';
 import { SupportedToken } from '../wallet';
 import { BalanceInfo } from '../balance';
+import { PrivacyRail } from '../liquidity_manager';
 
 export type ShadowWireAdapterMode = 'mock' | 'live';
 
@@ -28,7 +29,7 @@ const DEFAULT_TOKEN_MINTS: Record<SupportedToken, string> = {
   USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
 };
 
-export class ShadowWireAdapter implements PaymentAdapter {
+export class ShadowWireAdapter implements PaymentAdapter, PrivacyRail {
   readonly provider = 'shadowwire' as const;
   readonly name = 'ShadowWire';
   private mode: ShadowWireAdapterMode;
@@ -73,40 +74,19 @@ export class ShadowWireAdapter implements PaymentAdapter {
     return Infinity;
   }
 
-  async deposit(amount: number, token: SupportedToken): Promise<void> {
-    // We assume the deposit is for the wallet managed by this adapter (or the context agent)
-    // However, the adapter doesn't explicitly store the agent's public key as a property in a way that's guaranteed to be the same as the caller.
-    // BUT, for the mock, we can use a placeholder or rely on the fact that getBalance is called with a key.
-    // The issue is deposit() in PrivacyRail signature doesn't take PublicKey.
-    // We should fix PrivacyRail interface or store the PublicKey in the adapter?
-    // Let's assume for MOCK it works with a default key or we store the key from previous calls? 
-    // Actually, `LiquidityManager` passes `agentId` to `getBalance` but `deposit` on `PrivacyRail` (as defined in step 1) takes (amount, token).
-    // This is a small design flaw in my previous step. `deposit` should probably take `publicKey` or the Adapter should know its owner.
-    // Given `AgentWallet` holds the keypair, the Adapter *could* know it if passed.
-    // For now, in Mock mode, I will use a default key or update the interface.
-    
-    // Better approach: Update PrivacyRail interface in next step to be consistent? 
-    // No, I can't edit the previous file again easily without context.
-    // I'll check `MockShadowWireClient` implementation. It uses `wallet` string as key.
-    // I'll update `ShadowWireAdapter` to take `agentId` in `deposit`? No, interface is fixed.
-    // I will use a "default_agent" key for the mock deposit if no key is known, OR 
-    // I can make `ShadowWireAdapter` store the `walletSigner`'s public key if available?
-    // Wait, `walletSigner` is just a signer function.
-    
-    // Let's look at `PrivacyAgent`. It has `wallet.publicKey`. 
-    // The `LiquidityManager` is constructed with `agentId`. 
-    // BUT `PrivacyRail.deposit` doesn't take `agentId`.
-    
-    // DECISION: I will assume the MockClient can handle a "last used" or "global" balance for simplicity in this specific scope, 
-    // OR I will hardcode the Mock Wallet Address in the Adapter if not provided.
-    // Actually, I can just update the `PrivacyRail` interface in `liquidity_manager.ts` to include `publicKey`. 
-    // It's cleaner.
-    // But since I already edited `liquidity_manager.ts` and `PrivacyRail` there...
-    // Let's look at `getBalance` in `LiquidityManager`. It calls `r.getBalance(this.config.agentId, token)`.
-    // So `PrivacyRail` *methods* generally take the key. `deposit` should too.
-    
-    // I will execute a quick fix on `liquidity_manager.ts` to add `publicKey` to `deposit`.
-    throw new Error("Interrupted thought process: Fixing interface first.");
+  async deposit(publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
+    if (this.mode === 'mock') {
+      await this.mockClient!.deposit({
+        owner: publicKey.toBase58(),
+        token,
+        amount,
+      });
+      return;
+    }
+
+    // In live mode, deposit might involve a real on-chain transaction to the ShadowWire program
+    // This is currently handled by the Radr SDK internally or requires a specific call.
+    throw new Error('Deposit not yet implemented for ShadowWire live mode');
   }
 
   async execute(request: PaymentRequest, context?: PaymentContext): Promise<PaymentExecutionResult> {
