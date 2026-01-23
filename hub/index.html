@@ -79,15 +79,34 @@
                 </div>
               </div>
             </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Corporate Treasury</h2>
+                <div class="actions">
+                  <span class="badge success">Active</span>
+                </div>
+              </div>
+              <div class="card-visual">
+                <div class="card-chip"></div>
+                <div class="card-number">**** **** **** 4242</div>
+                <div class="card-meta">
+                  <span class="card-holder">XB77 AGENT</span>
+                  <span class="card-balance" id="starpay-balance">Loading...</span>
+                </div>
+                <div class="card-brand">STARPAY</div>
+              </div>
+            </section>
           </div>
 
           <aside class="side-column">
             <section class="panel fill-height">
               <div class="panel-header">
-                <h2>Live Activity</h2>
+                <h2>Unified History</h2>
+                <button class="btn-xs" id="btn-refresh-history">↻</button>
               </div>
               <div id="activity-feed" class="activity-feed">
-                <div class="feed-item muted">Waiting for events...</div>
+                <div class="feed-item muted">Connecting to Listener...</div>
               </div>
             </section>
           </aside>
@@ -249,6 +268,23 @@
             <div id="process-list" class="process-list muted">No processes yet.</div>
           </section>
         </main>
+      </div>
+    </div>
+
+    <!-- COMPLIANCE MODAL -->
+    <div id="compliance-modal" class="modal-overlay hidden">
+      <div class="modal-content compliance-alert">
+        <div class="alert-icon">⚠️</div>
+        <h2>Risk Alert: Range Protocol</h2>
+        <div class="alert-body">
+          <p>Transaction blocked due to high-risk destination detection.</p>
+          <div class="risk-details">
+            <div class="risk-row"><span>Entity</span><strong id="risk-entity">Unknown</strong></div>
+            <div class="risk-row"><span>Risk Score</span><strong id="risk-score">90/100</strong></div>
+            <div class="risk-row"><span>Reason</span><strong id="risk-reason">Sanctioned Address</strong></div>
+          </div>
+        </div>
+        <button id="close-modal" class="btn-danger">Acknowledge Security Alert</button>
       </div>
     </div>
 

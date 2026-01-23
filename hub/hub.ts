@@ -52,22 +52,28 @@ const productGrid = document.getElementById('product-grid') as HTMLDivElement;
 const activityFeed = document.getElementById('activity-feed') as HTMLDivElement;
 const btnAddProduct = document.getElementById('btn-add-product') as HTMLButtonElement;
 
+const LISTENER_URL = 'http://localhost:7002';
+
 // --- State ---
 let selectedAgentId: string | null = null;
 let agents: AgentSummary[] = [];
 let salesTotal = 0;
 let pendingCount = 0;
+let revealedReceipts = new Set<string>();
 
 const PAYMENT_METHODS = {
   PRIVACY_CASH: 'privacy_cash',
   STARPAY: 'starpay',
+  SHADOWWIRE: 'shadowwire',
 };
 
+// ... (rest of products and init)
+
 const products = [
-  { id: 'p1', name: 'AWS Credits ($100)', price: 95, icon: '☁️' },
-  { id: 'p2', name: 'DevOps Hour', price: 150, icon: '🛠️' },
-  { id: 'p3', name: 'VPN Subscription', price: 12, icon: '🔒' },
-  { id: 'p4', name: 'Storage (1TB)', price: 25, icon: '💾' },
+  { id: 'p1', name: 'AWS Credits ($100)', price: 95, icon: '☁️', recipient: 'So11111111111111111111111111111111111111112' },
+  { id: 'p2', name: 'DevOps Hour', price: 150, icon: '🛠️', recipient: 'So11111111111111111111111111111111111111112' },
+  { id: 'p3', name: 'VPN Subscription', price: 12, icon: '🔒', recipient: 'So11111111111111111111111111111111111111112' },
+  { id: 'p4', name: 'Dark Web Data', price: 499, icon: '🏴‍☠️', recipient: 'BAD_sanctioned_address_123' },
 ];
 
 if (hubPort) {
@@ -501,6 +507,53 @@ function logActivity(message: string, type: 'info' | 'sale' = 'info') {
   }
 }
 
+function toggleReceiptReveal(sig: string) {
+  if (revealedReceipts.has(sig)) {
+    revealedReceipts.delete(sig);
+  } else {
+    revealedReceipts.add(sig);
+  }
+  refreshLiveActivity().catch(() => null);
+}
+
+async function refreshLiveActivity() {
+  try {
+    const response = await fetch(`${LISTENER_URL}/history?limit=10`);
+    if (!response.ok) return;
+    const { receipts } = await response.json();
+    
+    // Clear dynamic items only (not the initial welcome message if we want to keep it, 
+    // but here we replace the whole feed with real data)
+    activityFeed.innerHTML = '';
+    
+    receipts.forEach((r: any) => {
+      const isPrivate = r.provider === 'shadowwire' || r.provider === 'privacy_cash';
+      const isRevealed = revealedReceipts.has(r.txSignature);
+      const item = document.createElement('div');
+      item.className = `feed-item ${r.type === 'external' ? 'sale' : 'info'}`;
+      
+      const amountDisplay = (isPrivate && !isRevealed) ? '*******' : `$${(r.amount / 100).toFixed(2)}`;
+      const vendorDisplay = (isPrivate && !isRevealed) ? 'Shielded Destination' : (r.metadata?.vendorName || r.recipient.slice(0, 8) + '...');
+      const privacyIcon = isPrivate ? '🔒' : '🔓';
+      
+      item.innerHTML = `
+        <span class="time">${new Date(r.timestamp).toLocaleTimeString()}</span>
+        <div class="feed-content">
+          <span class="privacy-toggle" onclick="window.toggleReceiptReveal('${r.txSignature}')">${privacyIcon}</span>
+          <strong>${amountDisplay}</strong> to ${vendorDisplay}
+          <div class="receipt-meta">${r.provider} · ${r.txSignature.slice(0, 12)}...</div>
+        </div>
+      `;
+      activityFeed.appendChild(item);
+    });
+  } catch (e) {
+    // Silent fail for polling
+  }
+}
+
+// Expose to window for onclick
+(window as any).toggleReceiptReveal = toggleReceiptReveal;
+
 function renderProductGrid() {
   productGrid.innerHTML = '';
   products.forEach(p => {
@@ -519,6 +572,23 @@ function renderProductGrid() {
   });
 }
 
+const complianceModal = document.getElementById('compliance-modal') as HTMLDivElement;
+const riskEntity = document.getElementById('risk-entity') as HTMLElement;
+const riskScore = document.getElementById('risk-score') as HTMLElement;
+const riskReason = document.getElementById('risk-reason') as HTMLElement;
+const closeModal = document.getElementById('close-modal') as HTMLButtonElement;
+
+if (closeModal) {
+  closeModal.onclick = () => complianceModal.classList.add('hidden');
+}
+
+function showComplianceAlert(error: any) {
+  if (riskEntity) riskEntity.textContent = 'Sanctioned Address';
+  if (riskScore) riskScore.textContent = 'High Risk (90/100)';
+  if (riskReason) riskReason.textContent = error || 'Range Protocol Flag';
+  complianceModal.classList.remove('hidden');
+}
+
 async function handleBuy(product: typeof products[0]) {
   const agent = getSelectedAgent();
   if (!agent) {
@@ -534,17 +604,21 @@ async function handleBuy(product: typeof products[0]) {
   
   try {
     const response = await callTool('agent.pay', {
-      amount: product.price,
+      amount: product.price * 100, // Convert to atomic units (cents)
       token: 'USDC',
-      recipient: 'merchant-pool', // Mock recipient
-      strategy: strategy
+      recipient: product.recipient,
+      provider: strategy // Map UI 'strategy' to tool 'provider'
     });
     
     const result = unwrapToolResponse(response);
     const error = extractToolError(result);
     
     if (error) {
-      logActivity(`Payment failed: ${error}`, 'info');
+      if (error.includes('Range') || error.includes('Compliance') || error.includes('Risk')) {
+        showComplianceAlert(error);
+      } else {
+        logActivity(`Payment failed: ${error}`, 'info');
+      }
     } else {
       salesTotal += product.price;
       statSales.textContent = `$${salesTotal.toFixed(2)}`;
@@ -579,14 +653,35 @@ spawnForm.addEventListener('submit', submitSpawn);
 toolForm.addEventListener('submit', submitTool);
 
 refreshAgents().catch(() => null);
+
 refreshProcessList().catch(() => null);
+
 refreshObservabilityPanel().catch(() => null);
 
-setInterval(() => {
-  refreshAgents().catch(() => null);
-  refreshProcessList().catch(() => null);
-}, 5000);
+refreshLiveActivity().catch(() => null);
+
+
 
 setInterval(() => {
+
+  refreshAgents().catch(() => null);
+
+  refreshProcessList().catch(() => null);
+
+}, 5000);
+
+
+
+setInterval(() => {
+
   refreshObservabilityPanel().catch(() => null);
+
 }, 10000);
+
+
+
+setInterval(() => {
+
+  refreshLiveActivity().catch(() => null);
+
+}, 3000);

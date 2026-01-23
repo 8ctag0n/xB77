@@ -107,10 +107,15 @@ const server = Bun.serve({
   routes: {
     '/': index,
     '/hub.ts': {
-      GET: () =>
-        new Response(Bun.file(new URL('./hub.ts', import.meta.url)), {
+      GET: async () => {
+        const file = Bun.file(new URL('./hub.ts', import.meta.url));
+        const text = await file.text();
+        const transpiler = new Bun.Transpiler({ loader: 'ts' });
+        const js = transpiler.transformSync(text);
+        return new Response(js, {
           headers: { 'content-type': 'application/javascript' },
-        }),
+        });
+      },
     },
     '/hub.css': {
       GET: () =>
