@@ -3,57 +3,51 @@
 **Base Branch:** `base-integration` (Consolidated)
 
 ## 1. Objective
-To implement the "Autonomous CFO" logic within the SDK. This goes beyond simple transfers; it builds a decision engine that enables the Agent to execute financial operations across three domains: **Local** (Solana Privacy), **Global** (Cross-Chain via SilentSwap), and **Real World** (Fiat via Starpay).
+To implement the "Autonomous CFO" logic within the SDK, transforming the Agent from a simple spender into a **Liquidity Manager** that bridges the corporate fiat world (Starpay) with the private crypto economy (ShadowWire/PrivacyCash).
+
+**Key Concept:** The Agent synchronizes treasury from Starpay (The Corporate Source) to `xb77_core` (The On-Chain Balance), enabling seamless operation.
 
 ## 2. Core Components
 
-### 2.1. The Payment Routing Engine
-The central brain that accepts a high-level intent (e.g., "Pay AWS Bill", "Send funds to Base", "Pay Secret Agent") and selects the optimal rail.
-*   **Path:** `sdk/src/economy/cfo_router.ts`
-*   **Logic:** Evaluates availability, cost, and privacy requirements to route the transaction.
+### 2.1. The Liquidity Manager (New!)
+The bridge between Fiat Treasury and Crypto Execution.
+*   **Path:** `sdk/src/economy/liquidity_manager.ts`
+*   **Logic:**
+    1.  **Poll Starpay:** Check corporate card limits/balance allocated by the human operator.
+    2.  **Poll On-Chain:** Check `xb77_core` program state for current operational capital.
+    3.  **Rebalance:** If On-Chain funds are low but Starpay has credit, initiate a Top-Up (mocked swap or bridge flow) to move value into the Private System.
 
-### 2.2. Strategy Interface & Adapters
-We define a unified interface `PaymentStrategy` implemented by four distinct adapters:
+### 2.2. The Payment Routing Engine (Brain)
+*   **Path:** `sdk/src/economy/payment_router.ts`
+*   **Safety Layer (Range):** Before any move, consult Range API. *"Is this destination safe?"*
+*   **Routing Logic:**
+    *   **Internal:** Use **Privacy Cash** (Light) or **ShadowWire** for Agent-to-Agent payments.
+    *   **External:** Use **Starpay** Virtual Card for Web2 payments.
+    *   **Escape:** Use **SilentSwap** to exit to other chains if Solana is congested or compromised.
 
-#### A. Local Privacy Rail (Solana)
-1.  **ShadowWire Adapter (Stubbed for now):**
-    *   **Purpose:** Peer-to-Peer confidential transfers using Bulletproofs logic (simulated via Stub).
-    *   **Component:** `ShadowWireAdapter` calling `onchain/programs/shadowwire_stub`.
-2.  **Privacy Cash Adapter:**
-    *   **Purpose:** High-frequency private state using Light Protocol (ZK Compression).
-    *   **Component:** Refined `PrivacyCashAdapter` using Light SDK.
+### 2.3. Adapters (Toolkit)
+*   **StarpayAdapter:** Read-Write. Reads balance (Funding) AND Issues cards (Spending).
+*   **PrivacyCashAdapter:** Interface to `privacy-cash-sdk`.
+*   **ShadowWireAdapter:** Interface to ShadowWire SDK.
+*   **RangeAdapter:** Interface to Range Compliance API.
 
-#### B. Global Mobility Rail (Cross-Chain)
-3.  **SilentSwap Adapter:**
-    *   **Purpose:** To enable "Identity Hopping" and cross-chain transfers (e.g., Solana -> Ethereum/Base).
-    *   **Implementation:** An adapter that constructs the intent for a SilentSwap route.
-    *   **Data Structure:** `CrossChainIntent { targetChain: 'ETH', token: 'USDC', obfuscationLevel: 'HIGH' }`.
+### 2.4. MCP Integration (Active Tools)
+*   `cfo_check_treasury`: Returns combined balance (Fiat + Crypto).
+*   `cfo_rebalance`: Moves funds from Starpay -> Crypto.
+*   `cfo_pay`: Smart routing based on intent.
 
-#### C. Real-World Rail (Fiat Bridge)
-4.  **Starpay Adapter:**
-    *   **Purpose:** Instant issuance of Virtual Cards for Web2 payments (AWS, API keys).
-    *   **Implementation:** HTTP Client integration with Starpay API.
-    *   **Functions:** `createVirtualCard(amount)`, `topUpCard(cardId, amount)`.
-    *   **Flow:** Agent locks Crypto -> Starpay issues Card Details -> Agent receives `PAN/CVV` (encrypted).
+## 3. Integration with Existing Programs
 
-### 2.3. On-Chain Dependencies
-*   **ShadowWire Stub:** We still need to deploy this to simulate the local rail transaction.
-*   **SilentSwap Stub (Optional):** A mock program to simulate the "Exit" event on Solana if the real contract isn't available on localnet.
+### Link to `xb77_core`
+*   This track's SDK interacts directly with the `xb77_core` program.
+*   When rebalancing, the SDK calls an instruction on `xb77_core` (e.g., `deposit_liquidity`) to reflect the new funds available for the agent's logic.
 
-## 3. Integration Points (Context for other Tracks)
-
-### Output to Track C (Infra Listener)
-*   **Starpay Webhooks:** Track C must set up an HTTP endpoint to receive "Card Transaction" events from Starpay (simulated or real).
-*   **On-Chain Events:** Track C must listen for `ShadowWire` and `SilentSwap` exit events to index them for the dashboard.
-
-### Input for Track B (Merchant Hub)
-*   **Capabilities API:** The Hub UI needs to know *what* the Agent can do.
-*   **Method:** `agent.getCapabilities()` returns `{ starpay: true, silentSwap: true, shadowWire: true }`.
-*   **Starpay UI:** Track B will need a UI component to display the generated Virtual Card (masked).
+### Link to `xb77_gateway`
+*   The Agent uses its **Noir Proof** (`agent_badge`) to authenticate against the Starpay Adapter (simulated auth) and the `xb77_core` program, proving it is the authorized entity to manage these funds.
 
 ## 4. Execution Plan
-1.  **Interface Definition:** Define `PaymentStrategy` and the `AutonomousCFO` class.
-2.  **Starpay Integration:** Implement the REST API client for card issuance.
-3.  **SilentSwap Logic:** Implement the intent construction for cross-chain swaps.
-4.  **Local Rails:** Implement ShadowWire Stub (Rust) and Privacy Cash (SDK).
-5.  **The Router:** Write the logic that allows `agent.pay()` to automatically pick the right adapter.
+1.  **Interfaces:** Define `LiquiditySource` (Starpay) and `PrivacyRail` (ShadowWire/Light).
+2.  **Starpay Integration:** Implement `StarpayAdapter` focusing on the "Get Balance" and "Fund" flows.
+3.  **Core Link:** Update SDK to read/write to `xb77_core` state.
+4.  **Range Integration:** Add the `validateAddress` check in the Router.
+5.  **MCP Tools:** Expose `check_treasury` and `rebalance`.
