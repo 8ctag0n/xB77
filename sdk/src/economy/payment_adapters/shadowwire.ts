@@ -1,3 +1,4 @@
+import { keccak_256 } from '@noble/hashes/sha3';
 import {
   PaymentAdapter,
   PaymentContext,
@@ -49,7 +50,12 @@ export class ShadowWireAdapter implements PaymentAdapter {
 
   async execute(request: PaymentRequest, context?: PaymentContext): Promise<PaymentExecutionResult> {
     const now = context?.now ? context.now() : Date.now();
-    const nonce = Math.floor(now / 1000);
+    let nonce: number | bigint = Math.floor(now / 1000);
+
+    if (request.nullifier) {
+      nonce = this.deriveNonce(request.nullifier);
+    }
+
     const tokenMint = this.tokenMints[request.currency] ?? request.currency;
     const transferType = request.type ?? 'external';
 
@@ -96,7 +102,7 @@ export class ShadowWireAdapter implements PaymentAdapter {
     sender: string,
     token: string,
     amount: number,
-    nonce: number,
+    nonce: number | bigint,
     context?: PaymentContext
   ) {
     if (this.mode === 'mock') {
@@ -109,37 +115,43 @@ export class ShadowWireAdapter implements PaymentAdapter {
     }
 
     await this.ensureLiveClient();
-    return this.liveClient!.uploadProof(
+    return (this.liveClient! as any).uploadProof(
       {
         sender_wallet: sender,
         token,
         amount,
-        nonce,
+        nonce: typeof nonce === 'bigint' ? Number(nonce) : nonce,
       },
       this.resolveSigner(context)
     );
   }
 
   private async internalTransfer(
-    request: { sender_wallet: string; recipient_wallet: string; token: string; nonce: number; relayer_fee?: number },
+    request: { sender_wallet: string; recipient_wallet: string; token: string; nonce: number | bigint; relayer_fee?: number },
     context?: PaymentContext
   ) {
     if (this.mode === 'mock') {
       return this.mockClient!.internalTransfer(request);
     }
     await this.ensureLiveClient();
-    return this.liveClient!.internalTransfer(request, this.resolveSigner(context));
+    return (this.liveClient! as any).internalTransfer(
+      { ...request, nonce: typeof request.nonce === 'bigint' ? Number(request.nonce) : request.nonce },
+      this.resolveSigner(context)
+    );
   }
 
   private async externalTransfer(
-    request: { sender_wallet: string; recipient_wallet: string; token: string; nonce: number; relayer_fee?: number },
+    request: { sender_wallet: string; recipient_wallet: string; token: string; nonce: number | bigint; relayer_fee?: number },
     context?: PaymentContext
   ) {
     if (this.mode === 'mock') {
       return this.mockClient!.externalTransfer(request);
     }
     await this.ensureLiveClient();
-    return this.liveClient!.externalTransfer(request, this.resolveSigner(context));
+    return (this.liveClient! as any).externalTransfer(
+      { ...request, nonce: typeof request.nonce === 'bigint' ? Number(request.nonce) : request.nonce },
+      this.resolveSigner(context)
+    );
   }
 
   private async ensureLiveClient(): Promise<void> {
@@ -148,5 +160,13 @@ export class ShadowWireAdapter implements PaymentAdapter {
     }
     const module = await import('@radr/shadowwire');
     this.liveClient = new module.ShadowWireClient({ debug: this.debug });
+  }
+
+  private deriveNonce(nullifier: string): bigint {
+    const cleanNullifier = nullifier.startsWith('0x') ? nullifier.slice(2) : nullifier;
+    const nullifierBytes = Buffer.from(cleanNullifier, 'hex');
+    const hash = keccak_256(nullifierBytes);
+    const view = new DataView(hash.buffer, hash.byteOffset, 8);
+    return view.getBigUint64(0, true);
   }
 }

@@ -12,6 +12,7 @@ export interface PaymentRequest {
   memoHash?: string;
   type?: PaymentType;
   provider?: PaymentProvider;
+  nullifier?: string;
 }
 
 export interface PaymentExecutionResult {
@@ -20,7 +21,7 @@ export interface PaymentExecutionResult {
   txSignature?: string;
   paidAmount?: number;
   proofPda?: string;
-  nonce?: number;
+  nonce?: number | bigint;
   fee?: number;
   raw?: unknown;
 }

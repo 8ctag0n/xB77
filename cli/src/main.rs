@@ -74,6 +74,8 @@ struct VerifyArgs {
     proof: PathBuf,
     #[arg(long, default_value = "circuits/agent_badge/target/agent_badge.pw")]
     public_witness: PathBuf,
+    #[arg(long)]
+    sw_proof_pda: Option<String>,
     #[arg(long, default_value_t = 1_000_000)]
     compute_units: u32,
     #[arg(long, default_value_t = 0)]
@@ -336,6 +338,12 @@ fn main() -> Result<(), String> {
             let (gateway_state, _bump) =
                 Pubkey::find_program_address(&[GATEWAY_STATE_SEED], &gateway_program_id);
 
+            let sw_proof_pda = match args.sw_proof_pda {
+                Some(value) => Pubkey::from_str(&value)
+                    .map_err(|err| format!("Invalid shadowwire proof pda {}: {}", value, err))?,
+                None => return Err("Missing --sw-proof-pda".to_string()),
+            };
+
             let instruction = Instruction::new_with_bytes(
                 gateway_program_id,
                 &data,
@@ -343,6 +351,7 @@ fn main() -> Result<(), String> {
                     AccountMeta::new(payer.pubkey(), true),
                     AccountMeta::new(gateway_state, false),
                     AccountMeta::new_readonly(verifier_program_id, false),
+                    AccountMeta::new_readonly(sw_proof_pda, false),
                 ],
             );
 

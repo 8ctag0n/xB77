@@ -164,7 +164,8 @@ async function main() {
         keys: [
             { pubkey: payer.publicKey, isSigner: true, isWritable: true },
             { pubkey: gatewayStatePda, isSigner: false, isWritable: true },
-            { pubkey: PublicKey.default, isSigner: false, isWritable: false },
+            { pubkey: PublicKey.default, isSigner: false, isWritable: false }, // Verifier Program
+            { pubkey: PublicKey.default, isSigner: false, isWritable: false }, // sw_proof_pda
             { pubkey: coreProgramId, isSigner: false, isWritable: false },
             { pubkey: coreConfigPda, isSigner: false, isWritable: false },
             { pubkey: creditLinePda, isSigner: false, isWritable: true },

@@ -113,6 +113,9 @@ fn process_verify_badge(
     // This is now the Standalone Verifier program account
     let verifier_program = next_account_info(&mut accounts_iter)
         .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    // ShadowWire Proof PDA (for binding validation)
+    let sw_proof_pda = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
 
     if !payer.is_signer {
         return Err(GatewayError::MissingSigner.into());
@@ -182,11 +185,41 @@ fn process_verify_badge(
         &payload.public_witness[..]
     };
 
-    if witness_data.len() >= 32 {
-         if witness_data[0..32] != config.merkle_root {
+    if witness_data.len() >= 96 {
+        if witness_data[0..32] != config.merkle_root {
             msg!("verify_badge: public witness root mismatch");
             return Err(GatewayError::InvalidMerkleRoot.into());
-         }
+        }
+
+        // --- ShadowWire Binding Check ---
+        let mut nullifier = [0u8; 32];
+        nullifier.copy_from_slice(&witness_data[64..96]);
+
+        let hash = keccak::hash(&nullifier);
+        let mut expected_nonce_bytes = [0u8; 8];
+        expected_nonce_bytes.copy_from_slice(&hash.to_bytes()[0..8]);
+        let expected_nonce = u64::from_le_bytes(expected_nonce_bytes);
+
+        let sw_data = sw_proof_pda.try_borrow_data()?;
+        if sw_data.len() < 88 {
+            // Anchor account for ShadowWire Proof: [8 disc, 32 sender, 32 token, 8 amount, 8 nonce, ...]
+            msg!("verify_badge: ShadowWire Proof PDA data too short");
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        let mut actual_nonce_bytes = [0u8; 8];
+        actual_nonce_bytes.copy_from_slice(&sw_data[80..88]);
+        let actual_nonce = u64::from_le_bytes(actual_nonce_bytes);
+
+        if expected_nonce != actual_nonce {
+            msg!(
+                "verify_badge: ShadowWire nonce mismatch. Expected {}, found {}",
+                expected_nonce,
+                actual_nonce
+            );
+            return Err(GatewayError::ShadowWireBindingFailed.into());
+        }
+        msg!("verify_badge: ShadowWire binding verified");
     } else {
         return Err(GatewayError::EmptyPublicWitness.into());
     }

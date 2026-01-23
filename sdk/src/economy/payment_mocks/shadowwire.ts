@@ -12,20 +12,20 @@ export interface ShadowWireMockUploadRequest {
   sender_wallet: string;
   token: string;
   amount: number;
-  nonce: number;
+  nonce: number | bigint;
 }
 
 export interface ShadowWireMockTransferRequest {
   sender_wallet: string;
   recipient_wallet: string;
   token: string;
-  nonce: number;
+  nonce: number | bigint;
   relayer_fee?: number;
 }
 
 export interface ShadowWireMockUploadResponse {
   proof_pda: string;
-  nonce: number;
+  nonce: number | bigint;
 }
 
 export interface ShadowWireMockTransferResponse {
