@@ -16,7 +16,7 @@ use solana_pubkey::Pubkey;
 use xb77_registry::error::RegistryError;
 use xb77_registry::instruction::{
     AddCatalogPayload, DeactivateCatalogPayload, InitMerchantPayload, RegistryInstruction,
-    UpdateCatalogPayload,
+    UpdateCatalogPayload, UpdateMerchantPayload,
 };
 use xb77_registry::state::{CatalogAccount, MerchantAccount, CATALOG_SEED, MERCHANT_SEED};
 
@@ -56,6 +56,7 @@ fn setup_mollusk(program_id: &Pubkey) -> Mollusk {
 fn init_merchant_ix(program_id: Pubkey, payer: Pubkey, merchant_id: &[u8]) -> Instruction {
     let payload = InitMerchantPayload {
         merchant_id: merchant_id.to_vec(),
+        supported_methods: 0,
     };
     let data = wincode::serialize(&RegistryInstruction::InitMerchant(payload)).unwrap();
 
@@ -69,6 +70,31 @@ fn init_merchant_ix(program_id: Pubkey, payer: Pubkey, merchant_id: &[u8]) -> In
             AccountMeta::new(payer, true),
             AccountMeta::new(merchant_pda, false),
             AccountMeta::new_readonly(SYSTEM_PROGRAM_ID, false),
+        ],
+    )
+}
+
+fn update_merchant_ix(
+    program_id: Pubkey,
+    payer: Pubkey,
+    merchant_id: &[u8],
+    supported_methods: Option<u64>,
+) -> Instruction {
+    let payload = UpdateMerchantPayload {
+        merchant_id: merchant_id.to_vec(),
+        supported_methods,
+    };
+    let data = wincode::serialize(&RegistryInstruction::UpdateMerchant(payload)).unwrap();
+
+    let (merchant_pda, _bump) =
+        find_program_address(&[MERCHANT_SEED, merchant_id], program_id);
+
+    Instruction::new_with_bytes(
+        program_id,
+        &data,
+        vec![
+            AccountMeta::new(payer, true),
+            AccountMeta::new(merchant_pda, false),
         ],
     )
 }
@@ -206,6 +232,43 @@ fn init_merchant_creates_account() {
     let merchant: MerchantAccount = wincode::deserialize(merchant_account.data()).unwrap();
     assert_eq!(merchant.owner, payer.to_bytes());
     assert_eq!(merchant.merchant_id, merchant_id.to_vec());
+    assert_eq!(merchant.supported_methods, 0);
+}
+
+#[test]
+fn update_merchant_updates_methods() {
+    let program_id = Pubkey::new_unique();
+    let payer = Pubkey::new_unique();
+    let merchant_id = b"merchant-update";
+
+    let mollusk = setup_mollusk(&program_id);
+    let (merchant_pda, _bump) =
+        find_program_address(&[MERCHANT_SEED, merchant_id], program_id);
+
+    let mut store: HashMap<Pubkey, Account> = HashMap::new();
+    store.insert(payer, Account::new(1_000_000_000, 0, &SYSTEM_PROGRAM_ID));
+    store.insert(merchant_pda, Account::new(0, 0, &SYSTEM_PROGRAM_ID));
+    store.insert(SYSTEM_PROGRAM_ID, system_program_account());
+
+    let context = mollusk.with_context(store);
+    assert!(context
+        .process_instruction(&init_merchant_ix(program_id, payer, merchant_id))
+        .program_result
+        .is_ok());
+
+    // Update methods to 5 (e.g. 1 | 4)
+    let update_ix = update_merchant_ix(program_id, payer, merchant_id, Some(5));
+    let result = context.process_instruction(&update_ix);
+    assert!(result.program_result.is_ok());
+
+    let (_, merchant_account) = result
+        .resulting_accounts
+        .iter()
+        .find(|(key, _)| key == &merchant_pda)
+        .expect("merchant account missing");
+
+    let merchant: MerchantAccount = wincode::deserialize(merchant_account.data()).unwrap();
+    assert_eq!(merchant.supported_methods, 5);
 }
 
 #[test]
