@@ -2,6 +2,7 @@ import { Keypair } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import {
   InMemoryReceiptStore,
+  SQLiteReceiptStore,
   PrivacyAgent,
   StaticBalanceProvider,
   type PaymentReceipt,
@@ -100,7 +101,13 @@ export async function buildAgentContext(options?: {
     'USD1'
   );
   const keypair = options?.keypair ?? (await loadKeypairFromEnv());
-  const receiptStore = new InMemoryReceiptStore();
+  
+  // Persistence: Use SQLite if available (native in Bun), otherwise fallback (mock/browser)
+  // Since we are in MCP (Bun), we prefer SQLite.
+  const dbPath = process.env.XB77_DB_PATH ?? 'xb77_agent.db';
+  const receiptStore = new SQLiteReceiptStore(dbPath);
+  console.log(`[AgentContext] Using SQLite persistence at ${dbPath}`);
+
   const balances = options?.balances ?? parseBalances(process.env.XB77_BALANCES_JSON);
   const balanceProvider = offline ? new StaticBalanceProvider(balances, 'static') : undefined;
 

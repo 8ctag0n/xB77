@@ -17,16 +17,17 @@ Provide reliable infrastructure (Helius RPC/webhooks) and receipts (Light or moc
 - New Hub UI features beyond wiring observability into existing flows.
 
 ## Milestones
-1) Helius RPC path validated with a simple tx (smoke test).
-2) Receipt write path implemented (Light or mock) and surfaced to SDK receipts module.
-3) Demo script produces logs + receipts via gateway -> payment -> receipt (SDK/MCP).
+- [x] 1) Helius RPC path validated with a simple tx (smoke test).
+- [x] 2) Receipt write path implemented (Light or mock) and surfaced to SDK receipts module.
+- [x] 3) Demo script produces logs + receipts via gateway -> payment -> receipt (SDK/MCP).
+- [x] 4) **Bonus:** Unified Listener with SQLite persistence implemented (`mcp/src/listener.ts`).
 
 ## Deliverables
-- Config guidance for Helius endpoints + smoke test script.
-- Receipt adapter + CPI builder script.
-- MCP/SDK receipt integration notes (list/latest).
-- Demo script for e2e flow.
-- Hub panel that surfaces live receipts, balances, and recent payment status (merchant-focused).
+- [x] Config guidance for Helius endpoints + smoke test script.
+- [x] Receipt adapter + CPI builder script.
+- [x] MCP/SDK receipt integration notes (list/latest).
+- [x] Demo script for e2e flow (Smoke Listener).
+- [ ] Hub panel that surfaces live receipts, balances, and recent payment status (merchant-focused).
 
 ## Dependencies
 - Helius API key / endpoint.

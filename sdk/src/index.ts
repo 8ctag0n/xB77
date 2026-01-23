@@ -1,6 +1,7 @@
 export * from './economy/wallet';
 export * from './economy/balance';
 export * from './economy/receipts';
+export * from './economy/receipts_sqlite';
 export * from './economy/adapters';
 export * from './economy/payments';
 export * from './economy/payment_defaults';
