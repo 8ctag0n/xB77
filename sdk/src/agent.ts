@@ -1,7 +1,7 @@
 import { Keypair } from '@solana/web3.js';
 import { AgentWallet } from './economy/wallet';
 import type { PaymentResult, SupportedToken } from './economy/wallet';
-import type { BalanceProvider } from './economy/balance';
+import type { BalanceInfo, BalanceProvider } from './economy/balance';
 import { IdentityManager } from './identity/manager';
 import type { PaymentReceipt, PaymentType, ReceiptStore } from './economy/receipts';
 import {
@@ -11,6 +11,10 @@ import {
   PaymentRequest,
 } from './economy/payments';
 import { createMockPaymentGateway, createPaymentGateway, PaymentGatewayOptions } from './economy/payment_defaults';
+import { PaymentRouter } from './economy/payment_router';
+import { RangeAdapter } from './economy/payment_adapters/range';
+import { LiquidityManager, LiquiditySource, PrivacyRail } from './economy/liquidity_manager';
+import { StarpayAdapter } from './economy/payment_adapters/starpay';
 
 export interface AgentConfig {
   keypair: Keypair;
@@ -20,12 +24,20 @@ export interface AgentConfig {
   paymentGateway?: PaymentGateway;
   paymentProvider?: PaymentProvider;
   paymentGatewayOptions?: PaymentGatewayOptions;
+  // CFO options
+  minLiquidityThreshold?: number;
+  targetLiquidity?: number;
 }
 
 export interface AgentStateSnapshot<TBalance = unknown> {
   publicKey: string;
   token: SupportedToken;
   balance: TBalance;
+  treasury?: {
+    fiat: BalanceInfo;
+    crypto: BalanceInfo;
+    totalUsd: number;
+  };
   latestReceipt: PaymentReceipt | null;
   updatedAt: number;
 }
@@ -33,6 +45,9 @@ export interface AgentStateSnapshot<TBalance = unknown> {
 export class PrivacyAgent {
   public wallet: AgentWallet;
   public identity: IdentityManager;
+  public liquidityManager: LiquidityManager;
+  public router: PaymentRouter;
+  
   private balanceProvider?: BalanceProvider;
   private receiptStore?: ReceiptStore;
   private paymentGateway: PaymentGateway;
@@ -43,18 +58,45 @@ export class PrivacyAgent {
     this.identity = new IdentityManager();
     this.balanceProvider = config.balanceProvider;
     this.receiptStore = config.receiptStore;
+    
     this.paymentGateway =
       config.paymentGateway ??
       (config.paymentGatewayOptions
         ? createPaymentGateway(config.paymentGatewayOptions)
-        : createMockPaymentGateway(config.paymentProvider));
+        : createMockPaymentGateway(config.paymentProvider, config.paymentGatewayOptions?.starpayBalance));
+    
     this.paymentProvider = config.paymentProvider ?? 'shadowwire';
+
+    // Initialize CFO Components
+    const range = new RangeAdapter();
+    this.router = new PaymentRouter({
+      gateway: this.paymentGateway,
+      range,
+      preferredInternalProvider: 'shadowwire',
+      preferredExternalProvider: 'shadowwire'
+    });
+
+    // Find Starpay adapter in gateway for liquidity management
+    const starpay = (this.paymentGateway as any).adapters?.['starpay'] as StarpayAdapter;
+    const sources: LiquiditySource[] = starpay ? [starpay] : [];
+    
+    // ShadowWire as Privacy Rail (mocked or live)
+    const shadowwire = (this.paymentGateway as any).adapters?.['shadowwire'] as any;
+    const rails: PrivacyRail[] = shadowwire ? [shadowwire] : [];
+
+    this.liquidityManager = new LiquidityManager({
+      agentId: this.wallet.publicKey,
+      sources,
+      rails,
+      minLiquidityThreshold: config.minLiquidityThreshold ?? 100,
+      targetLiquidity: config.targetLiquidity ?? 500
+    });
+
     console.log(`[PrivacyAgent] Initialized agent with public key: ${config.keypair.publicKey.toBase58()}`);
   }
 
   /**
-   * High-level command to execute a private payment
-   * Checks identity first (conceptually) then pays.
+   * High-level command to execute a private payment via the Router (Autonomous Decision)
    */
   async pay(
     recipient: string,
@@ -69,10 +111,11 @@ export class PrivacyAgent {
       agentId: this.wallet.publicKey.toBase58(),
       vendor: recipient,
       type,
-      provider: provider ?? this.paymentProvider,
+      provider: provider, // Router will decide if not provided
     };
 
-    const execution = await this.paymentGateway.execute(request);
+    // Use Router instead of raw Gateway for autonomous decision and compliance
+    const execution = await this.router.route(request);
 
     if (this.receiptStore) {
       const receipt: PaymentReceipt = buildPaymentReceipt(request, execution);
@@ -89,6 +132,13 @@ export class PrivacyAgent {
       nonce: execution.nonce,
       raw: execution.raw,
     };
+  }
+
+  /**
+   * CFO Action: Rebalance treasury if needed.
+   */
+  async rebalance(token: SupportedToken = 'USD1') {
+    return await this.liquidityManager.checkAndRebalance(token);
   }
 
   /**
@@ -118,11 +168,13 @@ export class PrivacyAgent {
   async getState(token: SupportedToken = 'USD1'): Promise<AgentStateSnapshot> {
     const balance = await this.getBalance(token);
     const latestReceipt = await this.getLatestReceipt();
+    const treasury = await this.liquidityManager.getFullSnapshot(token);
 
     return {
       publicKey: this.wallet.publicKey.toBase58(),
       token,
       balance,
+      treasury,
       latestReceipt,
       updatedAt: Date.now(),
     };

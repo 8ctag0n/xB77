@@ -36,9 +36,17 @@ export interface ShadowWireMockClient {
   uploadProof(request: ShadowWireMockUploadRequest): Promise<ShadowWireMockUploadResponse>;
   internalTransfer(request: ShadowWireMockTransferRequest): Promise<ShadowWireMockTransferResponse>;
   externalTransfer(request: ShadowWireMockTransferRequest): Promise<ShadowWireMockTransferResponse>;
+  getBalance(wallet: string, token: string): Promise<{ available: number; pool_address: string }>;
 }
 
 export class MockShadowWireClient implements ShadowWireMockClient {
+  async getBalance(_wallet: string, _token: string): Promise<{ available: number; pool_address: string }> {
+    return {
+      available: 1000, // Mock balance
+      pool_address: 'mock_pool_address'
+    };
+  }
+
   async uploadProof(request: ShadowWireMockUploadRequest): Promise<ShadowWireMockUploadResponse> {
     const seed = `${request.sender_wallet}:${request.token}:${request.amount}:${request.nonce}`;
     return {

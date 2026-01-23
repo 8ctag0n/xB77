@@ -1,7 +1,7 @@
 import { PaymentReceipt, PaymentType } from './receipts';
 import { SupportedToken } from './wallet';
 
-export type PaymentProvider = 'shadowwire' | 'privacy_cash';
+export type PaymentProvider = 'shadowwire' | 'privacy_cash' | 'starpay';
 export type PaymentStatus = 'success' | 'failed';
 
 export interface PaymentRequest {

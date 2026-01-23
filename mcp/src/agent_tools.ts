@@ -23,7 +23,7 @@ type ToolResponse = {
 };
 
 const VALID_TOKENS: SupportedToken[] = ['SOL', 'USD1', 'USDC'];
-const VALID_PROVIDERS = ['shadowwire', 'privacy_cash'] as const;
+const VALID_PROVIDERS = ['shadowwire', 'privacy_cash', 'starpay'] as const;
 type PaymentProvider = (typeof VALID_PROVIDERS)[number];
 
 function normalizeToken(value: unknown, fallback: SupportedToken): SupportedToken {
@@ -33,8 +33,8 @@ function normalizeToken(value: unknown, fallback: SupportedToken): SupportedToke
   return fallback;
 }
 
-function normalizeProvider(value: unknown, fallback: PaymentProvider): PaymentProvider {
-  if (value === 'shadowwire' || value === 'privacy_cash') {
+function normalizeProvider(value: unknown, fallback?: PaymentProvider): PaymentProvider | undefined {
+  if (value === 'shadowwire' || value === 'privacy_cash' || value === 'starpay') {
     return value;
   }
   return fallback;
@@ -228,6 +228,32 @@ export function listTools() {
         properties: {},
       },
     },
+    {
+      name: 'cfo.treasury.snapshot',
+      description: 'Get a full snapshot of the agent treasury (Fiat + Crypto).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          token: {
+            type: 'string',
+            enum: VALID_TOKENS,
+          },
+        },
+      },
+    },
+    {
+      name: 'cfo.treasury.rebalance',
+      description: 'Check and trigger treasury rebalance if needed.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          token: {
+            type: 'string',
+            enum: VALID_TOKENS,
+          },
+        },
+      },
+    },
   ];
 }
 
@@ -322,7 +348,7 @@ export async function handleToolCall(
         const recipient = requireString(args?.recipient, 'recipient');
         const amount = requireNumber(args?.amount, 'amount');
         const token = normalizeToken(args?.token, context.defaultToken);
-        const provider = normalizeProvider(args?.provider, 'shadowwire');
+        const provider = normalizeProvider(args?.provider);
         const result = context.offline
           ? await handleOfflinePayment(context, recipient, amount, token, 'internal')
           : await context.agent.pay(recipient, amount, token, 'internal', provider);
@@ -333,7 +359,7 @@ export async function handleToolCall(
         const amount = requireNumber(args?.amount, 'amount');
         const token = normalizeToken(args?.token, context.defaultToken);
         const type = args?.type === 'internal' ? 'internal' : 'external';
-        const provider = normalizeProvider(args?.provider, 'shadowwire');
+        const provider = normalizeProvider(args?.provider);
         const result = context.offline
           ? await handleOfflinePayment(context, recipient, amount, token, type)
           : await context.agent.pay(recipient, amount, token, type, provider);
@@ -353,6 +379,16 @@ export async function handleToolCall(
       case 'agent.receipts.latest': {
         const receipt = await context.agent.getLatestReceipt();
         return okResponse(receipt);
+      }
+      case 'cfo.treasury.snapshot': {
+        const token = normalizeToken(args?.token, context.defaultToken);
+        const snapshot = await context.agent.liquidityManager.getFullSnapshot(token);
+        return okResponse(snapshot);
+      }
+      case 'cfo.treasury.rebalance': {
+        const token = normalizeToken(args?.token, context.defaultToken);
+        const result = await context.agent.rebalance(token);
+        return okResponse(result);
       }
       default:
         throw new Error(`Unknown tool: ${name}`);

@@ -1,4 +1,5 @@
 import { keccak_256 } from '@noble/hashes/sha3';
+import { PublicKey } from '@solana/web3.js';
 import {
   PaymentAdapter,
   PaymentContext,
@@ -8,6 +9,7 @@ import {
 } from '../payments';
 import { MockShadowWireClient, ShadowWireMockClient } from '../payment_mocks/shadowwire';
 import { SupportedToken } from '../wallet';
+import { BalanceInfo } from '../balance';
 
 export type ShadowWireAdapterMode = 'mock' | 'live';
 
@@ -28,6 +30,7 @@ const DEFAULT_TOKEN_MINTS: Record<SupportedToken, string> = {
 
 export class ShadowWireAdapter implements PaymentAdapter {
   readonly provider = 'shadowwire' as const;
+  readonly name = 'ShadowWire';
   private mode: ShadowWireAdapterMode;
   private mockClient?: ShadowWireMockClient;
   private liveClient?: import('@radr/shadowwire').ShadowWireClient;
@@ -46,6 +49,28 @@ export class ShadowWireAdapter implements PaymentAdapter {
     if (this.mode === 'mock') {
       this.mockClient = options.client ?? new MockShadowWireClient();
     }
+  }
+
+  async getBalance(publicKey: PublicKey, token: SupportedToken): Promise<BalanceInfo> {
+    if (this.mode === 'mock') {
+      const balance = await this.mockClient!.getBalance(publicKey.toBase58(), token);
+      return {
+        available: balance.available,
+        source: 'ShadowWire Mock'
+      };
+    }
+
+    await this.ensureLiveClient();
+    const balance = await this.liveClient!.getBalance(publicKey.toBase58(), token);
+    return {
+      available: balance.available,
+      source: 'ShadowWire'
+    };
+  }
+
+  async getLimit(_publicKey: PublicKey, _token: SupportedToken): Promise<number> {
+    // For now, no hard limit enforced by the adapter itself
+    return Infinity;
   }
 
   async execute(request: PaymentRequest, context?: PaymentContext): Promise<PaymentExecutionResult> {
