@@ -34,8 +34,19 @@ The central backend service.
 *   **WebSocket:** Pushes updates to the Hub UI.
 
 ## 4. Execution Plan
-1.  **Receipts Program:** Finish `xb77_receipts` (Record Receipt instruction).
-2.  **Helius Setup:** Config script for Webhooks.
-3.  **Starpay Listener:** Implement HTTP endpoint for card events.
-4.  **Normalization Logic:** "If Starpay Event -> Create Compressed Receipt".
-5.  **History API:** Simple endpoint for the Hub.
+- [x] **Receipts Program:** Finish `xb77_receipts` (Record Receipt instruction).
+- [x] **Helius Setup:** Config script for Webhooks (`scripts/infra/setup_helius.ts`).
+- [x] **Unified Listener:** Implement HTTP endpoint for card events and Helius (`mcp/src/listener.ts`).
+- [x] **Normalization Logic:** "If Starpay Event -> Create Compressed Receipt".
+- [x] **Persistence:** Added `SQLiteReceiptStore` (Native Bun SQLite) for offline/local history.
+- [ ] **History API:** Simple endpoint for the Hub (Partially covered by `agent.receipts.list` tool).
+
+## 5. Status Update (2026-01-23)
+- **Completed:**
+    - `xb77_receipts` program implemented with Light Protocol CPI.
+    - `mcp/src/listener.ts` service running on port 7002.
+    - Webhook handling for Starpay and Helius.
+    - **SQLite Persistence**: Replaced in-memory store with `bun:sqlite` (`xb77_agent.db`).
+- **Next Steps:**
+    - Integrate WebSocket for real-time Hub updates.
+    - Add signature verification for production security.

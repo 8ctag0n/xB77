@@ -11,3 +11,5 @@ private/
 # Onchain builds
 **/*.so
 **/*.ds_store
+*.db
+*.log
