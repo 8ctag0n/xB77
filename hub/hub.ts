@@ -58,6 +58,11 @@ let agents: AgentSummary[] = [];
 let salesTotal = 0;
 let pendingCount = 0;
 
+const PAYMENT_METHODS = {
+  PRIVACY_CASH: 'privacy_cash',
+  STARPAY: 'starpay',
+};
+
 const products = [
   { id: 'p1', name: 'AWS Credits ($100)', price: 95, icon: '☁️' },
   { id: 'p2', name: 'DevOps Hour', price: 150, icon: '🛠️' },
