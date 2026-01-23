@@ -336,7 +336,38 @@ async function handleOfflinePayment(
   };
 }
 
-export async function handleToolCall(
+export const LISTENER_URL = 'http://localhost:7002';
+
+async function waitForGovernanceApproval(requestId: string): Promise<string> {
+  console.error(`[Agent] Waiting for governance approval (ID: ${requestId})...`);
+  
+  const MAX_RETRIES = 60; // 60 seconds timeout
+  let attempts = 0;
+
+  while (attempts < MAX_RETRIES) {
+    try {
+      const res = await fetch(`${LISTENER_URL}/governance/request/${requestId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'approved' && data.signature) {
+          console.error(`[Agent] Approval received! Signature: ${data.signature}`);
+          return data.signature;
+        }
+        if (data.status === 'rejected') {
+           throw new Error('Governance request rejected by authority.');
+        }
+      }
+    } catch (e) {
+      // Ignore poll errors
+    }
+    
+    await new Promise(r => setTimeout(r, 1000)); // Poll every 1s
+    attempts++;
+  }
+  throw new Error('Governance approval timed out.');
+}
+
+async function handleToolCall(
   context: AgentContext,
   name: string,
   args: Record<string, unknown> | undefined
@@ -367,6 +398,36 @@ export async function handleToolCall(
         const token = normalizeToken(args?.token, context.defaultToken);
         const type = args?.type === 'internal' ? 'internal' : 'external';
         const provider = normalizeProvider(args?.provider);
+
+        // GOVERNANCE INTERCEPTOR
+        // In a real implementation, PaymentRouter would throw a structured error.
+        // For this demo, we intercept high values here to demonstrate the "Async Resume".
+        if (amount > 5000 && !context.offline) {
+           console.error(`[Agent] Amount ${amount} exceeds autonomous limit. Initiating governance...`);
+           
+           // 1. Create Request
+           const payload = {
+              agentId: context.agent.wallet.publicKey.toBase58(),
+              encryptedPayload: btoa(`TRANSFER|${amount}|${recipient}|High Value Transfer`) // Mock Encryption
+           };
+           
+           const reqRes = await fetch(`${LISTENER_URL}/governance/request`, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify(payload)
+           });
+           
+           if (!reqRes.ok) throw new Error('Failed to initiate governance request');
+           const { id } = await reqRes.json();
+           
+           // 2. Wait for Approval (Blocking the tool call)
+           const signature = await waitForGovernanceApproval(id);
+           
+           // 3. Resume Execution (With signature)
+           // Currently agent.pay doesn't take signature, but we simulate it passing
+           console.error(`[Agent] Resuming transaction with authority signature: ${signature}`);
+        }
+
         const result = context.offline
           ? await handleOfflinePayment(context, recipient, amount, token, type)
           : await context.agent.pay(recipient, amount, token, type, provider);

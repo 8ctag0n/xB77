@@ -83,22 +83,44 @@ export class LiquidityManager {
     
     if (snapshot.crypto.available < this.config.minLiquidityThreshold) {
       const amountToFund = this.config.targetLiquidity - snapshot.crypto.available;
-      
-      if (amountToFund > 0 && snapshot.fiat.available >= amountToFund) {
-        // Use the first source for now
-        const source = this.config.sources[0];
-        // Use the first rail for now
-        const rail = this.config.rails[0];
-
-        if (source && rail) {
-          const result = await source.fund(amountToFund, token);
-          // Inject liquidity into the rail
-          await rail.deposit(this.config.agentId, result.amount, token);
-          return { rebalanced: true, amount: result.amount };
-        }
-      }
+      return this.executeRebalance(amountToFund, token);
     }
 
+    return { rebalanced: false };
+  }
+
+  /**
+   * Ensures the privacy rail has at least 'amount' available.
+   * If not, it triggers a just-in-time top-up.
+   */
+  async ensureFunds(requiredAmount: number, token: SupportedToken = 'USD1'): Promise<void> {
+    const rail = this.config.rails[0];
+    if (!rail) throw new LiquidityError('No privacy rail configured');
+
+    const balance = await rail.getBalance(this.config.agentId, token);
+    
+    if (balance.available < requiredAmount) {
+      const shortage = requiredAmount - balance.available;
+      console.log(`[LiquidityManager] Shortage detected: ${shortage}. Initiating Auto-Topup...`);
+      await this.executeRebalance(shortage + 10, token); // Add buffer
+    }
+  }
+
+  private async executeRebalance(amount: number, token: SupportedToken): Promise<{ rebalanced: boolean; amount?: number }> {
+    const source = this.config.sources[0];
+    const rail = this.config.rails[0];
+
+    if (source && rail) {
+      try {
+        // 1. Debit Source
+        const result = await source.fund(amount, token);
+        // 2. Credit Rail
+        await rail.deposit(this.config.agentId, result.amount, token);
+        return { rebalanced: true, amount: result.amount };
+      } catch (e: any) {
+        throw new LiquidityError(`Rebalance failed: ${e.message}`);
+      }
+    }
     return { rebalanced: false };
   }
 }

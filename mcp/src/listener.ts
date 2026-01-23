@@ -244,6 +244,17 @@ const governanceStore = new Map<string, GovernanceRequest>();
       });
     }
 
+    if (url.pathname.startsWith('/governance/request/') && req.method === 'GET') {
+      const id = url.pathname.split('/').pop()!;
+      const reqItem = governanceStore.get(id);
+      if (reqItem) {
+        return new Response(JSON.stringify(reqItem), {
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+      return new Response('Not Found', { status: 404 });
+    }
+
     if (url.pathname.startsWith('/governance/approve/') && req.method === 'POST') {
       const id = url.pathname.split('/').pop()!;
       const reqItem = governanceStore.get(id);

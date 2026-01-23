@@ -7,10 +7,12 @@ import {
 } from './payments';
 import { RangeAdapter } from './payment_adapters/range';
 import { ComplianceError } from './errors';
+import { LiquidityManager } from './liquidity_manager';
 
 export interface RouterConfig {
   gateway: PaymentGateway;
   range: RangeAdapter;
+  liquidityManager?: LiquidityManager;
   preferredInternalProvider: PaymentProvider;
   preferredExternalProvider: PaymentProvider;
 }
@@ -30,6 +32,11 @@ export class PaymentRouter {
 
     // 2. Routing Decision
     const provider = this.determineProvider(request);
+
+    // 2.5 Auto-Topup for Private Rails
+    if ((provider === 'shadowwire' || provider === 'privacy_cash') && this.config.liquidityManager) {
+       await this.config.liquidityManager.ensureFunds(request.amount, request.currency);
+    }
 
     // 3. Execution
     return await this.config.gateway.execute({
