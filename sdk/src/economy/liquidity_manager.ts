@@ -30,6 +30,10 @@ export interface PrivacyRail extends BalanceProvider {
    * Returns the current operational limit for the agent on this rail.
    */
   getLimit(publicKey: PublicKey, token: SupportedToken): Promise<number>;
+  /**
+   * Deposits funds into the rail (e.g., minting tokens or crediting balance).
+   */
+  deposit(publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void>;
 }
 
 export interface LiquidityManagerConfig {
@@ -83,8 +87,13 @@ export class LiquidityManager {
       if (amountToFund > 0 && snapshot.fiat.available >= amountToFund) {
         // Use the first source for now
         const source = this.config.sources[0];
-        if (source) {
+        // Use the first rail for now
+        const rail = this.config.rails[0];
+
+        if (source && rail) {
           const result = await source.fund(amountToFund, token);
+          // Inject liquidity into the rail
+          await rail.deposit(this.config.agentId, result.amount, token);
           return { rebalanced: true, amount: result.amount };
         }
       }
