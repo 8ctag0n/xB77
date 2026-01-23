@@ -70,10 +70,10 @@ const PAYMENT_METHODS = {
 // ... (rest of products and init)
 
 const products = [
-  { id: 'p1', name: 'AWS Credits ($100)', price: 95, icon: '☁️', recipient: 'So11111111111111111111111111111111111111112' },
-  { id: 'p2', name: 'DevOps Hour', price: 150, icon: '🛠️', recipient: 'So11111111111111111111111111111111111111112' },
-  { id: 'p3', name: 'VPN Subscription', price: 12, icon: '🔒', recipient: 'So11111111111111111111111111111111111111112' },
-  { id: 'p4', name: 'Dark Web Data', price: 499, icon: '🏴‍☠️', recipient: 'BAD_sanctioned_address_123' },
+  { id: 'p1', name: 'AWS Credits ($100)', price: 95, icon: ICONS.CLOUD, recipient: 'So11111111111111111111111111111111111111112' },
+  { id: 'p2', name: 'DevOps Hour', price: 150, icon: ICONS.TOOL, recipient: 'So11111111111111111111111111111111111111112' },
+  { id: 'p3', name: 'VPN Subscription', price: 12, icon: ICONS.LOCK, recipient: 'So11111111111111111111111111111111111111112' },
+  { id: 'p4', name: 'Dark Web Data', price: 499, icon: ICONS.DATA, recipient: 'BAD_sanctioned_address_123' },
 ];
 
 if (hubPort) {
@@ -156,6 +156,20 @@ function renderAgents(list: AgentSummary[]) {
   });
 }
 
+// --- Icons ---
+const ICONS = {
+  SHIELD: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`,
+  LOCK: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
+  UNLOCK: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>`,
+  BADGE: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.78 4.78 4 4 0 0 1-6.74 0 4 4 0 0 1-4.78-4.78"></path></svg>`,
+  CHECK: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
+  CLOUD: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>`,
+  TOOL: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>`,
+  DATA: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse></svg>`,
+};
+
+// ... (existing code) ...
+
 function renderAgentDetail(agent?: AgentSummary) {
   if (!agent) {
     agentDetail.classList.add('muted');
@@ -164,16 +178,56 @@ function renderAgentDetail(agent?: AgentSummary) {
     connectionStatus.style.color = 'var(--muted)';
     return;
   }
+  
+  // Mocking Noir Proof Data for Demo
+  const hasBadge = true; 
+  const badgeHtml = hasBadge ? `
+    <div class="noir-badge" title="Verified by Noir ZK-Circuit">
+      <div class="badge-icon">${ICONS.BADGE}</div>
+      <div class="badge-info">
+        <span class="badge-label">IDENTITY VERIFIED</span>
+        <span class="badge-sub">Noir Proof: 0x9f...a2</span>
+      </div>
+      <div class="badge-check">${ICONS.CHECK}</div>
+    </div>
+  ` : '';
+
   agentDetail.classList.remove('muted');
   agentDetail.innerHTML = `
-    <div class="detail-row"><span>ID</span><strong>${agent.id}</strong></div>
-    <div class="detail-row"><span>Status</span><strong>${agent.status}</strong></div>
-    <div class="detail-row"><span>Transport</span><strong>${agent.transport}</strong></div>
-    <div class="detail-row"><span>MCP URL</span><strong>${agent.mcpUrl}</strong></div>
-    <div class="detail-row"><span>Capabilities</span><strong>${agent.capabilities.join(', ') || 'none'}</strong></div>
-    <div class="detail-row"><span>Pubkey</span><strong>${agent.pubkey ?? 'n/a'}</strong></div>
-    <div class="detail-row"><span>Last Seen</span><strong>${Math.round(agent.lastSeenAgeMs / 1000)}s ago</strong></div>
+    <div class="detail-header">
+      <div class="detail-title">
+        <strong>${agent.id}</strong>
+        ${badgeHtml}
+      </div>
+      <div class="agent-status-pill ${agent.status}">
+        <span class="dot"></span> ${agent.status}
+      </div>
+    </div>
+    
+    <div class="detail-grid">
+      <div class="detail-item">
+        <label>Transport</label>
+        <span>${agent.transport}</span>
+      </div>
+      <div class="detail-item">
+        <label>Capabilities</label>
+        <span>${agent.capabilities.length} active</span>
+      </div>
+      <div class="detail-item full-width">
+        <label>MCP Endpoint</label>
+        <span class="code-font">${agent.mcpUrl}</span>
+      </div>
+       <div class="detail-item full-width">
+        <label>Public Key</label>
+        <span class="code-font text-xs">${agent.pubkey ?? 'n/a'}</span>
+      </div>
+    </div>
+    
+    <div class="detail-footer">
+      <span>Last seen ${Math.round(agent.lastSeenAgeMs / 1000)}s ago</span>
+    </div>
   `;
+  
   if (agent.transport === 'stdio') {
     agentDetail.innerHTML += `<div class="detail-note">Tool calls are disabled for stdio agents.</div>`;
   }

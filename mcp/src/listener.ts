@@ -213,7 +213,8 @@ const server = Bun.serve({
         return new Response(JSON.stringify({ 
             service: 'xb77-listener', 
             status: 'active', 
-            agent: context?.agent.wallet.publicKey.toBase58() 
+            agent: context?.agent.wallet.publicKey.toBase58(),
+            capabilities: ['agent.badge_proof'] // Signaling verification capability
         }), { 
             headers: { 'Content-Type': 'application/json' } 
         });

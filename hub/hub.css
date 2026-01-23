@@ -422,6 +422,136 @@ h1 {
   background: var(--danger);
 }
 
+/* Agent Detail & Badge */
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.detail-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.detail-title strong {
+  font-size: 24px;
+  background: linear-gradient(to right, #fff, #888);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.noir-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(92, 225, 165, 0.1);
+  border: 1px solid rgba(92, 225, 165, 0.3);
+  padding: 4px 10px;
+  border-radius: 99px;
+  cursor: help;
+  transition: all 0.2s;
+}
+
+.noir-badge:hover {
+  background: rgba(92, 225, 165, 0.15);
+  border-color: var(--accent-2);
+  box-shadow: 0 0 12px rgba(92, 225, 165, 0.2);
+}
+
+.badge-icon {
+  color: var(--accent-2);
+  display: flex;
+}
+
+.badge-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.badge-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--accent-2);
+  letter-spacing: 0.1em;
+}
+
+.badge-sub {
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.badge-check {
+  color: var(--accent-2);
+  margin-left: 4px;
+  display: flex;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-item.full-width {
+  grid-column: span 2;
+}
+
+.detail-item label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.code-font {
+  font-family: "IBM Plex Mono", monospace;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.text-xs {
+  font-size: 11px;
+}
+
+.agent-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.agent-status-pill.online {
+  color: var(--accent-2);
+  background: rgba(92, 225, 165, 0.1);
+}
+
+.agent-status-pill.stale {
+  color: var(--danger);
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.product-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
 .detail-row {
   display: flex;
   justify-content: space-between;
