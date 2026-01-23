@@ -245,9 +245,15 @@ function requireNumber(value: unknown, field: string): number {
   return value;
 }
 
+function safeStringify(payload: unknown): string {
+  return JSON.stringify(payload, (_key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  );
+}
+
 function okResponse(payload: unknown): ToolResponse {
   return {
-    content: [{ type: 'text', text: JSON.stringify(payload) }],
+    content: [{ type: 'text', text: safeStringify(payload) }],
   };
 }
 
@@ -258,7 +264,7 @@ function errorResponse(error: unknown): ToolResponse {
     content: [
       {
         type: 'text',
-        text: JSON.stringify({
+        text: safeStringify({
           error: {
             message,
           },

@@ -40,6 +40,13 @@ function parseHex32(value: string, name: string): Uint8Array {
     return new Uint8Array(buffer);
 }
 
+function buildPublicWitness(root: Uint8Array, nullifier: Uint8Array): Uint8Array {
+    const witness = new Uint8Array(96);
+    witness.set(root, 0);
+    witness.set(nullifier, 64);
+    return witness;
+}
+
 function loadReceiptAccounts(filePath: string): AccountMeta[] {
     const raw = fs.readFileSync(filePath, 'utf-8');
     const specs = JSON.parse(raw) as Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>;
@@ -129,6 +136,10 @@ async function main() {
     const receiptPayload = receiptPayloadPath
         ? JSON.parse(fs.readFileSync(receiptPayloadPath, 'utf-8'))
         : null;
+    const gatewayRootArg = args.get('gateway-root');
+    const nullifierArg = args.get('nullifier');
+    const swProofPdaArg = args.get('sw-proof-pda');
+    const skipVerify = args.get('skip-verify') === 'true';
 
     console.log('--- Config ---');
     console.log('RPC:', rpcUrl);
@@ -136,6 +147,9 @@ async function main() {
     console.log('Core ID:', coreProgramId.toBase58());
     console.log('Gateway ID:', gatewayProgramId.toBase58());
     console.log('Receipts ID:', receiptsProgramId.toBase58());
+    if (skipVerify) {
+        console.log('Verify Badge: SKIPPED (skip-verify=true)');
+    }
 
     const [coreConfigPda] = PublicKey.findProgramAddressSync([Buffer.from("config")], coreProgramId);
     
@@ -201,31 +215,46 @@ async function main() {
 
     // 3. Verify Badge (Credit Agent)
     console.log('\n--- 3. Verify Badge (CPI) ---');
-    const [gatewayStatePda] = PublicKey.findProgramAddressSync([Buffer.from("gateway_state")], gatewayProgramId);
-    const bufferVerify = Buffer.alloc(2000);
-    const lenVerify = VerifyBadgeLayout.encode({
-        instruction: 2,
-        root: Array(32).fill(0),
-        merkle_index: 0,
-        proof: Buffer.from([1, 2, 3]),
-        public_witness: Buffer.from([4, 5, 6]),
-    }, bufferVerify);
+    if (!skipVerify) {
+        if (!gatewayRootArg || !nullifierArg || !swProofPdaArg) {
+            console.log(
+                'Verify Badge skipped: provide --gateway-root, --nullifier, and --sw-proof-pda to pass ShadowWire binding.'
+            );
+        } else {
+            const [gatewayStatePda] = PublicKey.findProgramAddressSync(
+                [Buffer.from("gateway_state")],
+                gatewayProgramId
+            );
+            const gatewayRoot = parseHex32(gatewayRootArg, 'gateway-root');
+            const nullifier = parseHex32(nullifierArg, 'nullifier');
+            const publicWitness = buildPublicWitness(gatewayRoot, nullifier);
+            const swProofPda = new PublicKey(swProofPdaArg);
+            const bufferVerify = Buffer.alloc(2000);
+            const lenVerify = VerifyBadgeLayout.encode({
+                instruction: 2,
+                root: Array.from(gatewayRoot),
+                merkle_index: 0,
+                proof: Buffer.from([1, 2, 3]),
+                public_witness: Buffer.from(publicWitness),
+            }, bufferVerify);
 
-    const verifyIx = new TransactionInstruction({
-        programId: gatewayProgramId,
-        keys: [
-            { pubkey: payer.publicKey, isSigner: true, isWritable: true },
-            { pubkey: gatewayStatePda, isSigner: false, isWritable: true },
-            { pubkey: PublicKey.default, isSigner: false, isWritable: false }, // Verifier Program
-            { pubkey: PublicKey.default, isSigner: false, isWritable: false }, // sw_proof_pda
-            { pubkey: coreProgramId, isSigner: false, isWritable: false },
-            { pubkey: coreConfigPda, isSigner: false, isWritable: false },
-            { pubkey: creditLinePda, isSigner: false, isWritable: true },
-        ],
-        data: bufferVerify.slice(0, lenVerify),
-    });
-    await sendAndConfirmTransaction(connection, new Transaction().add(verifyIx), [payer]);
-    console.log('Badge Verified (Credit Updated)');
+            const verifyIx = new TransactionInstruction({
+                programId: gatewayProgramId,
+                keys: [
+                    { pubkey: payer.publicKey, isSigner: true, isWritable: true },
+                    { pubkey: gatewayStatePda, isSigner: false, isWritable: true },
+                    { pubkey: PublicKey.default, isSigner: false, isWritable: false }, // Verifier Program
+                    { pubkey: swProofPda, isSigner: false, isWritable: false }, // sw_proof_pda
+                    { pubkey: coreProgramId, isSigner: false, isWritable: false },
+                    { pubkey: coreConfigPda, isSigner: false, isWritable: false },
+                    { pubkey: creditLinePda, isSigner: false, isWritable: true },
+                ],
+                data: bufferVerify.slice(0, lenVerify),
+            });
+            await sendAndConfirmTransaction(connection, new Transaction().add(verifyIx), [payer]);
+            console.log('Badge Verified (Credit Updated)');
+        }
+    }
 
     // 5. Request Payment (Deduct Credit + Record Receipt)
     console.log('\n--- 5. Request Payment (CPI) ---');

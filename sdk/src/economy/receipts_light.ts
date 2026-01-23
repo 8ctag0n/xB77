@@ -43,7 +43,7 @@ export interface PaymentReceipt {
   amount: number;
   type: PaymentType;
   proofPda?: string;
-  nonce?: number;
+  nonce?: number | bigint;
   txSignature?: string;
   timestamp: number;
 }

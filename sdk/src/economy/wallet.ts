@@ -8,7 +8,7 @@ export type SupportedToken = 'SOL' | 'USD1' | 'USDC';
 export interface PaymentResult {
   txSignature?: string;
   proofPda?: string;
-  nonce?: number;
+  nonce?: number | bigint;
   raw: unknown;
 }
 
