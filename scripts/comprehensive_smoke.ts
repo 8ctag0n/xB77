@@ -203,6 +203,26 @@ async function run() {
         throw new Error('Invoice not found in history.');
     }
 
+    log('SUCCESS', 'Scenario D Passed.', 'green');
+
+    // 7. Scenario E: Critical Risk (Privacy Cash Obfuscation + USD1)
+    log('TEST', 'Scenario E: Critical Risk Strategy (Privacy Cash + USD1)', 'cyan');
+    const criticalPay = await callTool('agent.pay', {
+        recipient: 'So11111111111111111111111111111111111111112',
+        amount: 300,
+        token: 'USD1',
+        context: {
+            vendorCategory: 'dark_web' // This triggers 'critical' risk in strategy.ts
+        }
+    });
+
+    if (criticalPay.txSignature && criticalPay.provider === 'privacy_cash') {
+        log('PASS', `Critical Risk correctly routed via Privacy Cash. TX: ${criticalPay.txSignature}`, 'green');
+    } else {
+        console.error('Critical Pay Result:', JSON.stringify(criticalPay, null, 2));
+        throw new Error('Critical Risk strategy failed to route via Privacy Cash.');
+    }
+
     log('SUCCESS', 'ALL SYSTEMS GO. SMOKE TEST PASSED. 🚀', 'green');
 
   } catch (err) {

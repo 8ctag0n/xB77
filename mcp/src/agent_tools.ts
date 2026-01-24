@@ -210,6 +210,13 @@ export function listTools() {
             type: 'string',
             enum: VALID_PROVIDERS,
           },
+          context: {
+            type: 'object',
+            properties: {
+              vendorCategory: { type: 'string' },
+              isNewVendor: { type: 'boolean' }
+            }
+          }
         },
         required: ['recipient', 'amount'],
       },
@@ -355,6 +362,7 @@ async function handleOfflinePayment(
 
   return {
     txSignature: 'offline-mock',
+    provider: 'offline',
     raw: { offline: true },
   };
 }
@@ -429,6 +437,7 @@ export async function handleToolCall(
         const token = normalizeToken(args?.token, context.defaultToken);
         const type = args?.type === 'internal' ? 'internal' : 'external';
         const provider = normalizeProvider(args?.provider);
+        const paymentContext = (args?.context as any) || {};
 
         // GOVERNANCE INTERCEPTOR
         // In a real implementation, PaymentRouter would throw a structured error.
@@ -474,7 +483,7 @@ export async function handleToolCall(
 
            // In prod, signature would be passed to .pay() context
            return okResponse({
-             provider,
+             provider: govReceipt.provider,
              status: 'success',
              txSignature: govReceipt.txSignature,
              paidAmount: amount,
@@ -484,7 +493,7 @@ export async function handleToolCall(
 
         const result = context.offline
           ? await handleOfflinePayment(context, recipient, amount, token, type)
-          : await context.agent.pay(recipient, amount, token, type, provider);
+          : await (context.agent as any).pay(recipient, amount, token, type, provider, paymentContext);
         return okResponse(result);
       }
       case 'agent.status':

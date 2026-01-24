@@ -32,23 +32,49 @@ export class PaymentStrategyEngine {
   
   /**
    * Analyzes the transaction and determines the optimal execution strategy.
+   * Using arrow function to preserve 'this' context.
    */
-  evaluate(
+  evaluate = (
     recipient: string,
     amount: number,
     context: PaymentContext = {}
-  ): ExecutionPlan {
+  ): ExecutionPlan => {
     const risk = this.assessRisk(recipient, amount, context);
     const privacy = this.determinePrivacyLevel(risk, context);
     
     return this.createPlan(privacy, risk, context.mixingPolicy);
   }
 
-  // ... (assessRisk and determinePrivacyLevel remain same)
+  private assessRisk = (recipient: string, amount: number, context: PaymentContext): RiskLevel => {
+    // 1. Critical Flags
+    if (context.vendorCategory === 'dark_web' || context.vendorCategory === 'gambling') {
+      return 'critical';
+    }
 
-  private createPlan(privacy: PrivacyLevel, risk: RiskLevel, policy?: MixingPolicy): ExecutionPlan {
+    // 2. Amount Thresholds
+    if (amount > 10000) return 'high';
+    if (amount > 1000) return 'medium';
+
+    // 3. New Vendor Heuristic
+    if (context.isNewVendor && amount > 500) return 'medium';
+
+    return 'low';
+  }
+
+  private determinePrivacyLevel = (risk: RiskLevel, context: PaymentContext): PrivacyLevel => {
+    if (risk === 'critical') return 'ghost'; // Maximum paranoia
+    if (risk === 'high') return 'ghost';
+    if (risk === 'medium') return 'standard';
+    
+    // For low risk, prefer efficiency unless explicitly private
+    if (context.vendorCategory === 'payroll') return 'standard'; // Payroll always private
+    
+    return 'public';
+  }
+
+  private createPlan = (privacy: PrivacyLevel, risk: RiskLevel, policy?: MixingPolicy): ExecutionPlan => {
     // Check if Privacy Cash Hop is enforced by policy for high risk
-    if (risk === 'critical' && policy?.preferredRoute === 'privacy_cash_hop') {
+    if (risk === 'critical' || (risk === 'high' && policy?.preferredRoute === 'privacy_cash_hop')) {
         return {
           strategy: 'privacy_cash_obfuscation',
           provider: 'privacy_cash',

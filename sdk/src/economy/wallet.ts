@@ -9,6 +9,7 @@ export interface PaymentResult {
   txSignature?: string;
   proofPda?: string;
   nonce?: number | bigint;
+  provider?: string;
   raw: unknown;
 }
 
