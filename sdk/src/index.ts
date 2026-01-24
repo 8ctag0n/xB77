@@ -11,3 +11,4 @@ export * from './economy/payment_mocks/shadowwire';
 export * from './economy/payment_mocks/privacy_cash';
 export * from './identity/manager';
 export * from './agent';
+export * from './economy/strategy';

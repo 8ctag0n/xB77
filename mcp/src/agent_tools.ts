@@ -4,6 +4,7 @@ import {
   InMemoryReceiptStore,
   SQLiteReceiptStore,
   PrivacyAgent,
+  PaymentStrategyEngine,
   StaticBalanceProvider,
   type PaymentReceipt,
   type PaymentResult,
@@ -108,6 +109,8 @@ export async function buildAgentContext(options?: {
   const receiptStore = new SQLiteReceiptStore(dbPath);
   console.log(`[AgentContext] Using SQLite persistence at ${dbPath}`);
 
+  const strategyEngine = new PaymentStrategyEngine();
+
   const balances = options?.balances ?? parseBalances(process.env.XB77_BALANCES_JSON);
   const balanceProvider = offline ? new StaticBalanceProvider(balances, 'static') : undefined;
 
@@ -127,6 +130,7 @@ export async function buildAgentContext(options?: {
   return {
     agent,
     receiptStore,
+    strategyEngine,
     offline,
     defaultToken,
   };
@@ -163,6 +167,25 @@ export function listTools() {
             type: 'string',
             enum: VALID_PROVIDERS,
           },
+        },
+        required: ['recipient', 'amount'],
+      },
+    },
+    {
+      name: 'agent.strategy.evaluate',
+      description: 'Evaluate payment risk and determine optimal privacy strategy.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          recipient: { type: 'string' },
+          amount: { type: 'number' },
+          context: {
+            type: 'object',
+            properties: {
+              vendorCategory: { type: 'string' },
+              isNewVendor: { type: 'boolean' }
+            }
+          }
         },
         required: ['recipient', 'amount'],
       },
@@ -336,7 +359,7 @@ async function handleOfflinePayment(
   };
 }
 
-export const LISTENER_URL = 'http://localhost:7002';
+export const LISTENER_URL = process.env.XB77_LISTENER_URL ?? 'http://localhost:7002';
 
 async function waitForGovernanceApproval(requestId: string): Promise<string> {
   console.error(`[Agent] Waiting for governance approval (ID: ${requestId})...`);
@@ -367,7 +390,7 @@ async function waitForGovernanceApproval(requestId: string): Promise<string> {
   throw new Error('Governance approval timed out.');
 }
 
-async function handleToolCall(
+export async function handleToolCall(
   context: AgentContext,
   name: string,
   args: Record<string, unknown> | undefined
@@ -391,6 +414,14 @@ async function handleToolCall(
           ? await handleOfflinePayment(context, recipient, amount, token, 'internal')
           : await context.agent.pay(recipient, amount, token, 'internal', provider);
         return okResponse(result);
+      }
+      case 'agent.strategy.evaluate': {
+        const recipient = requireString(args?.recipient, 'recipient');
+        const amount = requireNumber(args?.amount, 'amount');
+        const paymentContext = (args?.context as any) || {};
+        
+        const plan = context.strategyEngine.evaluate(recipient, amount, paymentContext);
+        return okResponse(plan);
       }
       case 'agent.pay': {
         const recipient = requireString(args?.recipient, 'recipient');
@@ -424,8 +455,31 @@ async function handleToolCall(
            const signature = await waitForGovernanceApproval(id);
            
            // 3. Resume Execution (With signature)
-           // Currently agent.pay doesn't take signature, but we simulate it passing
            console.error(`[Agent] Resuming transaction with authority signature: ${signature}`);
+           
+           // Bypass Router for approved transaction (Demo Simulation)
+           const govReceipt: PaymentReceipt = {
+             sender: context.agent.wallet.publicKey.toBase58(),
+             recipient,
+             amount,
+             token,
+             type,
+             provider,
+             timestamp: Date.now(),
+             txSignature: `gov_tx_${signature.slice(0, 8)}`,
+             metadata: { governance_sig: signature }
+           };
+           
+           await context.receiptStore.recordPayment(govReceipt);
+
+           // In prod, signature would be passed to .pay() context
+           return okResponse({
+             provider,
+             status: 'success',
+             txSignature: govReceipt.txSignature,
+             paidAmount: amount,
+             raw: { governance_approved: true }
+           });
         }
 
         const result = context.offline
