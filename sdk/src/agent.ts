@@ -1,4 +1,5 @@
 import { Keypair } from '@solana/web3.js';
+import nacl from 'tweetnacl';
 import { AgentWallet } from './economy/wallet';
 import type { PaymentResult, SupportedToken } from './economy/wallet';
 import type { BalanceInfo, BalanceProvider } from './economy/balance';
@@ -9,12 +10,14 @@ import {
   PaymentGateway,
   PaymentProvider,
   PaymentRequest,
+  WalletSigner
 } from './economy/payments';
 import { createMockPaymentGateway, createPaymentGateway, PaymentGatewayOptions } from './economy/payment_defaults';
 import { PaymentRouter } from './economy/payment_router';
 import { RangeAdapter } from './economy/payment_adapters/range';
 import { LiquidityManager, LiquiditySource, PrivacyRail } from './economy/liquidity_manager';
 import { StarpayAdapter } from './economy/payment_adapters/starpay';
+import { PaymentStrategyEngine } from './economy/strategy';
 
 export interface AgentConfig {
   keypair: Keypair;
@@ -47,6 +50,7 @@ export class PrivacyAgent {
   public identity: IdentityManager;
   public liquidityManager: LiquidityManager;
   public router: PaymentRouter;
+  public strategyEngine: PaymentStrategyEngine;
   
   private balanceProvider?: BalanceProvider;
   private receiptStore?: ReceiptStore;
@@ -56,6 +60,7 @@ export class PrivacyAgent {
   constructor(config: AgentConfig) {
     this.wallet = new AgentWallet(config.keypair, config.debug);
     this.identity = new IdentityManager();
+    this.strategyEngine = new PaymentStrategyEngine();
     this.balanceProvider = config.balanceProvider;
     this.receiptStore = config.receiptStore;
     
@@ -105,13 +110,32 @@ export class PrivacyAgent {
     type: PaymentType = 'external',
     provider?: PaymentProvider
   ): Promise<PaymentResult> {
+    
+    // 1. Strategy Evaluation (if provider not forced)
+    let selectedProvider = provider;
+    let isGhostMode = false;
+
+    if (!selectedProvider) {
+      const plan = this.strategyEngine.evaluate(recipient, amount);
+      selectedProvider = plan.provider;
+      if (plan.strategy === 'ephemeral_relay') {
+        isGhostMode = true;
+      }
+    }
+
+    // 2. Ghost Mode Orchestration
+    if (isGhostMode) {
+      return this.executeGhostPayment(recipient, amount, token);
+    }
+
+    // 3. Standard Execution
     const request: PaymentRequest = {
       amount,
       currency: token,
       agentId: this.wallet.publicKey.toBase58(),
       vendor: recipient,
       type,
-      provider: provider, // Router will decide if not provided
+      provider: selectedProvider,
     };
 
     // Use Router instead of raw Gateway for autonomous decision and compliance
@@ -124,6 +148,68 @@ export class PrivacyAgent {
 
     if (execution.status !== 'success') {
       throw new Error('Payment failed');
+    }
+
+    return {
+      txSignature: execution.txSignature,
+      proofPda: execution.proofPda,
+      nonce: execution.nonce,
+      raw: execution.raw,
+    };
+  }
+
+  private async executeGhostPayment(recipient: string, amount: number, token: SupportedToken): Promise<PaymentResult> {
+    console.log(`[Ghost] Spawning ephemeral burner wallet...`);
+    const burner = Keypair.generate();
+    const burnerPub = burner.publicKey.toBase58();
+    
+    // Step 1: Fund Burner (Internal Shielded Transfer)
+    // We add a small fee buffer (e.g. 5%)
+    const fundAmount = Math.ceil(amount * 1.05); 
+    console.log(`[Ghost] Funding burner ${burnerPub} with ${fundAmount} ${token}...`);
+    
+    // Recursive call to pay() but forcing 'internal' type and 'shadowwire' provider
+    // This uses the main treasury to fund the burner
+    const fundingResult = await this.pay(burnerPub, fundAmount, token, 'internal', 'shadowwire');
+    console.log(`[Ghost] Burner funded. TX: ${fundingResult.txSignature}`);
+
+    // Step 2: Pay Vendor from Burner
+    console.log(`[Ghost] Executing final hop to ${recipient}...`);
+    
+    const burnerSigner: WalletSigner = {
+      signMessage: async (msg) => nacl.sign.detached(msg, burner.secretKey)
+    };
+
+    // Construct request manually to bypass router checks (we are the burner now)
+    const request: PaymentRequest = {
+      amount,
+      currency: token,
+      agentId: burnerPub, // Sender is the burner!
+      vendor: recipient,
+      type: 'external',
+      provider: 'shadowwire',
+    };
+
+    // Execute directly via Gateway using Burner Context
+    // We bypass 'router' because router checks compliance on SENDER. 
+    // The burner is fresh, so it has no history, but we might want to check recipient compliance again.
+    // For simplicity, we assume main treasury already checked compliance implicitly (or we check explicitly).
+    // Let's check compliance just in case.
+    const compliance = await new RangeAdapter().preScreenPayment(recipient, amount);
+    if (!compliance.isSafe) throw new Error('Ghost Mode halted: Compliance risk on destination.');
+
+    const execution = await (this.paymentGateway as any).execute(request, { walletSigner: burnerSigner });
+
+    // Step 3: Cleanup
+    // We don't store the burner key. It is lost forever here.
+    console.log(`[Ghost] Burner keys discarded.`);
+
+    if (this.receiptStore) {
+      // We record the receipt as if it came from us (conceptually), or we mark it as ghost
+      const receipt: PaymentReceipt = buildPaymentReceipt(request, execution);
+      receipt.sender = this.wallet.publicKey.toBase58(); // Remap ownership to main agent for accounting
+      receipt.metadata = { ...receipt.metadata, mode: 'ghost_relay', burner: burnerPub };
+      await this.receiptStore.recordPayment(receipt);
     }
 
     return {

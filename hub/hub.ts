@@ -854,7 +854,35 @@ async function handleBuy(product: typeof products[0]) {
     return;
   }
 
-  // GOVERNANCE TRIGGER: High Value Transaction
+  // 1. STRATEGY ANALYSIS
+  logActivity(`🤖 Analyzing optimal route for ${product.name}...`);
+  try {
+    const strategyRes = await callTool('agent.strategy.evaluate', {
+      recipient: product.recipient,
+      amount: product.price * 100,
+      context: {
+        vendorCategory: product.price > 1000 ? 'high_value_asset' : 'standard',
+        isNewVendor: product.recipient.startsWith('BAD') // Simulating heuristic
+      }
+    });
+    
+    const strategy = unwrapToolResponse(strategyRes);
+    
+    // Visual Feedback based on strategy
+    if (strategy.privacyLevel === 'ghost') {
+       logActivity(`👻 GHOST MODE ACTIVATED. Routing via Ephemeral Wallet.`, 'info');
+       await new Promise(r => setTimeout(r, 800)); // Suspense delay
+    } else if (strategy.privacyLevel === 'standard') {
+       logActivity(`🛡️ Standard Privacy. Shielding assets...`, 'info');
+    } else {
+       logActivity(`💳 Public Route. Using Starpay.`, 'info');
+    }
+
+  } catch (e) {
+    console.error('Strategy failed', e);
+  }
+
+  // 2. GOVERNANCE TRIGGER (Legacy Check kept for safety, but logic is redundant with Strategy)
   if (product.price > 1000) {
     const confirmMsg = `High Value Alert: $${product.price} exceeds autonomous limit.\nInitiating Shadow Governance Protocol?`;
     if (!confirm(confirmMsg)) return;
