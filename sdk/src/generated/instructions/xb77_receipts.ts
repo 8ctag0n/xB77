@@ -27,21 +27,62 @@ export interface RecordReceiptInstructionData {
   memoHash: Uint8Array | number[];
 }
 
-export function serializeRecordReceiptInstructionData(serializer: WincodeSerializer, value: RecordReceiptInstructionData) {
-  serializer.writeVec(Buffer.from(value.proof));
-  serializer.writeVec(Buffer.from(value.addressTreeInfo));
-  serializer.writeU8(value.outputStateTreeIndex);
-  serializer.writeFixedArray(Buffer.from(value.vendor), 32);
-  serializer.writeU64(value.amount);
-  serializer.writeFixedArray(Buffer.from(value.memoHash), 32);
+function encodeU32LE(value: number): Uint8Array {
+  const buffer = new ArrayBuffer(4);
+  new DataView(buffer).setUint32(0, value, true);
+  return new Uint8Array(buffer);
+}
+
+function encodeU64LE(value: bigint | number): Uint8Array {
+  const buffer = new ArrayBuffer(8);
+  new DataView(buffer).setBigUint64(0, BigInt(value), true);
+  return new Uint8Array(buffer);
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.length;
+  }
+  return out;
+}
+
+export function serializeRecordReceiptInstructionData(_: WincodeSerializer, value: RecordReceiptInstructionData) {
+  const proof = Buffer.from(value.proof);
+  const addressTreeInfo = Buffer.from(value.addressTreeInfo);
+  const vendor = Buffer.from(value.vendor);
+  const memoHash = Buffer.from(value.memoHash);
+
+  if (vendor.length !== 32) {
+    throw new Error(`vendor must be 32 bytes, got ${vendor.length}`);
+  }
+  if (memoHash.length !== 32) {
+    throw new Error(`memoHash must be 32 bytes, got ${memoHash.length}`);
+  }
+
+  return concatBytes([
+    encodeU32LE(proof.length),
+    proof,
+    encodeU32LE(addressTreeInfo.length),
+    addressTreeInfo,
+    new Uint8Array([value.outputStateTreeIndex]),
+    vendor,
+    encodeU64LE(value.amount),
+    memoHash,
+  ]);
 }
 
 export const PROGRAM_ID = new PublicKey('9kknYrFBjkBUuMyZZhksoHcj29gjfzGsDMgnyfp3Y6VM');
 
 export function createRecordReceiptInstruction(recordReceiptInstructionData: RecordReceiptInstructionData, accounts: { signer: PublicKey, agentAccount: PublicKey, lightCpiSigner: PublicKey, systemProgram: PublicKey, lightSystemProgram: PublicKey }, programId: PublicKey = PROGRAM_ID): TransactionInstruction {
   const serializer = new WincodeSerializer();
-  serializer.writeU8(0);
-  serializeRecordReceiptInstructionData(serializer, recordReceiptInstructionData);
+  const payload = serializeRecordReceiptInstructionData(serializer, recordReceiptInstructionData);
+  const data = new Uint8Array(1 + payload.length);
+  data[0] = 0;
+  data.set(payload, 1);
 
   const keys: AccountMeta[] = [
     { pubkey: accounts.signer, isSigner: true, isWritable: false },
@@ -54,7 +95,6 @@ export function createRecordReceiptInstruction(recordReceiptInstructionData: Rec
   return new TransactionInstruction({
     keys,
     programId,
-    data: serializer.data,
+    data: Buffer.from(data),
   });
 }
-
