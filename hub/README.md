@@ -28,6 +28,8 @@ Visit `http://localhost:7777`.
 3.  **Connect:** Go to the **Control Plane** tab in the Hub. Register the agent (`http://localhost:7001/tool`).
 4.  **Transact:** Switch to the **Terminal** tab. Select a strategy and click "Buy Now" on any product. The Hub will dispatch `agent.pay` commands to the connected agent.
 
+For multi-agent demos (parallel MCP processes, per-agent persistence, custom ports, etc.) follow the step-by-step playbook in `docs/ops/multi-agent.md`.
+
 ## Environment
 
 - `PORT`: Hub port (default: `7777`).
