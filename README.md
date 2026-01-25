@@ -40,10 +40,11 @@ Integrated real-time screening via Range Protocol to ensure all autonomous trans
 
 ### Documentation / Documentación
 
-*   [Technical Whitepaper (EN)](docs/whitepaper/WHITEPAPER_EN.md)
-*   [Libro Blanco Técnico (ES)](docs/whitepaper/WHITEPAPER_ES.md)
-*   [Architecture & Data Flow](docs/architecture/DIAGRAMS.md)
-*   [Mission and Principles](docs/mission.md)
+*   [Operation Guide / Guía de Inicio](docs/guide/GETTING_STARTED)
+*   [Technical Whitepaper (EN)](docs/whitepaper/WHITEPAPER_EN)
+*   [Libro Blanco Técnico (ES)](docs/whitepaper/WHITEPAPER_ES)
+*   [Architecture & Data Flow (EN)](docs/architecture/DIAGRAMS)
+*   [Arquitectura y Flujo (ES)](docs/architecture/DIAGRAMS_ES)
 
 ---
 Copyright (c) 2026 xB77 Labs. All rights reserved.

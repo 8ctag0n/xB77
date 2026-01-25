@@ -4,7 +4,6 @@ export default defineConfig({
   title: "xB77 Infrastructure",
   description: "Autonomous Financial Operating System for AI Agents",
   themeConfig: {
-    logo: '/logo.png', // Placeholder, podemos añadir uno luego
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Guide', items: [
@@ -15,7 +14,10 @@ export default defineConfig({
         { text: 'English', link: '/whitepaper/WHITEPAPER_EN' },
         { text: 'Español', link: '/whitepaper/WHITEPAPER_ES' }
       ]},
-      { text: 'Architecture', link: '/architecture/DIAGRAMS' }
+      { text: 'Architecture', items: [
+        { text: 'English', link: '/architecture/DIAGRAMS' },
+        { text: 'Español', link: '/architecture/DIAGRAMS_ES' }
+      ]}
     ],
 
     sidebar: [
@@ -40,10 +42,10 @@ export default defineConfig({
       {
         text: 'Technical Deep Dive',
         items: [
-          { text: 'Agent Design', link: '/explanations/AGENT_DESIGN' },
-          { text: 'Whitepaper (EN)', link: '/whitepaper/WHITEPAPER_EN' },
-          { text: 'Whitepaper (ES)', link: '/whitepaper/WHITEPAPER_ES' },
-          { text: 'System Architecture', link: '/architecture/DIAGRAMS' }
+          { text: 'Agent Design (EN)', link: '/explanations/AGENT_DESIGN' },
+          { text: 'Diseño del Agente (ES)', link: '/explanations/AGENT_DESIGN_ES' },
+          { text: 'Architecture (EN)', link: '/architecture/DIAGRAMS' },
+          { text: 'Arquitectura (ES)', link: '/architecture/DIAGRAMS_ES' }
         ]
       },
       {
