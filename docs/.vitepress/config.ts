@@ -7,32 +7,34 @@ export default defineConfig({
     logo: '/logo.png', // Placeholder, podemos añadir uno luego
     nav: [
       { text: 'Home', link: '/' },
+      { text: 'Guide', link: '/guide/GETTING_STARTED' },
       { text: 'Whitepaper', items: [
         { text: 'English', link: '/whitepaper/WHITEPAPER_EN' },
         { text: 'Español', link: '/whitepaper/WHITEPAPER_ES' }
       ]},
-      { text: 'Architecture', link: '/architecture/DIAGRAMS' },
-      { text: 'Ecosystem', link: '/ecosystem/SPONSORS' }
+      { text: 'Architecture', link: '/architecture/DIAGRAMS' }
     ],
 
     sidebar: [
       {
-        text: 'Introduction',
+        text: 'Getting Started',
         items: [
-          { text: 'The Vision', link: '/mission' },
-          { text: 'Agent Design', link: '/explanations/AGENT_DESIGN' }
+          { text: 'Operation Guide', link: '/guide/GETTING_STARTED' },
+          { text: 'Execution Modes', link: '/guide/MODES' },
+          { text: 'Philosophy of Use', link: '/guide/PHILOSOPHY' }
         ]
       },
       {
-        text: 'Technical Docs',
+        text: 'Technical Deep Dive',
         items: [
+          { text: 'Agent Design', link: '/explanations/AGENT_DESIGN' },
           { text: 'Whitepaper (EN)', link: '/whitepaper/WHITEPAPER_EN' },
           { text: 'Whitepaper (ES)', link: '/whitepaper/WHITEPAPER_ES' },
           { text: 'System Architecture', link: '/architecture/DIAGRAMS' }
         ]
       },
       {
-        text: 'Business & Ecosystem',
+        text: 'Ecosystem',
         items: [
           { text: 'Use Cases', link: '/whitepaper/USE_CASES' },
           { text: 'Sponsor Alignment', link: '/ecosystem/SPONSORS' }
