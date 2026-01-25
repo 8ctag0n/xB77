@@ -40,78 +40,60 @@
           </div>
         </header>
 
-        <main class="merchant-grid">
-          <div class="main-column">
-            <section class="panel">
-              <div class="panel-header">
-                <h2>Marketplace</h2>
-                <div class="actions">
-                  <button class="btn-sm" id="btn-add-product">+ New</button>
+            <div class="terminal-layout">
+              <div class="terminal-main">
+                <div class="card product-card-grid">
+                  <div class="card-header">
+                    <h2>Available Services</h2>
+                    <button class="btn-sm" id="btn-add-product">List New Service</button>
+                  </div>
+                  <div class="product-grid" id="product-grid">
+                    <!-- Products injected here -->
+                  </div>
                 </div>
-              </div>
-              <div id="product-grid" class="product-grid">
-                <!-- Products injected here -->
-                <div class="empty-state">No active listings.</div>
-              </div>
-            </section>
 
-            <section class="panel">
-              <div class="panel-header">
-                <h2>CFO Strategy</h2>
-              </div>
-              <div class="strategy-controls">
-                <div class="strategy-option">
-                  <label>
-                    <input type="radio" name="strategy" value="privacy_cash" checked>
-                    <span class="strategy-card">
-                      <span class="title">Privacy Cash</span>
-                      <span class="desc">Maximize anonymity using Light Protocol shielded pools.</span>
-                    </span>
-                  </label>
-                </div>
-                <div class="strategy-option">
-                  <label>
-                    <input type="radio" name="strategy" value="starpay">
-                    <span class="strategy-card">
-                      <span class="title">Starpay Card</span>
-                      <span class="desc">Virtual debit cards for fiat compatibility.</span>
-                    </span>
-                  </label>
+                <div class="card">
+                  <div class="card-header">
+                    <h2>Operational History</h2>
+                    <div class="header-actions">
+                      <span class="live-indicator">LIVE</span>
+                    </div>
+                  </div>
+                  <div class="activity-feed" id="activity-feed">
+                    <!-- Activity items injected here -->
+                  </div>
                 </div>
               </div>
-            </section>
 
-            <section class="panel">
-              <div class="panel-header">
-                <h2>Corporate Treasury</h2>
-                <div class="actions">
-                  <span class="badge success">Active</span>
+              <div class="terminal-sidebar">
+                <div class="card thought-card">
+                  <div class="card-header">
+                    <h2>Agent Thought Stream</h2>
+                  </div>
+                  <div class="thought-stream" id="thought-stream">
+                    <div class="empty muted">Waiting for agent activity...</div>
+                  </div>
+                </div>
+                
+                <div class="card stats-card">
+                  <div class="card-header">
+                    <h2>CFO Snapshot</h2>
+                  </div>
+                  <div class="stats-grid">
+                    <div class="stat-item">
+                      <label>Total Managed</label>
+                      <span id="stat-sales">$0.00</span>
+                    </div>
+                    <div class="stat-item">
+                      <label>Active Tasks</label>
+                      <span id="stat-pending">0</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div class="card-visual">
-                <div class="card-chip"></div>
-                <div class="card-number">**** **** **** 4242</div>
-                <div class="card-meta">
-                  <span class="card-holder">XB77 AGENT</span>
-                  <span class="card-balance" id="starpay-balance">Loading...</span>
-                </div>
-                <div class="card-brand">STARPAY</div>
-              </div>
-            </section>
-          </div>
+            </div>
 
-          <aside class="side-column">
-            <section class="panel fill-height">
-              <div class="panel-header">
-                <h2>Unified History</h2>
-                <button class="btn-xs" id="btn-refresh-history">↻</button>
-              </div>
-              <div id="activity-feed" class="activity-feed">
-                <div class="feed-item muted">Connecting to Listener...</div>
-              </div>
-            </section>
-          </aside>
-        </main>
+
       </div>
 
       <!-- GOVERNANCE VIEW -->

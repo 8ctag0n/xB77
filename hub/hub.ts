@@ -50,7 +50,36 @@ const statSales = document.getElementById('stat-sales') as HTMLSpanElement;
 const statPending = document.getElementById('stat-pending') as HTMLSpanElement;
 const productGrid = document.getElementById('product-grid') as HTMLDivElement;
 const activityFeed = document.getElementById('activity-feed') as HTMLDivElement;
+const thoughtStream = document.getElementById('thought-stream') as HTMLDivElement;
 const btnAddProduct = document.getElementById('btn-add-product') as HTMLButtonElement;
+
+function logThought(message: string) {
+  if (!thoughtStream) return;
+  
+  // Remove empty state if present
+  const empty = thoughtStream.querySelector('.empty');
+  if (empty) empty.remove();
+
+  const entry = document.createElement('div');
+  entry.className = 'thought-entry';
+  entry.innerHTML = `
+    <span class="thought-time">${new Date().toLocaleTimeString()}</span>
+    ${message}
+  `;
+  thoughtStream.prepend(entry);
+
+  // Keep limit
+  if (thoughtStream.children.length > 50) {
+    thoughtStream.lastElementChild?.remove();
+  }
+}
+
+async function streamThoughts(thoughts: string[]) {
+  for (const thought of thoughts) {
+    logThought(thought);
+    await new Promise(r => setTimeout(r, 400)); // Simulate thinking speed
+  }
+}
 
 const LISTENER_URL = 'http://localhost:7002';
 
@@ -507,6 +536,24 @@ function renderBalance(balance: any) {
     return;
   }
   
+  // CFO State (Snapshot with yield)
+  if (typeof balance === 'object' && 'treasury' in balance) {
+    const t = balance.treasury;
+    const available = t.crypto.available || 0;
+    const yieldAmt = t.yield?.available || 0;
+    const total = available + yieldAmt;
+    
+    obsBalance.innerHTML = `
+      <div class="balance-main">$${total.toFixed(2)}</div>
+      <div class="balance-split">
+        <span class="bal-cash" title="Liquid Privacy Rail">$${available.toFixed(2)}</span> + 
+        <span class="bal-yield" title="Interest Bearing Assets (Kamino)">$${yieldAmt.toFixed(2)}</span>
+      </div>
+    `;
+    obsBalanceMeta.innerHTML = `<span class="tag-solana">OPTIMIZING YIELD (8.5% APY)</span>`;
+    return;
+  }
+
   if (typeof balance === 'object' && 'credit' in balance) {
     const available = (balance as any).available || 0;
     const credit = (balance as any).credit || 0;
@@ -742,34 +789,93 @@ const invDate = document.getElementById('inv-date') as HTMLElement;
 const invBody = document.getElementById('inv-body') as HTMLElement;
 const invHash = document.getElementById('inv-hash') as HTMLElement;
 
-function showInvoice(receipt: any) {
+async function showInvoice(receipt: any) {
   if (!invoiceModal) return;
   
-  // 1. Reconstruct Data (Mocking the decryption/parsing logic)
-  const isPrivate = receipt.provider === 'shadowwire' || receipt.provider === 'privacy_cash';
-  const vendor = receipt.metadata?.vendorName || receipt.recipient.slice(0, 8) + '...';
-  const amount = receipt.amount / 100;
-  const tax = amount * 0.21; // Mock VAT
-  const subtotal = amount - tax;
-  
-  // 2. Populate UI
-  invId.textContent = `#INV-${receipt.txSignature.slice(0, 6).toUpperCase()}`;
-  invDate.textContent = new Date(receipt.timestamp).toLocaleString();
-  invHash.textContent = `ZK-PROOF: ${receipt.txSignature}`;
-  
-  invBody.innerHTML = `
-    <div class="line-item"><span>Vendor</span> <strong>${vendor}</strong></div>
-    <div class="line-item"><span>Method</span> <span>${receipt.provider.toUpperCase()}</span></div>
-    <div class="line-divider"></div>
-    <div class="line-item"><span>Service (1.0)</span> <span>$${subtotal.toFixed(2)}</span></div>
-    <div class="line-item"><span>VAT (21%)</span> <span>$${tax.toFixed(2)}</span></div>
-    <div class="line-divider"></div>
-    <div class="invoice-total"><span>TOTAL</span> <span>$${amount.toFixed(2)}</span></div>
-  `;
-
+  // 1. Show Loading State
+  invId.textContent = "GENREATING CERTIFIED PROOF...";
+  invBody.innerHTML = `<div class="loading-spinner"></div><p class="muted">Requesting selective disclosure from Agent Auditor...</p>`;
   invoiceModal.classList.remove('hidden');
+
+  try {
+    // 2. Call Auditor via MCP
+    // We only reveal what's necessary for a basic invoice
+    const response = await callTool('agent.audit.report', {
+      receiptId: receipt.txSignature,
+      fields: ['type', 'provider', 'metadata'] 
+    });
+    
+    const proof = unwrapToolResponse(response);
+    const data = proof.revealedData;
+
+    // 3. Populate UI with Certified Data
+    const vendor = data.metadata?.vendorName || receipt.recipient.slice(0, 8) + '...';
+    const amount = data.amount / 100;
+    const tax = amount * 0.21;
+    const subtotal = amount - tax;
+    
+    invId.textContent = `#INV-${proof.receiptId.slice(0, 6).toUpperCase()}`;
+    invDate.textContent = new Date(data.timestamp).toLocaleString();
+    invHash.textContent = `ATTESTATION: ${proof.attestation.slice(0, 32)}...`;
+    
+    invBody.innerHTML = `
+      <div class="line-item"><span>Vendor</span> <strong>${vendor}</strong></div>
+      <div class="line-item"><span>Status</span> <span class="badge success">CERTIFIED</span></div>
+      <div class="line-divider"></div>
+      <div class="line-item"><span>Service (Audit Ready)</span> <span>$${subtotal.toFixed(2)}</span></div>
+      <div class="line-item"><span>VAT (21%)</span> <span>$${tax.toFixed(2)}</span></div>
+      <div class="line-divider"></div>
+      <div class="invoice-total"><span>TOTAL</span> <span>$${amount.toFixed(2)}</span></div>
+      
+      <div class="verification-zone" id="verif-${proof.receiptId}">
+         <button class="btn-verify" onclick="window.verifyOnChain('${proof.receiptId}', '${proof.attestation}')">
+           Verify ZK-Proof on Solana
+         </button>
+      </div>
+
+      <div class="proof-footer">
+        <label>Agent Attestation (Ed25519)</label>
+        <div class="code-font text-xxs break-all">${proof.attestation}</div>
+      </div>
+    `;
+
+  } catch (e: any) {
+    invId.textContent = "AUDIT ERROR";
+    invBody.innerHTML = `<p class="danger">Failed to generate proof: ${e.message}</p>`;
+  }
 }
 
+async function verifyOnChain(receiptId: string, attestation: string) {
+  const zone = document.getElementById(`verif-${receiptId}`);
+  if (!zone) return;
+
+  zone.innerHTML = `<div class="loading-spinner"></div><p class="text-xxs muted">Invoking On-Chain Verifier...</p>`;
+
+  try {
+    const response = await callTool('agent.audit.verify_onchain', {
+      receiptId,
+      proof: attestation
+    });
+    
+    const result = unwrapToolResponse(response);
+
+    zone.innerHTML = `
+      <div class="zk-success-badge">
+        <span class="icon">✅</span>
+        <div class="text">
+          <strong>MATH VERIFIED ON-CHAIN</strong>
+          <span>Ref: ${result.onChainRef}</span>
+        </div>
+      </div>
+    `;
+    
+    logThought(`Proof for ${receiptId.slice(0,8)} verified by Solana Verifier Program.`);
+  } catch (e: any) {
+    zone.innerHTML = `<p class="danger text-xs">Verification failed: ${e.message}</p>`;
+  }
+}
+
+(window as any).verifyOnChain = verifyOnChain;
 (window as any).showInvoice = showInvoice; // Expose for onclick
 
 async function refreshLiveActivity() {
@@ -869,6 +975,8 @@ async function handleBuy(product: typeof products[0]) {
 
   // 1. STRATEGY ANALYSIS
   logActivity(`🤖 Analyzing optimal route for ${product.name}...`);
+  logThought(`Analyzing purchase intent: ${product.name} ($${product.price})`);
+
   try {
     const strategyRes = await callTool('agent.strategy.evaluate', {
       recipient: product.recipient,
@@ -881,14 +989,16 @@ async function handleBuy(product: typeof products[0]) {
     
     const strategy = unwrapToolResponse(strategyRes);
     
+    // Stream agent reasoning to the sidebar
+    if (strategy.thoughts) {
+      await streamThoughts(strategy.thoughts);
+    }
+    
     // Visual Feedback based on strategy
     if (strategy.privacyLevel === 'ghost') {
        logActivity(`👻 GHOST MODE: Ephemeral Identity spawned.`, 'info');
-       await new Promise(r => setTimeout(r, 800));
     } else if (strategy.privacyLevel === 'standard') {
        logActivity(`🛡️ SHIELDED ROUTE: Balancing Privacy vs Cost...`, 'info');
-    } else {
-       logActivity(`💳 STARPAY: Direct Settlement chosen.`, 'info');
     }
     
     logActivity(`🧠 Strategy: ${strategy.strategy} (${strategy.reason})`, 'info');
