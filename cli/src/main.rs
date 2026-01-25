@@ -43,6 +43,8 @@ struct InitArgs {
     #[arg(long)]
     verifier_program_id: Option<String>,
     #[arg(long)]
+    receipts_program_id: Option<String>,
+    #[arg(long)]
     keypair: Option<PathBuf>,
     #[arg(long, default_value = ".localnet")]
     config_dir: PathBuf,
@@ -186,6 +188,28 @@ fn load_pubkey(path: &Path) -> Result<Pubkey, String> {
     Pubkey::from_str(&value).map_err(|err| format!("Invalid pubkey {}: {}", value, err))
 }
 
+fn load_program_id_from_env(config_dir: &Path, key: &str) -> Result<Option<Pubkey>, String> {
+    let env_path = config_dir.join("program_ids.env");
+    let data = match fs::read_to_string(&env_path) {
+        Ok(value) => value,
+        Err(_) => return Ok(None),
+    };
+    for line in data.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if let Some((k, v)) = trimmed.split_once('=') {
+            if k.trim() == key {
+                let pubkey = Pubkey::from_str(v.trim())
+                    .map_err(|err| format!("Invalid pubkey {}: {}", v.trim(), err))?;
+                return Ok(Some(pubkey));
+            }
+        }
+    }
+    Ok(None)
+}
+
 fn parse_pubkey_bytes(input: &str) -> Result<[u8; 32], String> {
     let pubkey =
         Pubkey::from_str(input).map_err(|err| format!("Invalid pubkey {}: {}", input, err))?;
@@ -268,6 +292,13 @@ fn main() -> Result<(), String> {
                 args.keypair,
             )?;
 
+            let receipts_program_id = match args.receipts_program_id {
+                Some(value) => Pubkey::from_str(&value)
+                    .map_err(|err| format!("Invalid receipts program id {}: {}", value, err))?,
+                None => load_program_id_from_env(&args.config_dir, "xb77_receipts_ID")?
+                    .unwrap_or(Pubkey::new_from_array([0u8; 32])),
+            };
+
             let merkle_root_hex = match args.merkle_root_hex {
                 Some(value) => value,
                 None => load_meta(&args.meta)?.merkle_root_hex,
@@ -282,6 +313,7 @@ fn main() -> Result<(), String> {
                 credit_root: [0u8; 32],
                 orderbook_root: [0u8; 32],
                 mxe_program_id: [0u8; 32],
+                receipts_program_id: receipts_program_id.to_bytes(),
                 light_system_program: [0u8; 32],
                 light_account_compression_program: [0u8; 32],
                 light_noop_program: [0u8; 32],

@@ -151,7 +151,7 @@ async function main() {
         console.log('Verify Badge: SKIPPED (skip-verify=true)');
     }
 
-    const [coreConfigPda] = PublicKey.findProgramAddressSync([Buffer.from("config")], coreProgramId);
+    const [coreConfigPda] = PublicKey.findProgramAddressSync([Buffer.from("config_v3")], coreProgramId);
     
     // 1. Init Core
     console.log('\n--- 1. Init Core ---');

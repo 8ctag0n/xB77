@@ -55,6 +55,25 @@ export async function buildAgentContext(options?: {
   const balances = options?.balances ?? parseBalances(process.env.XB77_BALANCES_JSON);
   const balanceProvider = offline ? new StaticBalanceProvider(balances, 'static') : undefined;
 
+  const parsePubkeyEnv = (value?: string) => {
+    if (!value) return undefined;
+    try {
+      return new PublicKey(value);
+    } catch {
+      return undefined;
+    }
+  };
+
+  const coreProgramId = parsePubkeyEnv(process.env.XB77_CORE_PROGRAM_ID);
+  const gatewayProgramId = parsePubkeyEnv(process.env.XB77_GATEWAY_PROGRAM_ID);
+  const receiptsProgramId = parsePubkeyEnv(process.env.XB77_RECEIPTS_PROGRAM_ID);
+  const lightRpcUrl =
+    process.env.XB77_LIGHT_RPC_URL ?? process.env.SOLANA_RPC_URL;
+  const lightCompressionUrl =
+    process.env.XB77_LIGHT_COMPRESSION_RPC_URL ?? process.env.LIGHT_COMPRESSION_RPC_URL;
+  const lightProverUrl =
+    process.env.XB77_LIGHT_PROVER_RPC_URL ?? process.env.LIGHT_PROVER_RPC_URL;
+
   const agent = new PrivacyAgent({
     keypair,
     debug: process.env.XB77_DEBUG === 'true',
@@ -62,6 +81,12 @@ export async function buildAgentContext(options?: {
     receiptStore,
     paymentProvider,
     connection, // On-Chain connection
+    coreProgramId,
+    gatewayProgramId,
+    receiptsProgramId,
+    lightRpcUrl,
+    lightCompressionUrl,
+    lightProverUrl,
     paymentGatewayOptions: {
       mode: paymentMode,
       defaultProvider: paymentProvider,

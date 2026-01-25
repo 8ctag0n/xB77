@@ -1,4 +1,7 @@
 import { Connection, PublicKey, Transaction, Keypair, sendAndConfirmTransaction } from '@solana/web3.js';
+import { createHash } from 'crypto';
+import { Buffer } from 'buffer';
+import { createRpc, getDefaultAddressTreeInfo, selectStateTreeInfo, TreeType, type TreeInfo } from '@lightprotocol/stateless.js';
 import { 
   PaymentAdapter, 
   PaymentRequest, 
@@ -10,12 +13,18 @@ import {
   PROGRAM_ID as CORE_PROGRAM_ID
 } from '../../generated/instructions/xb77_core';
 import { SupportedToken } from '../wallet';
+import { buildLightRecordReceiptContext, serializePackedAddressTreeInfo, serializeValidityProof } from '../receipts_light';
 
 export interface XB77AdapterOptions {
   connection: Connection;
   coreProgramId?: PublicKey;
   gatewayProgramId?: PublicKey;
   receiptsProgramId?: PublicKey;
+  lightRpcUrl?: string;
+  lightCompressionUrl?: string;
+  lightProverUrl?: string;
+  addressTreeInfo?: TreeInfo;
+  stateTreeInfo?: TreeInfo;
   payer: Keypair;
 }
 
@@ -25,6 +34,11 @@ export class XB77Adapter implements PaymentAdapter {
   private coreProgramId: PublicKey;
   private gatewayProgramId: PublicKey;
   private receiptsProgramId: PublicKey;
+  private lightRpcUrl?: string;
+  private lightCompressionUrl?: string;
+  private lightProverUrl?: string;
+  private addressTreeInfo?: TreeInfo;
+  private stateTreeInfo?: TreeInfo;
   private payer: Keypair;
 
   constructor(options: XB77AdapterOptions) {
@@ -32,7 +46,29 @@ export class XB77Adapter implements PaymentAdapter {
     this.coreProgramId = options.coreProgramId || CORE_PROGRAM_ID;
     this.gatewayProgramId = options.gatewayProgramId || new PublicKey("FTN81z9qc5eiBrSzeD9pnEcJQmwJA4hj5xGqFQAJA6Hm");
     this.receiptsProgramId = options.receiptsProgramId || new PublicKey("6LM5tQioTsog9AmiHbXBN69YrFBzzhspVWyxBvxKZss3");
+    this.lightRpcUrl = options.lightRpcUrl ?? process.env.SOLANA_RPC_URL;
+    this.lightCompressionUrl = options.lightCompressionUrl ?? process.env.LIGHT_COMPRESSION_RPC_URL;
+    this.lightProverUrl = options.lightProverUrl ?? process.env.LIGHT_PROVER_RPC_URL;
+    this.addressTreeInfo = options.addressTreeInfo;
+    this.stateTreeInfo = options.stateTreeInfo;
     this.payer = options.payer;
+  }
+
+  private parseHex32(value: string, name: string): Uint8Array {
+    const trimmed = value.startsWith('0x') ? value.slice(2) : value;
+    if (trimmed.length > 64) {
+      throw new Error(`${name} must be at most 32 bytes hex`);
+    }
+    const padded = trimmed.padStart(64, '0');
+    const buffer = Buffer.from(padded, 'hex');
+    if (buffer.length !== 32) {
+      throw new Error(`${name} must be 32 bytes`);
+    }
+    return new Uint8Array(buffer);
+  }
+
+  private hashMemo(input: string): Uint8Array {
+    return new Uint8Array(createHash('sha256').update(input).digest());
   }
 
   async execute(request: PaymentRequest, context?: PaymentContext): Promise<PaymentExecutionResult> {
@@ -41,6 +77,10 @@ export class XB77Adapter implements PaymentAdapter {
     try {
       const agentPubKey = new PublicKey(request.agentId);
       const vendorPubKey = new PublicKey(request.vendor);
+
+      if (!agentPubKey.equals(this.payer.publicKey)) {
+        throw new Error('XB77Adapter requires agent signer to match payer keypair.');
+      }
       
       // 1. Derive necessary PDAs
       const [configPda] = PublicKey.findProgramAddressSync([Buffer.from("config_v3")], this.coreProgramId);
@@ -50,10 +90,46 @@ export class XB77Adapter implements PaymentAdapter {
       );
 
       // 2. Prepare Instruction Data
-      // Note: In a real integration, memoHash and proof would come from ZK prover
-      const memoHash = Buffer.alloc(32).fill(0); 
-      const proof = Buffer.alloc(0); 
-      const addressTreeInfo = Buffer.alloc(0);
+      if (!Number.isInteger(request.amount) || request.amount < 0) {
+        throw new Error('XB77Adapter requires integer amount for on-chain payment.');
+      }
+
+      const memoHash = request.memoHash
+        ? this.parseHex32(request.memoHash, 'memoHash')
+        : this.hashMemo(`${request.vendor}:${request.amount}:${Date.now()}`);
+
+      let proofBytes = new Uint8Array();
+      let addressTreeInfoBytes = new Uint8Array();
+      let outputStateTreeIndex = 0;
+      let receiptAccounts: Array<{ pubkey: PublicKey; isSigner: boolean; isWritable: boolean }> = [];
+
+      try {
+        if (!this.lightRpcUrl || !this.lightCompressionUrl || !this.lightProverUrl) {
+          throw new Error('Missing Light RPC endpoints.');
+        }
+        const rpc = createRpc(this.lightRpcUrl, this.lightCompressionUrl, this.lightProverUrl);
+        const addressTreeInfo = this.addressTreeInfo ?? getDefaultAddressTreeInfo();
+        const stateTreeInfo =
+          this.stateTreeInfo ??
+          selectStateTreeInfo(await rpc.getStateTreeInfos(), TreeType.StateV1);
+
+        const receiptContext = await buildLightRecordReceiptContext({
+          rpc,
+          receiptProgramId: this.receiptsProgramId,
+          addressTreeInfo,
+          outputStateTreeInfo: stateTreeInfo,
+          vendor: new Uint8Array(vendorPubKey.toBytes()),
+          amount: BigInt(request.amount),
+          memoHash
+        });
+
+        proofBytes = serializeValidityProof(receiptContext.proof);
+        addressTreeInfoBytes = serializePackedAddressTreeInfo(receiptContext.addressTreeInfo);
+        outputStateTreeIndex = receiptContext.outputStateTreeIndex;
+        receiptAccounts = receiptContext.remainingAccounts;
+      } catch (error) {
+        throw new Error(`Receipt context unavailable: ${error instanceof Error ? error.message : String(error)}`);
+      }
 
       const ix = createRequestPaymentInstruction(
         {
@@ -61,9 +137,9 @@ export class XB77Adapter implements PaymentAdapter {
           amount: BigInt(request.amount),
           vendor: Array.from(vendorPubKey.toBuffer()),
           memoHash: Array.from(memoHash),
-          proof: proof,
-          addressTreeInfo: addressTreeInfo,
-          outputStateTreeIndex: 0
+          proof: proofBytes,
+          addressTreeInfo: addressTreeInfoBytes,
+          outputStateTreeIndex: outputStateTreeIndex
         },
         {
           configAccount: configPda,
@@ -74,10 +150,9 @@ export class XB77Adapter implements PaymentAdapter {
         this.coreProgramId
       );
 
-      // 3. Add necessary dummy accounts for Receipts CPI (for now)
-      const [lightCpiSigner] = PublicKey.findProgramAddressSync([Buffer.from("light_cpi")], this.receiptsProgramId);
-      ix.keys.push({ pubkey: lightCpiSigner, isSigner: false, isWritable: false });
-      ix.keys.push({ pubkey: PublicKey.default, isSigner: false, isWritable: false }); // System Program placeholder
+      if (receiptAccounts.length) {
+        ix.keys.push(...receiptAccounts);
+      }
 
       // 4. Send Transaction
       const tx = new Transaction().add(ix);

@@ -6,7 +6,7 @@ onchain/target/
 target/
 test-ledger/
 private/
-
+node_modules
 *.sw?
 # Onchain builds
 **/*.so

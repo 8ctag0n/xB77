@@ -38,9 +38,9 @@ describe("Autonomous CFO (Economy SDK)", () => {
   });
 
   it("should block payments that fail compliance", async () => {
-    // RangeAdapter mock blocks > 5000
+    // RangeAdapter mock blocks known-bad recipients
     try {
-      await agent.pay("Amazon", 6000, "USD1", "external");
+      await agent.pay("BAD_VENDOR_001", 100, "USD1", "external");
       expect(false).toBe(true); // Should not reach here
     } catch (e) {
       expect(e).toBeInstanceOf(ComplianceError);

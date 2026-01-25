@@ -36,6 +36,11 @@ export interface AgentConfig {
   // On-chain options
   connection?: Connection;
   coreProgramId?: PublicKey;
+  gatewayProgramId?: PublicKey;
+  receiptsProgramId?: PublicKey;
+  lightRpcUrl?: string;
+  lightCompressionUrl?: string;
+  lightProverUrl?: string;
   // CFO options
   minLiquidityThreshold?: number;
   targetLiquidity?: number;
@@ -94,6 +99,11 @@ export class PrivacyAgent {
       xb77Adapter = new XB77Adapter({
         connection: config.connection,
         coreProgramId: config.coreProgramId,
+        gatewayProgramId: config.gatewayProgramId,
+        receiptsProgramId: config.receiptsProgramId,
+        lightRpcUrl: config.lightRpcUrl,
+        lightCompressionUrl: config.lightCompressionUrl,
+        lightProverUrl: config.lightProverUrl,
         payer: config.keypair
       });
       // Inject into gateway if not already custom
