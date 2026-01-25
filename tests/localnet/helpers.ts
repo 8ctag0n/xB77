@@ -156,7 +156,7 @@ export async function createAndInitSwProofAccount(params: {
     newAccountPubkey: swProof.publicKey,
     lamports,
     space,
-    programId: SystemProgram.programId,
+    programId: testUtilsProgramId,
   });
 
   const data = Buffer.concat([Buffer.from([1]), Buffer.from(nullifier)]);

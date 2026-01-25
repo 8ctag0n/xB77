@@ -95,12 +95,14 @@ test('verify_badge: fails with mismatched merkle root', async () => {
 
   const verifierProgram = resolveVerifierProgramId(ids);
 
-  const badRoot = new Uint8Array(32).fill(9);
+  const badWitness = Buffer.from(witness);
+  const headerOffset = badWitness.length === 108 ? 12 : 0;
+  badWitness.fill(9, headerOffset, headerOffset + 32);
   const payload = {
-    root: Array.from(badRoot),
+    root: Array.from(parseHex32(meta.merkleRootHex, 'merkleRootHex')),
     merkleIndex: meta.merkleIndex,
     proof: new Uint8Array(proof),
-    publicWitness: new Uint8Array(witness),
+    publicWitness: new Uint8Array(badWitness),
   };
 
   const verifyIx = createVerifyBadgeInstruction(
