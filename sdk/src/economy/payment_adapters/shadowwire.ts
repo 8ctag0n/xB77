@@ -89,6 +89,18 @@ export class ShadowWireAdapter implements PaymentAdapter, PrivacyRail {
     throw new Error('Deposit not yet implemented for ShadowWire live mode');
   }
 
+  async withdraw(publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
+    if (this.mode === 'mock') {
+      await this.mockClient!.withdraw({
+        owner: publicKey.toBase58(),
+        token,
+        amount,
+      });
+      return;
+    }
+    throw new Error('Withdraw not yet implemented for ShadowWire live mode');
+  }
+
   async execute(request: PaymentRequest, context?: PaymentContext): Promise<PaymentExecutionResult> {
     const now = context?.now ? context.now() : Date.now();
     let nonce: number | bigint = Math.floor(now / 1000);

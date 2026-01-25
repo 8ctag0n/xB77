@@ -37,14 +37,14 @@ export interface ShadowWireMockClient {
   internalTransfer(request: ShadowWireMockTransferRequest): Promise<ShadowWireMockTransferResponse>;
   externalTransfer(request: ShadowWireMockTransferRequest): Promise<ShadowWireMockTransferResponse>;
   getBalance(wallet: string, token: string): Promise<{ available: number; pool_address: string }>;
-  deposit(wallet: string, amount: number, token: string): Promise<void>;
+  deposit(request: { owner: string; amount: number; token: string }): Promise<void>;
+  withdraw(request: { owner: string; amount: number; token: string }): Promise<void>;
 }
 
 export class MockShadowWireClient implements ShadowWireMockClient {
   private balances: Map<string, number> = new Map();
 
   constructor(initialBalance: number = 1000) {
-    // We can't know the wallet address in constructor easily, so we handle dynamic initialization in getBalance/deposit
     this.initialBalance = initialBalance;
   }
   
@@ -65,10 +65,16 @@ export class MockShadowWireClient implements ShadowWireMockClient {
     };
   }
 
-  async deposit(wallet: string, amount: number, token: string): Promise<void> {
-    const key = `${wallet}:${token}`;
+  async deposit(request: { owner: string; amount: number; token: string }): Promise<void> {
+    const key = `${request.owner}:${request.token}`;
     const current = this.getStoredBalance(key);
-    this.balances.set(key, current + amount);
+    this.balances.set(key, current + request.amount);
+  }
+
+  async withdraw(request: { owner: string; amount: number; token: string }): Promise<void> {
+    const key = `${request.owner}:${request.token}`;
+    const current = this.getStoredBalance(key);
+    this.balances.set(key, current - request.amount);
   }
 
   async uploadProof(request: ShadowWireMockUploadRequest): Promise<ShadowWireMockUploadResponse> {

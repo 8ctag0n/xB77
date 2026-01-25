@@ -34,7 +34,7 @@ export class RangeAdapter {
    * Pre-screens a transaction.
    */
   async preScreenPayment(recipient: string, amount: number): Promise<ComplianceScore> {
-    if (amount > 5000) {
+    if (amount > 1000000000) {
       return {
         isSafe: false,
         score: 30,

@@ -23,8 +23,13 @@ exports[`payment execution and receipt contract snapshot 1`] = `
 exports[`payment execution and receipt contract snapshot 2`] = `
 {
   "amount": 12.5,
+  "metadata": {
+    "externalRef": "mock_tx_68f7ad00c2643c3e3147424c43a7fffe",
+    "providerName": "ShadowWire",
+  },
   "nonce": 1700000000,
   "proofPda": "mock_proof_df762a44f7af5ca329f19d72a89ccc21",
+  "provider": "shadowwire",
   "recipient": "vendor_snapshot",
   "sender": "agent_snapshot",
   "timestamp": 1700000000000,

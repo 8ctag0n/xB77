@@ -53,6 +53,21 @@ export class PrivacyCashAdapter implements PaymentAdapter, PrivacyRail {
     }
   }
 
+  async withdraw(publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
+    const isSol = token === 'SOL';
+    const withdrawRequest = {
+      recipientAddress: publicKey.toBase58(),
+      token,
+      amount,
+    };
+
+    if (isSol) {
+      await this.client.withdraw(withdrawRequest);
+    } else {
+      await this.client.withdrawSPL(withdrawRequest);
+    }
+  }
+
   async execute(request: PaymentRequest, _context?: PaymentContext): Promise<PaymentExecutionResult> {
     const isSol = request.currency === 'SOL';
     const token = request.currency;

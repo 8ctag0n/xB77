@@ -22,6 +22,7 @@ export interface ExecutionPlan {
   steps: string[];
   estimatedFee: number;
   reasoning: string;
+  thoughts: string[];
   intel?: RiskAssessment;
 }
 
@@ -36,33 +37,52 @@ export class PaymentStrategyEngine {
     amount: number,
     context: PaymentContext = {}
   ): Promise<ExecutionPlan> => {
+    const thoughts: string[] = [];
+    thoughts.push(`Received payment request for ${amount} units to ${recipient.slice(0, 8)}...`);
+
     // 1. External Intelligence Scan (e.g. Helius)
     let intel: RiskAssessment | undefined;
     if (context.intelligenceProvider) {
+      thoughts.push(`Initiating deep forensics scan via Helius RPC...`);
       intel = await context.intelligenceProvider.assessRisk(recipient, amount);
+      if (intel) {
+        thoughts.push(`Helius Intel: Score ${intel.score}/100. ${intel.reasoning}`);
+      }
     }
 
     // 2. Local Risk Assessment
+    thoughts.push(`Evaluating local heuristic risk patterns...`);
     let risk = this.assessRisk(recipient, amount, context);
     
     // 3. Override local risk if Intelligence suggests higher threat
-    if (intel && intel.score > 60) risk = 'critical';
-    else if (intel && intel.score > 30 && risk === 'low') risk = 'medium';
+    if (intel && intel.score > 60) {
+      thoughts.push(`Intelligence override: Critical risk detected. Elevating security tier.`);
+      risk = 'critical';
+    } else if (intel && intel.score > 30 && risk === 'low') {
+      thoughts.push(`Intelligence suggestion: Risk elevated to medium based on forensic data.`);
+      risk = 'medium';
+    }
 
     // 4. Privacy Determination
+    thoughts.push(`Selecting optimal privacy rail based on ${risk} risk level...`);
     let privacy = this.determinePrivacyLevel(risk, context);
     
     // Force shielded if it's a real address and we were in public mode
     if (this.isOnchainAddress(recipient) && privacy === 'public') {
+      thoughts.push(`Destination detected as on-chain address. Overriding to 'standard' shielded rail for metadata protection.`);
       privacy = 'standard';
     }
 
     // 5. Create Final Plan
     const plan = this.createPlan(privacy, risk, context.mixingPolicy);
+    plan.thoughts = thoughts;
+    
     if (intel) {
       plan.intel = intel;
       plan.reasoning = `${intel.reasoning} | ${plan.reasoning}`;
     }
+    
+    thoughts.push(`Plan finalized: Executing ${plan.strategy} via ${plan.provider}.`);
     
     return plan;
   }

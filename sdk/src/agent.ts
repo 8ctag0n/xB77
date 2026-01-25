@@ -20,6 +20,9 @@ import { StarpayAdapter } from './economy/payment_adapters/starpay';
 import { PaymentStrategyEngine } from './economy/strategy';
 
 import { XB77Adapter, XB77AdapterOptions } from './economy/payment_adapters/xb77';
+import { KaminoMockProvider } from './economy/yield';
+import { HeliusIntelligenceAdapter } from './economy/intelligence/helius';
+import { ReceiptAuditor, AuditProof } from './economy/auditor';
 
 export interface AgentConfig {
   keypair: Keypair;
@@ -35,6 +38,7 @@ export interface AgentConfig {
   // CFO options
   minLiquidityThreshold?: number;
   targetLiquidity?: number;
+  maxLiquidityThreshold?: number;
 }
 
 export interface AgentStateSnapshot<TBalance = unknown> {
@@ -44,6 +48,7 @@ export interface AgentStateSnapshot<TBalance = unknown> {
   treasury?: {
     fiat: BalanceInfo;
     crypto: BalanceInfo;
+    yield: BalanceInfo;
     totalUsd: number;
   };
   latestReceipt: PaymentReceipt | null;
@@ -56,6 +61,7 @@ export class PrivacyAgent {
   public liquidityManager: LiquidityManager;
   public router: PaymentRouter;
   public strategyEngine: PaymentStrategyEngine;
+  public auditor: ReceiptAuditor;
   
   private balanceProvider?: BalanceProvider;
   private receiptStore?: ReceiptStore;
@@ -76,6 +82,7 @@ export class PrivacyAgent {
         : createMockPaymentGateway(config.paymentProvider, config.paymentGatewayOptions?.starpayBalance));
     
     this.paymentProvider = config.paymentProvider ?? 'shadowwire';
+    this.auditor = new ReceiptAuditor(config.keypair.secretKey);
 
     // Initialize On-Chain Adapter if connection is provided
     let xb77Adapter: XB77Adapter | undefined;
@@ -112,8 +119,10 @@ export class PrivacyAgent {
       agentId: this.wallet.publicKey,
       sources,
       rails,
+      yieldProvider: new KaminoMockProvider(),
       minLiquidityThreshold: config.minLiquidityThreshold ?? 100,
-      targetLiquidity: config.targetLiquidity ?? 500
+      targetLiquidity: config.targetLiquidity ?? 500,
+      maxLiquidityThreshold: config.maxLiquidityThreshold ?? 1000
     });
 
     console.log(`[PrivacyAgent] Initialized agent with public key: ${config.keypair.publicKey.toBase58()}`);

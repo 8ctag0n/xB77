@@ -83,10 +83,13 @@ export function buildPaymentReceipt(
     txSignature: result.txSignature,
     timestamp,
     metadata: {
-      method: raw?.method,
+      ...(raw?.method ? { method: raw.method } : {}),
       providerName: result.provider === 'starpay' ? 'Starpay' : 'ShadowWire',
-      cardLast4: raw?.cardId?.slice(-4),
-      externalRef: raw?.cardId || raw?.transfer?.tx_signature
+      ...(raw?.cardId ? { cardLast4: raw.cardId.slice(-4) } : {}),
+      ...(raw?.cardId ? { externalRef: raw.cardId } : {}),
+      ...(!raw?.cardId && raw?.transfer?.tx_signature
+        ? { externalRef: raw.transfer.tx_signature }
+        : {})
     }
   };
 }
