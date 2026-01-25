@@ -13,3 +13,7 @@ private/
 **/*.ds_store
 *.db
 *.log
+mcp/listener.pid
+demo/keys/*.json
+demo/logs/
+demo/data/
