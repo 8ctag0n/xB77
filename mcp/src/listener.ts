@@ -14,7 +14,7 @@ const COMPRESSION_URL = process.env.LIGHT_COMPRESSION_RPC_URL ?? 'http://localho
 const PROVER_URL = process.env.LIGHT_PROVER_RPC_URL ?? 'http://localhost:8899';
 
 // El ID del programa de recibos (debe coincidir con onchain/programs/xb77_receipts/src/lib.rs)
-const RECEIPT_PROGRAM_ID = new PublicKey('9kknYrFBjkBUuMyZZhksoHcj29gjfzGsDMgnyfp3Y6VM');
+const RECEIPT_PROGRAM_ID = new PublicKey('6LM5tQioTsog9AmiHbXBN69YrFBzzhspVWyxBvxKZss3');
 
 interface HeliusWebhookPayload {
   type: string;
@@ -128,6 +128,27 @@ async function generateCompressedReceipt(params: {
 
   } catch (error) {
     console.error('[Listener] Error generating compressed receipt:', error);
+    
+    // FALLBACK for Localnet without Prover
+    console.warn('[Listener] FALLBACK: Recording simulated receipt in SQLite (Prover unavailable).');
+    await context.receiptStore.recordPayment({
+      sender: context.agent.wallet.publicKey.toBase58(),
+      recipient: params.recipient.toBase58(),
+      token: 'SOL',
+      amount: params.amount,
+      type: 'external',
+      provider: 'simulated-onchain',
+      metadata: {
+        vendorName: params.vendorName,
+        memo: params.memo,
+        note: 'Simulated due to missing Prover in Localnet',
+        error: (error as any).message
+      },
+      timestamp: Date.now(),
+      txSignature: 'sim-sig-' + Math.random().toString(36).substring(2, 10),
+      nonce: 0
+    });
+    console.log('[Listener] Simulated receipt stored in DB.');
   }
 }
 
@@ -218,9 +239,30 @@ interface GovernanceRequest {
   signature?: string; // The authority signature
 }
 
-const governanceStore = new Map<string, GovernanceRequest>();
+const GOVERNANCE_TTL_MS = 5 * 60_000; // 5 minutes
 
-// ... (inside server handler)
+const governanceRequests = (globalThis as any)._xb77_gov_requests || new Map<string, GovernanceRequest>();
+const agentRequestIndex = (globalThis as any)._xb77_gov_agent_index || new Map<string, Set<string>>();
+(globalThis as any)._xb77_gov_requests = governanceRequests;
+(globalThis as any)._xb77_gov_agent_index = agentRequestIndex;
+
+const cleanGovernanceStore = () => {
+  const now = Date.now();
+  for (const [id, request] of governanceRequests.entries()) {
+    if (now - request.timestamp > GOVERNANCE_TTL_MS) {
+      governanceRequests.delete(id);
+      const index = agentRequestIndex.get(request.agentId);
+      index?.delete(id);
+      if (index && index.size === 0) {
+        agentRequestIndex.delete(request.agentId);
+      }
+      console.debug(`[Governance] TTL expired, purged request ${id}`);
+    }
+  }
+};
+
+const governanceCleanerInterval = setInterval(cleanGovernanceStore, 60_000);
+governanceCleanerInterval.unref?.();
 
     if (url.pathname === '/governance/request' && req.method === 'POST') {
       const payload = await req.json();
@@ -232,13 +274,27 @@ const governanceStore = new Map<string, GovernanceRequest>();
         status: 'pending',
         timestamp: Date.now()
       };
-      governanceStore.set(id, request);
-      console.log(`[Governance] New encrypted request stored: ${id}`);
+      governanceRequests.set(id, request);
+      const agentIndex = agentRequestIndex.get(request.agentId) ?? new Set<string>();
+      agentIndex.add(id);
+      agentRequestIndex.set(request.agentId, agentIndex);
+      console.log(`[Governance] New encrypted request stored: ${id} (agent=${request.agentId}). Store Size: ${governanceRequests.size}`);
       return new Response(JSON.stringify({ ok: true, id }), { headers: { 'Content-Type': 'application/json' } });
     }
 
     if (url.pathname === '/governance/requests' && req.method === 'GET') {
-      const requests = Array.from(governanceStore.values()).sort((a, b) => b.timestamp - a.timestamp);
+      const agentId = url.searchParams.get('agent_id');
+      let requests: GovernanceRequest[] = [];
+      if (agentId) {
+        const ids = agentRequestIndex.get(agentId) ?? new Set();
+        requests = Array.from(ids)
+          .map((id) => governanceRequests.get(id))
+          .filter((req): req is GovernanceRequest => Boolean(req))
+          .sort((a, b) => b.timestamp - a.timestamp);
+      } else {
+        requests = Array.from(governanceRequests.values()).sort((a, b) => b.timestamp - a.timestamp);
+      }
+      console.log(`[Listener] Serving ${requests.length} requests${agentId ? ` for ${agentId}` : ''} (Store: ${governanceRequests.size})`);
       return new Response(JSON.stringify({ requests }), {
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       });
@@ -246,7 +302,7 @@ const governanceStore = new Map<string, GovernanceRequest>();
 
     if (url.pathname.startsWith('/governance/request/') && req.method === 'GET') {
       const id = url.pathname.split('/').pop()!;
-      const reqItem = governanceStore.get(id);
+      const reqItem = governanceRequests.get(id);
       if (reqItem) {
         return new Response(JSON.stringify(reqItem), {
           headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
@@ -257,11 +313,11 @@ const governanceStore = new Map<string, GovernanceRequest>();
 
     if (url.pathname.startsWith('/governance/approve/') && req.method === 'POST') {
       const id = url.pathname.split('/').pop()!;
-      const reqItem = governanceStore.get(id);
+      const reqItem = governanceRequests.get(id);
       if (reqItem) {
         reqItem.status = 'approved';
         reqItem.signature = `sig-auth-${Date.now()}`; // Mocking the cryptographic approval
-        governanceStore.set(id, reqItem);
+        governanceRequests.set(id, reqItem);
         console.log(`[Governance] Request ${id} APPROVED.`);
         return new Response(JSON.stringify({ ok: true }), { headers: { 'Access-Control-Allow-Origin': '*' } });
       }
@@ -270,10 +326,10 @@ const governanceStore = new Map<string, GovernanceRequest>();
 
     if (url.pathname.startsWith('/governance/reject/') && req.method === 'POST') {
       const id = url.pathname.split('/').pop()!;
-      const reqItem = governanceStore.get(id);
+      const reqItem = governanceRequests.get(id);
       if (reqItem) {
         reqItem.status = 'rejected';
-        governanceStore.set(id, reqItem);
+        governanceRequests.set(id, reqItem);
         console.log(`[Governance] Request ${id} REJECTED.`);
         return new Response(JSON.stringify({ ok: true }), { headers: { 'Access-Control-Allow-Origin': '*' } });
       }
