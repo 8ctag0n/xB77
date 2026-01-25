@@ -1,0 +1,257 @@
+{
+  "version": "0.1.0",
+  "name": "xb77_gateway",
+  "instructions": [
+    {
+      "name": "InitGateway",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "gatewayState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "payload",
+          "type": {
+            "defined": "InitGatewayPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "UpdateGateway",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "gatewayState",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "payload",
+          "type": {
+            "defined": "UpdateGatewayPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "VerifyBadge",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "gatewayState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "verifierProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "swProofPda",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "payload",
+          "type": {
+            "defined": "ProofPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "SubmitPrivateOrder",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "gatewayState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "nullifierAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "payload",
+          "type": {
+            "defined": "SubmitPrivateOrderPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "ResolvePrivateOrder",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "gatewayState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "instructionsSysvar",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "payload",
+          "type": {
+            "defined": "ResolvePrivateOrderPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "AuditReveal",
+      "accounts": [
+        {
+          "name": "auditor",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "gatewayState",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "payload",
+          "type": {
+            "defined": "AuditRevealPayload"
+          }
+        }
+      ]
+    }
+  ],
+  "types": [
+    {
+      "name": "InitGatewayPayload",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "admin", "type": { "array": ["u8", 32] } },
+          { "name": "merkleRoot", "type": { "array": ["u8", 32] } },
+          { "name": "zkVerifier", "type": { "array": ["u8", 32] } },
+          { "name": "auditor", "type": { "array": ["u8", 32] } },
+          { "name": "creditRoot", "type": { "array": ["u8", 32] } },
+          { "name": "orderbookRoot", "type": { "array": ["u8", 32] } },
+          { "name": "mxeProgramId", "type": { "array": ["u8", 32] } },
+          { "name": "lightSystemProgram", "type": { "array": ["u8", 32] } },
+          { "name": "lightAccountCompressionProgram", "type": { "array": ["u8", 32] } },
+          { "name": "lightNoopProgram", "type": { "array": ["u8", 32] } }
+        ]
+      }
+    },
+    {
+      "name": "UpdateGatewayPayload",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "merkleRoot", "type": { "array": ["u8", 32] } },
+          { "name": "auditor", "type": { "array": ["u8", 32] } },
+          { "name": "creditRoot", "type": { "array": ["u8", 32] } },
+          { "name": "orderbookRoot", "type": { "array": ["u8", 32] } },
+          { "name": "mxeProgramId", "type": { "array": ["u8", 32] } },
+          { "name": "lightSystemProgram", "type": { "array": ["u8", 32] } },
+          { "name": "lightAccountCompressionProgram", "type": { "array": ["u8", 32] } },
+          { "name": "lightNoopProgram", "type": { "array": ["u8", 32] } }
+        ]
+      }
+    },
+    {
+      "name": "ProofPayload",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "root", "type": { "array": ["u8", 32] } },
+          { "name": "merkleIndex", "type": "u32" },
+          { "name": "proof", "type": "bytes" },
+          { "name": "publicWitness", "type": "bytes" }
+        ]
+      }
+    },
+    {
+      "name": "SubmitPrivateOrderPayload",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "orderId", "type": "u64" },
+          { "name": "amount", "type": "u64" },
+          { "name": "token", "type": { "array": ["u8", 32] } },
+          { "name": "recipient", "type": { "array": ["u8", 32] } },
+          { "name": "nullifier", "type": { "array": ["u8", 32] } }
+        ]
+      }
+    },
+    {
+      "name": "ResolvePrivateOrderPayload",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "orderCommitment", "type": { "array": ["u8", 32] } },
+          { "name": "receiptLeafHash", "type": { "array": ["u8", 32] } },
+          { "name": "newOrderbookRoot", "type": { "array": ["u8", 32] } },
+          { "name": "receiptInstructionData", "type": "bytes" }
+        ]
+      }
+    },
+    {
+      "name": "AuditRevealPayload",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "orderCommitment", "type": { "array": ["u8", 32] } },
+          { "name": "auditHash", "type": { "array": ["u8", 32] } }
+        ]
+      }
+    }
+  ]
+}
