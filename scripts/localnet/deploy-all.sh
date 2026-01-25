@@ -69,5 +69,11 @@ if [ -d "${PROGRAMS_DIR}/xb77_receipts" ]; then
     deploy_program "xb77_receipts"
 fi
 
+# Build & Deploy Test Utils (localnet-only helper)
+if [ -d "${PROGRAMS_DIR}/xb77_test_utils" ]; then
+    build_program "xb77_test_utils"
+    deploy_program "xb77_test_utils"
+fi
+
 echo "--- Deployment Complete ---"
 cat "${ROOT_DIR}/.localnet/program_ids.env"
