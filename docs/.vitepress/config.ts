@@ -7,7 +7,10 @@ export default defineConfig({
     logo: '/logo.png', // Placeholder, podemos añadir uno luego
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Guide', link: '/guide/GETTING_STARTED' },
+      { text: 'Guide', items: [
+        { text: 'English', link: '/guide/GETTING_STARTED' },
+        { text: 'Español', link: '/guide/GETTING_STARTED_ES' }
+      ]},
       { text: 'Whitepaper', items: [
         { text: 'English', link: '/whitepaper/WHITEPAPER_EN' },
         { text: 'Español', link: '/whitepaper/WHITEPAPER_ES' }
@@ -17,11 +20,21 @@ export default defineConfig({
 
     sidebar: [
       {
-        text: 'Getting Started',
+        text: 'Getting Started (EN)',
+        collapsed: true,
         items: [
           { text: 'Operation Guide', link: '/guide/GETTING_STARTED' },
           { text: 'Execution Modes', link: '/guide/MODES' },
           { text: 'Philosophy of Use', link: '/guide/PHILOSOPHY' }
+        ]
+      },
+      {
+        text: 'Guía de Inicio (ES)',
+        collapsed: true,
+        items: [
+          { text: 'Guía de Operación', link: '/guide/GETTING_STARTED_ES' },
+          { text: 'Modos de Ejecución', link: '/guide/MODES_ES' },
+          { text: 'Filosofía de Uso', link: '/guide/PHILOSOPHY_ES' }
         ]
       },
       {
