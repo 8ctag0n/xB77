@@ -506,17 +506,30 @@ function renderBalance(balance: any) {
     obsBalanceMeta.textContent = '';
     return;
   }
+  
+  if (typeof balance === 'object' && 'credit' in balance) {
+    const available = (balance as any).available || 0;
+    const credit = (balance as any).credit || 0;
+    const total = available + credit;
+    
+    obsBalance.innerHTML = `
+      <div class="balance-main">$${total.toFixed(2)}</div>
+      <div class="balance-split">
+        <span class="bal-cash" title="Vault Cash">$${available.toFixed(2)}</span> + 
+        <span class="bal-credit" title="On-Chain Credit">$${credit.toFixed(2)}</span>
+      </div>
+    `;
+    obsBalanceMeta.innerHTML = `<span class="tag-solana">ON-CHAIN SYNCED</span>`;
+    return;
+  }
+
   if (typeof balance === 'number' || typeof balance === 'string') {
-    obsBalance.textContent = String(balance);
+    obsBalance.textContent = `$${Number(balance).toFixed(2)}`;
     obsBalanceMeta.textContent = '';
     return;
   }
-  if (typeof balance === 'object' && 'available' in balance) {
-    obsBalance.textContent = String((balance as any).available);
-    obsBalanceMeta.textContent = JSON.stringify(balance);
-    return;
-  }
-  obsBalance.textContent = 'object';
+  
+  obsBalance.textContent = String((balance as any).available || '0');
   obsBalanceMeta.textContent = JSON.stringify(balance);
 }
 
@@ -870,13 +883,15 @@ async function handleBuy(product: typeof products[0]) {
     
     // Visual Feedback based on strategy
     if (strategy.privacyLevel === 'ghost') {
-       logActivity(`👻 GHOST MODE ACTIVATED. Routing via Ephemeral Wallet.`, 'info');
-       await new Promise(r => setTimeout(r, 800)); // Suspense delay
+       logActivity(`👻 GHOST MODE: Ephemeral Identity spawned.`, 'info');
+       await new Promise(r => setTimeout(r, 800));
     } else if (strategy.privacyLevel === 'standard') {
-       logActivity(`🛡️ Standard Privacy. Shielding assets...`, 'info');
+       logActivity(`🛡️ SHIELDED ROUTE: Balancing Privacy vs Cost...`, 'info');
     } else {
-       logActivity(`💳 Public Route. Using Starpay.`, 'info');
+       logActivity(`💳 STARPAY: Direct Settlement chosen.`, 'info');
     }
+    
+    logActivity(`🧠 Strategy: ${strategy.strategy} (${strategy.reason})`, 'info');
 
   } catch (e) {
     console.error('Strategy failed', e);

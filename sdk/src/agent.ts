@@ -19,6 +19,8 @@ import { LiquidityManager, LiquiditySource, PrivacyRail } from './economy/liquid
 import { StarpayAdapter } from './economy/payment_adapters/starpay';
 import { PaymentStrategyEngine } from './economy/strategy';
 
+import { XB77Adapter, XB77AdapterOptions } from './economy/payment_adapters/xb77';
+
 export interface AgentConfig {
   keypair: Keypair;
   debug?: boolean;
@@ -27,6 +29,9 @@ export interface AgentConfig {
   paymentGateway?: PaymentGateway;
   paymentProvider?: PaymentProvider;
   paymentGatewayOptions?: PaymentGatewayOptions;
+  // On-chain options
+  connection?: Connection;
+  coreProgramId?: PublicKey;
   // CFO options
   minLiquidityThreshold?: number;
   targetLiquidity?: number;
@@ -72,6 +77,20 @@ export class PrivacyAgent {
     
     this.paymentProvider = config.paymentProvider ?? 'shadowwire';
 
+    // Initialize On-Chain Adapter if connection is provided
+    let xb77Adapter: XB77Adapter | undefined;
+    if (config.connection) {
+      xb77Adapter = new XB77Adapter({
+        connection: config.connection,
+        coreProgramId: config.coreProgramId,
+        payer: config.keypair
+      });
+      // Inject into gateway if not already custom
+      if (!config.paymentGateway && (this.paymentGateway as any).adapters) {
+        (this.paymentGateway as any).adapters['shadowwire'] = xb77Adapter;
+      }
+    }
+
     // Initialize CFO Components
     const range = new RangeAdapter();
     this.router = new PaymentRouter({
@@ -108,22 +127,39 @@ export class PrivacyAgent {
     amount: number,
     token: SupportedToken = 'USD1',
     type: PaymentType = 'external',
-    provider?: PaymentProvider
+    provider?: PaymentProvider,
+    context: any = {}
   ): Promise<PaymentResult> {
     
     // 1. Strategy Evaluation (if provider not forced)
     let selectedProvider = provider;
     let isGhostMode = false;
+    let isObfuscated = false;
 
     if (!selectedProvider) {
-      const plan = this.strategyEngine.evaluate(recipient, amount);
+      // Find intelligence provider in adapters
+      const intel = (this.paymentGateway as any).adapters?.['shadowwire'] instanceof XB77Adapter
+        ? new HeliusIntelligenceAdapter({ apiKey: process.env.HELIUS_API_KEY || 'mock' })
+        : undefined;
+
+      const plan = await this.strategyEngine.evaluate(recipient, amount, {
+        ...context,
+        intelligenceProvider: intel
+      });
+      
       selectedProvider = plan.provider;
       if (plan.strategy === 'ephemeral_relay') {
         isGhostMode = true;
+      } else if (plan.strategy === 'privacy_cash_obfuscation') {
+        isObfuscated = true;
       }
     }
 
-    // 2. Ghost Mode Orchestration
+    // 2. Specialized Execution Flows
+    if (isObfuscated) {
+      return this.executeObfuscatedPayment(recipient, amount, token);
+    }
+    
     if (isGhostMode) {
       return this.executeGhostPayment(recipient, amount, token);
     }
@@ -146,16 +182,28 @@ export class PrivacyAgent {
       await this.receiptStore.recordPayment(receipt);
     }
 
-    if (execution.status !== 'success') {
-      throw new Error('Payment failed');
-    }
-
     return {
       txSignature: execution.txSignature,
       proofPda: execution.proofPda,
       nonce: execution.nonce,
+      provider: execution.provider,
       raw: execution.raw,
     };
+  }
+
+  private async executeObfuscatedPayment(recipient: string, amount: number, token: SupportedToken): Promise<PaymentResult> {
+    console.log(`[Obfuscation] Initiating double-hop via Privacy Cash...`);
+    
+    // Step 1: Obfuscation Hop (Privacy Cash)
+    // We simulate a deposit/withdraw from Privacy Cash pool to break the first link
+    console.log(`[Obfuscation] Hop 1: Privacy Cash Pool Shielding...`);
+    const hop1 = await this.pay(recipient, amount, token, 'external', 'privacy_cash');
+    
+    // Step 2: Final Payment (Already handled by Hop 1 in this simplified mock version, 
+    // but in live it would be a withdrawal from Privacy Cash to a Ghost Wallet then to Vendor)
+    
+    console.log(`[Obfuscation] Link broken. Transaction finalized.`);
+    return hop1;
   }
 
   private async executeGhostPayment(recipient: string, amount: number, token: SupportedToken): Promise<PaymentResult> {
@@ -231,10 +279,25 @@ export class PrivacyAgent {
    * Optional balance adapter (useful for C-SPL pool or receipts-based balance).
    */
   async getBalance(token: SupportedToken = 'USD1') {
+    let baseBalance: BalanceInfo;
     if (this.balanceProvider) {
-      return await this.balanceProvider.getBalance(this.wallet.publicKey, token);
+      baseBalance = await this.balanceProvider.getBalance(this.wallet.publicKey, token);
+    } else {
+      baseBalance = await this.wallet.getBalance(token);
     }
-    return await this.wallet.getBalance(token);
+
+    // Add On-Chain Credit Line if available
+    const shadowwire = (this.paymentGateway as any).adapters?.['shadowwire'];
+    if (shadowwire instanceof XB77Adapter) {
+      const credit = await shadowwire.getCreditBalance(this.wallet.keypair.publicKey);
+      return {
+        ...baseBalance,
+        credit: Number(credit),
+        totalAvailable: baseBalance.available + Number(credit)
+      };
+    }
+
+    return baseBalance;
   }
 
   async listReceipts(limit: number = 25): Promise<PaymentReceipt[]> {

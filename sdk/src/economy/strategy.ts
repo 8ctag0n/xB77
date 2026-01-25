@@ -1,21 +1,17 @@
 import { PublicKey } from '@solana/web3.js';
 import { PaymentProvider } from './payments';
 
+import { IntelligenceProvider, RiskAssessment } from './intelligence/provider';
+
 export type PrivacyLevel = 'public' | 'standard' | 'ghost';
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
-
-export interface MixingPolicy {
-  enabled: boolean;
-  paranoiaLevel: 'low' | 'medium' | 'snowden';
-  preferredRoute: 'light_self_transfer' | 'privacy_cash_hop';
-  frequencyHours: number;
-}
 
 export interface PaymentContext {
   vendorCategory?: string; // e.g., 'cloud_compute', 'marketing', 'dark_web'
   isNewVendor?: boolean;
   history?: number; // Total volume with this vendor
   mixingPolicy?: MixingPolicy;
+  intelligenceProvider?: IntelligenceProvider;
 }
 
 export interface ExecutionPlan {
@@ -26,6 +22,7 @@ export interface ExecutionPlan {
   steps: string[];
   estimatedFee: number;
   reasoning: string;
+  intel?: RiskAssessment;
 }
 
 export class PaymentStrategyEngine {
@@ -34,15 +31,40 @@ export class PaymentStrategyEngine {
    * Analyzes the transaction and determines the optimal execution strategy.
    * Using arrow function to preserve 'this' context.
    */
-  evaluate = (
+  evaluate = async (
     recipient: string,
     amount: number,
     context: PaymentContext = {}
-  ): ExecutionPlan => {
-    const risk = this.assessRisk(recipient, amount, context);
-    const privacy = this.determinePrivacyLevel(risk, context);
+  ): Promise<ExecutionPlan> => {
+    // 1. External Intelligence Scan (e.g. Helius)
+    let intel: RiskAssessment | undefined;
+    if (context.intelligenceProvider) {
+      intel = await context.intelligenceProvider.assessRisk(recipient, amount);
+    }
+
+    // 2. Local Risk Assessment
+    let risk = this.assessRisk(recipient, amount, context);
     
-    return this.createPlan(privacy, risk, context.mixingPolicy);
+    // 3. Override local risk if Intelligence suggests higher threat
+    if (intel && intel.score > 60) risk = 'critical';
+    else if (intel && intel.score > 30 && risk === 'low') risk = 'medium';
+
+    // 4. Privacy Determination
+    let privacy = this.determinePrivacyLevel(risk, context);
+    
+    // Force shielded if it's a real address and we were in public mode
+    if (this.isOnchainAddress(recipient) && privacy === 'public') {
+      privacy = 'standard';
+    }
+
+    // 5. Create Final Plan
+    const plan = this.createPlan(privacy, risk, context.mixingPolicy);
+    if (intel) {
+      plan.intel = intel;
+      plan.reasoning = `${intel.reasoning} | ${plan.reasoning}`;
+    }
+    
+    return plan;
   }
 
   private assessRisk = (recipient: string, amount: number, context: PaymentContext): RiskLevel => {
@@ -134,5 +156,9 @@ export class PaymentStrategyEngine {
           reasoning: 'Low risk / Trusted vendor. Off-chain fiat settlement is cheapest.'
         };
     }
+  }
+
+  private isOnchainAddress = (vendor: string): boolean => {
+    return vendor.length >= 32 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(vendor);
   }
 }

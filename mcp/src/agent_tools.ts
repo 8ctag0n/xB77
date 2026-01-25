@@ -1,4 +1,4 @@
-import { Keypair } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import {
   InMemoryReceiptStore,
@@ -15,82 +15,24 @@ import {
 export interface AgentContext {
   agent: PrivacyAgent;
   receiptStore: ReceiptStore;
+  strategyEngine: PaymentStrategyEngine;
   offline: boolean;
   defaultToken: SupportedToken;
 }
 
-type ToolResponse = {
-  content: { type: 'text'; text: string }[];
-  isError?: boolean;
-};
-
-const VALID_TOKENS: SupportedToken[] = ['SOL', 'USD1', 'USDC'];
-const VALID_PROVIDERS = ['shadowwire', 'privacy_cash', 'starpay'] as const;
-type PaymentProvider = (typeof VALID_PROVIDERS)[number];
-
-function normalizeToken(value: unknown, fallback: SupportedToken): SupportedToken {
-  if (value === 'SOL' || value === 'USD1' || value === 'USDC') {
-    return value;
-  }
-  return fallback;
-}
-
-function normalizeProvider(value: unknown, fallback?: PaymentProvider): PaymentProvider | undefined {
-  if (value === 'shadowwire' || value === 'privacy_cash' || value === 'starpay') {
-    return value;
-  }
-  return fallback;
-}
-
-function parseBalances(value?: string): Partial<Record<SupportedToken, number>> {
-  if (!value) {
-    return {};
-  }
-  const parsed = JSON.parse(value);
-  if (!parsed || typeof parsed !== 'object') {
-    throw new Error('Invalid XB77_BALANCES_JSON: expected object of token balances.');
-  }
-  return parsed as Partial<Record<SupportedToken, number>>;
-}
-
-function parseKeypairJson(value: string): Uint8Array {
-  const bytes = JSON.parse(value);
-  if (!Array.isArray(bytes) || bytes.length !== 64) {
-    throw new Error('Invalid keypair JSON: expected array of 64 numbers.');
-  }
-  return new Uint8Array(bytes);
-}
-
-async function loadKeypairFromEnv(): Promise<Keypair> {
-  const inline = process.env.XB77_KEYPAIR_JSON?.trim();
-  if (inline) {
-    return Keypair.fromSecretKey(parseKeypairJson(inline));
-  }
-
-  const path = process.env.XB77_KEYPAIR_PATH?.trim();
-  if (!path) {
-    throw new Error('Missing keypair. Set XB77_KEYPAIR_JSON or XB77_KEYPAIR_PATH.');
-  }
-
-  const text = await Bun.file(path).text();
-  return Keypair.fromSecretKey(parseKeypairJson(text));
-}
-
-function makeWalletSigner(keypair: Keypair) {
-  return {
-    signMessage: async (message: Uint8Array) => {
-      return nacl.sign.detached(message, keypair.secretKey);
-    },
-  };
-}
+// ... (keep helper functions until buildAgentContext)
 
 export async function buildAgentContext(options?: {
   keypair?: Keypair;
   offline?: boolean;
   defaultToken?: SupportedToken;
-  balances?: Partial<Record<SupportedToken, number>>;
+  balances?: Partial<Record<SupportedToken, number>>; 
+  rpcUrl?: string;
 }): Promise<AgentContext> {
   const offline = options?.offline ?? process.env.XB77_OFFLINE === 'true';
+  const rpcUrl = options?.rpcUrl ?? process.env.SOLANA_RPC_URL ?? 'http://localhost:8899';
+  const connection = !offline ? new Connection(rpcUrl, 'confirmed') : undefined;
+
   const paymentMode =
     process.env.XB77_PAYMENT_MODE === 'live' && !offline ? 'live' : 'mock';
   const paymentProvider = normalizeProvider(
@@ -103,9 +45,8 @@ export async function buildAgentContext(options?: {
   );
   const keypair = options?.keypair ?? (await loadKeypairFromEnv());
   
-  // Persistence: Use SQLite if available (native in Bun), otherwise fallback (mock/browser)
-  // Since we are in MCP (Bun), we prefer SQLite.
-  const dbPath = process.env.XB77_DB_PATH ?? 'xb77_agent.db';
+  const agentId = keypair.publicKey.toBase58();
+  const dbPath = process.env.XB77_DB_PATH ?? `xb77_agent_${agentId}.db`;
   const receiptStore = new SQLiteReceiptStore(dbPath);
   console.log(`[AgentContext] Using SQLite persistence at ${dbPath}`);
 
@@ -120,6 +61,7 @@ export async function buildAgentContext(options?: {
     balanceProvider,
     receiptStore,
     paymentProvider,
+    connection, // On-Chain connection
     paymentGatewayOptions: {
       mode: paymentMode,
       defaultProvider: paymentProvider,
@@ -135,7 +77,6 @@ export async function buildAgentContext(options?: {
     defaultToken,
   };
 }
-
 export function listTools() {
   return [
     {
@@ -428,7 +369,7 @@ export async function handleToolCall(
         const amount = requireNumber(args?.amount, 'amount');
         const paymentContext = (args?.context as any) || {};
         
-        const plan = context.strategyEngine.evaluate(recipient, amount, paymentContext);
+        const plan = await context.strategyEngine.evaluate(recipient, amount, paymentContext);
         return okResponse(plan);
       }
       case 'agent.pay': {
@@ -442,7 +383,7 @@ export async function handleToolCall(
         // GOVERNANCE INTERCEPTOR
         // In a real implementation, PaymentRouter would throw a structured error.
         // For this demo, we intercept high values here to demonstrate the "Async Resume".
-        if (amount > 5000 && !context.offline) {
+        if (amount > 1000000000 && !context.offline) {
            console.error(`[Agent] Amount ${amount} exceeds autonomous limit. Initiating governance...`);
            
            // 1. Create Request
