@@ -23,6 +23,7 @@ import { XB77Adapter, XB77AdapterOptions } from './economy/payment_adapters/xb77
 import { KaminoMockProvider } from './economy/yield';
 import { HeliusIntelligenceAdapter } from './economy/intelligence/helius';
 import { ReceiptAuditor, AuditProof } from './economy/auditor';
+import { FeeTracker, EfficiencyMetrics } from './economy/fee_tracker';
 
 export interface AgentConfig {
   keypair: Keypair;
@@ -51,6 +52,7 @@ export interface AgentStateSnapshot<TBalance = unknown> {
     yield: BalanceInfo;
     totalUsd: number;
   };
+  efficiency?: EfficiencyMetrics;
   latestReceipt: PaymentReceipt | null;
   updatedAt: number;
 }
@@ -62,6 +64,7 @@ export class PrivacyAgent {
   public router: PaymentRouter;
   public strategyEngine: PaymentStrategyEngine;
   public auditor: ReceiptAuditor;
+  public feeTracker: FeeTracker;
   
   private balanceProvider?: BalanceProvider;
   private receiptStore?: ReceiptStore;
@@ -83,6 +86,7 @@ export class PrivacyAgent {
     
     this.paymentProvider = config.paymentProvider ?? 'shadowwire';
     this.auditor = new ReceiptAuditor(config.keypair.secretKey);
+    this.feeTracker = new FeeTracker();
 
     // Initialize On-Chain Adapter if connection is provided
     let xb77Adapter: XB77Adapter | undefined;
@@ -186,6 +190,14 @@ export class PrivacyAgent {
     // Use Router instead of raw Gateway for autonomous decision and compliance
     const execution = await this.router.route(request);
 
+    // Record operational fee
+    if (execution.fee) {
+      this.feeTracker.recordFee(execution.fee, 'relayer', token, execution.txSignature);
+    } else {
+      // Small mock fee for the demo if not provided by adapter
+      this.feeTracker.recordFee(0.001, 'gas', token, execution.txSignature);
+    }
+
     if (this.receiptStore) {
       const receipt: PaymentReceipt = buildPaymentReceipt(request, execution);
       await this.receiptStore.recordPayment(receipt);
@@ -221,51 +233,55 @@ export class PrivacyAgent {
     const burnerPub = burner.publicKey.toBase58();
     
     // Step 1: Fund Burner (Internal Shielded Transfer)
-    // We add a small fee buffer (e.g. 5%)
-    const fundAmount = Math.ceil(amount * 1.05); 
+    // We add a small fee buffer (e.g. 10 units)
+    const fundAmount = amount + 10; 
     console.log(`[Ghost] Funding burner ${burnerPub} with ${fundAmount} ${token}...`);
     
-    // Recursive call to pay() but forcing 'internal' type and 'shadowwire' provider
-    // This uses the main treasury to fund the burner
+    // This uses the main treasury to fund the burner via a private internal transfer
     const fundingResult = await this.pay(burnerPub, fundAmount, token, 'internal', 'shadowwire');
     console.log(`[Ghost] Burner funded. TX: ${fundingResult.txSignature}`);
 
+    // Wait for the privacy pool to settle (mock/simulated delay for ZK proof availability)
+    await new Promise(r => setTimeout(r, 1000));
+
     // Step 2: Pay Vendor from Burner
-    console.log(`[Ghost] Executing final hop to ${recipient}...`);
+    console.log(`[Ghost] Executing final hop from burner ${burnerPub} to ${recipient}...`);
     
     const burnerSigner: WalletSigner = {
       signMessage: async (msg) => nacl.sign.detached(msg, burner.secretKey)
     };
 
-    // Construct request manually to bypass router checks (we are the burner now)
     const request: PaymentRequest = {
       amount,
       currency: token,
-      agentId: burnerPub, // Sender is the burner!
+      agentId: burnerPub, 
       vendor: recipient,
       type: 'external',
       provider: 'shadowwire',
     };
 
-    // Execute directly via Gateway using Burner Context
-    // We bypass 'router' because router checks compliance on SENDER. 
-    // The burner is fresh, so it has no history, but we might want to check recipient compliance again.
-    // For simplicity, we assume main treasury already checked compliance implicitly (or we check explicitly).
-    // Let's check compliance just in case.
+    // Pre-screen recipient for compliance before using the burner
     const compliance = await new RangeAdapter().preScreenPayment(recipient, amount);
-    if (!compliance.isSafe) throw new Error('Ghost Mode halted: Compliance risk on destination.');
+    if (!compliance.isSafe) {
+        logThought(`ABORT: Burner ${burnerPub} refused to pay high-risk destination ${recipient}.`);
+        throw new Error('Ghost Mode halted: Compliance risk on destination.');
+    }
 
+    // Execute directly via Gateway using Burner as the signer
+    // This ensures that on-chain, the sender is the Burner, not the Agent Treasury.
     const execution = await (this.paymentGateway as any).execute(request, { walletSigner: burnerSigner });
 
-    // Step 3: Cleanup
-    // We don't store the burner key. It is lost forever here.
-    console.log(`[Ghost] Burner keys discarded.`);
+    console.log(`[Ghost] Burner keys discarded. Privacy link broken.`);
 
     if (this.receiptStore) {
-      // We record the receipt as if it came from us (conceptually), or we mark it as ghost
       const receipt: PaymentReceipt = buildPaymentReceipt(request, execution);
-      receipt.sender = this.wallet.publicKey.toBase58(); // Remap ownership to main agent for accounting
-      receipt.metadata = { ...receipt.metadata, mode: 'ghost_relay', burner: burnerPub };
+      receipt.sender = this.wallet.publicKey.toBase58(); // Accountant sees it as ours
+      receipt.metadata = { 
+        ...receipt.metadata, 
+        mode: 'ghost_relay', 
+        burner: burnerPub,
+        reasoning: 'Chain-link broken via ephemeral relay'
+      };
       await this.receiptStore.recordPayment(receipt);
     }
 
@@ -273,7 +289,8 @@ export class PrivacyAgent {
       txSignature: execution.txSignature,
       proofPda: execution.proofPda,
       nonce: execution.nonce,
-      raw: execution.raw,
+      provider: 'shadowwire (ghost)',
+      raw: { ...execution.raw, burner: burnerPub }
     };
   }
 
@@ -327,12 +344,14 @@ export class PrivacyAgent {
     const balance = await this.getBalance(token);
     const latestReceipt = await this.getLatestReceipt();
     const treasury = await this.liquidityManager.getFullSnapshot(token);
+    const efficiency = this.feeTracker.calculateEfficiency(treasury.yield.available);
 
     return {
       publicKey: this.wallet.publicKey.toBase58(),
       token,
       balance,
       treasury,
+      efficiency,
       latestReceipt,
       updatedAt: Date.now(),
     };

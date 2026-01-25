@@ -1,7 +1,7 @@
 # xB77: Autonomous Financial Infrastructure for AI Agents
 
-## Sovereign Financial Operating System for the Machine Economy
-## Sistema Operativo Financiero Soberano para la Economía de las Máquinas
+## Sovereign Financial Operating System for Autonomous Entities
+## Sistema Operativo Financiero Soberano para Entidades Autónomas
 
 ---
 

@@ -56,19 +56,47 @@ const btnAddProduct = document.getElementById('btn-add-product') as HTMLButtonEl
 function logThought(message: string) {
   if (!thoughtStream) return;
   
-  // Remove empty state if present
   const empty = thoughtStream.querySelector('.empty');
   if (empty) empty.remove();
 
   const entry = document.createElement('div');
   entry.className = 'thought-entry';
-  entry.innerHTML = `
-    <span class="thought-time">${new Date().toLocaleTimeString()}</span>
-    ${message}
-  `;
+  
+  // Categorize thought for styling
+  if (message.toLowerCase().includes('risk') || message.toLowerCase().includes('abort')) {
+    entry.classList.add('risk');
+  } else if (message.toLowerCase().includes('helius') || message.toLowerCase().includes('intel')) {
+    entry.classList.add('intel');
+  }
+
+  const timeSpan = document.createElement('span');
+  timeSpan.className = 'thought-time';
+  timeSpan.textContent = `[${new Date().toLocaleTimeString()}] `;
+  entry.appendChild(timeSpan);
+
+  const textSpan = document.createElement('span');
+  entry.appendChild(textSpan);
+  
+  const cursor = document.createElement('span');
+  cursor.className = 'thought-cursor';
+  entry.appendChild(cursor);
+
   thoughtStream.prepend(entry);
 
-  // Keep limit
+  // Typewriter implementation
+  let i = 0;
+  const speed = 25; // ms per char
+  function type() {
+    if (i < message.length) {
+      textSpan.textContent += message.charAt(i);
+      i++;
+      setTimeout(type, speed);
+    } else {
+      cursor.remove(); // Remove cursor when done
+    }
+  }
+  type();
+
   if (thoughtStream.children.length > 50) {
     thoughtStream.lastElementChild?.remove();
   }
@@ -77,7 +105,8 @@ function logThought(message: string) {
 async function streamThoughts(thoughts: string[]) {
   for (const thought of thoughts) {
     logThought(thought);
-    await new Promise(r => setTimeout(r, 400)); // Simulate thinking speed
+    // Wait for the previous thought to finish typing (approx)
+    await new Promise(r => setTimeout(r, thought.length * 30 + 200)); 
   }
 }
 
@@ -101,6 +130,27 @@ const PAYMENT_METHODS = {
 const govList = document.getElementById('governance-list') as HTMLDivElement;
 const govLog = document.getElementById('gov-log') as HTMLDivElement;
 const refreshGovBtn = document.getElementById('refresh-gov') as HTMLButtonElement;
+const govOverlay = document.getElementById('governance-overlay') as HTMLDivElement;
+const btnLockdownReject = document.getElementById('lockdown-reject') as HTMLButtonElement;
+const btnLockdownApprove = document.getElementById('lockdown-approve') as HTMLButtonElement;
+
+if (btnLockdownReject) {
+  btnLockdownReject.onclick = () => {
+    govOverlay?.classList.add('hidden');
+    logActivity('Transaction Aborted by User.', 'info');
+    logThought('Human override: Transaction rejected and blacklisted.');
+  };
+}
+
+if (btnLockdownApprove) {
+  btnLockdownApprove.onclick = () => {
+    govOverlay?.classList.add('hidden');
+    logActivity('Transaction Authorized by User.', 'sale');
+    logThought('Human override: Signature received. Resuming execution...');
+    // In a real demo, this would trigger the actual payment tool call again
+    alert('Authority Signature Received. Transaction will be broadcasted to Solana.');
+  };
+}
 
 function logGov(msg: string) {
   if (!govLog) return;
@@ -551,6 +601,29 @@ function renderBalance(balance: any) {
       </div>
     `;
     obsBalanceMeta.innerHTML = `<span class="tag-solana">OPTIMIZING YIELD (8.5% APY)</span>`;
+    
+    // Efficiency Gauge Update
+    const eff = balance.efficiency;
+    if (eff) {
+      const fill = document.getElementById('efficiency-fill') as HTMLDivElement;
+      const status = document.getElementById('efficiency-status') as HTMLSpanElement;
+      const percent = document.getElementById('efficiency-percent') as HTMLSpanElement;
+      
+      const ratio = eff.totalFees > 0 ? (eff.totalYield / (eff.totalFees * 2)) * 100 : (eff.totalYield > 0 ? 100 : 0);
+      const displayRatio = Math.min(Math.max(ratio, 0), 100);
+      
+      if (fill) fill.style.width = `${displayRatio}%`;
+      if (percent) percent.textContent = `${displayRatio.toFixed(0)}%`;
+      if (status) {
+        if (eff.isSelfSustaining) {
+          status.textContent = 'SELF-SUSTAINING';
+          status.className = 'self-sustaining';
+        } else {
+          status.textContent = 'NEEDS TOP-UP';
+          status.className = 'burn';
+        }
+      }
+    }
     return;
   }
 
@@ -973,7 +1046,19 @@ async function handleBuy(product: typeof products[0]) {
     return;
   }
 
-  // 1. STRATEGY ANALYSIS
+  // 1. STRATEGY ANALYSIS & RADAR TRIGGER
+  const radar = document.getElementById('forensic-radar') as HTMLDivElement;
+  const radarTarget = document.getElementById('radar-target') as HTMLElement;
+  const radarScore = document.getElementById('radar-score') as HTMLElement;
+  const radarCompliance = document.getElementById('radar-compliance') as HTMLElement;
+
+  if (radar) {
+    radar.classList.remove('hidden');
+    radarTarget.textContent = product.recipient.slice(0, 12) + '...';
+    radarScore.textContent = 'SCANNING...';
+    radarCompliance.textContent = 'PENDING...';
+  }
+
   logActivity(`🤖 Analyzing optimal route for ${product.name}...`);
   logThought(`Analyzing purchase intent: ${product.name} ($${product.price})`);
 
@@ -983,25 +1068,43 @@ async function handleBuy(product: typeof products[0]) {
       amount: product.price * 100,
       context: {
         vendorCategory: product.price > 1000 ? 'high_value_asset' : 'standard',
-        isNewVendor: product.recipient.startsWith('BAD') // Simulating heuristic
+        isNewVendor: product.recipient.startsWith('BAD') 
       }
     });
     
     const strategy = unwrapToolResponse(strategyRes);
     
+    // Update Radar with results
+    if (radar) {
+      radarScore.textContent = `${strategy.intel?.score || 0}/100`;
+      radarCompliance.textContent = strategy.riskAssessment.toUpperCase();
+      if (strategy.riskAssessment === 'low') radarCompliance.style.color = 'var(--accent-2)';
+      else if (strategy.riskAssessment === 'high' || strategy.riskAssessment === 'critical') radarCompliance.style.color = 'var(--danger)';
+    }
+
     // Stream agent reasoning to the sidebar
     if (strategy.thoughts) {
       await streamThoughts(strategy.thoughts);
     }
-    
-    // Visual Feedback based on strategy
-    if (strategy.privacyLevel === 'ghost') {
-       logActivity(`👻 GHOST MODE: Ephemeral Identity spawned.`, 'info');
-    } else if (strategy.privacyLevel === 'standard') {
-       logActivity(`🛡️ SHIELDED ROUTE: Balancing Privacy vs Cost...`, 'info');
+
+    // 2. GOVERNANCE LOCKDOWN CHECK
+    if (strategy.riskAssessment === 'critical' || strategy.riskAssessment === 'high') {
+      const govOverlay = document.getElementById('governance-overlay') as HTMLDivElement;
+      const riskLabel = document.getElementById('lockdown-risk') as HTMLElement;
+      
+      if (govOverlay) {
+        riskLabel.textContent = strategy.intel?.reasoning || 'Range Protocol: High Risk Detected';
+        govOverlay.classList.remove('hidden');
+        logThought('SECURITY INTERVENTION: Automated flow halted. Waiting for Human Authority...');
+        
+        // Return early - the UI will handle the rest via buttons
+        return;
+      }
     }
-    
-    logActivity(`🧠 Strategy: ${strategy.strategy} (${strategy.reason})`, 'info');
+
+    // Brief delay for the user to see the "Scan result"
+    await new Promise(r => setTimeout(r, 1500));
+    if (radar) radar.classList.add('hidden');
 
   } catch (e) {
     console.error('Strategy failed', e);

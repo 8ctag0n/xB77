@@ -42,6 +42,21 @@
 
             <div class="terminal-layout">
               <div class="terminal-main">
+                <div class="forensic-radar hidden" id="forensic-radar">
+                  <div class="radar-scanner">
+                    <div class="scanner-line"></div>
+                    <div class="scanner-grid"></div>
+                  </div>
+                  <div class="radar-info">
+                    <h3>HELIUS FORENSIC SCAN</h3>
+                    <div class="radar-details" id="radar-details">
+                      <div class="radar-row"><span>Target:</span> <strong id="radar-target">---</strong></div>
+                      <div class="radar-row"><span>Risk Score:</span> <strong id="radar-score">---</strong></div>
+                      <div class="radar-row"><span>Compliance:</span> <strong id="radar-compliance">---</strong></div>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="card product-card-grid">
                   <div class="card-header">
                     <h2>Available Services</h2>
@@ -87,6 +102,16 @@
                     <div class="stat-item">
                       <label>Active Tasks</label>
                       <span id="stat-pending">0</span>
+                    </div>
+                    <div class="efficiency-gauge">
+                      <label>Sustainability Index</label>
+                      <div class="gauge-bar">
+                        <div class="gauge-fill" id="efficiency-fill" style="width: 0%"></div>
+                      </div>
+                      <div class="gauge-labels">
+                        <span id="efficiency-status">Initializing...</span>
+                        <span id="efficiency-percent">0%</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -291,6 +316,23 @@
     </div>
 
     <!-- COMPLIANCE MODAL -->
+    <div class="modal-overlay hidden" id="governance-overlay">
+      <div class="modal-content compliance-alert lockdown">
+        <div class="alert-icon">🔒</div>
+        <h2>GOVERNANCE INTERVENTION REQUIRED</h2>
+        <p>Security protocol triggered by Range Protocol. Transaction halted.</p>
+        <div class="risk-details">
+          <div class="risk-row"><span>Detected Risk:</span> <strong id="lockdown-risk">Sanctioned Entity</strong></div>
+          <div class="risk-row"><span>Compliance:</span> <strong>Critical Violation</strong></div>
+          <div class="risk-row"><span>Requested Action:</span> <strong>Human Override Required</strong></div>
+        </div>
+        <div class="lockdown-actions">
+           <button class="btn-danger" id="lockdown-reject">Abort & Blacklist</button>
+           <button class="btn-success" id="lockdown-approve">Authorize Override</button>
+        </div>
+      </div>
+    </div>
+
     <div id="compliance-modal" class="modal-overlay hidden">
       <div class="modal-content compliance-alert">
         <div class="alert-icon">⚠️</div>
