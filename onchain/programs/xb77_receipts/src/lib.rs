@@ -2,6 +2,7 @@
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::pubkey;
+use shank::{ShankInstruction, ShankType};
 use light_sdk::{
     account::sha::LightAccount,
     address::v1::derive_address,
@@ -23,7 +24,9 @@ use solana_program::{
     sysvar::{clock::Clock, Sysvar},
 };
 
-pub const ID: Pubkey = pubkey!("9kknYrFBjkBUuMyZZhksoHcj29gjfzGsDMgnyfp3Y6VM");
+use solana_program::declare_id;
+
+declare_id!("9kknYrFBjkBUuMyZZhksoHcj29gjfzGsDMgnyfp3Y6VM");
 pub const LIGHT_CPI_SIGNER: CpiSigner = derive_light_cpi_signer!(
     "9kknYrFBjkBUuMyZZhksoHcj29gjfzGsDMgnyfp3Y6VM"
 );
@@ -31,20 +34,15 @@ pub const LIGHT_CPI_SIGNER: CpiSigner = derive_light_cpi_signer!(
 entrypoint!(process_instruction);
 
 #[repr(u8)]
-#[derive(Debug)]
+#[derive(Debug, Clone, ShankInstruction)]
 pub enum ReceiptInstruction {
-    RecordReceipt = 0,
-}
-
-impl TryFrom<u8> for ReceiptInstruction {
-    type Error = ProgramError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(ReceiptInstruction::RecordReceipt),
-            _ => Err(ProgramError::InvalidInstructionData),
-        }
-    }
+    #[account(0, signer, name="signer", desc="The payer and authority for the transaction")]
+    #[account(1, name="agent_account", desc="The agent account that will own the receipt")]
+    #[account(2, name="light_cpi_signer", desc="The PDA signing for Light Protocol CPI")]
+    #[account(3, name="system_program", desc="The System Program")]
+    #[account(4, name="light_system_program", desc="The Light System Program")]
+    // Remaining accounts are variable Light Protocol accounts (trees, etc)
+    RecordReceipt(RecordReceiptInstructionData),
 }
 
 #[derive(Debug, Clone, Default, BorshSerialize, BorshDeserialize, LightDiscriminator)]
@@ -56,7 +54,7 @@ pub struct CompressedReceipt {
     pub memo_hash: [u8; 32],
 }
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize, ShankType)]
 pub struct RecordReceiptInstructionData {
     pub proof: Vec<u8>,
     pub address_tree_info: Vec<u8>,
@@ -78,13 +76,13 @@ pub fn process_instruction(
         return Err(ProgramError::InvalidInstructionData);
     }
 
-    let instruction = ReceiptInstruction::try_from(instruction_data[0])?;
-    match instruction {
-        ReceiptInstruction::RecordReceipt => {
+    match instruction_data[0] {
+        0 => {
             let data = RecordReceiptInstructionData::try_from_slice(&instruction_data[1..])
                 .map_err(|_| ProgramError::InvalidInstructionData)?;
             record_receipt(accounts, data)
         }
+        _ => Err(ProgramError::InvalidInstructionData),
     }
 }
 

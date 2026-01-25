@@ -59,6 +59,10 @@ deploy_program "xb77_core"
 build_program "xb77_gateway"
 deploy_program "xb77_gateway"
 
+# Build & Deploy Registry
+build_program "xb77_registry"
+deploy_program "xb77_registry"
+
 # Build & Deploy Receipts (Placeholder if exists, otherwise skip)
 if [ -d "${PROGRAMS_DIR}/xb77_receipts" ]; then
     build_program "xb77_receipts"

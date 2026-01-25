@@ -40,13 +40,14 @@ fn process_init_core(
     let account_info_iter = &mut accounts.iter();
     let config_account = next_account_info(account_info_iter)?;
     let admin_signer = next_account_info(account_info_iter)?;
+    let system_program_account = next_account_info(account_info_iter)?;
 
     if !admin_signer.is_signer {
         return Err(ProgramError::MissingRequiredSignature);
     }
 
     // Determine expected PDA
-    let (pda, _bump) = Pubkey::find_program_address(&[b"config"], program_id);
+    let (pda, bump) = Pubkey::find_program_address(&[b"config_v3"], program_id);
     if pda != *config_account.key {
         return Err(ProgramError::InvalidSeeds);
     }
@@ -58,13 +59,25 @@ fn process_init_core(
         treasury_mint: payload.treasury_mint,
     };
 
-    let mut data = config_account.try_borrow_mut_data()?;
     let bytes = wincode::serialize(&config).map_err(|_| ProgramError::AccountDataTooSmall)?;
     
-    // Simple copy, assume account is pre-allocated with enough space
-    if data.len() < bytes.len() {
-        return Err(ProgramError::AccountDataTooSmall);
+    if config_account.owner != program_id {
+        let rent = solana_program::rent::Rent::get()?;
+        let lamports = rent.minimum_balance(bytes.len());
+        solana_program::program::invoke_signed(
+            &solana_program::system_instruction::create_account(
+                admin_signer.key,
+                config_account.key,
+                lamports,
+                bytes.len() as u64,
+                program_id,
+            ),
+            &[admin_signer.clone(), config_account.clone(), system_program_account.clone()],
+            &[&[b"config_v3", &[bump]]],
+        )?;
     }
+
+    let mut data = config_account.try_borrow_mut_data()?;
     data[..bytes.len()].copy_from_slice(&bytes);
 
     msg!("Core Config Initialized");
@@ -80,6 +93,7 @@ fn process_register_agent(
     let config_account = next_account_info(account_info_iter)?;
     let credit_line_account = next_account_info(account_info_iter)?;
     let admin_signer = next_account_info(account_info_iter)?;
+    let system_program_account = next_account_info(account_info_iter)?;
 
     // Validate Config
     if config_account.owner != program_id {
@@ -95,7 +109,7 @@ fn process_register_agent(
 
     // Validate Credit Line PDA
     let agent_pubkey = Pubkey::new_from_array(payload.agent_id);
-    let (pda, _bump) = Pubkey::find_program_address(
+    let (pda, bump) = Pubkey::find_program_address(
         &[b"credit_line", agent_pubkey.as_ref()], 
         program_id
     );
@@ -111,12 +125,25 @@ fn process_register_agent(
         reputation: 100, // Start with perfect rep
     };
 
-    let mut data = credit_line_account.try_borrow_mut_data()?;
     let bytes = wincode::serialize(&credit_line).map_err(|_| ProgramError::AccountDataTooSmall)?;
     
-    if data.len() < bytes.len() {
-        return Err(ProgramError::AccountDataTooSmall);
+    if credit_line_account.owner != program_id {
+        let rent = solana_program::rent::Rent::get()?;
+        let lamports = rent.minimum_balance(bytes.len());
+        solana_program::program::invoke_signed(
+            &solana_program::system_instruction::create_account(
+                admin_signer.key,
+                credit_line_account.key,
+                lamports,
+                bytes.len() as u64,
+                program_id,
+            ),
+            &[admin_signer.clone(), credit_line_account.clone(), system_program_account.clone()],
+            &[&[b"credit_line", agent_pubkey.as_ref(), &[bump]]],
+        )?;
     }
+
+    let mut data = credit_line_account.try_borrow_mut_data()?;
     data[..bytes.len()].copy_from_slice(&bytes);
 
     msg!("Agent Registered: {:?}", agent_pubkey);
