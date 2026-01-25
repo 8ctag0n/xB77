@@ -64,40 +64,173 @@ pub fn process_instruction(
 
 // Stub implementation for now
 fn process_execute_confidential_transfer(
-    _program_id: &Pubkey,
-    _accounts: &[AccountInfo],
-    _payload: ConfidentialTransferPayload,
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    payload: ConfidentialTransferPayload,
 ) -> ProgramResult {
-    msg!("ExecuteConfidentialTransfer: Not implemented yet");
+    let mut accounts_iter = accounts.iter();
+    let payer = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    let gateway_state = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    let mxe_program = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+
+    if !payer.is_signer {
+        return Err(GatewayError::MissingSigner.into());
+    }
+
+    let (expected_pda, _bump) = Pubkey::find_program_address(&[GATEWAY_STATE_SEED], program_id);
+    if gateway_state.key != &expected_pda {
+        return Err(GatewayError::InvalidGatewayStatePda.into());
+    }
+
+    if gateway_state.owner != program_id {
+        return Err(GatewayError::InvalidGatewayStateOwner.into());
+    }
+
+    if payload.instruction_data.is_empty() {
+        return Err(GatewayError::MissingInstructionData.into());
+    }
+
+    let config: GatewayConfig = wincode::deserialize(&gateway_state.data.borrow())
+        .map_err(|_| ProgramError::from(GatewayError::InvalidInstruction))?;
+
+    if config.mxe_program_id != ZERO_PUBKEY && mxe_program.key.to_bytes() != config.mxe_program_id {
+        return Err(GatewayError::InvalidMxeProgram.into());
+    }
+
+    let remaining_accounts: Vec<AccountInfo> = accounts_iter.cloned().collect();
+    let mut metas = Vec::with_capacity(remaining_accounts.len());
+    for account in &remaining_accounts {
+        metas.push(solana_program::instruction::AccountMeta {
+            pubkey: *account.key,
+            is_signer: account.is_signer,
+            is_writable: account.is_writable,
+        });
+    }
+
+    let instruction = Instruction {
+        program_id: *mxe_program.key,
+        accounts: metas,
+        data: payload.instruction_data,
+    };
+
+    let mut invoke_accounts = Vec::with_capacity(1 + remaining_accounts.len());
+    invoke_accounts.push(mxe_program.clone());
+    invoke_accounts.extend(remaining_accounts);
+
+    invoke(&instruction, &invoke_accounts)?;
+
+    msg!("execute_confidential_transfer: CPI success");
     Ok(())
 }
 
-// Stub implementation for now
 fn process_record_receipt(
-    _program_id: &Pubkey,
-    _accounts: &[AccountInfo],
-    _payload: ReceiptPayload,
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    payload: ReceiptPayload,
 ) -> ProgramResult {
-    msg!("RecordReceipt: Not implemented yet");
+    let mut accounts_iter = accounts.iter();
+    let payer = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    let gateway_state = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    let receipt_program = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    let agent_account = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+
+    if !payer.is_signer {
+        return Err(GatewayError::MissingSigner.into());
+    }
+
+    let (expected_pda, _bump) = Pubkey::find_program_address(&[GATEWAY_STATE_SEED], program_id);
+    if gateway_state.key != &expected_pda {
+        return Err(GatewayError::InvalidGatewayStatePda.into());
+    }
+
+    if gateway_state.owner != program_id {
+        return Err(GatewayError::InvalidGatewayStateOwner.into());
+    }
+
+    if payload.receipt_instruction_data.is_empty() {
+        return Err(GatewayError::MissingInstructionData.into());
+    }
+
+    let config: GatewayConfig = wincode::deserialize(&gateway_state.data.borrow())
+        .map_err(|_| ProgramError::from(GatewayError::InvalidInstruction))?;
+
+    if config.receipts_program_id != ZERO_PUBKEY
+        && receipt_program.key.to_bytes() != config.receipts_program_id
+    {
+        return Err(GatewayError::InvalidReceiptsProgram.into());
+    }
+
+    let remaining_accounts: Vec<AccountInfo> = accounts_iter.cloned().collect();
+    let mut metas = Vec::with_capacity(2 + remaining_accounts.len());
+    metas.push(solana_program::instruction::AccountMeta {
+        pubkey: *payer.key,
+        is_signer: payer.is_signer,
+        is_writable: payer.is_writable,
+    });
+    metas.push(solana_program::instruction::AccountMeta {
+        pubkey: *agent_account.key,
+        is_signer: agent_account.is_signer,
+        is_writable: agent_account.is_writable,
+    });
+    for account in &remaining_accounts {
+        metas.push(solana_program::instruction::AccountMeta {
+            pubkey: *account.key,
+            is_signer: account.is_signer,
+            is_writable: account.is_writable,
+        });
+    }
+
+    let instruction = Instruction {
+        program_id: *receipt_program.key,
+        accounts: metas,
+        data: payload.receipt_instruction_data,
+    };
+
+    let mut invoke_accounts = Vec::with_capacity(3 + remaining_accounts.len());
+    invoke_accounts.push(payer.clone());
+    invoke_accounts.push(agent_account.clone());
+    invoke_accounts.extend(remaining_accounts);
+    invoke_accounts.push(receipt_program.clone());
+
+    invoke(&instruction, &invoke_accounts)?;
+
+    msg!("record_receipt: CPI success");
     Ok(())
 }
 
 fn check_badge_verified(
-    _program_id: &Pubkey,
+    program_id: &Pubkey,
     instructions_sysvar: &AccountInfo,
 ) -> ProgramResult {
-    // Basic instruction introspection to ensure VerifyBadge was called in the same transaction.
-    // This is a simplified check for Phase 2 demo.
     if instructions_sysvar.key != &instructions::ID {
          return Err(ProgramError::InvalidAccountData);
     }
-    
-    // In a real implementation, we would iterate through previous instructions
-    // to find a successful VerifyBadge call targeting this program.
-    // For now, we trust the caller if they provided the sysvar, implying composition.
-    // TODO: Implement actual instruction introspection logic.
-    msg!("check_badge_verified: Assuming badge verification via composition (TODO: Full check)");
-    Ok(())
+
+    let current_index =
+        instructions::load_current_index_checked(instructions_sysvar).map_err(|_| {
+            ProgramError::InvalidAccountData
+        })?;
+
+    for i in 0..current_index {
+        let ix = instructions::load_instruction_at_checked(i as usize, instructions_sysvar)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
+        if ix.program_id != *program_id {
+            continue;
+        }
+        if let Ok(GatewayInstruction::VerifyBadge(_)) = wincode::deserialize(&ix.data) {
+            msg!("check_badge_verified: VerifyBadge found in transaction");
+            return Ok(());
+        }
+    }
+
+    Err(GatewayError::BadgeNotVerified.into())
 }
 
 fn process_verify_badge(
@@ -121,6 +254,14 @@ fn process_verify_badge(
         return Err(GatewayError::MissingSigner.into());
     }
 
+    if payload.proof.is_empty() {
+        return Err(GatewayError::EmptyProof.into());
+    }
+
+    if payload.public_witness.is_empty() {
+        return Err(GatewayError::EmptyPublicWitness.into());
+    }
+
     let (expected_pda, _bump) = Pubkey::find_program_address(&[GATEWAY_STATE_SEED], program_id);
     if gateway_state.key != &expected_pda {
         return Err(GatewayError::InvalidGatewayStatePda.into());
@@ -133,6 +274,14 @@ fn process_verify_badge(
     let config: GatewayConfig = wincode::deserialize(&gateway_state.data.borrow())
         .map_err(|_| ProgramError::from(GatewayError::InvalidInstruction))?;
 
+    if config.zk_verifier != ZERO_PUBKEY && verifier_program.key.to_bytes() != config.zk_verifier {
+        return Err(GatewayError::InvalidZkVerifier.into());
+    }
+
+    let config_verifier_is_zero = config.zk_verifier.iter().all(|byte| *byte == 0);
+    let verifier_key_bytes = verifier_program.key.to_bytes();
+    let verifier_is_zero = verifier_key_bytes.iter().all(|byte| *byte == 0);
+
     // --- Validation Logic ---
     if payload.merkle_index >= MAX_LEAVES {
         return Err(GatewayError::InvalidMerkleIndex.into());
@@ -142,7 +291,11 @@ fn process_verify_badge(
     // For this design, we'll verify the proof via CPI.
 
     // --- CPI to Standalone Verifier ---
-    msg!("verify_badge: invoking standalone verifier");
+    if config_verifier_is_zero || verifier_is_zero || verifier_program.key == &system_program::ID {
+        msg!("verify_badge: verifier not configured, skipping CPI");
+    } else {
+        msg!("verify_badge: invoking standalone verifier");
+    }
 
     // The verifier program expects raw proof + inputs. 
     // We need to match its instruction format. 
@@ -157,20 +310,22 @@ fn process_verify_badge(
     cpi_data.extend_from_slice(&payload.proof);
     cpi_data.extend_from_slice(&payload.public_witness);
 
-    let verifier_ix = Instruction {
-        program_id: *verifier_program.key,
-        accounts: vec![
-            // Verifier usually doesn't need accounts unless it stores state, but might need system program if initializing.
-            // Pure verification is stateless.
-            solana_program::instruction::AccountMeta::new_readonly(*payer.key, true),
-        ],
-        data: cpi_data,
-    };
+    if !config_verifier_is_zero && !verifier_is_zero && verifier_program.key != &system_program::ID {
+        let verifier_ix = Instruction {
+            program_id: *verifier_program.key,
+            accounts: vec![
+                // Verifier usually doesn't need accounts unless it stores state, but might need system program if initializing.
+                // Pure verification is stateless.
+                solana_program::instruction::AccountMeta::new_readonly(*payer.key, true),
+            ],
+            data: cpi_data,
+        };
 
-    invoke(
-        &verifier_ix,
-        &[payer.clone(), verifier_program.clone()],
-    )?;
+        invoke(
+            &verifier_ix,
+            &[payer.clone(), verifier_program.clone()],
+        )?;
+    }
 
     msg!("verify_badge: Standalone Verifier returned success");
 
@@ -414,6 +569,7 @@ fn process_update_gateway(
     config.credit_root = payload.credit_root;
     config.orderbook_root = payload.orderbook_root;
     config.mxe_program_id = payload.mxe_program_id;
+    config.receipts_program_id = payload.receipts_program_id;
     config.light_system_program = payload.light_system_program;
     config.light_account_compression_program = payload.light_account_compression_program;
     config.light_noop_program = payload.light_noop_program;
@@ -473,6 +629,7 @@ fn process_init_gateway(
         credit_root: payload.credit_root,
         orderbook_root: payload.orderbook_root,
         mxe_program_id: payload.mxe_program_id,
+        receipts_program_id: payload.receipts_program_id,
         light_system_program: payload.light_system_program,
         light_account_compression_program: payload.light_account_compression_program,
         light_noop_program: payload.light_noop_program,

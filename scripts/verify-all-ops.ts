@@ -144,6 +144,7 @@ async function main() {
                     creditRoot: Array(32).fill(0),
                     orderbookRoot: Array(32).fill(0),
                     mxeProgramId: Array(32).fill(0),
+                    receiptsProgramId: Array.from(receiptsId.toBuffer()),
                     lightSystemProgram: Array(32).fill(0),
                     lightAccountCompressionProgram: Array(32).fill(0),
                     lightNoopProgram: Array(32).fill(0)

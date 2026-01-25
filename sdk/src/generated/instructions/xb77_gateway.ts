@@ -10,6 +10,7 @@ export interface InitGatewayPayload {
   creditRoot: Uint8Array | number[];
   orderbookRoot: Uint8Array | number[];
   mxeProgramId: Uint8Array | number[];
+  receiptsProgramId: Uint8Array | number[];
   lightSystemProgram: Uint8Array | number[];
   lightAccountCompressionProgram: Uint8Array | number[];
   lightNoopProgram: Uint8Array | number[];
@@ -23,6 +24,7 @@ export function serializeInitGatewayPayload(serializer: WincodeSerializer, value
   serializer.writeFixedArray(Buffer.from(value.creditRoot), 32);
   serializer.writeFixedArray(Buffer.from(value.orderbookRoot), 32);
   serializer.writeFixedArray(Buffer.from(value.mxeProgramId), 32);
+  serializer.writeFixedArray(Buffer.from(value.receiptsProgramId), 32);
   serializer.writeFixedArray(Buffer.from(value.lightSystemProgram), 32);
   serializer.writeFixedArray(Buffer.from(value.lightAccountCompressionProgram), 32);
   serializer.writeFixedArray(Buffer.from(value.lightNoopProgram), 32);
@@ -34,6 +36,7 @@ export interface UpdateGatewayPayload {
   creditRoot: Uint8Array | number[];
   orderbookRoot: Uint8Array | number[];
   mxeProgramId: Uint8Array | number[];
+  receiptsProgramId: Uint8Array | number[];
   lightSystemProgram: Uint8Array | number[];
   lightAccountCompressionProgram: Uint8Array | number[];
   lightNoopProgram: Uint8Array | number[];
@@ -45,6 +48,7 @@ export function serializeUpdateGatewayPayload(serializer: WincodeSerializer, val
   serializer.writeFixedArray(Buffer.from(value.creditRoot), 32);
   serializer.writeFixedArray(Buffer.from(value.orderbookRoot), 32);
   serializer.writeFixedArray(Buffer.from(value.mxeProgramId), 32);
+  serializer.writeFixedArray(Buffer.from(value.receiptsProgramId), 32);
   serializer.writeFixedArray(Buffer.from(value.lightSystemProgram), 32);
   serializer.writeFixedArray(Buffer.from(value.lightAccountCompressionProgram), 32);
   serializer.writeFixedArray(Buffer.from(value.lightNoopProgram), 32);
@@ -78,6 +82,22 @@ export function serializeSubmitPrivateOrderPayload(serializer: WincodeSerializer
   serializer.writeFixedArray(Buffer.from(value.token), 32);
   serializer.writeFixedArray(Buffer.from(value.recipient), 32);
   serializer.writeFixedArray(Buffer.from(value.nullifier), 32);
+}
+
+export interface ConfidentialTransferPayload {
+  instructionData: Uint8Array | Buffer;
+}
+
+export function serializeConfidentialTransferPayload(serializer: WincodeSerializer, value: ConfidentialTransferPayload) {
+  serializer.writeVec(Buffer.from(value.instructionData));
+}
+
+export interface ReceiptPayload {
+  receiptInstructionData: Uint8Array | Buffer;
+}
+
+export function serializeReceiptPayload(serializer: WincodeSerializer, value: ReceiptPayload) {
+  serializer.writeVec(Buffer.from(value.receiptInstructionData));
 }
 
 export interface ResolvePrivateOrderPayload {
@@ -179,9 +199,46 @@ export function createSubmitPrivateOrderInstruction(payload: SubmitPrivateOrderP
   });
 }
 
-export function createResolvePrivateOrderInstruction(payload: ResolvePrivateOrderPayload, accounts: { payer: PublicKey, gatewayState: PublicKey, instructionsSysvar: PublicKey }, programId: PublicKey = PROGRAM_ID): TransactionInstruction {
+export function createExecuteConfidentialTransferInstruction(payload: ConfidentialTransferPayload, accounts: { payer: PublicKey, gatewayState: PublicKey, mxeProgram: PublicKey }, programId: PublicKey = PROGRAM_ID): TransactionInstruction {
   const serializer = new WincodeSerializer();
   serializer.writeU32(4);
+  serializeConfidentialTransferPayload(serializer, payload);
+
+  const keys: AccountMeta[] = [
+    { pubkey: accounts.payer, isSigner: true, isWritable: true },
+    { pubkey: accounts.gatewayState, isSigner: false, isWritable: false },
+    { pubkey: accounts.mxeProgram, isSigner: false, isWritable: false },
+  ];
+
+  return new TransactionInstruction({
+    keys,
+    programId,
+    data: serializer.data,
+  });
+}
+
+export function createRecordReceiptInstruction(payload: ReceiptPayload, accounts: { payer: PublicKey, gatewayState: PublicKey, receiptProgram: PublicKey, agentAccount: PublicKey }, programId: PublicKey = PROGRAM_ID): TransactionInstruction {
+  const serializer = new WincodeSerializer();
+  serializer.writeU32(5);
+  serializeReceiptPayload(serializer, payload);
+
+  const keys: AccountMeta[] = [
+    { pubkey: accounts.payer, isSigner: true, isWritable: true },
+    { pubkey: accounts.gatewayState, isSigner: false, isWritable: false },
+    { pubkey: accounts.receiptProgram, isSigner: false, isWritable: false },
+    { pubkey: accounts.agentAccount, isSigner: false, isWritable: false },
+  ];
+
+  return new TransactionInstruction({
+    keys,
+    programId,
+    data: serializer.data,
+  });
+}
+
+export function createResolvePrivateOrderInstruction(payload: ResolvePrivateOrderPayload, accounts: { payer: PublicKey, gatewayState: PublicKey, instructionsSysvar: PublicKey }, programId: PublicKey = PROGRAM_ID): TransactionInstruction {
+  const serializer = new WincodeSerializer();
+  serializer.writeU32(6);
   serializeResolvePrivateOrderPayload(serializer, payload);
 
   const keys: AccountMeta[] = [
@@ -199,7 +256,7 @@ export function createResolvePrivateOrderInstruction(payload: ResolvePrivateOrde
 
 export function createAuditRevealInstruction(payload: AuditRevealPayload, accounts: { auditor: PublicKey, gatewayState: PublicKey }, programId: PublicKey = PROGRAM_ID): TransactionInstruction {
   const serializer = new WincodeSerializer();
-  serializer.writeU32(5);
+  serializer.writeU32(7);
   serializeAuditRevealPayload(serializer, payload);
 
   const keys: AccountMeta[] = [

@@ -74,6 +74,7 @@ fn test_gateway_to_core_cpi() {
         public_witness: vec![4, 5, 6],
     };
 
+    let sw_proof_pda = Pubkey::new_unique();
     let instruction = Instruction::new_with_bytes(
         gateway_program_id,
         &wincode::serialize(&GatewayInstruction::VerifyBadge(proof_payload)).unwrap(),
@@ -81,6 +82,7 @@ fn test_gateway_to_core_cpi() {
             AccountMeta::new(payer, true),
             AccountMeta::new(gateway_state_pda, false),
             AccountMeta::new_readonly(Pubkey::default(), false), // zk_verifier
+            AccountMeta::new_readonly(sw_proof_pda, false),
             AccountMeta::new_readonly(core_program_id, false),
             AccountMeta::new_readonly(core_config_pda, false),
             AccountMeta::new(credit_line_pda, false),
@@ -93,6 +95,7 @@ fn test_gateway_to_core_cpi() {
             (payer, Account::default()),
             (gateway_state_pda, gateway_account),
             (Pubkey::default(), Account::default()),
+            (sw_proof_pda, Account::default()),
             (core_program_id, Account { executable: true, ..Account::default() }), // Explicitly executable
             (core_config_pda, core_config_account),
             (credit_line_pda, credit_line_account),
