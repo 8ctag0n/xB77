@@ -17,7 +17,7 @@ Implement the `xb77_receipts` program utilizing Light Protocol (ZK Compression) 
     *   [x] Update `demo_e2e.ts` to verify the receipt was created (listen for logs or query compressed state).
 
 ## Dependencies
-*   Light Protocol binaries (already in `containers/surfpool/bin`).
+*   Light Protocol binaries (already in `containers/light/bin`; surfpool container is now unused).
 *   `xb77_core` (existing).
 
 ## Deliverables
