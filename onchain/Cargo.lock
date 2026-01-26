@@ -4325,6 +4325,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "xb77_test_utils"
+version = "0.1.0"
+dependencies = [
+ "solana-program",
+]
+
+[[package]]
 name = "zerocopy"
 version = "0.7.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"

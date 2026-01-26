@@ -285,9 +285,9 @@ fn process_request_payment(
     let mut cpi_accounts = Vec::with_capacity(2 + remaining_accounts.len());
     
     // 1. Signer (Agent)
-    cpi_accounts.push(solana_program::instruction::AccountMeta::new_readonly(*agent_signer.key, true));
+    cpi_accounts.push(solana_program::instruction::AccountMeta::new(*agent_signer.key, true));
     // 2. Owner (Agent) - duplicate, but distinct role in receipts program
-    cpi_accounts.push(solana_program::instruction::AccountMeta::new_readonly(*agent_signer.key, false));
+    cpi_accounts.push(solana_program::instruction::AccountMeta::new(*agent_signer.key, false));
     
     // 3. Remaining Light Accounts
     for acc in &remaining_accounts {
