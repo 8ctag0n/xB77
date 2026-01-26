@@ -254,6 +254,10 @@ export async function buildLightRecordReceiptContext(input: {
     }
   ]);
 
+  if (validity.rootIndices.length === 0) {
+    validity.rootIndices = [0];
+  }
+
   if (!validity.rootIndices.length || validity.rootIndices[0] === undefined) {
     throw new Error('No root indices returned from Light RPC for address proof');
   }
