@@ -29,7 +29,7 @@ export interface XB77AdapterOptions {
 }
 
 export class XB77Adapter implements PaymentAdapter {
-  readonly provider = 'shadowwire'; // Mapping to shadowwire provider identity for compatibility
+  readonly provider = 'xb77' as const; // Distinct identity for xB77 Native Privacy
   private connection: Connection;
   private coreProgramId: PublicKey;
   private gatewayProgramId: PublicKey;
@@ -44,8 +44,8 @@ export class XB77Adapter implements PaymentAdapter {
   constructor(options: XB77AdapterOptions) {
     this.connection = options.connection;
     this.coreProgramId = options.coreProgramId || CORE_PROGRAM_ID;
-    this.gatewayProgramId = options.gatewayProgramId || new PublicKey("FTN81z9qc5eiBrSzeD9pnEcJQmwJA4hj5xGqFQAJA6Hm");
-    this.receiptsProgramId = options.receiptsProgramId || new PublicKey("6LM5tQioTsog9AmiHbXBN69YrFBzzhspVWyxBvxKZss3");
+    this.gatewayProgramId = options.gatewayProgramId || new PublicKey("4gDQBWwzncRdTspJW37NoH56mGELj8UTqdC8VLdu7BGC");
+    this.receiptsProgramId = options.receiptsProgramId || new PublicKey("8iGuTTFLhNfbUN8teY6t1SEJ7vFFzvkd3bsXUhi1R12W");
     this.lightRpcUrl = options.lightRpcUrl ?? process.env.SOLANA_RPC_URL;
     this.lightCompressionUrl = options.lightCompressionUrl ?? process.env.LIGHT_COMPRESSION_RPC_URL;
     this.lightProverUrl = options.lightProverUrl ?? process.env.LIGHT_PROVER_RPC_URL;

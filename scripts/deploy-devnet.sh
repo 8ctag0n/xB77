@@ -4,84 +4,55 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROGRAMS_DIR="${ROOT_DIR}/onchain/programs"
 TARGET_DIR="${ROOT_DIR}/onchain/target/deploy"
-IDL_DIR="${ROOT_DIR}/idls"
-KEYPAIRS_DIR="${ROOT_DIR}/.localnet/keypairs" # Reusing keypairs or creating new ones for devnet? Best to separate.
-
-# Use a separate keypair directory for devnet to avoid confusion
-DEVNET_KEYPAIRS_DIR="${ROOT_DIR}/.devnet/keypairs"
-mkdir -p "${DEVNET_KEYPAIRS_DIR}"
-
-# --- Configuration ---
+KEYPAIRS_DIR="${ROOT_DIR}/.devnet/keypairs"
 CLUSTER_URL="https://api.devnet.solana.com"
-# Assuming the user has a wallet configured, or we can use a specific deployer key.
-# For now, let's use the default solana config keypair or prompt.
-# Actually, let's enforce using a specific deployer key if available, otherwise default.
 
-echo "--- Deploying to Devnet ---"
-echo "Cluster: $CLUSTER_URL"
+echo "--- 🚀 XB77 Devnet Deployment ---"
+echo "Setting config to Devnet..."
+solana config set --url "$CLUSTER_URL"
 
-# Check if we are on devnet
-CURRENT_CLUSTER=$(solana config get | grep "RPC URL" | awk '{print $3}')
-if [[ "$CURRENT_CLUSTER" != *devnet* ]]; then
-    echo "WARNING: Your current solana config is not pointing to devnet."
-    echo "Current: $CURRENT_CLUSTER"
-    echo "Switching to devnet..."
-    solana config set --url devnet
+# Ensure keypairs exist
+if [ ! -d "$KEYPAIRS_DIR" ]; then
+    echo "ERROR: .devnet/keypairs not found. Please run key generation first."
+    exit 1
 fi
 
-# Ensure we have SOL
-BALANCE=$(solana balance | awk '{print $1}')
-echo "Deployer Balance: $BALANCE SOL"
-if (( $(echo "$BALANCE < 5" | bc -l) )); then
-    echo "WARNING: Low balance. You might need to airdrop or fund your wallet."
-    # solana airdrop 2
-fi
-
-build_program() {
-  local program_name=$1
-  echo "Building ${program_name}..."
-  (cd "${PROGRAMS_DIR}/${program_name}" && cargo build-sbf)
-}
-
-deploy_program() {
-  local program_name=$1
-  local so_path="${TARGET_DIR}/${program_name}.so"
-  # We should use consistent keypairs for devnet to keep Program IDs stable across updates
-  local keypair_path="${DEVNET_KEYPAIRS_DIR}/${program_name}.json"
-
-  if [ ! -f "${keypair_path}" ]; then
-    echo "Generating new devnet keypair for ${program_name}..."
-    solana-keygen new --no-bip39-passphrase -o "${keypair_path}" --silent
-  fi
-
-  local program_id=$(solana-keygen pubkey "${keypair_path}")
-  echo "Deploying ${program_name} (${program_id})..."
-  
-  # Deploy using the program keypair
-  solana program deploy \
-    --program-id "${keypair_path}" \
-    "${so_path}"
+# Function to build and deploy
+deploy() {
+    local name="$1"
+    echo ""
+    echo ">>> Processing $name..."
     
-  echo "Deployed ${program_name} to ${program_id}"
+    # 1. Build
+    echo "Building..."
+    (cd "${PROGRAMS_DIR}/$name" && cargo build-sbf)
+    
+    # 2. Deploy
+    local kp="${KEYPAIRS_DIR}/$name.json"
+    local so="${TARGET_DIR}/$name.so"
+    local deployer_kp="${ROOT_DIR}/.devnet/deployer.json"
+    local prog_id=$(solana-keygen pubkey "$kp")
+    
+    echo "Deploying to $prog_id using deployer $(solana-keygen pubkey "$deployer_kp")..."
+    solana program deploy \
+        --program-id "$kp" \
+        --fee-payer "$deployer_kp" \
+        --upgrade-authority "$deployer_kp" \
+        "$so"
+        
+    echo "✅ $name Deployed: $prog_id"
 }
 
-# --- Build & Deploy ---
+# Deploy sequence (Order matters for dependencies?)
+# Not strictly, but good to do foundational first.
 
-# 1. Core
-build_program "xb77_core"
-deploy_program "xb77_core"
+deploy "xb77_registry"
+deploy "xb77_test_utils"
+deploy "xb77_receipts"
+deploy "xb77_gateway"
+deploy "xb77_core"
 
-# 2. Gateway
-build_program "xb77_gateway"
-deploy_program "xb77_gateway"
-
-# 3. Registry
-build_program "xb77_registry"
-deploy_program "xb77_registry"
-
-# 4. Receipts
-build_program "xb77_receipts"
-deploy_program "xb77_receipts"
-
-echo "--- All Programs Deployed ---"
-echo "Check .devnet/keypairs for the program keys."
+echo ""
+echo "--- 🎉 Deployment Complete! ---"
+echo "Next steps:"
+echo "1. Run 'scripts/init-devnet.ts' to initialize global state."

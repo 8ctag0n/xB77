@@ -75,7 +75,7 @@ export function serializeRecordReceiptInstructionData(_: WincodeSerializer, valu
   ]);
 }
 
-export const PROGRAM_ID = new PublicKey('9kknYrFBjkBUuMyZZhksoHcj29gjfzGsDMgnyfp3Y6VM');
+export const PROGRAM_ID = new PublicKey('8iGuTTFLhNfbUN8teY6t1SEJ7vFFzvkd3bsXUhi1R12W');
 
 export function createRecordReceiptInstruction(recordReceiptInstructionData: RecordReceiptInstructionData, accounts: { signer: PublicKey, agentAccount: PublicKey, lightCpiSigner: PublicKey, systemProgram: PublicKey, lightSystemProgram: PublicKey }, programId: PublicKey = PROGRAM_ID): TransactionInstruction {
   const serializer = new WincodeSerializer();

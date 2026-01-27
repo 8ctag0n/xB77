@@ -15,26 +15,35 @@ export interface PaymentGatewayOptions {
 
 export function createMockPaymentAdapters(starpayBalance?: number) {
   return {
-    shadowwire: new ShadowWireAdapter({ mode: 'mock' }),
-    privacy_cash: new PrivacyCashAdapter({ mode: 'mock' }),
+    shadowwire: new ShadowWireAdapter({ payer: Keypair.generate() }),
+    privacy_cash: new PrivacyCashAdapter({ rpcUrl: 'http://localhost:8899', owner: Keypair.generate() }),
+    xb77: new XB77Adapter({ connection: new Connection('http://localhost:8899'), payer: Keypair.generate() }),
     starpay: new StarpayAdapter(starpayBalance),
-  } as const;
+  } as any;
 }
 
-export function createMockPaymentGateway(defaultProvider: PaymentProvider = 'shadowwire', starpayBalance?: number) {
+export function createMockPaymentGateway(defaultProvider: PaymentProvider = 'xb77', starpayBalance?: number) {
   const adapters = createMockPaymentAdapters(starpayBalance);
   return new PaymentGateway(adapters, defaultProvider);
 }
 
 export function createPaymentGateway(options: PaymentGatewayOptions = {}) {
   const mode = options.mode ?? 'mock';
-  const defaultProvider = options.defaultProvider ?? 'shadowwire';
-  const shadowwire =
-    mode === 'live'
-      ? new ShadowWireAdapter({ ...options.shadowwire, mode: 'live' })
-      : new ShadowWireAdapter({ ...options.shadowwire, mode: 'mock' });
-  const privacy_cash = new PrivacyCashAdapter({ ...options.privacyCash, mode: 'mock' });
+  const defaultProvider = options.defaultProvider ?? 'xb77';
+  
+  // Note: These defaults are just skeletons, real initialization happens in PrivacyAgent constructor
+  // or via explicit options.
+  const shadowwire = new ShadowWireAdapter({ payer: Keypair.generate(), ...options.shadowwire });
+  const privacy_cash = new PrivacyCashAdapter({ 
+    rpcUrl: 'https://api.devnet.solana.com', 
+    owner: Keypair.generate(), 
+    ...options.privacyCash 
+  });
+  const xb77 = new XB77Adapter({ 
+    connection: new Connection('https://api.devnet.solana.com'), 
+    payer: Keypair.generate() 
+  });
   const starpay = new StarpayAdapter(options.starpayBalance);
 
-  return new PaymentGateway({ shadowwire, privacy_cash, starpay }, defaultProvider);
+  return new PaymentGateway({ shadowwire, privacy_cash, xb77, starpay }, defaultProvider);
 }

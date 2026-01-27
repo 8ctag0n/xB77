@@ -1,105 +1,99 @@
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, Keypair } from '@solana/web3.js';
 import {
   PaymentAdapter,
   PaymentContext,
   PaymentExecutionResult,
   PaymentRequest,
 } from '../payments';
-import { MockPrivacyCashClient, PrivacyCashMockClient } from '../payment_mocks/privacy_cash';
+import { PrivacyCash } from 'privacycash';
 import { PrivacyRail } from '../liquidity_manager';
 import { BalanceInfo } from '../balance';
 import { SupportedToken } from '../wallet';
 
-export type PrivacyCashAdapterMode = 'mock';
-
 export interface PrivacyCashAdapterOptions {
-  mode?: PrivacyCashAdapterMode;
-  client?: PrivacyCashMockClient;
+  rpcUrl: string;
+  owner: Keypair | string | number[] | Uint8Array;
+  enableDebug?: boolean;
 }
 
 export class PrivacyCashAdapter implements PaymentAdapter, PrivacyRail {
   readonly provider = 'privacy_cash' as const;
   readonly name = 'Privacy Cash';
-  private client: PrivacyCashMockClient;
+  private client: PrivacyCash;
 
-  constructor(options: PrivacyCashAdapterOptions = {}) {
-    this.client = options.client ?? new MockPrivacyCashClient();
+  constructor(options: PrivacyCashAdapterOptions) {
+    this.client = new PrivacyCash({
+      RPC_url: options.rpcUrl,
+      owner: options.owner as any,
+      enableDebug: options.enableDebug ?? false
+    });
   }
 
-  async getBalance(publicKey: PublicKey, token: SupportedToken): Promise<BalanceInfo> {
-    const balance = await this.client.getBalance(publicKey.toBase58(), token);
+  async getBalance(_publicKey: PublicKey, token: SupportedToken): Promise<BalanceInfo> {
+    // Note: PrivacyCash client already knows the owner from constructor
+    let balance: number;
+    if (token === 'SOL') {
+      balance = await this.client.getPrivateBalance();
+    } else if (token === 'USDC') {
+      balance = await this.client.getPrivateBalanceUSDC();
+    } else {
+      // Need a way to map SupportedToken to Mint Address if not SOL/USDC
+      // For now we assume USDC for other tokens if needed, or throw
+      throw new Error(`PrivacyCash balance for ${token} not implemented in adapter.`);
+    }
+
     return {
-      available: balance.available,
-      source: 'Privacy Cash Mock'
+      available: balance,
+      source: 'Privacy Cash'
     };
   }
 
   async getLimit(_publicKey: PublicKey, _token: SupportedToken): Promise<number> {
-    return 10_000; // Mock limit
+    return 50_000; // Realistic limit for privacy pools
   }
 
-  async deposit(publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
-    const isSol = token === 'SOL';
-    const depositRequest = {
-      owner: publicKey.toBase58(),
-      token,
-      amount,
-    };
-
-    if (isSol) {
-      await this.client.deposit(depositRequest);
-    } else {
-      await this.client.depositSPL(depositRequest);
+  async deposit(_publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
+    if (token !== 'SOL') {
+        throw new Error('PrivacyCash Adapter currently only supports SOL deposits in this version');
     }
+    // Convert to lamports (assuming amount is in SOL)
+    const lamports = Math.floor(amount * 1e9);
+    await this.client.deposit({ lamports });
   }
 
-  async withdraw(publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
-    const isSol = token === 'SOL';
-    const withdrawRequest = {
-      recipientAddress: publicKey.toBase58(),
-      token,
-      amount,
-    };
-
-    if (isSol) {
-      await this.client.withdraw(withdrawRequest);
-    } else {
-      await this.client.withdrawSPL(withdrawRequest);
+  async withdraw(_publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
+    if (token !== 'SOL') {
+        throw new Error('PrivacyCash Adapter currently only supports SOL withdrawals in this version');
     }
+    const lamports = Math.floor(amount * 1e9);
+    await this.client.withdraw({ lamports });
   }
 
   async execute(request: PaymentRequest, _context?: PaymentContext): Promise<PaymentExecutionResult> {
-    const isSol = request.currency === 'SOL';
     const token = request.currency;
-
-    const depositRequest = {
-      owner: request.agentId,
-      token,
-      amount: request.amount,
-    };
-
-    if (isSol) {
-      await this.client.deposit(depositRequest);
-    } else {
-      await this.client.depositSPL(depositRequest);
+    if (token !== 'SOL') {
+        throw new Error('PrivacyCash Adapter currently only supports SOL payments');
     }
 
-    const withdrawRequest = {
-      recipientAddress: request.vendor,
-      token,
-      amount: request.amount,
-    };
+    const lamports = Math.floor(request.amount * 1e9);
 
-    const withdrawResult = isSol
-      ? await this.client.withdraw(withdrawRequest)
-      : await this.client.withdrawSPL(withdrawRequest);
+    // Flow: Deposit -> Withdraw to recipient (Privacy Cash way of doing a private transfer)
+    console.log(`[PrivacyCash] Executing private payment of ${request.amount} SOL to ${request.vendor}`);
+    
+    // 1. Shield funds
+    await this.client.deposit({ lamports });
+    
+    // 2. Withdraw to vendor
+    const withdrawResult = await this.client.withdraw({ 
+        lamports, 
+        recipientAddress: request.vendor 
+    });
 
     return {
       provider: this.provider,
-      status: withdrawResult?.tx ? 'success' : 'failed',
-      txSignature: withdrawResult?.tx,
+      status: withdrawResult ? 'success' : 'failed',
+      txSignature: (withdrawResult as any)?.signature || (withdrawResult as any)?.tx,
       paidAmount: request.amount,
-      fee: withdrawResult?.fee_lamports,
       raw: {
         withdraw: withdrawResult,
       },

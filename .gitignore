@@ -1,6 +1,7 @@
 **/target/
 sdk/src/artifacts/
 .localnet/
+.devnet/
 contracts/target/
 onchain/target/
 target/

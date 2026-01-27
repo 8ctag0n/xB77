@@ -26,9 +26,9 @@ use solana_program::{
 
 use solana_program::declare_id;
 
-declare_id!("6LM5tQioTsog9AmiHbXBN69YrFBzzhspVWyxBvxKZss3");
+declare_id!("8iGuTTFLhNfbUN8teY6t1SEJ7vFFzvkd3bsXUhi1R12W");
 pub const LIGHT_CPI_SIGNER: CpiSigner = derive_light_cpi_signer!(
-    "6LM5tQioTsog9AmiHbXBN69YrFBzzhspVWyxBvxKZss3"
+    "8iGuTTFLhNfbUN8teY6t1SEJ7vFFzvkd3bsXUhi1R12W"
 );
 
 entrypoint!(process_instruction);

@@ -20,6 +20,8 @@ import { StarpayAdapter } from './economy/payment_adapters/starpay';
 import { PaymentStrategyEngine } from './economy/strategy';
 
 import { XB77Adapter, XB77AdapterOptions } from './economy/payment_adapters/xb77';
+import { ShadowWireAdapter } from './economy/payment_adapters/shadowwire';
+import { PrivacyCashAdapter } from './economy/payment_adapters/privacy_cash';
 import { KaminoMockProvider } from './economy/yield';
 import { HeliusIntelligenceAdapter } from './economy/intelligence/helius';
 import { ReceiptAuditor, AuditProof } from './economy/auditor';
@@ -93,10 +95,9 @@ export class PrivacyAgent {
     this.auditor = new ReceiptAuditor(config.keypair.secretKey);
     this.feeTracker = new FeeTracker();
 
-    // Initialize On-Chain Adapter if connection is provided
-    let xb77Adapter: XB77Adapter | undefined;
+    // Initialize On-Chain Adapters if connection is provided
     if (config.connection) {
-      xb77Adapter = new XB77Adapter({
+      const xb77 = new XB77Adapter({
         connection: config.connection,
         coreProgramId: config.coreProgramId,
         gatewayProgramId: config.gatewayProgramId,
@@ -106,9 +107,24 @@ export class PrivacyAgent {
         lightProverUrl: config.lightProverUrl,
         payer: config.keypair
       });
-      // Inject into gateway if not already custom
+
+      const shadowwire = new ShadowWireAdapter({
+        payer: config.keypair,
+        debug: config.debug
+      });
+
+      const privacy_cash = new PrivacyCashAdapter({
+        rpcUrl: config.connection.rpcEndpoint,
+        owner: config.keypair,
+        enableDebug: config.debug
+      });
+
+      // Inject into gateway
       if (!config.paymentGateway && (this.paymentGateway as any).adapters) {
-        (this.paymentGateway as any).adapters['shadowwire'] = xb77Adapter;
+        const adapters = (this.paymentGateway as any).adapters;
+        adapters['xb77'] = xb77;
+        adapters['shadowwire'] = shadowwire;
+        adapters['privacy_cash'] = privacy_cash;
       }
     }
 
@@ -117,7 +133,7 @@ export class PrivacyAgent {
     this.router = new PaymentRouter({
       gateway: this.paymentGateway,
       range,
-      preferredInternalProvider: 'shadowwire',
+      preferredInternalProvider: 'xb77',
       preferredExternalProvider: 'shadowwire'
     });
 
@@ -125,9 +141,13 @@ export class PrivacyAgent {
     const starpay = (this.paymentGateway as any).adapters?.['starpay'] as StarpayAdapter;
     const sources: LiquiditySource[] = starpay ? [starpay] : [];
     
-    // ShadowWire as Privacy Rail (mocked or live)
-    const shadowwire = (this.paymentGateway as any).adapters?.['shadowwire'] as any;
-    const rails: PrivacyRail[] = shadowwire ? [shadowwire] : [];
+    // Privacy Rails (available for the LiquidityManager)
+    const adapters = (this.paymentGateway as any).adapters || {};
+    const rails: PrivacyRail[] = [
+        adapters['xb77'],
+        adapters['shadowwire'],
+        adapters['privacy_cash']
+    ].filter(Boolean);
 
     this.liquidityManager = new LiquidityManager({
       agentId: this.wallet.publicKey,
@@ -161,7 +181,7 @@ export class PrivacyAgent {
 
     if (!selectedProvider) {
       // Find intelligence provider in adapters
-      const intel = (this.paymentGateway as any).adapters?.['shadowwire'] instanceof XB77Adapter
+      const intel = (this.paymentGateway as any).adapters?.['xb77'] instanceof XB77Adapter
         ? new HeliusIntelligenceAdapter({ apiKey: process.env.HELIUS_API_KEY || 'mock' })
         : undefined;
 
@@ -248,7 +268,7 @@ export class PrivacyAgent {
     console.log(`[Ghost] Funding burner ${burnerPub} with ${fundAmount} ${token}...`);
     
     // This uses the main treasury to fund the burner via a private internal transfer
-    const fundingResult = await this.pay(burnerPub, fundAmount, token, 'internal', 'shadowwire');
+    const fundingResult = await this.pay(burnerPub, fundAmount, token, 'internal', 'xb77');
     console.log(`[Ghost] Burner funded. TX: ${fundingResult.txSignature}`);
 
     // Wait for the privacy pool to settle (mock/simulated delay for ZK proof availability)
@@ -267,7 +287,7 @@ export class PrivacyAgent {
       agentId: burnerPub, 
       vendor: recipient,
       type: 'external',
-      provider: 'shadowwire',
+      provider: 'xb77',
     };
 
     // Pre-screen recipient for compliance before using the burner
@@ -299,7 +319,7 @@ export class PrivacyAgent {
       txSignature: execution.txSignature,
       proofPda: execution.proofPda,
       nonce: execution.nonce,
-      provider: 'shadowwire (ghost)',
+      provider: 'xb77 (ghost)',
       raw: { ...execution.raw, burner: burnerPub }
     };
   }
@@ -323,9 +343,9 @@ export class PrivacyAgent {
     }
 
     // Add On-Chain Credit Line if available
-    const shadowwire = (this.paymentGateway as any).adapters?.['shadowwire'];
-    if (shadowwire instanceof XB77Adapter) {
-      const credit = await shadowwire.getCreditBalance(this.wallet.keypair.publicKey);
+    const xb77 = (this.paymentGateway as any).adapters?.['xb77'];
+    if (xb77 instanceof XB77Adapter) {
+      const credit = await xb77.getCreditBalance(this.wallet.keypair.publicKey);
       return {
         ...baseBalance,
         credit: Number(credit),
