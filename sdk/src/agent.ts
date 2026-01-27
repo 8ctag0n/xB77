@@ -61,6 +61,11 @@ export interface AgentStateSnapshot<TBalance = unknown> {
   };
   efficiency?: EfficiencyMetrics;
   latestReceipt: PaymentReceipt | null;
+  identity?: {
+    merkleRootHex: string;
+    merkleIndex: number;
+    nullifierHex: string;
+  };
   updatedAt: number;
 }
 
@@ -376,6 +381,18 @@ export class PrivacyAgent {
     const treasury = await this.liquidityManager.getFullSnapshot(token);
     const efficiency = this.feeTracker.calculateEfficiency(treasury.yield.available);
 
+    let identityInfo;
+    try {
+      const proof = await this.identity.proveAccess();
+      identityInfo = {
+        merkleRootHex: proof.merkleRootHex,
+        merkleIndex: proof.merkleIndex,
+        nullifierHex: proof.nullifierHex
+      };
+    } catch (e) {
+      // Identity artifacts might not be generated yet
+    }
+
     return {
       publicKey: this.wallet.publicKey.toBase58(),
       token,
@@ -383,6 +400,7 @@ export class PrivacyAgent {
       treasury,
       efficiency,
       latestReceipt,
+      identity: identityInfo,
       updatedAt: Date.now(),
     };
   }

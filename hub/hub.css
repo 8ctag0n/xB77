@@ -363,6 +363,25 @@ body {
   font-weight: bold;
 }
 
+.noir-badge.warning {
+  border-color: var(--danger);
+  background: rgba(255, 61, 113, 0.05);
+}
+
+.noir-badge.warning .badge-label {
+  color: var(--danger);
+}
+
+.noir-badge.warning .badge-sub {
+  color: var(--danger);
+  opacity: 0.7;
+}
+
+.badge-check {
+  margin-left: auto;
+  color: var(--accent-2);
+}
+
 /* Utils */
 .hidden { display: none !important; }
 .muted { color: var(--muted); }

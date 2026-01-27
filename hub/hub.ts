@@ -400,7 +400,7 @@ const ICONS = {
 
 // ... (existing code) ...
 
-function renderAgentDetail(agent?: AgentSummary) {
+function renderAgentDetail(agent?: AgentSummary, identity?: any) {
   if (!agent) {
     agentDetail.classList.add('muted');
     agentDetail.textContent = 'Select an agent to see details.';
@@ -409,18 +409,26 @@ function renderAgentDetail(agent?: AgentSummary) {
     return;
   }
   
-  // Mocking Noir Proof Data for Demo
-  const hasBadge = true; 
+  // Real Identity Badge or Fallback Mock
+  const hasBadge = !!identity; 
   const badgeHtml = hasBadge ? `
     <div class="noir-badge" title="Verified by Noir ZK-Circuit">
       <div class="badge-icon">${ICONS.BADGE}</div>
       <div class="badge-info">
         <span class="badge-label">IDENTITY VERIFIED</span>
-        <span class="badge-sub">Noir Proof: 0x9f...a2</span>
+        <span class="badge-sub">Root: ${identity.merkleRootHex.slice(0, 10)}...</span>
       </div>
       <div class="badge-check">${ICONS.CHECK}</div>
     </div>
-  ` : '';
+  ` : `
+    <div class="noir-badge warning" title="No active identity proof found. Generate one to verify access.">
+      <div class="badge-icon" style="color: var(--danger)">${ICONS.BADGE}</div>
+      <div class="badge-info">
+        <span class="badge-label" style="color: var(--danger)">IDENTITY UNVERIFIED</span>
+        <span class="badge-sub">No Proof Detected</span>
+      </div>
+    </div>
+  `;
 
   agentDetail.classList.remove('muted');
   agentDetail.innerHTML = `
@@ -443,6 +451,16 @@ function renderAgentDetail(agent?: AgentSummary) {
         <label>Capabilities</label>
         <span>${agent.capabilities.length} active</span>
       </div>
+      ${identity ? `
+      <div class="detail-item">
+        <label>Merkle Index</label>
+        <span>#${identity.merkleIndex}</span>
+      </div>
+      <div class="detail-item">
+        <label>Nullifier</label>
+        <span class="code-font text-xxs">${identity.nullifierHex.slice(0, 12)}...</span>
+      </div>
+      ` : ''}
       <div class="detail-item full-width">
         <label>MCP Endpoint</label>
         <span class="code-font">${agent.mcpUrl}</span>
@@ -724,6 +742,7 @@ async function refreshObservabilityPanel() {
 
     renderBalance(statePayload?.balance ?? statePayload?.data?.balance);
     renderLatestReceipt(statePayload?.latestReceipt ?? statePayload?.data?.latestReceipt);
+    renderAgentDetail(selected, statePayload?.identity ?? statePayload?.data?.identity);
     renderReceiptsList(listPayload);
     observabilityStatus.textContent = `Updated ${new Date().toLocaleTimeString()}`;
   } catch (error: any) {
