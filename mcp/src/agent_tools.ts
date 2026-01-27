@@ -20,7 +20,40 @@ export interface AgentContext {
   defaultToken: SupportedToken;
 }
 
-// ... (keep helper functions until buildAgentContext)
+const VALID_TOKENS: SupportedToken[] = ['SOL', 'USD1', 'USDC'];
+const VALID_PROVIDERS = ['shadowwire', 'privacy_cash', 'starpay', 'xb77'];
+
+function normalizeToken(token: any, fallback: SupportedToken = 'USD1'): SupportedToken {
+  if (!token) return fallback;
+  const t = String(token).toUpperCase();
+  if (VALID_TOKENS.includes(t as any)) return t as SupportedToken;
+  return fallback;
+}
+
+function normalizeProvider(provider: any, fallback: string = 'xb77'): string {
+  if (!provider) return fallback;
+  const p = String(provider).toLowerCase();
+  if (VALID_PROVIDERS.includes(p)) return p;
+  return fallback;
+}
+
+function parseBalances(json?: string): Record<SupportedToken, number> {
+  if (!json) return { USD1: 1000 } as any;
+  try {
+    return JSON.parse(json);
+  } catch {
+    return { USD1: 1000 } as any;
+  }
+}
+
+async function loadKeypairFromEnv(): Promise<Keypair> {
+  const path_env = process.env.XB77_KEYPAIR_PATH;
+  if (path_env && fs.existsSync(path_env)) {
+    const secretKey = Uint8Array.from(JSON.parse(fs.readFileSync(path_env, 'utf-8')));
+    return Keypair.fromSecretKey(secretKey);
+  }
+  return Keypair.generate();
+}
 
 export async function buildAgentContext(options?: {
   keypair?: Keypair;

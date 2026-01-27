@@ -77,19 +77,23 @@ export class ShadowWireAdapter implements PaymentAdapter, PrivacyRail {
 
     const signMessage = async (msg: Uint8Array) => nacl.sign.detached(msg, this.payer.secretKey);
 
+    // Ensure amount is passed as a plain number and is correctly named in the payload
     const result = await this.client.transfer({
       sender: this.payer.publicKey.toBase58(),
       recipient: request.vendor,
-      amount: request.amount,
+      amount: Number(request.amount), // Explicit number conversion
       token: request.currency as any,
-      type: request.type === 'internal' ? 'internal' : 'external',
-      wallet: { signMessage }
+      type: (request.type === 'internal' ? 'internal' : 'external') as any,
+      wallet: { 
+        signMessage,
+        publicKey: this.payer.publicKey.toBase58() // Some versions require the pubkey in the wallet object
+      }
     });
 
     return {
       provider: this.provider,
-      status: 'success', // ShadowWire throws on failure usually
-      txSignature: (result as any).signature || (result as any).txHash,
+      status: 'success', 
+      txSignature: (result as any).signature || (result as any).txHash || (result as any).id,
       paidAmount: request.amount,
       raw: result,
     };

@@ -197,4 +197,28 @@ export class XB77Adapter implements PaymentAdapter {
     const balance = info.data.readBigUInt64LE(32);
     return balance;
   }
+
+  // --- PrivacyRail Implementation ---
+
+  async getBalance(publicKey: PublicKey, _token: SupportedToken): Promise<{ available: number; source: string }> {
+    const balance = await this.getCreditBalance(publicKey);
+    return {
+      available: Number(balance),
+      source: 'xB77 On-Chain Credit'
+    };
+  }
+
+  async getLimit(_publicKey: PublicKey, _token: SupportedToken): Promise<number> {
+    return 5000; // Global credit limit for the demo
+  }
+
+  async deposit(_publicKey: PublicKey, _amount: number, _token: SupportedToken): Promise<void> {
+    // Scenario: Topping up the credit line would involve a SOL transfer to core vault.
+    // In the demo, we assume the line is pre-allocated or handled by governance.
+    console.log(`[XB77Adapter] Credit line top-up simulated.`);
+  }
+
+  async withdraw(_publicKey: PublicKey, _amount: number, _token: SupportedToken): Promise<void> {
+    console.log(`[XB77Adapter] Credit line withdrawal simulated.`);
+  }
 }

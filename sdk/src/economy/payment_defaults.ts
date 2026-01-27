@@ -20,7 +20,10 @@ export function createMockPaymentAdapters(starpayBalance?: number) {
     shadowwire: new ShadowWireAdapter({ payer: Keypair.generate() }),
     privacy_cash: new PrivacyCashAdapter({ rpcUrl: 'http://localhost:8899', owner: Keypair.generate() }),
     xb77: new XB77Adapter({ connection: new Connection('http://localhost:8899'), payer: Keypair.generate() }),
-    starpay: new StarpayAdapter(starpayBalance),
+    starpay: new StarpayAdapter({ 
+      apiKey: 'mock-key',
+      resellerMarkupPercent: 5.0 
+    }),
   } as any;
 }
 
@@ -54,7 +57,10 @@ export function createPaymentGateway(options: PaymentGatewayOptions = {}) {
     receiptsProgramId: options.xb77?.receiptsProgramId
   });
 
-  const starpay = new StarpayAdapter(options.starpayBalance);
+  const starpay = new StarpayAdapter({
+    apiKey: process.env.STARPAY_API_KEY || 'REPLACE_ME',
+    resellerMarkupPercent: 5.0
+  });
 
   return new PaymentGateway({ shadowwire, privacy_cash, xb77, starpay }, defaultProvider);
 }
