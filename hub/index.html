@@ -71,6 +71,10 @@
                   <div class="card-header">
                     <h2>Operational History</h2>
                     <div class="header-actions">
+                      <div class="privacy-toggle shielded" id="privacy-toggle" title="Toggle between Public and Shielded Receipts">
+                        <span class="toggle-label">SHIELDED</span>
+                        <div class="toggle-switch"></div>
+                      </div>
                       <span class="live-indicator">LIVE</span>
                     </div>
                   </div>
@@ -81,6 +85,28 @@
               </div>
 
               <div class="terminal-sidebar">
+                <!-- LIVE INTEL POLLING WIDGET -->
+                <div class="card intel-card">
+                  <div class="card-header">
+                    <h2>Market Intel Polling</h2>
+                    <span class="intel-status pulse">LIVE CONSENSUS</span>
+                  </div>
+                  <div class="intel-body" id="intel-poll">
+                    <div class="poll-question">Auto-rebalance liquidity now?</div>
+                    <div class="poll-options">
+                      <div class="poll-bar-container" data-opt="A">
+                        <div class="poll-label"><span>YES (SHIELDED)</span><span class="pct">68%</span></div>
+                        <div class="poll-bar"><div class="poll-fill" style="width: 68%"></div></div>
+                      </div>
+                      <div class="poll-bar-container" data-opt="B">
+                        <div class="poll-label"><span>NO (WAIT)</span><span class="pct">32%</span></div>
+                        <div class="poll-bar"><div class="poll-fill" style="width: 32%"></div></div>
+                      </div>
+                    </div>
+                    <div class="intel-footer muted">Epoch 77 • consensus in 14s</div>
+                  </div>
+                </div>
+
                 <div class="card thought-card">
                   <div class="card-header">
                     <h2>Agent Thought Stream</h2>
@@ -97,11 +123,11 @@
                   <div class="stats-grid">
                     <div class="stat-item">
                       <label>Total Managed</label>
-                      <span id="stat-sales">$0.00</span>
+                      <span id="stat-sales-sidebar">$0.00</span>
                     </div>
                     <div class="stat-item">
                       <label>Active Tasks</label>
-                      <span id="stat-pending">0</span>
+                      <span id="stat-pending-sidebar">0</span>
                     </div>
                     <div class="efficiency-gauge">
                       <label>Sustainability Index</label>
