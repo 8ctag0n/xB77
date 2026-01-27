@@ -31,3 +31,6 @@ A diferencia de los bots sin estado, los agentes xB77 mantienen:
 - Almacén de Recibos Privados: Una base de datos SQLite encriptada de todas las acciones históricas.
 - Contexto de Identidad: Su Insignia ZK actual y el estado de su línea de crédito.
 - Puntajes de Confianza: Una base de datos local dinámica de proveedores conocidos y entidades de riesgo.
+
+## 4. Integración MCP (Protocolo de Contexto del Modelo)
+xB77 utiliza el Protocolo de Contexto del Modelo para permitir que los LLM (Modelos de Lenguaje Grande) interactúen con herramientas financieras de forma segura. La capa MCP actúa como un “Buffer Legal”, asegurando que el LLM pueda proponer acciones, pero el SDK subyacente de xB77 impone las reglas duras de cumplimiento y privacidad antes de generar cualquier firma.

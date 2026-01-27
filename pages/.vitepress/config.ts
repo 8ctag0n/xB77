@@ -74,10 +74,18 @@ export default defineConfig({
           {
             text: '02_INMERSIÓN_TÉCNICA',
             items: [
-              { text: 'El Cerebro Autónomo', link: '/docs/architecture/autonomous-brain' },
-              { text: 'Integración MCP', link: '/docs/architecture/mcp-integration' },
+              { text: 'El Cerebro Autónomo (EN)', link: '/docs/architecture/autonomous-brain' },
+              { text: 'Integración MCP (EN)', link: '/docs/architecture/mcp-integration' },
               { text: 'Diseño del Agente', link: '/es/docs/agent-design' },
-              { text: 'Arquitectura Infra', link: '/es/docs/diagrams' }
+              { text: 'Arquitectura Infra', link: '/es/docs/diagrams' },
+              { text: 'Declaración de Misión', link: '/es/docs/mission' }
+            ]
+          },
+          {
+            text: '03_ECOSISTEMA',
+            items: [
+              { text: 'Libro Blanco', link: '/es/docs/whitepaper' },
+              { text: 'Sponsor Alignment (EN)', link: '/docs/ecosystem/SPONSORS' }
             ]
           }
         ]

@@ -60,8 +60,8 @@ features:
     xB77 provides the abstraction layer necessary for autonomous agents to manage capital with institutional-grade privacy and compliance.
   </p>
   <div style="display: flex; gap: 2rem; justify-content: center;">
-    <a href="/docs/guide/GETTING_STARTED" class="cyber-button">Launch Pipeline</a>
-    <a href="/docs/whitepaper/WHITEPAPER_EN" class="cyber-button alt">Read Whitepaper</a>
+    <a href="/es/docs/guide/GETTING_STARTED" class="cyber-button">Iniciar Pipeline</a>
+    <a href="/es/docs/whitepaper/WHITEPAPER_ES" class="cyber-button alt">Leer Libro Blanco</a>
   </div>
 </section>
 
