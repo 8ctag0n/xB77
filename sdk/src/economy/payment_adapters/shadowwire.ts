@@ -44,18 +44,31 @@ export class ShadowWireAdapter implements PaymentAdapter, PrivacyRail {
   }
 
   async deposit(publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
+    console.log(`[ShadowWire] Depositing ${amount} ${token} for ${publicKey.toBase58()}...`);
     const amountSmallest = TokenUtils.toSmallestUnit(amount, token as any);
+    
+    // In ShadowWire, deposit usually requires a signature from the source wallet
+    const signMessage = async (msg: Uint8Array) => nacl.sign.detached(msg, this.payer.secretKey);
+
     await this.client.deposit({
       wallet: publicKey.toBase58(),
-      amount: Number(amountSmallest)
+      amount: Number(amountSmallest),
+      token: token as any,
+      signer: { signMessage, publicKey: this.payer.publicKey.toBase58() }
     });
   }
 
   async withdraw(publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
+    console.log(`[ShadowWire] Withdrawing ${amount} ${token} from ${publicKey.toBase58()}...`);
     const amountSmallest = TokenUtils.toSmallestUnit(amount, token as any);
+
+    const signMessage = async (msg: Uint8Array) => nacl.sign.detached(msg, this.payer.secretKey);
+
     await this.client.withdraw({
       wallet: publicKey.toBase58(),
-      amount: Number(amountSmallest)
+      amount: Number(amountSmallest),
+      token: token as any,
+      signer: { signMessage, publicKey: this.payer.publicKey.toBase58() }
     });
   }
 

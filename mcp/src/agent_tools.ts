@@ -74,6 +74,9 @@ export async function buildAgentContext(options?: {
   const lightProverUrl =
     process.env.XB77_LIGHT_PROVER_RPC_URL ?? process.env.LIGHT_PROVER_RPC_URL;
 
+  const starpayApiKey = process.env.STARPAY_API_KEY || 'mock_key';
+  const starpayBaseUrl = process.env.STARPAY_BASE_URL;
+
   const agent = new PrivacyAgent({
     keypair,
     debug: process.env.XB77_DEBUG === 'true',
@@ -90,7 +93,15 @@ export async function buildAgentContext(options?: {
     paymentGatewayOptions: {
       mode: paymentMode,
       defaultProvider: paymentProvider,
-      shadowwire: paymentMode === 'live' ? { walletSigner: makeWalletSigner(keypair) } : undefined,
+      starpay: {
+        apiKey: starpayApiKey,
+        baseUrl: starpayBaseUrl,
+        resellerMarkupPercent: Number(process.env.STARPAY_MARKUP || 5)
+      },
+      shadowwire: paymentMode === 'live' ? { 
+        payer: keypair,
+        debug: process.env.XB77_DEBUG === 'true'
+      } : undefined,
     },
   });
 
@@ -255,6 +266,19 @@ export function listTools() {
             enum: VALID_TOKENS,
           },
         },
+      },
+    },
+    {
+      name: 'agent.starpay.issue_card',
+      description: 'Issue a virtual Visa/Mastercard via Starpay (Bridges Crypto to Web2).',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          amount: { type: 'number', description: 'Amount in USD' },
+          email: { type: 'string' },
+          cardType: { type: 'string', enum: ['visa', 'mastercard'] }
+        },
+        required: ['amount', 'email'],
       },
     },
     {
@@ -488,6 +512,17 @@ export async function handleToolCall(
           ? await handleOfflinePayment(context, recipient, amount, token, type)
           : await (context.agent as any).pay(recipient, amount, token, type, provider, paymentContext);
         return okResponse(result);
+      }
+      case 'agent.starpay.issue_card': {
+        const amount = requireNumber(args?.amount, 'amount');
+        const email = requireString(args?.email, 'email');
+        const cardType = (args?.cardType as any) || 'visa';
+        
+        const starpay = (context.agent as any).paymentGateway.adapters['starpay'];
+        if (!starpay) throw new Error("Starpay adapter not configured.");
+        
+        const order = await starpay.createCardOrder(amount, email, cardType);
+        return okResponse(order);
       }
       case 'agent.status':
       case 'agent.state.get': {
