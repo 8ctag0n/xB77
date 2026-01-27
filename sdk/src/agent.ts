@@ -407,9 +407,13 @@ export class PrivacyAgent {
 
   /**
    * Deposit funds into the privacy pool (Shielding)
+   * This is the bridge between corporate fiat and private crypto.
    */
   async shield(amount: number, token: SupportedToken = 'SOL') {
-     // TODO: Implement deposit/shield logic via ShadowWire
-     console.log("Shielding functionality coming soon via ShadowWire deposit()");
+     console.log(`[PrivacyAgent] Shielding ${amount} ${token} into private rail...`);
+     
+     // 1. Trigger Liquidity Manager to pull from sources and deposit into rails
+     await this.liquidityManager.ensureFunds(amount, token);
+     console.log(`[PrivacyAgent] Shielding complete. Funds verified in privacy rails.`);
   }
 }

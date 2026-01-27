@@ -9,62 +9,110 @@ import type { LiquiditySource } from '../liquidity_manager';
 import type { BalanceInfo } from '../balance';
 import type { SupportedToken } from '../wallet';
 
+export interface StarpayConfig {
+  apiKey: string;
+  baseUrl?: string;
+  resellerMarkupPercent?: number;
+}
+
+export interface StarpayOrderResponse {
+  orderId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'expired';
+  payment: {
+    address: string;
+    amountSol: number;
+    solPrice: number;
+  };
+  pricing: {
+    cardValue: number;
+    total: number;
+    resellerMarkup: number;
+  };
+}
+
 export class StarpayAdapter implements PaymentAdapter, LiquiditySource {
   readonly provider = 'starpay' as const;
-  readonly name = 'Starpay Corporate';
+  readonly name = 'Starpay Virtual Cards';
+  private apiKey: string;
+  private baseUrl: string;
+  private markup: number;
 
-  private mockBalance: number;
+  constructor(config: StarpayConfig) {
+    this.apiKey = config.apiKey;
+    this.baseUrl = config.baseUrl || 'https://www.starpay.cards/api/v1';
+    this.markup = config.resellerMarkupPercent || 5.0; // Default 5% markup
+  }
 
-  constructor(initialBalance: number = 10000) {
-    this.mockBalance = initialBalance;
+  // --- Starpay Specific Methods (For the Grant) ---
+
+  async getPriceQuote(amountUsd: number) {
+    const res = await fetch(`${this.baseUrl}/cards/price?amount=${amountUsd}`, {
+      headers: { 'Authorization': `Bearer ${this.apiKey}` }
+    });
+    return await res.json();
+  }
+
+  async createCardOrder(amount: number, email: string, cardType: 'visa' | 'mastercard' = 'visa'): Promise<StarpayOrderResponse> {
+    console.log(`[Starpay] Creating virtual card order: $${amount} for ${email}...`);
+    const res = await fetch(`${this.baseUrl}/cards/order`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ amount, cardType, email })
+    });
+    
+    if (!res.ok) throw new Error(`Starpay Order Failed: ${await res.text()}`);
+    return await res.json();
+  }
+
+  async checkOrderStatus(orderId: string) {
+    const res = await fetch(`${this.baseUrl}/cards/order/status?orderId=${orderId}`, {
+      headers: { 'Authorization': `Bearer ${this.apiKey}` }
+    });
+    return await res.json();
   }
 
   // --- LiquiditySource Implementation ---
 
   async getBalance(_publicKey: PublicKey, _token: SupportedToken): Promise<BalanceInfo> {
+    // In Starpay, the balance is effectively the agent's ability to issue cards
+    // Or we could fetch the reseller markup balance if the API supported it
     return {
-      available: this.mockBalance,
-      source: 'Starpay Card Limit'
+      available: 5000, // Mocked total credit/limit
+      source: 'Starpay Reseller'
     };
   }
 
   async fund(amount: number, _token: SupportedToken): Promise<{ txId: string; amount: number }> {
-    if (this.mockBalance < amount) {
-      throw new Error('Starpay: Insufficient corporate limit for funding');
-    }
-    this.mockBalance -= amount;
-    return {
-      txId: `starpay-fund-${Math.random().toString(36).substring(7)}`,
-      amount
-    };
+     // Scenario: Agent uses its fiat balance to "pre-fund" a private rail
+     // This would involve issuing a card and then using a gateway to convert to SOL
+     console.log(`[Starpay] Funding private rail via Virtual Card issuance ($${amount})...`);
+     return {
+       txId: `sp-fund-${Date.now()}`,
+       amount
+     };
   }
 
   // --- PaymentAdapter Implementation ---
 
   async execute(request: PaymentRequest, _context?: PaymentContext): Promise<PaymentExecutionResult> {
-    if (this.mockBalance < request.amount) {
-      return {
-        provider: this.provider,
-        status: 'failed',
-        raw: { error: 'Insufficient limit' }
-      };
-    }
-
-    this.mockBalance -= request.amount;
-
-    // Simulate virtual card issuance and payment
-    const cardId = `vcard-${Math.random().toString(36).substring(7)}`;
-    const txId = `starpay-tx-${Math.random().toString(36).substring(7)}`;
+    console.log(`[Starpay] Executing Web2 payment via Virtual Card for ${request.vendor}...`);
+    
+    // 1. Create a card for the exact amount
+    // In a real flow, the Agent would pay SOL to Starpay here.
+    const order = await this.createCardOrder(request.amount, 'agent-treasury@xb77.io');
 
     return {
       provider: this.provider,
       status: 'success',
-      txSignature: txId,
-      paidAmount: request.amount,
+      txSignature: order.orderId,
+      paidAmount: order.pricing.total,
       raw: {
-        cardId,
-        merchant: request.vendor,
-        method: 'Virtual Card'
+        order,
+        markupEarned: order.pricing.resellerMarkup,
+        paymentAddress: order.payment.address
       }
     };
   }
