@@ -9,7 +9,7 @@ async function main() {
   console.log("=".repeat(60) + "\n");
 
   // 1. Setup Environment
-  const kpPath = path.resolve(process.cwd(), '.devnet/deployer.json');
+  const kpPath = path.resolve(process.cwd(), '../.devnet/deployer.json');
   const secretKey = Uint8Array.from(JSON.parse(fs.readFileSync(kpPath, 'utf-8')));
   const keypair = Keypair.fromSecretKey(secretKey);
   const connection = new Connection("https://api.devnet.solana.com", "confirmed");
@@ -46,6 +46,32 @@ async function main() {
       console.error(`  ❌ Exception:`, e.message);
       results[name] = false;
       return null;
+    }
+  }
+
+  // --- STEP 0: HELIUS DIAGNOSTIC ---
+  console.log("[Diagnostic] Verifying Helius ZK Permissions...");
+  const heliusKey = process.env.HELIUS_API_KEY;
+  if (heliusKey) {
+    try {
+      const diagRes = await fetch(`https://devnet.helius-rpc.com/?api-key=${heliusKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 'diag',
+          method: 'getCompressedBalanceByOwner',
+          params: { ownerAddress: keypair.publicKey.toBase58() }
+        })
+      });
+      const diagData = await diagRes.json();
+      if (diagData.error) {
+        console.warn(`[Diagnostic] Helius ZK Method failed: ${JSON.stringify(diagData.error)}`);
+      } else {
+        console.log(`[Diagnostic] Helius ZK Method OK. Balance: ${diagData.result?.balance || 0}`);
+      }
+    } catch (e) {
+      console.warn(`[Diagnostic] Helius Fetch Exception: ${e.message}`);
     }
   }
 
