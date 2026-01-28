@@ -24,6 +24,12 @@ bun run hub/index.ts
 bun run mcp/src/http.ts
 ```
 
+::: info Video Demo
+<div style="padding:56.25% 0 0 0;position:relative;"><iframe src="https://www.youtube.com/embed/PLACEHOLDER?title=xB77%20Demo" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe></div>
+
+*Watch the xB77 Agent initialize and perform its first autonomous payment.*
+:::
+
 > **Note:** If you only want to use the agent via a local CLI/IDE without the Hub, you can use `bun run mcp/src/index.ts` to connect via **Stdio**.
 
 ## 3. Demo Components Explained

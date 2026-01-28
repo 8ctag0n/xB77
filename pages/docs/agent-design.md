@@ -32,5 +32,35 @@ Unlike stateless bots, xB77 agents maintain:
 - Identity Context: Its current ZK-Badge and credit line status.
 - Trust Scores: A dynamic local database of known-good vendors and high-risk entities.
 
+::: details Component Diagram
+```mermaid
+graph TD
+    subgraph Brain [The Brain]
+        LLM[LLM / AI Model] <-->|Context & Intent| MCP[MCP Server]
+    end
+
+    subgraph Core [xB77 SDK Core]
+        MCP -->|Tools| Strategy[Strategy Engine]
+        Strategy -->|Check| Rules[Compliance & Safety Rules]
+        Rules -->|Approve| Exec[Execution Module]
+    end
+
+    subgraph Memory [State & Memory]
+        Store[(SQLite Receipt Store)]
+        Trust[Trust Score DB]
+        Identity[ZK Identity Badge]
+    end
+
+    subgraph External [External World]
+        Helius((Helius RPC)) -->|Webhook| Sensory[Sensory Layer]
+        Sensory -->|Update| Store
+        Exec -->|Tx| Solana[Solana / Light Protocol]
+    end
+
+    Strategy <-->|Read/Write| Memory
+    Sensory -->|Triggers| Strategy
+```
+:::
+
 ## 4. MCP Integration (Model Context Protocol)
 xB77 utilizes the Model Context Protocol to allow LLMs (Large Language Models) to interact with financial tools safely. The MCP layer acts as a "Legal Buffer", ensuring that the LLM can propose actions, but the underlying xB77 SDK enforces the hard rules of compliance and privacy before any signature is generated.

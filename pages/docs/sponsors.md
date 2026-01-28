@@ -7,37 +7,36 @@ xB77 is designed as a modular aggregator of the most advanced technologies in th
 
 ### 2.1 Helius: Real-Time Forensics and Observability
 - **Status:** `FUNCTIONAL MVP (Simulated Data)`
-- **Implementation:** xB77 utilizes Helius RPCs and Webhooks as the "Sensory System" of the agent.
-- **Value Added:** Our agents perform proactive risk assessment. The Hub displays a "Forensic Radar" that visualizes the risk score of destination addresses before committing funds.
+- **Implementation:** xB77 utilizes Helius RPCs and Webhooks as the "Sensory System" of the agent so it can inspect balances, market signals, and compliance risks before acting.
+- **Value Added:** Instead of reactive monitoring, the agents perform proactive risk assessment; the Hub renders a Forensic Radar that visualizes destination risk scores long before transactions finalize.
+- **Future Path:** Integrate Helius DAS to manage private receipts for Real World Assets once privacy and compliance controls are locked.
 
 ### 2.2 Light Protocol: Shielded Liquidity and Compression
 - **Status:** `INTEGRATION ROADMAP`
-- **Implementation:** Light Protocol is our target **Shielded Payment Rail**. We are designing the SDK to wrap Light's v3 ZK-compression architecture.
-- **Value Added:** The current MVP simulates the "Shielded" state in the UI/Indexer to demonstrate the UX of private transfers before final on-chain binding.
+- **Implementation:** Light Protocol acts as our primary "Shielded Rail" with the v3 ZK-compression architecture powering both receipt storage and operational balances.
+- **Value Added:** xB77 runs "Just-in-Time Shielding" where funds become public only during yield harvesting or compliance reporting; the current MVP simulates the shielded state to demonstrate UX before full on-chain binding.
 
 ### 2.3 Arcium: Confidential State and Strategic Vaults
 - **Status:** `ARCHITECTURAL PROPOSAL`
-- **Implementation:** Designed for storing sensitive operational metadata (Inventory, Vendor ratings).
-- **Value Added:** Demonstrates how strategic "Business Intelligence" remains private even during external audits.
+- **Implementation:** Arcium provides encrypted vaults for strategic metadata (inventory, vendor ratings, policy state) that xB77 agents consult before making moves.
+- **Value Added:** Keeps sensitive operational intelligence private even during audits, reinforcing the "corporate black box" narrative.
 
 ### 2.4 Starpay: Fiat-to-Privacy Gateway
 - **Status:** `FUNCTIONAL MVP (Mocked Bridge)`
-- **Implementation:** Simulated integration of Virtual Card infrastructure to fund the initial pool.
-- **Value Added:** Provides the narrative for legacy enterprise on-boarding via **USD1** tokens.
+- **Implementation:** Virtual card infrastructure funding and USD1 tokens let enterprises top up pools without exposing legacy banking data.
+- **Value Added:** Provides the onboarding narrative for legacy corporations to fund their autonomous CFOs with traditional rails while maintaining privacy.
 
 ### 2.5 Range Protocol: Institutional Compliance and Guardrails
-- **Status:** `FUNCTIONAL MVP (Local Guardrails)`
-- **Implementation:** Every transaction in the xB77 SDK is intercepted by a local compliance screening layer.
-- **Value Added:** Demonstrates "Permissioned Privacy" by blocking high-risk destinations in the Hub.
+- **Implementation:** Every transaction goes through Range Protocol screening so local compliance rules can intercept suspicious destinations before any signature.
+- **Value Added:** Enables "Permissioned Privacy" by proving to regulators that agents obey AML/sanction policies in real time, without disclosing private flows.
 
 ### 2.6 Noir (Aztec): Zero-Knowledge Identity and Selective Disclosure
-- **Status:** `INTEGRATION ROADMAP (Circuits under development)`
-- **Implementation:** Noir is the engine for Agent Identity Badges and Certified Selective Disclosure.
-- **Value Added:** The Hub already includes the UI for "View Invoice" which uses the logic that Noir will eventually prove mathematically.
+- **Implementation:** Noir powers Agent Identity Badges (proving a corporate authorization) and Certified Selective Disclosure (generating proofs for receipt fields).
+- **Value Added:** Resolves the "Auditability vs. Privacy" tension—math proves obligations were met without exposing the entire treasury history.
 
 ### 2.7 Kamino Finance: Capital Efficiency and Self-Sustainability
-- Implementation: Kamino vaults serve as the "Savings Account" for the autonomous CFO.
-- Value Added: xB77 introduces the concept of "Invisible Yielding". By managing liquidity thresholds autonomously, agents ensure that their own operation cost (gas and compute fees) is covered by the interest generated from their idle capital.
+- **Implementation:** Kamino vaults serve as the autonomous CFO's "Savings Account" and source of invisible yield that funds ongoing operations.
+- **Value Added:** "Invisible Yielding" allows agents to cover their own gas and compute fees by autonomously managing liquidity thresholds, reducing the need for constant human top-ups.
 
 ## 3. Conclusion
 xB77 is not a standalone product; it is a synergistic layer that connects the best of Solana's infrastructure to the needs of the future autonomous economy.
