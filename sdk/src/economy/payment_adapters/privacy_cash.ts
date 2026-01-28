@@ -28,6 +28,11 @@ export class PrivacyCashAdapter implements PaymentAdapter, PrivacyRail {
       ? (options.owner as Keypair).secretKey
       : options.owner;
 
+    // FIX: Inject Devnet ALT Address for PrivacyCash
+    if (!process.env.NEXT_PUBLIC_ALT_ADDRESS) {
+        process.env.NEXT_PUBLIC_ALT_ADDRESS = 'GFnKfMDkr3DJjPrzM3dpEHQqkiMp5rp13isKSZKsiF5u';
+    }
+
     this.client = new PrivacyCash({
       RPC_url: options.rpcUrl,
       owner: owner as any,
