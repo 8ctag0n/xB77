@@ -48,6 +48,12 @@ export class ShadowWireAdapter implements PaymentAdapter, PrivacyRail {
 
   async deposit(publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
     console.log(`[ShadowWire] Depositing ${amount} ${token} for ${publicKey.toBase58()}...`);
+    
+    if (this.isSimulationMode()) {
+        console.log(`[ShadowWire] 🟡 SIMULATION MODE: Deposit bypassed network call.`);
+        return;
+    }
+
     const amountSmallest = TokenUtils.toSmallestUnit(amount, token as any);
     
     // In ShadowWire, deposit usually requires a signature from the source wallet
@@ -63,6 +69,12 @@ export class ShadowWireAdapter implements PaymentAdapter, PrivacyRail {
 
   async withdraw(publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
     console.log(`[ShadowWire] Withdrawing ${amount} ${token} from ${publicKey.toBase58()}...`);
+    
+    if (this.isSimulationMode()) {
+        console.log(`[ShadowWire] 🟡 SIMULATION MODE: Withdraw bypassed network call.`);
+        return;
+    }
+
     const amountSmallest = TokenUtils.toSmallestUnit(amount, token as any);
 
     const signMessage = async (msg: Uint8Array) => nacl.sign.detached(msg, this.payer.secretKey);
@@ -75,7 +87,13 @@ export class ShadowWireAdapter implements PaymentAdapter, PrivacyRail {
     });
   }
 
+  private isSimulationMode(): boolean {
+      const sim = process.env.XB77_FORCE_SIMULATION || '';
+      return sim.includes('shadowwire') || sim.includes('all');
+  }
+
   private async ensureWASM() {
+    if (this.isSimulationMode()) return; // Skip WASM in sim mode to save time
     if (this.wasmInitialized) return;
     
     if (isWASMSupported()) {
@@ -108,13 +126,26 @@ export class ShadowWireAdapter implements PaymentAdapter, PrivacyRail {
   async execute(request: PaymentRequest, context?: PaymentContext): Promise<PaymentExecutionResult> {
     console.log(`[ShadowWire] Executing ${request.type} payment of ${request.amount} ${request.currency} to ${request.vendor}`);
 
+    const nonce = Math.floor(Math.random() * 1000000000);
+
+    if (this.isSimulationMode()) {
+        await new Promise(r => setTimeout(r, 800)); // Fake network delay
+        console.log(`[ShadowWire] 🟡 SIMULATION MODE: Payment executed successfully (Mock).`);
+        return {
+            provider: this.provider,
+            status: 'success',
+            txSignature: `sim_sw_${nonce}_${Date.now()}`,
+            paidAmount: request.amount,
+            raw: { simulated: true, original_request: request }
+        };
+    }
+
     await this.ensureWASM();
 
     const signMessage = async (msg: Uint8Array) => nacl.sign.detached(msg, this.payer.secretKey);
 
     // Manual Robust Flow: Generate Proof -> External Transfer with explicit fields
     const amountSmallestUnit = TokenUtils.toSmallestUnit(request.amount, request.currency as any);
-    const nonce = Math.floor(Math.random() * 1000000000);
     const relayerFee = Math.floor(Number(amountSmallestUnit) * 0.01);
     
     const tokenMint = TokenUtils.getTokenMint(request.currency as any);

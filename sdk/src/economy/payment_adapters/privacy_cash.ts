@@ -67,6 +67,11 @@ export class PrivacyCashAdapter implements PaymentAdapter, PrivacyRail {
   }
 
   async deposit(_publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
+    if (this.isSimulationMode()) {
+        console.log(`[PrivacyCash] 🟡 SIMULATION MODE: Deposit bypassed network call.`);
+        return;
+    }
+
     if (token !== 'SOL') {
         throw new Error('PrivacyCash Adapter currently only supports SOL deposits in this version');
     }
@@ -76,6 +81,11 @@ export class PrivacyCashAdapter implements PaymentAdapter, PrivacyRail {
   }
 
   async withdraw(_publicKey: PublicKey, amount: number, token: SupportedToken): Promise<void> {
+    if (this.isSimulationMode()) {
+        console.log(`[PrivacyCash] 🟡 SIMULATION MODE: Withdraw bypassed network call.`);
+        return;
+    }
+
     if (token !== 'SOL') {
         throw new Error('PrivacyCash Adapter currently only supports SOL withdrawals in this version');
     }
@@ -83,10 +93,28 @@ export class PrivacyCashAdapter implements PaymentAdapter, PrivacyRail {
     await this.client.withdraw({ lamports });
   }
 
+  private isSimulationMode(): boolean {
+      const sim = process.env.XB77_FORCE_SIMULATION || '';
+      return sim.includes('privacy_cash') || sim.includes('all');
+  }
+
   async execute(request: PaymentRequest, _context?: PaymentContext): Promise<PaymentExecutionResult> {
     const token = request.currency;
     if (token !== 'SOL') {
         throw new Error('PrivacyCash Adapter currently only supports SOL payments');
+    }
+
+    // Check Simulation Mode
+    if (this.isSimulationMode()) {
+        await new Promise(r => setTimeout(r, 1500)); // Fake ZK proof gen time
+        console.log(`[PrivacyCash] 🟡 SIMULATION MODE: Payment executed successfully (Mock).`);
+        return {
+            provider: this.provider,
+            status: 'success',
+            txSignature: `sim_pc_${Date.now()}`,
+            paidAmount: request.amount,
+            raw: { simulated: true, original_request: request }
+        };
     }
 
     const lamports = Math.floor(request.amount * 1e9);

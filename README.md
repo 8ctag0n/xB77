@@ -38,6 +38,46 @@ Integrated real-time screening via Range Protocol to ensure all autonomous trans
 
 ---
 
+### Devnet Deployment Status (Live Jan 28, 2026)
+
+#### 1. On-Chain Programs (The Core)
+All programs deployed and authorized by the Deployer.
+
+| Program | Address | Role |
+| :--- | :--- | :--- |
+| **xB77 Core** | `FpWZN1FB9yMfip3vYQhsZhgT4fCB3US9BqAv5kh5uDxv` | Payment Orchestrator & Credit Logic |
+| **xB77 Gateway** | `4gDQBWwzncRdTspJW37NoH56mGELj8UTqdC8VLdu7BGC` | Multi-Rail Adapter (Router) |
+| **xB77 Receipts** | `8iGuTTFLhNfbUN8teY6t1SEJ7vFFzVKd3bsXUhi1R12W` | ZK-Proof Storage & Verification |
+| **xB77 Registry** | `8Asy6SMxj38vqz5dJb7TYCoV1RctrF88KxFu19A6DPWz` | Agent Identity Directory |
+| **xB77 Test Utils** | `2cevUmfqJU8uvHvR7jbn4vrYqG2KwgytDVypueQt5Wtx` | Mock Treasury / Faucets |
+
+#### 2. Identity & Authority
+*   **Deployer/Admin/Agent:** `4uvdh823eysqVDR9e3o6st3fGWUyctZMxMK5dJ5h49dC`
+*   **Role:** Protocol Owner & Active Agent
+*   **Devnet Balance:** ~12 SOL
+
+#### 3. On-Chain State (PDAs)
+Initialized via `scripts/init-devnet.ts`.
+*   **Global Config PDA:** `Ese5D21LUHfn2QSAtwG8KdUqQ7swxqQvcFsxeCGMKhi1`
+*   **Agent Credit Line PDA:** `FRhR1XKQJpZUpNgD3qPXyPNahU8UngMvXmwafwCs7Rx5`
+    *   **Status:** Active
+    *   **Limit:** $5,000 USD1
+
+#### 4. Integration Stack (The Bounties)
+| Integration | Status | Role |
+| :--- | :--- | :--- |
+| **Helius** | **Active** | Priority Fees, Forensic Radar, ZK-RPC (via Resilience Mode) |
+| **Starpay** | **Active** | Virtual Cards (Visa/Mastercard) Off-ramp |
+| **ShadowWire** | **Active** | Institutional Privacy Rail (with xB77 Fallback) |
+| **PrivacyCash** | **Active** | Retail Privacy Pool (with xB77 Fallback) |
+| **Light Protocol** | **Active** | Native ZK-Compression (via xB77 Native Adapter) |
+
+#### 5. Local Persistence
+*   **Database:** SQLite (`xb77_agent_4uvdh...db`)
+*   **Data:** Stores full receipt history, ZK audit trails, and agent metadata locally.
+
+---
+
 ### Documentation / Documentación
 
 *   [Operation Guide / Guía de Inicio](docs/guide/GETTING_STARTED)

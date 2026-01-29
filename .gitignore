@@ -1,4 +1,6 @@
+loght_forensics/
 *.txt
+cache
 .env
 **/target/
 sdk/src/artifacts/
