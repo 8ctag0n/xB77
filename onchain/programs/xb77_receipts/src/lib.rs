@@ -116,6 +116,10 @@ fn record_receipt(
             // We pass accounts starting from 1 up to (but not including) the last account (agent)
         
             let light_accounts_slice = &accounts[1..accounts.len() - 1];
+            msg!("DEBUG: Light Accounts Slice Len: {}", light_accounts_slice.len());
+            for (i, acc) in light_accounts_slice.iter().enumerate() {
+                 msg!("DEBUG: LightSlice[{}]: {:?}", i, acc.key);
+            }
         
             let light_cpi_accounts = CpiAccounts::new(signer, light_accounts_slice, LIGHT_CPI_SIGNER);
         
@@ -124,6 +128,8 @@ fn record_receipt(
             // Manual lookup bypassing get_tree_pubkey to avoid opaque index errors
         
             let index = address_tree_info.address_merkle_tree_pubkey_index as usize;
+            msg!("DEBUG: Address Tree Packed Index: {}", index);
+            msg!("DEBUG: Address Tree Root Index: {}", address_tree_info.root_index);
         
             let address_tree_pubkey = light_cpi_accounts
         
@@ -131,13 +137,26 @@ fn record_receipt(
         
                 .map(|acc| *acc.key)
         
-                .map_err(|_| ProgramError::NotEnoughAccountKeys)?;
+                .map_err(|_| {
+                     msg!("ERROR: Failed to get address tree at index {}", index);
+                     ProgramError::NotEnoughAccountKeys
+                })?;
         
         
         
-            msg!("DEBUG: Address Tree Pubkey: {:?}", address_tree_pubkey);
-    
-        msg!("DEBUG: Address Tree Pubkey: {:?}", address_tree_pubkey);        msg!("DEBUG: Program ID: {:?}", program_id);
+                msg!("DEBUG: Address Tree Pubkey: {:?}", address_tree_pubkey);
+        
+        
+        
+                msg!("DEBUG: Output State Tree Index: {}", instruction_data.output_state_tree_index);
+        
+        
+        
+                msg!("DEBUG: Program ID: {:?}", program_id);
+        
+        
+        
+            
     
         // Derive address using the V2 helper, passing seed components directly
     
