@@ -10,8 +10,10 @@ no-entrypoint = []
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-solana-program = "2.3.0"
-borsh = "0.10.3"
+solana-program = "2.2"
+borsh = "0.10.4"
 light-sdk = "0.18.0"
-light-sdk-macros = "0.18.0"
+light-hasher = { version = "5.0.0", features = ["std"] }
+light-sdk-types = { version = "0.18.0", features = ["keccak"] }
+light-macros = "2.2.0"
 shank = "0.4.2"

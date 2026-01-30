@@ -1,11 +1,11 @@
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
-// Pre-inject ENV vars before imports execute
-process.env.NEXT_PUBLIC_ALT_ADDRESS = 'GFnKfMDkr3DJjPrzM3dpEHQqkiMp5rp13isKSZKsiF5u';
 const HELIUS_KEY = process.env.HELIUS_API_KEY;
 
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import * as fs from 'fs';
-import * as path from 'path';
 import { ShadowWireAdapter } from '../src/agent_tools'; 
 // Note: importing from agent_tools might not expose the class directly if not exported.
 // I'll import from the SDK source directly to be precise.
@@ -25,9 +25,19 @@ async function main() {
     console.log(`✅ Helius Key Format OK (${HELIUS_KEY.slice(0,4)}...)`);
 
     // Setup User
-    const kpPath = path.resolve(process.cwd(), '../.devnet/deployer.json');
-    if (!fs.existsSync(kpPath)) throw new Error("No deployer key found");
-    const secretKey = Uint8Array.from(JSON.parse(fs.readFileSync(kpPath, 'utf-8')));
+    const kpPath = path.resolve(process.cwd(), '.devnet/deployer.json');
+    if (!fs.existsSync(kpPath)) {
+        // Fallback for when running from inside scripts/ or mcp/
+        const rootKpPath = path.resolve(process.cwd(), '../.devnet/deployer.json');
+        if (fs.existsSync(rootKpPath)) {
+             var finalPath = rootKpPath;
+        } else {
+             throw new Error("No deployer key found at " + kpPath);
+        }
+    } else {
+        var finalPath = kpPath;
+    }
+    const secretKey = Uint8Array.from(JSON.parse(fs.readFileSync(finalPath, 'utf-8')));
     const keypair = Keypair.fromSecretKey(secretKey);
     const connection = new Connection(`https://devnet.helius-rpc.com/?api-key=${HELIUS_KEY}`, 'confirmed');
 
@@ -108,9 +118,6 @@ async function main() {
     // 3. PRIVACY CASH (ALT) REAL TEST
     console.log("\n[3/3] Testing PrivacyCash (With ALT)...");
     try {
-        // Inject ALT again just to be safe in this isolated script context
-        process.env.NEXT_PUBLIC_ALT_ADDRESS = 'GFnKfMDkr3DJjPrzM3dpEHQqkiMp5rp13isKSZKsiF5u';
-        
         const pc = new PrivacyCashAdapter({
             rpcUrl: connection.rpcEndpoint,
             owner: keypair,

@@ -6,11 +6,12 @@
       "name": "xb77-mcp",
       "dependencies": {
         "@coral-xyz/borsh": "^0.32.1",
-        "@lightprotocol/stateless.js": "^0.22.0",
+        "@lightprotocol/stateless.js": "^0.22.1-alpha.6",
         "@modelcontextprotocol/sdk": "^0.5.0",
         "@noble/hashes": "^2.0.1",
         "@radr/shadowwire": "^1.1.2",
         "@solana/web3.js": "^1.98.4",
+        "dotenv": "^17.2.3",
         "tweetnacl": "^1.0.3",
       },
       "devDependencies": {
@@ -90,6 +91,8 @@
     "delay": ["delay@5.0.0", "", {}, "sha512-ReEBKkIfe4ya47wlPYf/gu5ib6yUG0/Aez0JQZQz94kiWtRQvZIQbTiehsnwHvLSWJnQdhVeqYue7Id1dKr0qw=="],
 
     "depd": ["depd@2.0.0", "", {}, "sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw=="],
+
+    "dotenv": ["dotenv@17.2.3", "", {}, "sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w=="],
 
     "es6-promise": ["es6-promise@4.2.8", "", {}, "sha512-HJDGx5daxeIvxdBxvG2cb9g4tEvwIk3i8+nhX0yGrYmZUzbkdg8QbDevheDB8gd0//uPj4c1EQua8Q+MViT0/w=="],
 

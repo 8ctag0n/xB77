@@ -1362,6 +1362,7 @@ dependencies = [
  "borsh 0.10.4",
  "num-bigint 0.4.6",
  "sha2 0.10.9",
+ "sha3",
  "thiserror 2.0.18",
  "tinyvec",
 ]
@@ -4304,8 +4305,10 @@ name = "xb77_receipts"
 version = "0.1.0"
 dependencies = [
  "borsh 0.10.4",
+ "light-hasher",
+ "light-macros",
  "light-sdk",
- "light-sdk-macros",
+ "light-sdk-types",
  "shank",
  "solana-program",
 ]

@@ -7,8 +7,8 @@ import type {
 } from '@lightprotocol/stateless.js';
 import {
   bn,
-  deriveAddress,
-  deriveAddressSeed,
+  deriveAddressV2,
+  deriveAddressSeedV2,
   PackedAccounts,
   SystemAccountMetaConfig,
   TreeType,
@@ -239,12 +239,14 @@ export async function buildLightRecordReceiptContext(input: {
   memoHash: Uint8Array;
 }): Promise<LightRecordReceiptContext> {
   const seeds = [RECEIPT_ADDRESS_SEED, input.vendor, input.memoHash];
-  
-  const addressSeed = deriveAddressSeed(
+  console.log("[DEBUGGEANDO PARCERO]",seeds); 
+  const addressSeed = deriveAddressSeedV2(
     seeds,
-    input.receiptProgramId
   );
-  const derivedAddress = deriveAddress(addressSeed, input.addressTreeInfo.tree);
+  console.log(`[Client] Address Seed: [${Array.from(addressSeed).join(', ')}]`);
+  const derivedAddress = deriveAddressV2(addressSeed, input.addressTreeInfo.tree,input.receiptProgramId);
+  console.log(`[Client] Derived Address: ${derivedAddress.toBase58()}`);
+  console.log(`[Client] Seeds Components: receipt, ${Buffer.from(input.vendor).toString('hex').slice(0,8)}..., ${Buffer.from(input.memoHash).toString('hex').slice(0,8)}...`);
 
   const validity = await input.rpc.getValidityProofV0([], [
     {
