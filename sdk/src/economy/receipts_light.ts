@@ -247,15 +247,17 @@ export async function buildLightRecordReceiptContext(input: {
   const derivedAddress = deriveAddressV2(addressSeed, input.addressTreeInfo.tree,input.receiptProgramId);
   console.log(`[Client] Derived Address: ${derivedAddress.toBase58()}`);
   console.log(`[Client] Seeds Components: receipt, ${Buffer.from(input.vendor).toString('hex').slice(0,8)}..., ${Buffer.from(input.memoHash).toString('hex').slice(0,8)}...`);
-
+  console.log("INFO->" ,input.addressTreeInfo);
+  console.log("INFO[tree]->" ,input.addressTreeInfo.tree);
+  console.log("INFO->" ,input.addressTreeInfo.queue);
   const validity = await input.rpc.getValidityProofV0([], [
     {
       tree: input.addressTreeInfo.tree,
       queue: input.addressTreeInfo.queue,
-      address: bn(derivedAddress.toBytes())
+      address: bn(addressSeed)
     }
   ]);
-
+  console.log("VALIDITY::::->",validity);
   if (validity.rootIndices.length === 0) {
     validity.rootIndices = [0];
   }
@@ -290,12 +292,12 @@ export async function buildLightRecordReceiptContext(input: {
 
   // Adding +1 for Signer offset as established
   const addressTreeInfo: PackedAddressTreeInfo = {
-    addressMerkleTreePubkeyIndex: realTreeIndex + 1,
-    addressQueuePubkeyIndex: realQueueIndex + 1,
+    addressMerkleTreePubkeyIndex: realTreeIndex ,
+    addressQueuePubkeyIndex: realTreeIndex ,
     rootIndex: validity.rootIndices[0]
   };
   
-  const finalOutputIndex = realOutputIndex + 1;
+  const finalOutputIndex = realOutputIndex ;
 
   const receiptContext: LightRecordReceiptContext = {
     instructionData: serializeRecordReceiptInstructionFromLight({

@@ -1,7 +1,7 @@
 import { Connection, PublicKey, Transaction, Keypair, sendAndConfirmTransaction, SendTransactionError } from '@solana/web3.js';
 import { createHash } from 'crypto';
 import { Buffer } from 'buffer';
-import { createRpc, getDefaultAddressTreeInfo, selectStateTreeInfo, TreeType, type TreeInfo } from '@lightprotocol/stateless.js';
+import { createRpc, selectStateTreeInfo, TreeType, batchAddressTree, type TreeInfo } from '@lightprotocol/stateless.js';
 import { 
   PaymentAdapter, 
   PaymentRequest, 
@@ -29,7 +29,7 @@ export interface XB77AdapterOptions {
 }
 
 export class XB77Adapter implements PaymentAdapter {
-  readonly provider = 'xb77' as const; // Distinct identity for xB77 Native Privacy
+  readonly provider = 'xb77' as const;
   private connection: Connection;
   private coreProgramId: PublicKey;
   private gatewayProgramId: PublicKey;
@@ -56,14 +56,10 @@ export class XB77Adapter implements PaymentAdapter {
 
   private parseHex32(value: string, name: string): Uint8Array {
     const trimmed = value.startsWith('0x') ? value.slice(2) : value;
-    if (trimmed.length > 64) {
-      throw new Error(`${name} must be at most 32 bytes hex`);
-    }
+    if (trimmed.length > 64) throw new Error(`${name} must be at most 32 bytes hex`);
     const padded = trimmed.padStart(64, '0');
     const buffer = Buffer.from(padded, 'hex');
-    if (buffer.length !== 32) {
-      throw new Error(`${name} must be 32 bytes`);
-    }
+    if (buffer.length !== 32) throw new Error(`${name} must be 32 bytes`);
     return new Uint8Array(buffer);
   }
 
@@ -71,7 +67,7 @@ export class XB77Adapter implements PaymentAdapter {
     return new Uint8Array(createHash('sha256').update(input).digest());
   }
 
-  async execute(request: PaymentRequest, context?: PaymentContext): Promise<PaymentExecutionResult> {
+  async execute(request: PaymentRequest, _context?: PaymentContext): Promise<PaymentExecutionResult> {
     console.log(`[XB77Adapter] Executing on-chain payment for ${request.amount} ${request.currency} to ${request.vendor}`);
 
     try {
@@ -82,14 +78,12 @@ export class XB77Adapter implements PaymentAdapter {
         throw new Error('XB77Adapter requires agent signer to match payer keypair.');
       }
       
-      // 1. Derive necessary PDAs
       const [configPda] = PublicKey.findProgramAddressSync([Buffer.from("config_v3")], this.coreProgramId);
       const [creditLinePda] = PublicKey.findProgramAddressSync(
         [Buffer.from("credit_line"), agentPubKey.toBuffer()],
         this.coreProgramId
       );
 
-      // 2. Prepare Instruction Data
       if (!Number.isInteger(request.amount) || request.amount < 0) {
         throw new Error('XB77Adapter requires integer amount for on-chain payment.');
       }
@@ -107,38 +101,101 @@ export class XB77Adapter implements PaymentAdapter {
         if (!this.lightRpcUrl || !this.lightCompressionUrl || !this.lightProverUrl) {
           throw new Error('Missing Light RPC endpoints.');
         }
+        // 1) RPC
         const rpc = createRpc(this.lightRpcUrl, this.lightCompressionUrl, this.lightProverUrl);
         
-        // 1. Fetch all available trees
-        const allTrees = await rpc.getStateTreeInfos();
-        if (!allTrees.length) throw new Error("No state trees found on RPC.");
-
-        // 2. Select compatible trees
-        // Strategy: Use the first StateV1 tree for state.
-        // For address tree, we try to find one of type 2 (Address) or fallback to StateV1 if needed.
-        const stateTreeInfo = this.stateTreeInfo ?? selectStateTreeInfo(allTrees, TreeType.StateV1);
+        // 2) State tree (único discovery válido)
+        const stateTrees = await rpc.getStateTreeInfos();
+        const stateTreeInfo =
+          this.stateTreeInfo
+          ?? selectStateTreeInfo(stateTrees, TreeType.StateV2)
+          ?? selectStateTreeInfo(stateTrees, TreeType.StateV1);
         
-        // Find an address tree (TreeType 2 is usually Address)
-        const discoveredAddrTree = allTrees.find(t => (t as any).treeType === 2 || (t as any).type === 'Address');
-        const addressTreeInfo = this.addressTreeInfo ?? discoveredAddrTree ?? getDefaultAddressTreeInfo();
-
-        console.log(`[XB77Adapter] Using State Tree: ${stateTreeInfo.tree.toBase58()}`);
-        console.log(`[XB77Adapter] Using Discovered Address Tree: ${addressTreeInfo.tree.toBase58()}`);
-
-        const receiptContext = await buildLightRecordReceiptContext({
+        if (!stateTreeInfo) throw new Error("No state tree found");
+        
+        // 3) Address tree (FIJO)
+        
+        const addressTree = new PublicKey(batchAddressTree);
+        const addressTreeInfo = {
+          tree: addressTree,
+          queue: addressTree,
+        };
+        
+        // 4) Build receipt context (OJO con la address)
+        const context = await buildLightRecordReceiptContext({
           rpc,
           receiptProgramId: this.receiptsProgramId,
           addressTreeInfo,
           outputStateTreeInfo: stateTreeInfo,
           vendor: new Uint8Array(vendorPubKey.toBytes()),
           amount: BigInt(request.amount),
-          memoHash
+          memoHash,
         });
+        
+        // 5) Usar context tal cual
+        proofBytes = serializeValidityProof(context.proof);
+        addressTreeInfoBytes = serializePackedAddressTreeInfo(context.addressTreeInfo);
+        outputStateTreeIndex = context.outputStateTreeIndex;
+        receiptAccounts = context.remainingAccounts;
+        // 1) RPC
 
-        proofBytes = serializeValidityProof(receiptContext.proof);
-        addressTreeInfoBytes = serializePackedAddressTreeInfo(receiptContext.addressTreeInfo);
-        outputStateTreeIndex = receiptContext.outputStateTreeIndex;
-        receiptAccounts = receiptContext.remainingAccounts;
+//        const rpc = createRpc(this.lightRpcUrl, this.lightCompressionUrl, this.lightProverUrl);
+//        
+//        const allTrees = await rpc.getStateTreeInfos();
+//        if (!allTrees.length) throw new Error("No state trees found on RPC.");
+//
+//        const stateTreeInfo = this.stateTreeInfo ?? selectStateTreeInfo(allTrees, TreeType.StateV2) ?? selectStateTreeInfo(allTrees, TreeType.StateV1);
+//        const allAddressTrees = allTrees.filter(t => (t as any).treeType === 2 || (t as any).type === 'Address');
+//        
+//        const { batchAddressTree } = await import('@lightprotocol/stateless.js');
+//        const STABLE_ADDR_TREE = new PublicKey(batchAddressTree);
+//
+//        if (!allAddressTrees.find(t => t.tree.equals(STABLE_ADDR_TREE))) {
+//            allAddressTrees.push({
+//                tree: STABLE_ADDR_TREE,
+//                queue: STABLE_ADDR_TREE
+//            } as any);
+//        }
+//
+//        console.log(`[XB77Adapter] Discovered ${allAddressTrees.length} potential Address Trees.`);
+//
+//        let bestAddressTreeInfo: TreeInfo | undefined;
+//        let bestReceiptContext: any;
+//        let highestRootIndex = -1;
+//
+//        for (const tree of allAddressTrees) {
+//          try {
+//            console.log(`[XB77Adapter] Testing Tree: ${tree.tree.toBase58()}`);
+//            const context = await buildLightRecordReceiptContext({
+//              rpc,
+//              receiptProgramId: this.receiptsProgramId,
+//              addressTreeInfo: tree,
+//              outputStateTreeInfo: stateTreeInfo,
+//              vendor: new Uint8Array(vendorPubKey.toBytes()),
+//              amount: BigInt(request.amount),
+//              memoHash
+//            });
+//
+//            if (context.addressTreeInfo.rootIndex > highestRootIndex) {
+//               highestRootIndex = context.addressTreeInfo.rootIndex;
+//               bestAddressTreeInfo = tree;
+//               bestReceiptContext = context;
+//            }
+//          } catch (e) {
+//            console.log(`[XB77Adapter] Tree ${tree.tree.toBase58()} failed validation: ${e}`);
+//          }
+//        }
+//
+//        if (!bestAddressTreeInfo || !bestReceiptContext) {
+//           throw new Error('No Address Tree found that returns a valid proof from Helius');
+//        }
+//
+//        console.log(`[XB77Adapter] Selected Best Tree: ${bestAddressTreeInfo.tree.toBase58()} (Root Index: ${highestRootIndex})`);
+//
+//        proofBytes = serializeValidityProof(bestReceiptContext.proof);
+//        addressTreeInfoBytes = serializePackedAddressTreeInfo(bestReceiptContext.addressTreeInfo);
+//        outputStateTreeIndex = bestReceiptContext.outputStateTreeIndex;
+//        receiptAccounts = bestReceiptContext.remainingAccounts;
       } catch (error) {
         throw new Error(`Receipt context unavailable: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -166,12 +223,11 @@ export class XB77Adapter implements PaymentAdapter {
         ix.keys.push(...receiptAccounts);
       }
 
-      // 4. Send Transaction
       const tx = new Transaction().add(ix);
       const signature = await sendAndConfirmTransaction(
         this.connection, 
         tx, 
-        [this.payer], // Assume payer signs if agent is just an ID for now, or agentKp if available
+        [this.payer],
         { commitment: 'confirmed' }
       );
 
@@ -186,32 +242,22 @@ export class XB77Adapter implements PaymentAdapter {
       };
 
     } catch (error: any) {
-      if (error instanceof SendTransactionError && typeof error.getLogs === 'function') {
-        try {
-          const sendTxLogs = await error.getLogs();
-          console.log(`[XB77Adapter] SendTransactionError logs:\n${sendTxLogs.join('\n')}`);
-        } catch (logErr) {
-          console.warn(`[XB77Adapter] Failed to read SendTransactionError logs: ${logErr instanceof Error ? logErr.message : logErr}`);
-        }
-      } else if (Array.isArray(error?.logs)) {
+      if (Array.isArray(error?.logs)) {
         console.log(`[XB77Adapter] SendTransactionError logs:\n${error.logs.join('\n')}`);
       }
       console.error(`[XB77Adapter] Payment Failed:`, error.message);
       
-      // DEMO RESILIENCE: Catch typical Devnet/RPC errors (401, 0x4, 0x1776, 500)
-      // This ensures the demo flow completes even if the ZK infra is unstable on Devnet.
       const isInfraError = error.message.includes('401') || 
                            error.message.includes('Method not found') || 
                            error.message.includes('Unauthorized') ||
                            error.message.includes('0x4') ||
-                           error.message.includes('0x1776') || // Light Program Error
+                           error.message.includes('0x1776') ||
                            error.message.includes('500') ||
                            error.message.includes('simulation failed');
 
       if (isInfraError) {
         console.warn(`[XB77Adapter] Infra Instability Detected. Engaging Resilience Mode (Certified Simulation)...`);
         const simSig = `cert_zk_${Math.random().toString(36).slice(2, 12)}_${Date.now().toString().slice(-4)}`;
-        
         return {
           provider: this.provider,
           status: 'success',
@@ -239,33 +285,21 @@ export class XB77Adapter implements PaymentAdapter {
       [Buffer.from("credit_line"), agentPubKey.toBuffer()],
       this.coreProgramId
     );
-    
     const info = await this.connection.getAccountInfo(creditLinePda);
     if (!info) return BigInt(0);
-    
-    // Simple deserialization of CreditLine (skipping owner at 0-32)
-    // CreditLine { owner: 32, balance: u64, ... }
-    const balance = info.data.readBigUInt64LE(32);
-    return balance;
+    return info.data.readBigUInt64LE(32);
   }
-
-  // --- PrivacyRail Implementation ---
 
   async getBalance(publicKey: PublicKey, _token: SupportedToken): Promise<{ available: number; source: string }> {
     const balance = await this.getCreditBalance(publicKey);
-    return {
-      available: Number(balance),
-      source: 'xB77 On-Chain Credit'
-    };
+    return { available: Number(balance), source: 'xB77 On-Chain Credit' };
   }
 
   async getLimit(_publicKey: PublicKey, _token: SupportedToken): Promise<number> {
-    return 5000; // Global credit limit for the demo
+    return 5000;
   }
 
   async deposit(_publicKey: PublicKey, _amount: number, _token: SupportedToken): Promise<void> {
-    // Scenario: Topping up the credit line would involve a SOL transfer to core vault.
-    // In the demo, we assume the line is pre-allocated or handled by governance.
     console.log(`[XB77Adapter] Credit line top-up simulated.`);
   }
 
