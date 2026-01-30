@@ -47,6 +47,7 @@ async function main() {
       return data;
     } catch (e) {
       console.error(`  ❌ Exception:`, e.message);
+      if(e?.logs) console.error("LOGS->:",e.logs);
       results[name] = false;
       return null;
     }

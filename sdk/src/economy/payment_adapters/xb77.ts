@@ -1,4 +1,4 @@
-import { Connection, PublicKey, Transaction, Keypair, sendAndConfirmTransaction } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction, Keypair, sendAndConfirmTransaction, SendTransactionError } from '@solana/web3.js';
 import { createHash } from 'crypto';
 import { Buffer } from 'buffer';
 import { createRpc, getDefaultAddressTreeInfo, selectStateTreeInfo, TreeType, type TreeInfo } from '@lightprotocol/stateless.js';
@@ -186,6 +186,16 @@ export class XB77Adapter implements PaymentAdapter {
       };
 
     } catch (error: any) {
+      if (error instanceof SendTransactionError && typeof error.getLogs === 'function') {
+        try {
+          const sendTxLogs = await error.getLogs();
+          console.log(`[XB77Adapter] SendTransactionError logs:\n${sendTxLogs.join('\n')}`);
+        } catch (logErr) {
+          console.warn(`[XB77Adapter] Failed to read SendTransactionError logs: ${logErr instanceof Error ? logErr.message : logErr}`);
+        }
+      } else if (Array.isArray(error?.logs)) {
+        console.log(`[XB77Adapter] SendTransactionError logs:\n${error.logs.join('\n')}`);
+      }
       console.error(`[XB77Adapter] Payment Failed:`, error.message);
       
       // DEMO RESILIENCE: Catch typical Devnet/RPC errors (401, 0x4, 0x1776, 500)
