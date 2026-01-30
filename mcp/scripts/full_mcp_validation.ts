@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 async function main() {
+  process.env.DEBUG_RECEIPT_CONTEXT = '1';
   console.log("\n" + "=".repeat(60));
   console.log(" 🚀 xB77 MISSION CONTROL: FULL STRESS TEST (DEVNET-100)");
   console.log("=".repeat(60) + "\n");
@@ -112,54 +113,54 @@ async function main() {
     provider: 'xb77'
   }, 'EXECUTION');
 
-  //// --- STEP 4: ZK-AUDIT & VERIFICATION ---
-  //console.log("\n" + "-".repeat(40));
-  //console.log("PHASE 4: ZERO-KNOWLEDGE AUDIT RAIL");
-  //console.log("-".repeat(40));
-  //if (payResult && (payResult.txSignature || payResult.raw?.orderId)) {
-  //  const receiptId = payResult.txSignature || "demo_receipt_id";
-  //  console.log(`[Audit] Generating Selective Disclosure for TX: ${receiptId}...`);
-  //  
-  //  await testTool('agent.audit.report', {
-  //    receiptId,
-  //    fields: ['amount', 'timestamp', 'provider']
-  //  }, 'AUDIT');
+  // --- STEP 4: ZK-AUDIT & VERIFICATION ---
+  console.log("\n" + "-".repeat(40));
+  console.log("PHASE 4: ZERO-KNOWLEDGE AUDIT RAIL");
+  console.log("-".repeat(40));
+  if (payResult && (payResult.txSignature || payResult.raw?.orderId)) {
+    const receiptId = payResult.txSignature || "demo_receipt_id";
+    console.log(`[Audit] Generating Selective Disclosure for TX: ${receiptId}...`);
+    
+    await testTool('agent.audit.report', {
+      receiptId,
+      fields: ['amount', 'timestamp', 'provider']
+    }, 'AUDIT');
 
-  //  console.log(`[ZK-Verifier] Pushing proof to Solana on-chain verifier...`);
-  //  await testTool('agent.audit.verify_onchain', {
-  //    receiptId,
-  //    proof: "bm9pci1wcm9vZi1kZW1vLWJhc2U2NA==" 
-  //  }, 'VERIFIER');
-  //}
+    console.log(`[ZK-Verifier] Pushing proof to Solana on-chain verifier...`);
+    await testTool('agent.audit.verify_onchain', {
+      receiptId,
+      proof: "bm9pci1wcm9vZi1kZW1vLWJhc2U2NA==" 
+    }, 'VERIFIER');
+  }
 
-  //// --- STEP 5: OFF-RAMP & WEB2 BRIDGING ---
-  //console.log("\n" + "-".repeat(40));
-  //console.log("PHASE 5: WEB2 INTEROPERABILITY (STARPAY)");
-  //console.log("-".repeat(40));
-  //await testTool('agent.starpay.issue_card', {
-  //  amount: 50,
-  //  email: 'alpha-merchant@proton.me'
-  //}, 'BRIDGE');
+  // --- STEP 5: OFF-RAMP & WEB2 BRIDGING ---
+  console.log("\n" + "-".repeat(40));
+  console.log("PHASE 5: WEB2 INTEROPERABILITY (STARPAY)");
+  console.log("-".repeat(40));
+  await testTool('agent.starpay.issue_card', {
+    amount: 50,
+    email: 'alpha-merchant@proton.me'
+  }, 'BRIDGE');
 
-  //// --- SUMMARY ---
-  //console.log("\n" + "=".repeat(60));
-  //console.log(" 🏁 MISSION COMPLETE: STRESS TEST SUMMARY");
-  //console.log("=".repeat(60));
-  //
+  // --- SUMMARY ---
+  console.log("\n" + "=".repeat(60));
+  console.log(" 🏁 MISSION COMPLETE: STRESS TEST SUMMARY");
+  console.log("=".repeat(60));
+  
   const total = Object.keys(results).length;
   const passed = Object.values(results).filter(v => v).length;
-  //
-  //Object.entries(results).forEach(([tool, success]) => {
-  //   console.log(`${success ? '✅' : '❌'} ${tool.padEnd(25)} : ${success ? 'OPERATIONAL' : 'FAILED'}`);
-  //});
+  
+  Object.entries(results).forEach(([tool, success]) => {
+     console.log(`${success ? '✅' : '❌'} ${tool.padEnd(25)} : ${success ? 'OPERATIONAL' : 'FAILED'}`);
+  });
 
-  //console.log("\n" + "-".repeat(60));
-  //console.log(`Final Score: ${passed}/${total} Tools Operational`);
-  //if (passed === total) {
-  //  console.log("STATUS: BATTLE-READY. ZERO MOCKS DETECTED.");
-  //} else {
-  //  console.log("STATUS: DEGRADED. CHECK INDIVIDUAL FAILURES.");
-  //}
+  console.log("\n" + "-".repeat(60));
+  console.log(`Final Score: ${passed}/${total} Tools Operational`);
+  if (passed === total) {
+    console.log("STATUS: BATTLE-READY. ZERO MOCKS DETECTED.");
+  } else {
+    console.log("STATUS: DEGRADED. CHECK INDIVIDUAL FAILURES.");
+  }
   console.log("-".repeat(60) + "\n");
  
   process.exit(passed === total ? 0 : 1);

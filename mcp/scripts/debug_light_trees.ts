@@ -1,5 +1,5 @@
 
-import { createRpc, Rpc, TreeType, getDefaultAddressTreeInfo } from '@lightprotocol/stateless.js';
+import { createRpc, Rpc, TreeType } from '@lightprotocol/stateless.js';
 import { Connection, PublicKey } from '@solana/web3.js';
 
 // Load ENV manually
@@ -27,14 +27,15 @@ async function main() {
             console.log(`[Tree ${i}]`, JSON.stringify(tree));
         });
 
-        console.log("\n2. Checking Default Address Tree...");
-        const defaultAddrTree = getDefaultAddressTreeInfo(); // This is hardcoded in the SDK usually
-        console.log(`Default SDK Address Tree Object:`, JSON.stringify(defaultAddrTree));
-        
-        if (defaultAddrTree && defaultAddrTree.merkleTree) {
-             // ... verify on chain
+        console.log("\n2. Checking specific Address Tree: amt2kaJA14v3urZbZvnc5v2np8jqvc4Z8zDep5wbtzx");
+        const connection = new Connection(rpcUrl);
+        const treePubkey = new PublicKey("amt2kaJA14v3urZbZvnc5v2np8jqvc4Z8zDep5wbtzx");
+        const account = await connection.getAccountInfo(treePubkey);
+        if (account) {
+             console.log("Tree Account exists on chain.");
+             console.log("Data Length:", account.data.length);
         } else {
-             console.warn("getDefaultAddressTreeInfo returned null/undefined or invalid structure.");
+             console.log("Tree Account NOT found.");
         }
 
         console.log("\n3. Testing Compressed Account Fetch...");
