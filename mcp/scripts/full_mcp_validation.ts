@@ -20,10 +20,11 @@ async function main() {
   console.log(`[Identity] Loaded Agent: ${keypair.publicKey.toBase58()}`);
   console.log(`[Network] Connected to Solana Devnet (api.devnet.solana.com)`);
   
+  const rpc_helius= process.env.SOLANA_RPC_URL;
   const context = await buildAgentContext({
     keypair,
     offline: false,
-    rpcUrl: "https://api.devnet.solana.com"
+    rpcUrl: rpc_helius
   });
 
   console.log("[System] Privacy Rails: ONLINE");
@@ -56,7 +57,6 @@ async function main() {
   // --- STEP 0: HELIUS DIAGNOSTIC ---
   console.log("[Diagnostic] Verifying Helius ZK Permissions...");
   const heliusKey = process.env.HELIUS_API_KEY;
-  console.log("Heluis api key", heliusKey);
   if (heliusKey) {
     try {
       const diagRes = await fetch(`https://devnet.helius-rpc.com/?api-key=${heliusKey}`, {

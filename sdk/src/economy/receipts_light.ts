@@ -276,27 +276,48 @@ export async function buildLightRecordReceiptContext(input: {
     getOutputStateTreeAccount(input.outputStateTreeInfo)
   );
 
+  const accountMetas = packedAccounts.toAccountMetas();
+
+  // FIX: Manually correct indices based on the final remainingAccounts list
+  // PackedAccounts logic might be out of sync with toAccountMetas prepending behavior
+  const realTreeIndex = accountMetas.remainingAccounts.findIndex(acc => acc.pubkey.equals(input.addressTreeInfo.tree));
+  const realQueueIndex = accountMetas.remainingAccounts.findIndex(acc => acc.pubkey.equals(input.addressTreeInfo.queue));
+  const realOutputIndex = accountMetas.remainingAccounts.findIndex(acc => acc.pubkey.equals(getOutputStateTreeAccount(input.outputStateTreeInfo)));
+
+  if (realTreeIndex === -1 || realQueueIndex === -1) {
+    throw new Error('Address Tree or Queue not found in packed accounts');
+  }
+
+  // Adding +1 for Signer offset as established
   const addressTreeInfo: PackedAddressTreeInfo = {
-    addressMerkleTreePubkeyIndex,
-    addressQueuePubkeyIndex,
+    addressMerkleTreePubkeyIndex: realTreeIndex + 1,
+    addressQueuePubkeyIndex: realQueueIndex + 1,
     rootIndex: validity.rootIndices[0]
   };
+  
+  const finalOutputIndex = realOutputIndex + 1;
 
-  const instructionData = serializeRecordReceiptInstructionFromLight({
-    proof: validity.compressedProof,
-    addressTreeInfo,
-    outputStateTreeIndex,
-    vendor: input.vendor,
-    amount: input.amount,
-    memoHash: input.memoHash
-  });
-
-  return {
-    instructionData,
-    remainingAccounts: packedAccounts.toAccountMetas().remainingAccounts,
+  const receiptContext: LightRecordReceiptContext = {
+    instructionData: serializeRecordReceiptInstructionFromLight({
+      proof: validity.compressedProof,
+      addressTreeInfo,
+      outputStateTreeIndex: finalOutputIndex,
+      vendor: input.vendor,
+      amount: input.amount,
+      memoHash: input.memoHash
+    }),
+    remainingAccounts: accountMetas.remainingAccounts,
     derivedAddress,
     proof: validity.compressedProof,
     addressTreeInfo,
-    outputStateTreeIndex
+    outputStateTreeIndex: finalOutputIndex
   };
+
+  if (process.env.DEBUG_RECEIPT_CONTEXT === '1') {
+    console.log('[DEBUG_RECEIPT_CONTEXT] PACKED ACCOUNTS MODE');
+    console.log('[DEBUG_RECEIPT_CONTEXT] Tree Index (sent):', addressTreeInfo.addressMerkleTreePubkeyIndex);
+    accountMetas.remainingAccounts.forEach((a, i) => console.log(`[DEBUG_RECEIPT_CONTEXT] Rem[${i}]: ${a.pubkey.toBase58()}`));
+  }
+
+  return receiptContext;
 }

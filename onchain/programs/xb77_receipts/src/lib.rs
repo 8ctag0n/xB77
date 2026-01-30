@@ -12,7 +12,6 @@ use light_sdk::{
     },
     derive_light_cpi_signer,
     instruction::{PackedAddressTreeInfo, ValidityProof},
-    constants::ADDRESS_TREE_V2, // V2 Constant
     LightDiscriminator,
 };
 use solana_program::{
@@ -88,23 +87,60 @@ fn record_receipt(
     let address_tree_info = PackedAddressTreeInfo::try_from_slice(&instruction_data.address_tree_info)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
     // ACCOUNTS:
-    // 0. Signer (Payer/Authority)
-    // 1. Agent (Owner of the receipt)
-    // 2... Light accounts (Passed to CpiAccounts)
-    let signer = accounts
-        .first()
-        .ok_or(ProgramError::NotEnoughAccountKeys)?;
-    let agent_account = &accounts[1];
-    if !signer.is_signer {
-        return Err(ProgramError::MissingRequiredSignature);
-    }
-    // V2: CpiAccounts constructor takes (signer, remaining_accounts, cpi_signer)
-    // We skip signer(0) and agent(1), so remaining starts at 2
-    let light_cpi_accounts = CpiAccounts::new(signer, &accounts[2..], LIGHT_CPI_SIGNER);
-    let address_tree_pubkey = address_tree_info
-        .get_tree_pubkey(&light_cpi_accounts)
-        .map_err(|_| ProgramError::NotEnoughAccountKeys)?;
-    // Derive address using the V2 helper, passing seed components directly
+            // DUMP ALL ACCOUNTS
+            msg!("--- DEBUG: DUMP ACCOUNTS ---");
+            for (i, acc) in accounts.iter().enumerate() {
+                msg!("Account[{}]: {:?}", i, acc.key);
+            }
+            msg!("--- END DUMP ---");
+        
+            // 0. Signer (Payer/Authority)
+            // 1..N-1. Light accounts (Passed to CpiAccounts)
+        
+        // N. Agent (Owner of the receipt) - MOVED TO END
+        let signer = accounts
+            .first()
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+        
+        // Agent account is now expected to be the last account
+        let agent_account = accounts
+            .last()
+            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+    
+        if !signer.is_signer {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+        
+            // V2: CpiAccounts constructor takes (signer, remaining_accounts, cpi_signer)
+        
+            // We pass accounts starting from 1 up to (but not including) the last account (agent)
+        
+            let light_accounts_slice = &accounts[1..accounts.len() - 1];
+        
+            let light_cpi_accounts = CpiAccounts::new(signer, light_accounts_slice, LIGHT_CPI_SIGNER);
+        
+            
+        
+            // Manual lookup bypassing get_tree_pubkey to avoid opaque index errors
+        
+            let index = address_tree_info.address_merkle_tree_pubkey_index as usize;
+        
+            let address_tree_pubkey = light_cpi_accounts
+        
+                .get_account_info(index)
+        
+                .map(|acc| *acc.key)
+        
+                .map_err(|_| ProgramError::NotEnoughAccountKeys)?;
+        
+        
+        
+            msg!("DEBUG: Address Tree Pubkey: {:?}", address_tree_pubkey);
+    
+        msg!("DEBUG: Address Tree Pubkey: {:?}", address_tree_pubkey);        msg!("DEBUG: Program ID: {:?}", program_id);
+    
+        // Derive address using the V2 helper, passing seed components directly
+    
     let (address_bytes, address_seed) = derive_address(
         &[
             b"receipt",
@@ -132,13 +168,30 @@ fn record_receipt(
     receipt.timestamp = Clock::get()?.unix_timestamp;
     receipt.memo_hash = instruction_data.memo_hash;
     // V2: Invoke CPI
-    LightSystemProgramCpi::new_cpi(LIGHT_CPI_SIGNER, proof)
+    msg!("DEBUG: Invoking Light CPI...");
+    let cpi_result = match LightSystemProgramCpi::new_cpi(LIGHT_CPI_SIGNER, proof)
         .with_light_account(receipt)
-        .map_err(|_| ProgramError::InvalidInstructionData)?
+        .map_err(|e| {
+            msg!("Error building CPI with account: {:?}", e);
+            ProgramError::InvalidInstructionData
+        })?
         .with_new_addresses(&[new_address_params])
-        .invoke(light_cpi_accounts)
-        .map_err(|_| ProgramError::InvalidInstructionData)?;
-    Ok(())
+        .invoke(light_cpi_accounts) 
+    {
+        Ok(_) => {
+            msg!("Light CPI Success");
+            Ok(())
+        },
+        Err(e) => {
+            msg!("Light CPI failed with: {:?}", e);
+            if let ProgramError::Custom(code) = e {
+                msg!("Light CPI custom code: {}", code);
+            }
+            Err(e)
+        }
+    };
+
+    cpi_result
 }
 #[cfg(test)]
 mod tests {
@@ -166,5 +219,138 @@ mod tests {
         println!("Rust V2 Address: {}", v2_address);
         // For verification: Add expected value if known, or cross-check with TS V2
         // Assuming client is updated to V2, this should match
+    }
+    use borsh::{BorshDeserialize, BorshSerialize};
+    use light_program_test::{
+        program_test::LightProgramTest, AddressWithTree, Indexer, ProgramTestConfig, Rpc, RpcError,
+    };
+    use light_sdk::{
+        address::v2::derive_address,
+        instruction::{PackedAccounts, SystemAccountMetaConfig},
+    };
+    use solana_sdk::{
+        instruction::{Instruction,AccountMeta},
+        signature::{Keypair, Signer},
+    };
+    use super::{CompressedReceipt, RecordReceiptInstructionData, ID}; // Assuming these are in the parent module
+    
+    #[tokio::test]
+    async fn test_record_receipt() {
+        std::env::set_var("LIGHT_RUN_MODE", "mock");
+        std::env::set_var("LIGHT_PROVER_MODE", "mock");
+        std::env::set_var("LIGHT_DISABLE_PROVER", "1");
+        let config = ProgramTestConfig::new(true, Some(vec![("xb77_receipts", ID)]));
+        let mut rpc = LightProgramTest::new(config).await.unwrap();
+        let payer = rpc.get_payer().insecure_clone();
+        let address_tree_info = rpc.get_address_tree_v2();
+        let address_tree_pubkey = address_tree_info.tree;
+    
+        // Define test data for the receipt
+        let vendor = [1u8; 32];
+        let amount = 100u64;
+        let memo_hash = [2u8; 32];
+    
+        // Derive the address for the compressed receipt
+        let (address_bytes, _) = derive_address(
+            &[b"receipt", &vendor, &memo_hash],
+            &address_tree_pubkey,
+            &ID,
+        );
+    
+        // Use payer as agent (owner) for simplicity
+        record_receipt(
+            &payer,
+            &mut rpc,
+            address_tree_pubkey,
+            address_bytes,
+            vendor,
+            amount,
+            memo_hash,
+            payer.pubkey(), // Agent pubkey (owner)
+        )
+        .await
+        .unwrap();
+    
+        // Get the created compressed account
+        let compressed_account = rpc
+            .get_compressed_account(address_bytes, None)
+            .await
+            .unwrap()
+            .value
+            .unwrap();
+    
+        assert_eq!(compressed_account.address.unwrap(), address_bytes);
+    
+        // Deserialize and verify the account data
+        let receipt = CompressedReceipt::deserialize(
+            &mut compressed_account.data.as_ref().unwrap().data.as_slice(),
+        )
+        .unwrap();
+    
+        assert_eq!(receipt.owner, payer.pubkey());
+        assert_eq!(receipt.vendor, vendor);
+        assert_eq!(receipt.amount, amount);
+        assert_eq!(receipt.memo_hash, memo_hash);
+        assert!(receipt.timestamp > 0); // Timestamp should be set to a positive value
+    }
+    
+    pub async fn record_receipt(
+        payer: &Keypair,
+        rpc: &mut LightProgramTest,
+        address_tree_pubkey: Pubkey,
+        address: [u8; 32],
+        vendor: [u8; 32],
+        amount: u64,
+        memo_hash: [u8; 32],
+        agent_pubkey: Pubkey, // The pubkey for the agent_account (owner)
+    ) -> Result<(), RpcError> {
+        let system_account_meta_config = SystemAccountMetaConfig::new(ID);
+        let mut accounts = PackedAccounts::default();
+        accounts.add_pre_accounts_signer(payer.pubkey());
+
+        accounts.add_pre_accounts_meta(AccountMeta::new(
+            agent_pubkey,
+            false, // agent NO es signer
+        ));
+
+        accounts.add_system_accounts_v2(system_account_meta_config)?;
+    
+        let rpc_result = rpc
+            .get_validity_proof(
+                vec![],
+                vec![AddressWithTree {
+                    address,
+                    tree: address_tree_pubkey,
+                }],
+                None,
+            )
+            .await?
+            .value;
+    
+        let packed_address_tree_info = rpc_result.pack_tree_infos(&mut accounts).address_trees[0].try_to_vec().unwrap();
+        let output_state_tree_index = rpc
+            .get_random_state_tree_info()?
+            .pack_output_tree_index(&mut accounts)?;
+    
+        let instruction_data = RecordReceiptInstructionData {
+            proof: rpc_result.proof.try_to_vec().unwrap(),
+            address_tree_info: packed_address_tree_info,
+            output_state_tree_index,
+            vendor,
+            amount,
+            memo_hash,
+        };
+    
+        let inputs = instruction_data.try_to_vec().unwrap();
+        let (account_metas, _, _) = accounts.to_account_metas();
+        let instruction = Instruction {
+            program_id: ID,
+            accounts: account_metas,
+            data: [&[0u8][..], &inputs[..]].concat(),
+        };
+    
+        rpc.create_and_send_transaction(&[instruction], &payer.pubkey(), &[payer])
+            .await?;
+        Ok(())
     }
 }
