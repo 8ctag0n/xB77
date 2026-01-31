@@ -1,5 +1,7 @@
 # xB77: Autonomous Financial Infrastructure for AI Agents
 
+**[Official Documentation / Documentación Oficial](https://8ctag0n.github.io/xB77/)**
+
 ## Sovereign Financial Operating System for Autonomous Entities
 ## Sistema Operativo Financiero Soberano para Entidades Autónomas
 

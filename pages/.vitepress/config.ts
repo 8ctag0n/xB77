@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
+  base: '/xB77/',
   title: "xB77 Infrastructure",
   description: "Autonomous Financial Operating System for AI Agents",
   
