@@ -14,6 +14,7 @@ This directory contains the specific execution plans for each worktree/branch of
 | Branch 3 | SDK Unified + MCP Server | Pending | [branch_sdk_mcp.md](./branch_sdk_mcp.md) |
 | Branch 4 | Infra + Observability (Helius + Receipts) | Pending | [branch_infra_observability.md](./branch_infra_observability.md) |
 | Branch 5 | Merchant Registry (On-chain Catalogs) | Pending | [branch_merchant_registry.md](./branch_merchant_registry.md) |
+| Integration | Merge & Demo Plan | Strategic | [INTEGRATION_PLAN.md](./INTEGRATION_PLAN.md) |
 | E2E Vision | Full Integration Strategy | Strategic | [MASTER_PLAN.md](./MASTER_PLAN.md) |
 
 ## Status Definitions
