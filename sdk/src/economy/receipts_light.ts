@@ -16,6 +16,8 @@ import {
 import type { AccountMeta } from '@solana/web3.js';
 import { PublicKey } from '@solana/web3.js';
 import { Buffer } from 'buffer';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import path from 'path';
 import type { SupportedToken } from './wallet';
 
 const RECEIPT_ADDRESS_SEED = new TextEncoder().encode('receipt');
@@ -258,7 +260,56 @@ export async function buildLightRecordReceiptContext(input: {
       address: bn(addressSeed)
     }
   ]);
+  const overridePath = process.env.RECEIPT_VALIDITY_OVERRIDE_PATH;
+  if (overridePath) {
+    try {
+      const override = JSON.parse(readFileSync(overridePath, 'utf-8'));
+      if (override.proof) {
+        validity.compressedProof = {
+          a: Uint8Array.from(override.proof.a),
+          b: Uint8Array.from(override.proof.b),
+          c: Uint8Array.from(override.proof.c),
+        };
+        validity.rootIndices = override.rootIndices;
+      }
+      console.log('[DEBUG_RECEIPT_CONTEXT] Using overridden proof data from', overridePath);
+    } catch (err) {
+      console.warn('[DEBUG_RECEIPT_CONTEXT] Failed to load override proof', err);
+    }
+  }
   console.log("VALIDITY::::->",validity);
+  const dumpPath = process.env.RECEIPT_VALIDITY_DUMP_PATH;
+  if (dumpPath) {
+    try {
+      mkdirSync(path.dirname(dumpPath), { recursive: true });
+      const serializedProof = validity.compressedProof
+        ? {
+            a: Array.from(validity.compressedProof.a),
+            b: Array.from(validity.compressedProof.b),
+            c: Array.from(validity.compressedProof.c),
+          }
+        : null;
+      const dump = {
+        timestamp: new Date().toISOString(),
+        tree: input.addressTreeInfo.tree.toBase58(),
+        queue: input.addressTreeInfo.queue.toBase58(),
+        addressSeed: Array.from(addressSeed),
+        derivedAddress: derivedAddress.toBase58(),
+        proof: serializedProof,
+        rootIndices: validity.rootIndices,
+        leaves: validity.leaves?.map(leaf => leaf.toString(16)),
+        treeInfos: validity.treeInfos.map(info => ({
+          tree: info.tree.toBase58(),
+          queue: info.queue.toBase58(),
+          treeType: info.treeType,
+        })),
+      };
+      writeFileSync(dumpPath, JSON.stringify(dump, null, 2));
+      console.log(`[DEBUG_RECEIPT_CONTEXT] Saved validity dump to ${dumpPath}`);
+    } catch (err) {
+      console.warn('[DEBUG_RECEIPT_CONTEXT] Failed to persist validity dump', err);
+    }
+  }
   if (validity.rootIndices.length === 0) {
     validity.rootIndices = [0];
   }
