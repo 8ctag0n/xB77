@@ -1,0 +1,61 @@
+server {
+    listen 7777 default_server;
+    server_name _;
+    charset utf-8;
+
+    location = / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files /index.html =404;
+    }
+
+    # Convenience redirects so the demo routes feel natural
+    location = /hub {
+        return 302 /hub/;
+    }
+    location = /listener {
+        return 302 /listener/;
+    }
+    location = /agent {
+        return 302 /agent/;
+    }
+
+    location /hub/ {
+        proxy_pass http://$HOST_ALIAS:$HUB_PORT/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_cache_bypass $http_upgrade;
+        proxy_redirect off;
+    }
+
+    location /listener/ {
+        proxy_pass http://$HOST_ALIAS:$LISTENER_PORT/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_cache_bypass $http_upgrade;
+        proxy_redirect off;
+    }
+
+    location /agent/ {
+        proxy_pass http://$HOST_ALIAS:$MCP_PORT/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_cache_bypass $http_upgrade;
+        proxy_redirect off;
+    }
+
+    error_page 502 503 504 /502.html;
+    location = /502.html {
+        internal;
+        root /usr/share/nginx/html;
+    }
+}

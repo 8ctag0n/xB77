@@ -6,7 +6,10 @@ import {
   buildLightRecordReceiptContext,
   RECEIPT_INSTRUCTION_DISCRIMINATORS
 } from '../../sdk/src/economy/receipts_light';
-import { createRpc, getDefaultAddressTreeInfo, selectStateTreeInfo, TreeType } from '@lightprotocol/stateless.js';
+import { createRpc, getDefaultAddressTreeInfo, selectStateTreeInfo } from '@lightprotocol/stateless.js';
+
+// Hack: TreeType not exported in CJS build of @lightprotocol/stateless.js v0.19.0
+const TreeType = { StateV1: 3 };
 
 const PORT = Number(Bun.env.LISTENER_PORT ?? 7002);
 const RPC_URL = process.env.SOLANA_RPC_URL ?? 'http://localhost:8899';
