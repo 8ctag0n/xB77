@@ -12,6 +12,8 @@ hero:
     - theme: alt
       text: Architecture
       link: /docs/architecture/DIAGRAMS
+head:
+  - ['script', { src: 'https://player.vimeo.com/api/player.js', defer: true }]
 
 features:
   - title: 🔒 Shielded Payments
@@ -22,6 +24,18 @@ features:
     details: Private on-chain transaction history powered by Light Protocol.
 ---
 
+<section style="padding: 3rem 0; text-align: center;">
+  <div class="video-wrapper" style="max-width: 900px; margin: 0 auto;">
+    <div style="padding:56.25% 0 0 0;position:relative;">
+      <iframe src="https://player.vimeo.com/video/1160566027?badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479"
+              frameborder="0"
+              allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
+              referrerpolicy="strict-origin-when-cross-origin"
+              style="position:absolute;top:0;left:0;width:100%;height:100%;"
+              title="xb77 first draft"></iframe>
+    </div>
+  </div>
+</section>
 <div class="crt-flicker">
 
 <div class="terminal-container" style="margin-top: 4rem; max-width: 900px; margin-left: auto; margin-right: auto;">
