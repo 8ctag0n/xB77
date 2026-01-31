@@ -3,367 +3,284 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Merchant Hub</title>
+    <title>xB77 // Merchant Hub</title>
     <link rel="stylesheet" href="./hub.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
   </head>
   <body>
+    <div class="crt-scanline"></div>
+    
     <div class="page">
       <nav class="main-nav">
-        <div class="nav-brand">xB77 Merchant</div>
+        <div class="nav-brand">
+            <span class="brand-prefix">xB77</span> // MERCHANT
+        </div>
         <div class="nav-links">
-          <button class="nav-tab active" data-target="view-merchant">Terminal</button>
-          <button class="nav-tab" data-target="view-governance">Governance</button>
-          <button class="nav-tab" data-target="view-control">Control Plane</button>
+          <button class="nav-tab active" data-target="view-merchant">
+            <span class="tab-icon">◈</span> Terminal
+          </button>
+          <button class="nav-tab" data-target="view-governance">
+            <span class="tab-icon">⚖</span> Governance
+          </button>
+          <button class="nav-tab" data-target="view-control">
+            <span class="tab-icon">⚡</span> Control Plane
+          </button>
         </div>
         <div class="status-pill">
+          <span class="status-label">SYS.NET</span>
           <span class="dot"></span>
-          <span id="connection-status">Disconnected</span>
+          <span id="connection-status">DISCONNECTED</span>
         </div>
       </nav>
 
-      <!-- MERCHANT TERMINAL VIEW -->
       <div id="view-merchant" class="view">
         <header class="merchant-hero">
           <div class="hero-content">
+            <div class="kicker">:: OPERATIONAL DASHBOARD</div>
             <h1>Commercial Terminal</h1>
-            <p>Manage sales, configure strategies, and monitor cross-chain liquidity.</p>
+            <p>Liquidity management & strategy execution protocol.</p>
           </div>
           <div class="hero-stats">
-             <div class="stat-card">
-               <span class="label">Total Sales</span>
-               <span class="value" id="stat-sales">$0.00</span>
+             <div class="stat-card cyber-border">
+               <span class="label">Total Volume</span>
+               <span class="value glitch-text" id="stat-sales">$0.00</span>
              </div>
-             <div class="stat-card">
-               <span class="label">Pending</span>
+             <div class="stat-card cyber-border">
+               <span class="label">Pending Ops</span>
                <span class="value" id="stat-pending">0</span>
              </div>
           </div>
         </header>
 
-            <div class="terminal-layout">
-              <div class="terminal-main">
-                <div class="forensic-radar hidden" id="forensic-radar">
+        <div class="terminal-layout">
+           <div class="terminal-main">
+            <div class="forensic-radar hidden" id="forensic-radar">
+              <div class="radar-container">
                   <div class="radar-scanner">
-                    <div class="scanner-line"></div>
+                    <div class="scanner-sweep"></div>
                     <div class="scanner-grid"></div>
                   </div>
-                  <div class="radar-info">
-                    <h3>HELIUS FORENSIC SCAN</h3>
-                    <div class="radar-details" id="radar-details">
-                      <div class="radar-row"><span>Target:</span> <strong id="radar-target">---</strong></div>
-                      <div class="radar-row"><span>Risk Score:</span> <strong id="radar-score">---</strong></div>
-                      <div class="radar-row"><span>Compliance:</span> <strong id="radar-compliance">---</strong></div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="card product-card-grid">
-                  <div class="card-header">
-                    <h2>Available Services</h2>
-                    <button class="btn-sm" id="btn-add-product">List New Service</button>
-                  </div>
-                  <div class="product-grid" id="product-grid">
-                    <!-- Products injected here -->
-                  </div>
-                </div>
-
-                <div class="card">
-                  <div class="card-header">
-                    <h2>Operational History</h2>
-                    <div class="header-actions">
-                      <span class="live-indicator">LIVE</span>
-                    </div>
-                  </div>
-                  <div class="activity-feed" id="activity-feed">
-                    <!-- Activity items injected here -->
-                  </div>
-                </div>
               </div>
-
-              <div class="terminal-sidebar">
-                <div class="card thought-card">
-                  <div class="card-header">
-                    <h2>Agent Thought Stream</h2>
-                  </div>
-                  <div class="thought-stream" id="thought-stream">
-                    <div class="empty muted">Waiting for agent activity...</div>
-                  </div>
-                </div>
-                
-                <div class="card stats-card">
-                  <div class="card-header">
-                    <h2>CFO Snapshot</h2>
-                  </div>
-                  <div class="stats-grid">
-                    <div class="stat-item">
-                      <label>Total Managed</label>
-                      <span id="stat-sales">$0.00</span>
-                    </div>
-                    <div class="stat-item">
-                      <label>Active Tasks</label>
-                      <span id="stat-pending">0</span>
-                    </div>
-                    <div class="efficiency-gauge">
-                      <label>Sustainability Index</label>
-                      <div class="gauge-bar">
-                        <div class="gauge-fill" id="efficiency-fill" style="width: 0%"></div>
-                      </div>
-                      <div class="gauge-labels">
-                        <span id="efficiency-status">Initializing...</span>
-                        <span id="efficiency-percent">0%</span>
-                      </div>
-                    </div>
-                  </div>
+              <div class="radar-info">
+                <h3>⚠ HELIUS FORENSIC SCAN</h3>
+                <div class="radar-details" id="radar-details">
+                  <div class="radar-row"><span>TARGET_ID:</span> <strong id="radar-target" class="mono">---</strong></div>
+                  <div class="radar-row"><span>RISK_LVL:</span> <strong id="radar-score" class="mono">---</strong></div>
+                  <div class="radar-row"><span>COMPLIANCE:</span> <strong id="radar-compliance" class="mono">---</strong></div>
                 </div>
               </div>
             </div>
 
+            <div class="card product-card-grid cyber-panel">
+              <div class="card-header">
+                <h2>Available Services</h2>
+                <button class="btn-sm btn-glitch" id="btn-add-product">
+                    <span>+ List Service</span>
+                </button>
+              </div>
+              <div class="product-grid" id="product-grid">
+                </div>
+            </div>
 
+            <div class="card cyber-panel">
+              <div class="card-header">
+                <h2>Operational History</h2>
+                <div class="header-actions">
+                  <span class="live-indicator"><span class="blink">●</span> LIVE FEED</span>
+                </div>
+              </div>
+              <div class="activity-feed custom-scroll" id="activity-feed">
+                </div>
+            </div>
+          </div>
+
+          <div class="terminal-sidebar">
+            <div class="card thought-card cyber-panel">
+              <div class="card-header">
+                <h2>Agent Thought Stream</h2>
+              </div>
+              <div class="thought-stream custom-scroll" id="thought-stream">
+                <div class="empty muted">:: Waiting for neural activity...</div>
+              </div>
+            </div>
+
+            <div class="card stats-card cyber-panel">
+              <div class="card-header">
+                <h2>CFO Snapshot</h2>
+              </div>
+              <div class="stats-grid">
+                <div class="efficiency-gauge">
+                  <div class="gauge-header">
+                      <label>Sustainability Index</label>
+                      <span id="efficiency-percent" class="mono-gold">0%</span>
+                  </div>
+                  <div class="gauge-bar-bg">
+                    <div class="gauge-fill" id="efficiency-fill" style="width: 0%"></div>
+                  </div>
+                  <div class="gauge-labels">
+                    <span id="efficiency-status">INITIALIZING...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- GOVERNANCE VIEW -->
       <div id="view-governance" class="view hidden">
-        <header class="hero">
-          <div>
-            <p class="kicker">Security & Compliance</p>
+        <header class="merchant-hero">
+          <div class="hero-content">
+            <p class="kicker">Security & Compliance Layer</p>
             <h1>Shadow Governance</h1>
-            <p class="subhead">
-              Approve or reject high-value transactions using privacy-preserving signals.
-            </p>
           </div>
-          <div class="status-pill">
+          <div class="status-pill secure">
             <span class="dot online"></span>
-            <span>Secure Channel</span>
+            <span>SECURE CHANNEL_ENCRYPTED</span>
           </div>
         </header>
 
-        <main class="grid">
-          <section class="panel" style="grid-column: span 2;">
+        <main class="grid-gov">
+          <section class="panel cyber-panel full-width">
             <div class="panel-header">
               <h2>Pending Approvals</h2>
-              <button class="btn-xs" id="refresh-gov">↻ Refresh</button>
+              <button class="btn-sm" id="refresh-gov">↻ SYNC</button>
             </div>
             <div id="governance-list" class="governance-list">
-              <div class="empty-state">No pending requests.</div>
+              <div class="empty-state">:: No pending requests intercepted.</div>
             </div>
           </section>
-          
-          <section class="panel">
+
+          <section class="panel cyber-panel full-width">
             <div class="panel-header"><h2>Security Log</h2></div>
-             <div class="log-console" id="gov-log">
-               <div class="log-line">System initialized. Waiting for encrypted intents...</div>
+             <div class="log-console custom-scroll" id="gov-log">
+               <div class="log-line"><span class="ts">[SYS_BOOT]</span> System initialized. Waiting for encrypted intents...</div>
              </div>
           </section>
         </main>
       </div>
 
-      <!-- CONTROL PLANE VIEW -->
       <div id="view-control" class="view hidden">
-        <header class="hero">
-          <div>
-            <p class="kicker">Private Agent Control Plane</p>
-            <h1>MiniHub Control</h1>
-            <p class="subhead">
-              Register MCP agents, inspect status, and dispatch tool calls from a single local hub.
-            </p>
+        <header class="merchant-hero">
+          <div class="hero-content">
+            <p class="kicker">Local Agent Orchestration</p>
+            <h1>Control Plane</h1>
           </div>
-          <div class="status-pill">
+          <div class="status-pill local">
             <span class="dot"></span>
-            <span>Local Hub</span>
-            <span id="hub-port">:7777</span>
+            <span>LOCALHOST <span id="hub-port">:7777</span></span>
           </div>
         </header>
-        <div class="token-bar">
-          <label>
-            Hub Token (optional)
-            <input id="hub-token" placeholder="Set if HUB_TOKEN is enabled" />
-          </label>
+        
+        <div class="token-bar" style="margin-bottom: 20px;">
+             <input id="hub-token" class="cyber-input" placeholder=":: ENTER HUB_TOKEN FOR ACCESS" />
         </div>
 
-        <main class="grid">
-          <section class="panel" id="agents-panel">
+        <main class="control-grid">
+          <section class="panel cyber-panel" id="agents-panel">
             <div class="panel-header">
-              <h2>Agents</h2>
-              <button id="refresh-btn">Refresh</button>
+              <h2>Active Agents</h2>
+              <button id="refresh-btn" class="btn-sm">↻</button>
             </div>
-            <div id="agents-list" class="agents-list"></div>
+            <div id="agents-list" class="agents-list custom-scroll"></div>
           </section>
 
-          <section class="panel" id="details-panel">
-            <div class="panel-header">
-              <h2>Agent Detail</h2>
-            </div>
-            <div id="agent-detail" class="agent-detail muted">
-              Select an agent to see details.
-            </div>
-          </section>
+          <div class="control-center">
+              <section class="panel cyber-panel" id="register-panel">
+                <div class="panel-header"><h2>Connect MCP</h2></div>
+                <form id="register-form" class="form-stack">
+                  <input class="cyber-input" name="agent_id" placeholder="Agent ID" required />
+                  <input class="cyber-input" name="mcp_url" placeholder="MCP URL" required />
+                  <select class="cyber-input" name="transport">
+                    <option value="http">HTTP</option>
+                    <option value="stdio">STDIO</option>
+                  </select>
+                  <input class="cyber-input" name="capabilities" placeholder="Capabilities" />
+                  <button type="submit" class="btn-full">Register Agent</button>
+                </form>
+              </section>
 
-          <section class="panel" id="observability-panel">
+              <section class="panel cyber-panel" id="tool-panel">
+                <div class="panel-header"><h2>Tool Runner</h2></div>
+                <form id="tool-form" class="form-stack">
+                  <input class="cyber-input" name="tool" placeholder="Tool Name (e.g. agent.pay)" required />
+                  <textarea class="cyber-input" name="payload" rows="3" placeholder='{"amount": 100}'></textarea>
+                  <button type="submit" class="btn-full">Execute Tool</button>
+                </form>
+                <div class="response-box" style="padding: 12px;">
+                    <pre id="tool-response" class="muted">:: Ready for output...</pre>
+                </div>
+              </section>
+          </div>
+
+          <section class="panel cyber-panel" id="observability-panel">
             <div class="panel-header">
               <h2>Observability</h2>
-              <button id="refresh-observability">Refresh</button>
+              <button id="refresh-observability" class="btn-sm">↻</button>
             </div>
-            <div id="observability-status" class="muted">
-              Select an agent to load live state.
-            </div>
-            <div class="obs-grid">
-              <div class="obs-card">
-                <div class="obs-label">Balance</div>
-                <div id="obs-balance" class="obs-value">-</div>
-                <div id="obs-balance-meta" class="obs-sub muted"></div>
+            <div id="observability-status" class="muted" style="padding:12px">Select agent...</div>
+            <div class="obs-grid" style="padding:12px; display:flex; flex-direction:column; gap:12px;">
+              <div class="obs-card" style="border:1px solid #333; padding:12px;">
+                <div class="obs-label" style="font-size:10px; color:#666;">Balance</div>
+                <div id="obs-balance" class="obs-value mono">-</div>
+                 <div id="obs-balance-meta" class="obs-sub muted"></div>
               </div>
-              <div class="obs-card">
-                <div class="obs-label">Latest Receipt</div>
-                <pre id="obs-latest-receipt" class="response muted">No data yet.</pre>
-              </div>
-              <div class="obs-card">
-                <div class="obs-label">Recent Receipts</div>
-                <div id="obs-receipts" class="receipt-list muted">No receipts yet.</div>
+              <div class="obs-card" style="border:1px solid #333; padding:12px;">
+                <div class="obs-label" style="font-size:10px; color:#666;">Recent Traffic</div>
+                <div id="obs-receipts" class="receipt-list muted custom-scroll">No signal.</div>
               </div>
             </div>
-          </section>
-
-          <section class="panel" id="register-panel">
-            <div class="panel-header">
-              <h2>Connect MCP</h2>
-            </div>
-            <form id="register-form" class="form">
-              <label>
-                Agent ID
-                <input name="agent_id" placeholder="agent-alpha" required />
-              </label>
-              <label>
-                MCP URL
-                <input name="mcp_url" placeholder="http://localhost:7001/tool" required />
-              </label>
-              <label>
-                Transport
-                <select name="transport">
-                  <option value="http">http</option>
-                  <option value="stdio">stdio</option>
-                </select>
-              </label>
-              <label>
-                Capabilities (comma)
-                <input name="capabilities" placeholder="pay, balance, status" />
-              </label>
-              <label>
-                Public Key (optional)
-                <input name="pubkey" placeholder="base58..." />
-              </label>
-              <button type="submit">Register Agent</button>
-            </form>
-            <p class="hint">Tip: agents can auto-register via POST /register.</p>
-          </section>
-
-          <section class="panel" id="spawn-panel">
-            <div class="panel-header">
-              <h2>Launch CLI Agent</h2>
-            </div>
-            <form id="spawn-form" class="form">
-              <label>
-                Agent ID
-                <input name="agent_id" placeholder="agent-alpha" required />
-              </label>
-              <label>
-                Command
-                <input name="command" placeholder="bun" required />
-              </label>
-              <label>
-                Args (space separated)
-                <input name="args" placeholder="run mcp/src/index.ts" />
-              </label>
-              <label>
-                Working Dir (optional)
-                <input name="cwd" placeholder="/path/to/repo" />
-              </label>
-              <label>
-                Env (JSON)
-                <textarea name="env" rows="4">{}</textarea>
-              </label>
-              <button type="submit">Spawn Process</button>
-            </form>
-            <p class="hint">Requires HUB_ALLOW_SPAWN=true on the hub server.</p>
-          </section>
-
-          <section class="panel" id="tool-panel">
-            <div class="panel-header">
-              <h2>Tool Runner</h2>
-            </div>
-            <form id="tool-form" class="form">
-              <label>
-                Tool Name
-                <input name="tool" placeholder="agent.pay" required />
-              </label>
-              <label>
-                Payload (JSON)
-                <textarea name="payload" rows="6">{}</textarea>
-              </label>
-              <button type="submit">Send Tool Call</button>
-            </form>
-            <pre id="tool-response" class="response muted">No response yet.</pre>
-          </section>
-
-          <section class="panel" id="process-panel">
-            <div class="panel-header">
-              <h2>Processes</h2>
-              <button id="refresh-processes">Refresh</button>
-            </div>
-            <div id="process-list" class="process-list muted">No processes yet.</div>
           </section>
         </main>
       </div>
     </div>
 
-    <!-- COMPLIANCE MODAL -->
     <div class="modal-overlay hidden" id="governance-overlay">
       <div class="modal-content compliance-alert lockdown">
-        <div class="alert-icon">🔒</div>
-        <h2>GOVERNANCE INTERVENTION REQUIRED</h2>
-        <p>Security protocol triggered by Range Protocol. Transaction halted.</p>
+        <div class="alert-header">
+            <div class="alert-icon blink">🔒</div>
+            <h2>GOVERNANCE INTERVENTION</h2>
+        </div>
+        <p class="alert-msg">Range Protocol has flagged a transaction violation.</p>
         <div class="risk-details">
-          <div class="risk-row"><span>Detected Risk:</span> <strong id="lockdown-risk">Sanctioned Entity</strong></div>
-          <div class="risk-row"><span>Compliance:</span> <strong>Critical Violation</strong></div>
-          <div class="risk-row"><span>Requested Action:</span> <strong>Human Override Required</strong></div>
+          <div class="risk-row"><span>RISK_TYPE:</span> <strong id="lockdown-risk" class="text-red">Sanctioned Entity</strong></div>
+          <div class="risk-row"><span>STATUS:</span> <strong class="text-red">CRITICAL</strong></div>
         </div>
         <div class="lockdown-actions">
-           <button class="btn-danger" id="lockdown-reject">Abort & Blacklist</button>
-           <button class="btn-success" id="lockdown-approve">Authorize Override</button>
+           <button class="btn-danger" id="lockdown-reject">ABORT & BLACKLIST</button>
+           <button class="btn-success" id="lockdown-approve">OVERRIDE (AUTH REQ)</button>
         </div>
       </div>
     </div>
 
     <div id="compliance-modal" class="modal-overlay hidden">
-      <div class="modal-content compliance-alert">
+      <div class="modal-content compliance-alert warning">
         <div class="alert-icon">⚠️</div>
-        <h2>Risk Alert: Range Protocol</h2>
+        <h2>RISK DETECTED</h2>
         <div class="alert-body">
-          <p>Transaction blocked due to high-risk destination detection.</p>
           <div class="risk-details">
-            <div class="risk-row"><span>Entity</span><strong id="risk-entity">Unknown</strong></div>
-            <div class="risk-row"><span>Risk Score</span><strong id="risk-score">90/100</strong></div>
-            <div class="risk-row"><span>Reason</span><strong id="risk-reason">Sanctioned Address</strong></div>
+            <div class="risk-row"><span>ENTITY</span><strong id="risk-entity">Unknown</strong></div>
+            <div class="risk-row"><span>SCORE</span><strong id="risk-score">90/100</strong></div>
+             <div class="risk-row"><span>REASON</span><strong id="risk-reason">---</strong></div>
           </div>
         </div>
-        <button id="close-modal" class="btn-danger">Acknowledge Security Alert</button>
+        <button id="close-modal" class="btn-danger" style="margin-top:16px; width:100%">ACKNOWLEDGE</button>
       </div>
     </div>
 
-    <!-- INVOICE MODAL -->
     <div id="invoice-modal" class="modal-overlay hidden">
-      <div class="modal-content invoice-modal">
+      <div class="modal-content invoice-modal cyber-panel">
         <div class="invoice-header">
-          <span class="invoice-logo">🧾 INVOICE</span>
-          <div class="invoice-meta" id="inv-id">#INV-0000</div>
-          <div class="invoice-meta" id="inv-date">...</div>
+          <span class="invoice-logo">🧾 PROOF OF PURCHASE</span>
+          <div class="invoice-meta mono" id="inv-id">#INV-0000</div>
+          <div class="invoice-meta mono" id="inv-date"></div>
         </div>
-        <div class="invoice-body" id="inv-body">
-          <!-- Items injected -->
-        </div>
+        <div class="invoice-body" id="inv-body"></div>
         <div class="invoice-footer">
-          <div>VERIFIED BY LIGHT PROTOCOL</div>
-          <div class="zk-hash" id="inv-hash">0x...</div>
-          <button class="btn-sm" style="margin-top: 12px; width: 100%;" onclick="document.getElementById('invoice-modal').classList.add('hidden')">Close</button>
+          <div class="zk-badge">VERIFIED BY LIGHT PROTOCOL</div>
+          <div class="zk-hash mono" id="inv-hash">0x...</div>
+          <button class="btn-sm" style="margin-top:16px; width:100%" id="btn-close-invoice">CLOSE</button>
         </div>
       </div>
     </div>
