@@ -20,7 +20,40 @@ export interface AgentContext {
   defaultToken: SupportedToken;
 }
 
-// ... (keep helper functions until buildAgentContext)
+const VALID_TOKENS: SupportedToken[] = ['SOL', 'USD1', 'USDC'];
+const VALID_PROVIDERS = ['shadowwire', 'privacy_cash', 'starpay', 'xb77'];
+
+function normalizeToken(token: any, fallback: SupportedToken = 'USD1'): SupportedToken {
+  if (!token) return fallback;
+  const t = String(token).toUpperCase();
+  if (VALID_TOKENS.includes(t as any)) return t as SupportedToken;
+  return fallback;
+}
+
+function normalizeProvider(provider: any, fallback: string = 'xb77'): string {
+  if (!provider) return fallback;
+  const p = String(provider).toLowerCase();
+  if (VALID_PROVIDERS.includes(p)) return p;
+  return fallback;
+}
+
+function parseBalances(json?: string): Record<SupportedToken, number> {
+  if (!json) return { USD1: 1000 } as any;
+  try {
+    return JSON.parse(json);
+  } catch {
+    return { USD1: 1000 } as any;
+  }
+}
+
+async function loadKeypairFromEnv(): Promise<Keypair> {
+  const path_env = process.env.XB77_KEYPAIR_PATH;
+  if (path_env && fs.existsSync(path_env)) {
+    const secretKey = Uint8Array.from(JSON.parse(fs.readFileSync(path_env, 'utf-8')));
+    return Keypair.fromSecretKey(secretKey);
+  }
+  return Keypair.generate();
+}
 
 export async function buildAgentContext(options?: {
   keypair?: Keypair;
@@ -30,7 +63,14 @@ export async function buildAgentContext(options?: {
   rpcUrl?: string;
 }): Promise<AgentContext> {
   const offline = options?.offline ?? process.env.XB77_OFFLINE === 'true';
-  const rpcUrl = options?.rpcUrl ?? process.env.SOLANA_RPC_URL ?? 'http://localhost:8899';
+  const heliusKey = process.env.HELIUS_API_KEY;
+  
+  // Smart Default: If no RPC provided but we have a Helius Key, use Devnet Helius.
+  const defaultRpc = heliusKey 
+    ? `https://devnet.helius-rpc.com/?api-key=${heliusKey}`
+    : 'http://localhost:8899';
+
+  const rpcUrl = options?.rpcUrl ?? process.env.SOLANA_RPC_URL ?? defaultRpc;
   const connection = !offline ? new Connection(rpcUrl, 'confirmed') : undefined;
 
   const paymentMode =
@@ -67,12 +107,33 @@ export async function buildAgentContext(options?: {
   const coreProgramId = parsePubkeyEnv(process.env.XB77_CORE_PROGRAM_ID);
   const gatewayProgramId = parsePubkeyEnv(process.env.XB77_GATEWAY_PROGRAM_ID);
   const receiptsProgramId = parsePubkeyEnv(process.env.XB77_RECEIPTS_PROGRAM_ID);
-  const lightRpcUrl =
-    process.env.XB77_LIGHT_RPC_URL ?? process.env.SOLANA_RPC_URL;
-  const lightCompressionUrl =
-    process.env.XB77_LIGHT_COMPRESSION_RPC_URL ?? process.env.LIGHT_COMPRESSION_RPC_URL;
-  const lightProverUrl =
-    process.env.XB77_LIGHT_PROVER_RPC_URL ?? process.env.LIGHT_PROVER_RPC_URL;
+  
+  const formatHeliusUrl = (url: string | undefined, fallback: string) => {
+    let target = url || fallback;
+    if (heliusKey && target.includes('helius-rpc.com') && !target.includes('api-key=')) {
+      const separator = target.includes('?') ? '&' : '?';
+      target = `${target}${separator}api-key=${heliusKey}`;
+    }
+    return target;
+  };
+
+  const lightRpcUrl = formatHeliusUrl(process.env.XB77_LIGHT_RPC_URL, rpcUrl);
+  const lightCompressionUrl = formatHeliusUrl(
+    process.env.XB77_LIGHT_COMPRESSION_RPC_URL, 
+    process.env.LIGHT_COMPRESSION_RPC_URL || lightRpcUrl
+  );
+  const lightProverUrl = formatHeliusUrl(
+    process.env.XB77_LIGHT_PROVER_RPC_URL, 
+    process.env.LIGHT_PROVER_RPC_URL || lightRpcUrl
+  );
+
+  const safeLogUrl = (url: string) => {
+      if (url.includes('api-key=')) {
+          return url.split('api-key=')[0] + 'api-key=***';
+      }
+      return url;
+  };
+  console.error(`[Debug] Light RPC URL: ${safeLogUrl(lightRpcUrl)}`);
 
   const starpayApiKey = process.env.STARPAY_API_KEY || 'mock_key';
   const starpayBaseUrl = process.env.STARPAY_BASE_URL;

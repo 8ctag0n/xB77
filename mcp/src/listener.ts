@@ -66,6 +66,7 @@ async function generateCompressedReceipt(params: {
   }
 
   try {
+    process.env.DEBUG_RECEIPT_CONTEXT = '1';
     const rpc = createRpc(RPC_URL, COMPRESSION_URL, PROVER_URL);
     const vendor = hashTo32Bytes(params.vendorName);
     const memoHash = hashTo32Bytes(params.memo);
@@ -85,13 +86,16 @@ async function generateCompressedReceipt(params: {
       memoHash,
     });
 
+    console.log(`[Listener] Packed Info: TreeIdx=${receiptCtx.addressTreeInfo.addressMerkleTreePubkeyIndex}, RootIdx=${receiptCtx.addressTreeInfo.rootIndex}`);
+
+
     // Construir la instrucción de Solana
     const instruction = new TransactionInstruction({
       programId: RECEIPT_PROGRAM_ID,
       keys: [
         { pubkey: context.agent.wallet.publicKey, isSigner: true, isWritable: true }, // Payer/Signer
-        { pubkey: params.recipient, isSigner: false, isWritable: false }, // Agent (Owner)
         ...receiptCtx.remainingAccounts,
+        { pubkey: params.recipient, isSigner: false, isWritable: false }, // Agent (Owner) - Must be LAST
       ],
       data: Buffer.concat([
         Buffer.from([RECEIPT_INSTRUCTION_DISCRIMINATORS.record]),

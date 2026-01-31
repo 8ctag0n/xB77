@@ -108,6 +108,24 @@ function logThought(message: string) {
   }
 }
 
+function renderProductGrid() {
+  productGrid.innerHTML = '';
+  products.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'product-card';
+    card.innerHTML = `
+      <div class="product-icon">${p.icon}</div>
+      <div class="product-info">
+        <h3>${p.name}</h3>
+        <div class="product-price">$${p.price.toFixed(2)}</div>
+      </div>
+      <button class="btn-sm" data-id="${p.id}">Buy Now</button>
+    `;
+    card.querySelector('button')?.addEventListener('click', () => handleBuy(p));
+    productGrid.appendChild(card);
+  });
+}
+
 async function streamThoughts(thoughts: string[]) {
   for (const thought of thoughts) {
     logThought(thought);
@@ -326,6 +344,24 @@ async function rejectRequest(id: string) {
 (window as any).approveRequest = approveRequest;
 (window as any).rejectRequest = rejectRequest;
 
+// ... (init)
+
+if (refreshGovBtn) refreshGovBtn.addEventListener('click', () => refreshGovernance());
+
+setInterval(() => {
+  refreshGovernance().catch(() => null);
+}, 5000);
+
+// Update nav init to include governance refresh
+// (Implicitly handled by polling, but nice to trigger on tab switch)
+const govTab = document.querySelector('button[data-target="view-governance"]');
+if (govTab) govTab.addEventListener('click', () => refreshGovernance());
+
+// Products definition moved after ICONS
+
+if (hubPort) {
+  hubPort.textContent = `:${window.location.port || '7777'}`;
+}
 // --- API Helpers ---
 function getHubToken(): string | undefined {
   const value = hubTokenInput?.value?.trim();
@@ -364,6 +400,14 @@ const ICONS = {
   TOOL: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>`,
   DATA: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse></svg>`,
 };
+
+const products = [
+  { id: 'p1', name: 'AWS Credits ($100)', price: 95, icon: ICONS.CLOUD, recipient: 'So11111111111111111111111111111111111111112' },
+  { id: 'p2', name: 'DevOps Hour', price: 150, icon: ICONS.TOOL, recipient: 'So11111111111111111111111111111111111111112' },
+  { id: 'p3', name: 'VPN Subscription', price: 12, icon: ICONS.LOCK, recipient: 'So11111111111111111111111111111111111111112' },
+  { id: 'p4', name: 'Dark Web Data', price: 499, icon: ICONS.DATA, recipient: 'BAD_sanctioned_address_123' },
+  { id: 'p5', name: 'Quantum Farm', price: 50000, icon: ICONS.SHIELD, recipient: 'So11111111111111111111111111111111111111112' },
+];
 
 function renderAgentDetail(agent?: AgentSummary, identity?: any) {
   if (!agent) {
@@ -429,8 +473,28 @@ function renderAgentDetail(agent?: AgentSummary, identity?: any) {
         <label>MCP Endpoint</label>
         <span class="code-font">${agent.mcpUrl}</span>
       </div>
+      <div class="detail-item full-width">
+        <label>Public Key</label>
+        <span class="code-font text-xs">${agent.pubkey ?? 'n/a'}</span>
+      </div>
+    </div>
+    
+    <div class="detail-footer">
+      <span>Last seen ${Math.round(agent.lastSeenAgeMs / 1000)}s ago</span>
     </div>
   `;
+  
+  if (agent.transport === 'stdio') {
+    agentDetail.innerHTML += `<div class="detail-note">Tool calls are disabled for stdio agents.</div>`;
+  }
+  
+  if (agent.status === 'online') {
+    connectionStatus.textContent = `Connected: ${agent.id}`;
+    connectionStatus.style.color = 'var(--accent-2)';
+  } else {
+    connectionStatus.textContent = `Stale: ${agent.id}`;
+    connectionStatus.style.color = 'var(--danger)';
+  }
 }
 
 async function refreshAgents() {
@@ -633,6 +697,8 @@ async function showInvoice(receipt: any) {
 
     const vendor = data.metadata?.vendorName || receipt.recipient.slice(0, 8) + '...';
     const amount = data.amount / 100;
+    const tax = amount * 0.21;
+    const subtotal = amount - tax;
     
     invId.textContent = `#INV-${proof.receiptId.slice(0, 6).toUpperCase()}`;
     invDate.textContent = new Date(data.timestamp).toLocaleString();
@@ -640,12 +706,27 @@ async function showInvoice(receipt: any) {
     
     invBody.innerHTML = `
       <div class="line-item"><span>Vendor</span> <strong>${vendor}</strong></div>
+      <div class="line-item"><span>Status</span> <span class="badge success">CERTIFIED</span></div>
       <div class="line-divider"></div>
-      <div class="invoice-total"><span>TOTAL</span> <span>$${amount.toFixed(2)}</span></div>
+      
+      <!-- BLURRED SECTION START -->
+      <div id="zk-protected-content" class="zk-blur" style="padding: 10px; border-radius: 4px;">
+        <div class="line-item"><span>Service (Audit Ready)</span> <span>$${subtotal.toFixed(2)}</span></div>
+        <div class="line-item"><span>VAT (21%)</span> <span>$${tax.toFixed(2)}</span></div>
+        <div class="line-divider"></div>
+        <div class="invoice-total"><span>TOTAL</span> <span>$${amount.toFixed(2)}</span></div>
+      </div>
+      <!-- BLURRED SECTION END -->
+      
       <div class="verification-zone" id="verif-${proof.receiptId}">
          <button class="btn-verify" onclick="window.verifyOnChain('${proof.receiptId}', '${proof.attestation}')">
            Verify ZK-Proof on Solana
          </button>
+      </div>
+
+      <div class="proof-footer">
+        <label>Agent Attestation (Ed25519)</label>
+        <div class="code-font text-xxs break-all">${proof.attestation}</div>
       </div>
     `;
 
@@ -666,8 +747,24 @@ async function verifyOnChain(receiptId: string, attestation: string) {
       proof: attestation
     });
     const result = unwrapToolResponse(response);
-    zone.innerHTML = `<div class="zk-success-badge">✅ MATH VERIFIED ON-CHAIN</div>`;
-    logThought(`Proof for ${receiptId.slice(0,8)} verified on Solana.`);
+    // REVEAL ANIMATION
+    const protectedContent = document.getElementById('zk-protected-content');
+    if (protectedContent) {
+      protectedContent.classList.remove('zk-blur');
+      protectedContent.classList.add('zk-revealed');
+    }
+
+    zone.innerHTML = `
+      <div class="zk-success-badge">
+        <span class="icon">✅</span>
+        <div class="text">
+          <strong>MATH VERIFIED ON-CHAIN</strong>
+          <span>Ref: ${result.onChainRef}</span>
+        </div>
+      </div>
+    `;
+    
+    logThought(`Proof for ${receiptId.slice(0,8)} verified by Solana Verifier Program.`);
   } catch (e: any) {
     zone.innerHTML = `<p class="danger text-xs">Failed: ${e.message}</p>`;
   }
@@ -683,10 +780,7 @@ async function refreshLiveActivity() {
     receipts.forEach((r: any) => {
       const isPrivate = r.provider === 'shadowwire' || r.provider === 'privacy_cash';
       const isRevealed = revealedReceipts.has(r.txSignature);
-      
-      // Use global isShielded to force hide if not revealed
-      const forceShield = isShielded && !isRevealed;
-      
+      const forceShield = isShielded && isPrivate && !isRevealed;
       const item = document.createElement('div');
       item.className = `feed-item ${r.type === 'external' ? 'sale' : 'info'}`;
       
@@ -694,6 +788,7 @@ async function refreshLiveActivity() {
       const vendorDisplay = forceShield ? 'Shielded Destination' : (r.metadata?.vendorName || r.recipient.slice(0, 8) + '...');
       const privacyIcon = forceShield ? '🔒' : '🔓';
       
+      // Simplified data passing to the invoice helper.
       const receiptJson = JSON.stringify(r).replace(/"/g, '&quot;');
 
       item.innerHTML = `
@@ -729,6 +824,177 @@ function initNav() {
     });
   });
 }
+
+const complianceModal = document.getElementById('compliance-modal') as HTMLDivElement;
+const riskEntity = document.getElementById('risk-entity') as HTMLElement;
+const riskScore = document.getElementById('risk-score') as HTMLElement;
+const riskReason = document.getElementById('risk-reason') as HTMLElement;
+const closeModal = document.getElementById('close-modal') as HTMLButtonElement;
+
+if (closeModal) {
+  closeModal.onclick = () => complianceModal.classList.add('hidden');
+}
+
+function showComplianceAlert(error: any) {
+  if (riskEntity) riskEntity.textContent = 'Sanctioned Address';
+  if (riskScore) riskScore.textContent = 'High Risk (90/100)';
+  if (riskReason) riskReason.textContent = error || 'Range Protocol Flag';
+  complianceModal.classList.remove('hidden');
+}
+
+async function handleBuy(product: typeof products[0]) {
+  const agent = getSelectedAgent();
+  if (!agent) {
+    alert('No agent connected. Please connect an agent in the Control Plane.');
+    return;
+  }
+
+  // 1. STRATEGY ANALYSIS & RADAR TRIGGER
+  const radar = document.getElementById('forensic-radar') as HTMLDivElement;
+  const radarTarget = document.getElementById('radar-target') as HTMLElement;
+  const radarScore = document.getElementById('radar-score') as HTMLElement;
+  const radarCompliance = document.getElementById('radar-compliance') as HTMLElement;
+
+  if (radar) {
+    radar.classList.remove('hidden');
+    radarTarget.textContent = product.recipient.slice(0, 12) + '...';
+    radarScore.textContent = 'SCANNING...';
+    radarCompliance.textContent = 'PENDING...';
+  }
+
+  logActivity(`🤖 Analyzing optimal route for ${product.name}...`);
+  logThought(`Analyzing purchase intent: ${product.name} ($${product.price})`);
+
+  try {
+    const strategyRes = await callTool('agent.strategy.evaluate', {
+      recipient: product.recipient,
+      amount: product.price * 100,
+      context: {
+        vendorCategory: product.price > 1000 ? 'high_value_asset' : 'standard',
+        isNewVendor: product.recipient.startsWith('BAD') 
+      }
+    });
+    
+    const strategy = unwrapToolResponse(strategyRes);
+    
+    // Update Radar with results
+    if (radar) {
+      radarScore.textContent = `${strategy.intel?.score || 0}/100`;
+      radarCompliance.textContent = strategy.riskAssessment.toUpperCase();
+      if (strategy.riskAssessment === 'low') radarCompliance.style.color = 'var(--accent-2)';
+      else if (strategy.riskAssessment === 'high' || strategy.riskAssessment === 'critical') radarCompliance.style.color = 'var(--danger)';
+    }
+
+    // Stream agent reasoning to the sidebar
+    if (strategy.thoughts) {
+      await streamThoughts(strategy.thoughts);
+    }
+
+    // 2. GOVERNANCE LOCKDOWN CHECK
+    if (strategy.riskAssessment === 'critical' || strategy.riskAssessment === 'high') {
+      const govOverlay = document.getElementById('governance-overlay') as HTMLDivElement;
+      const riskLabel = document.getElementById('lockdown-risk') as HTMLElement;
+      
+      // TRIGGER SYSTEM LOCKDOWN VISUALS
+      document.body.classList.add('system-lockdown');
+      if (thoughtStream) thoughtStream.classList.add('panic-mode');
+      
+      if (govOverlay) {
+        riskLabel.textContent = strategy.intel?.reasoning || 'Range Protocol: High Risk Detected';
+        govOverlay.classList.remove('hidden');
+        logThought('SECURITY INTERVENTION: Automated flow halted. Waiting for Human Authority...');
+        
+        // Return early - the UI will handle the rest via buttons
+        return;
+      }
+    }
+    
+    // Reset visuals if safe
+    document.body.classList.remove('system-lockdown');
+    if (thoughtStream) thoughtStream.classList.remove('panic-mode');
+
+    // Brief delay for the user to see the "Scan result"
+    await new Promise(r => setTimeout(r, 1500));
+    if (radar) radar.classList.add('hidden');
+
+  } catch (e) {
+    console.error('Strategy failed', e);
+  }
+
+  // 2. GOVERNANCE TRIGGER (Legacy Check kept for safety, but logic is redundant with Strategy)
+  if (product.price > 1000) {
+    const confirmMsg = `High Value Alert: $${product.price} exceeds autonomous limit.\nInitiating Shadow Governance Protocol?`;
+    if (!confirm(confirmMsg)) return;
+
+    logActivity(`⚠️ Blocked: $${product.price} exceeds limit. Requesting approval...`, 'info');
+    
+    // Simulate Agent sending encrypted intent to Listener
+    try {
+      const payload = {
+        agentId: agent.id,
+        // Mocking encryption: Base64 of "CMD|AMOUNT|RECIPIENT|REASON"
+        encryptedPayload: btoa(`TRANSFER|${product.price}|${product.recipient.slice(0,8)}...|Asset Acquisition: ${product.name}`)
+      };
+      
+      await fetch(`${LISTENER_URL}/governance/request`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+
+      alert('🚫 Transaction requires human approval.\nCheck the "Governance" tab to inspect and sign.');
+      // Switch tab helper (optional, user can do it manually)
+      const govTab = document.querySelector('button[data-target="view-governance"]');
+      if (govTab) govTab.classList.add('pulse-anim');
+    } catch (e) {
+      console.error(e);
+      logActivity('Governance handshake failed.', 'info');
+    }
+    return;
+  }
+  
+  // Get strategy
+  const strategyInput = document.querySelector('input[name="strategy"]:checked') as HTMLInputElement;
+  const strategy = strategyInput?.value || 'privacy_cash';
+  
+  logActivity(`Initiating purchase: ${product.name} via ${strategy}...`);
+  
+  try {
+    const response = await callTool('agent.pay', {
+      amount: product.price * 100, // Convert to atomic units (cents)
+      token: 'USDC',
+      recipient: product.recipient,
+      provider: strategy // Map UI 'strategy' to tool 'provider'
+    });
+    
+    const result = unwrapToolResponse(response);
+    const error = extractToolError(result);
+    
+    if (error) {
+      if (error.includes('Range') || error.includes('Compliance') || error.includes('Risk')) {
+        showComplianceAlert(error);
+      } else {
+        logActivity(`Payment failed: ${error}`, 'info');
+      }
+    } else {
+      salesTotal += product.price;
+      statSales.textContent = `$${salesTotal.toFixed(2)}`;
+      logActivity(`Payment confirmed! ${product.name} sold.`, 'sale');
+    }
+  } catch (e: any) {
+    logActivity(`Error: ${e.message}`, 'info');
+  }
+}
+
+btnAddProduct.addEventListener('click', () => {
+  const name = prompt('Product Name:');
+  const price = Number(prompt('Price:'));
+  if (name && price) {
+    products.push({ id: `p${Date.now()}`, name, price, icon: '📦' });
+    renderProductGrid();
+    logActivity(`New product listed: ${name}`);
+  }
+});
 
 initNav();
 logActivity('Merchant Terminal initialized.');

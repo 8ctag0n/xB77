@@ -7,8 +7,8 @@ import type {
 } from '@lightprotocol/stateless.js';
 import {
   bn,
-  deriveAddress,
-  deriveAddressSeed,
+  deriveAddressV2,
+  deriveAddressSeedV2,
   PackedAccounts,
   SystemAccountMetaConfig,
   TreeType,
@@ -239,21 +239,25 @@ export async function buildLightRecordReceiptContext(input: {
   memoHash: Uint8Array;
 }): Promise<LightRecordReceiptContext> {
   const seeds = [RECEIPT_ADDRESS_SEED, input.vendor, input.memoHash];
-  
-  const addressSeed = deriveAddressSeed(
+  console.log("[DEBUGGEANDO PARCERO]",seeds); 
+  const addressSeed = deriveAddressSeedV2(
     seeds,
-    input.receiptProgramId
   );
-  const derivedAddress = deriveAddress(addressSeed, input.addressTreeInfo.tree);
-
+  console.log(`[Client] Address Seed: [${Array.from(addressSeed).join(', ')}]`);
+  const derivedAddress = deriveAddressV2(addressSeed, input.addressTreeInfo.tree,input.receiptProgramId);
+  console.log(`[Client] Derived Address: ${derivedAddress.toBase58()}`);
+  console.log(`[Client] Seeds Components: receipt, ${Buffer.from(input.vendor).toString('hex').slice(0,8)}..., ${Buffer.from(input.memoHash).toString('hex').slice(0,8)}...`);
+  console.log("INFO->" ,input.addressTreeInfo);
+  console.log("INFO[tree]->" ,input.addressTreeInfo.tree);
+  console.log("INFO->" ,input.addressTreeInfo.queue);
   const validity = await input.rpc.getValidityProofV0([], [
     {
       tree: input.addressTreeInfo.tree,
       queue: input.addressTreeInfo.queue,
-      address: bn(derivedAddress.toBytes())
+      address: bn(addressSeed)
     }
   ]);
-
+  console.log("VALIDITY::::->",validity);
   if (validity.rootIndices.length === 0) {
     validity.rootIndices = [0];
   }
@@ -274,27 +278,48 @@ export async function buildLightRecordReceiptContext(input: {
     getOutputStateTreeAccount(input.outputStateTreeInfo)
   );
 
+  const accountMetas = packedAccounts.toAccountMetas();
+
+  // FIX: Manually correct indices based on the final remainingAccounts list
+  // PackedAccounts logic might be out of sync with toAccountMetas prepending behavior
+  const realTreeIndex = accountMetas.remainingAccounts.findIndex(acc => acc.pubkey.equals(input.addressTreeInfo.tree));
+  const realQueueIndex = accountMetas.remainingAccounts.findIndex(acc => acc.pubkey.equals(input.addressTreeInfo.queue));
+  const realOutputIndex = accountMetas.remainingAccounts.findIndex(acc => acc.pubkey.equals(getOutputStateTreeAccount(input.outputStateTreeInfo)));
+
+  if (realTreeIndex === -1 || realQueueIndex === -1) {
+    throw new Error('Address Tree or Queue not found in packed accounts');
+  }
+
+  // Adding +1 for Signer offset as established
   const addressTreeInfo: PackedAddressTreeInfo = {
-    addressMerkleTreePubkeyIndex,
-    addressQueuePubkeyIndex,
+    addressMerkleTreePubkeyIndex: realTreeIndex ,
+    addressQueuePubkeyIndex: realTreeIndex ,
     rootIndex: validity.rootIndices[0]
   };
+  
+  const finalOutputIndex = realOutputIndex ;
 
-  const instructionData = serializeRecordReceiptInstructionFromLight({
-    proof: validity.compressedProof,
-    addressTreeInfo,
-    outputStateTreeIndex,
-    vendor: input.vendor,
-    amount: input.amount,
-    memoHash: input.memoHash
-  });
-
-  return {
-    instructionData,
-    remainingAccounts: packedAccounts.toAccountMetas().remainingAccounts,
+  const receiptContext: LightRecordReceiptContext = {
+    instructionData: serializeRecordReceiptInstructionFromLight({
+      proof: validity.compressedProof,
+      addressTreeInfo,
+      outputStateTreeIndex: finalOutputIndex,
+      vendor: input.vendor,
+      amount: input.amount,
+      memoHash: input.memoHash
+    }),
+    remainingAccounts: accountMetas.remainingAccounts,
     derivedAddress,
     proof: validity.compressedProof,
     addressTreeInfo,
-    outputStateTreeIndex
+    outputStateTreeIndex: finalOutputIndex
   };
+
+  if (process.env.DEBUG_RECEIPT_CONTEXT === '1') {
+    console.log('[DEBUG_RECEIPT_CONTEXT] PACKED ACCOUNTS MODE');
+    console.log('[DEBUG_RECEIPT_CONTEXT] Tree Index (sent):', addressTreeInfo.addressMerkleTreePubkeyIndex);
+    accountMetas.remainingAccounts.forEach((a, i) => console.log(`[DEBUG_RECEIPT_CONTEXT] Rem[${i}]: ${a.pubkey.toBase58()}`));
+  }
+
+  return receiptContext;
 }
