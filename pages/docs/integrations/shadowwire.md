@@ -1,0 +1,1 @@
+# ShadowWire Integration\n\n**Status:** Active\n\nShadowWire is the privacy layer leveraging Light Protocol to shield assets and obfuscate transaction history.\n\n## Key Features\n- Shielded Transfers\n- Compliance (Range Protocol)\n- Privacy Cash Pools

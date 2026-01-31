@@ -1,0 +1,1 @@
+# Kamino Finance Integration\n\n**Status:** Active\n\nKamino provides the 'Savings Account' for the Autonomous CFO, generating yield on idle capital to fund agent operations.\n\n## Key Features\n- Automated Deposits\n- Yield Optimization\n- Liquidity Management

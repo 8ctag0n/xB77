@@ -43,7 +43,16 @@ export default defineConfig({
             ]
           },
           {
-            text: '03_ECOSYSTEM',
+            text: '03_INTEGRATIONS',
+            items: [
+              { text: 'Starpay (Fiat)', link: '/docs/integrations/starpay' },
+              { text: 'ShadowWire (Privacy)', link: '/docs/integrations/shadowwire' },
+              { text: 'Kamino (Yield)', link: '/docs/integrations/kamino' },
+              { text: 'MCP (Agent)', link: '/docs/integrations/mcp' }
+            ]
+          },
+          {
+            text: '04_ECOSYSTEM',
             items: [
               { text: 'Sponsor Alignment', link: '/docs/sponsors' }
             ]
@@ -82,10 +91,19 @@ export default defineConfig({
             ]
           },
           {
-            text: '03_ECOSISTEMA',
+            text: '03_INTEGRACIONES',
+            items: [
+              { text: 'Starpay (Fiat)', link: '/docs/integrations/starpay' },
+              { text: 'ShadowWire (Privacidad)', link: '/docs/integrations/shadowwire' },
+              { text: 'Kamino (Rendimiento)', link: '/docs/integrations/kamino' },
+              { text: 'MCP (Agente)', link: '/docs/integrations/mcp' }
+            ]
+          },
+          {
+            text: '04_ECOSYSTEM',
             items: [
               { text: 'Libro Blanco', link: '/es/docs/whitepaper' },
-              { text: 'Sponsor Alignment (EN)', link: '/docs/ecosystem/SPONSORS' }
+              { text: 'Sponsor Alignment (EN)', link: '/docs/sponsors' }
             ]
           }
         ]

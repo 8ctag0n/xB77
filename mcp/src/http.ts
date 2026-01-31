@@ -63,3 +63,37 @@ const server = Bun.serve({
 });
 
 console.log(`xb77 MCP HTTP listening on http://localhost:${server.port}`);
+
+// --- AUTO-REGISTRATION ---
+async function registerWithHub() {
+  const hubUrl = 'http://localhost:7777/register';
+  const agentId = `agent-${context.keypair.publicKey.toBase58().slice(0, 4)}`;
+  const mcpUrl = `http://localhost:${PORT}/tool`; // Assuming localhost for demo
+  
+  const payload = {
+    agent_id: agentId,
+    mcp_url: mcpUrl,
+    transport: 'http',
+    capabilities: listTools().map(t => t.name),
+    pubkey: context.keypair.publicKey.toBase58()
+  };
+
+  try {
+    console.log(`[Discovery] Announcing presence to Hub at ${hubUrl}...`);
+    const res = await fetch(hubUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      console.log(`[Discovery] ✅ Successfully registered as ${agentId}`);
+    } else {
+      console.warn(`[Discovery] ⚠️ Hub rejected registration: ${res.status}`);
+    }
+  } catch (e) {
+    console.warn(`[Discovery] ⚠️ Could not reach Hub (is it running on :7777?): ${e.message}`);
+  }
+}
+
+// Fire and forget registration
+registerWithHub();

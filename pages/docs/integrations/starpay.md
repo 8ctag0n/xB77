@@ -1,0 +1,1 @@
+# Starpay Integration\n\n**Status:** Active\n\nStarpay provides the Fiat-to-Crypto bridge, enabling the agent to issue virtual Visa/Mastercards for Web2 payments and receive funding via corporate channels.\n\n## Key Features\n- Virtual Card Issuance\n- Webhook Events\n- Balance Synchronization
