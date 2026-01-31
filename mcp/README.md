@@ -10,6 +10,16 @@ bun install
 bun run src/index.ts
 ```
 
+## Run (HTTP mode for Hub)
+
+Expose the tool endpoint over HTTP so the hub can call `/tool`:
+
+```bash
+bun install --cwd ../sdk
+bun install
+MCP_HTTP_PORT=7001 bun run src/http.ts
+```
+
 ## Environment
 
 - `XB77_KEYPAIR_JSON`: JSON array of 64 bytes for the agent keypair.
@@ -20,6 +30,7 @@ bun run src/index.ts
 - `XB77_PAYMENT_MODE`: `mock` (default) or `live` to enable live ShadowWire calls.
 - `XB77_PAYMENT_PROVIDER`: `shadowwire` (default) or `privacy_cash`.
 - `XB77_BALANCES_JSON`: JSON object of token balances for offline mode (e.g. `{"USD1": 2500}`).
+- `MCP_HTTP_PORT`: HTTP port for `/tool` (default: `7001`).
 
 If both keypair vars are set, `XB77_KEYPAIR_JSON` takes precedence.
 

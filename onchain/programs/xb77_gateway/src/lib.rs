@@ -11,6 +11,9 @@ pub mod instruction;
 pub mod processor;
 pub mod state;
 
+use solana_program::declare_id;
+declare_id!("4gDQBWwzncRdTspJW37NoH56mGELj8UTqdC8VLdu7BGC");
+
 // Fix for getrandom on Solana
 #[cfg(target_os = "solana")]
 use getrandom::register_custom_getrandom;

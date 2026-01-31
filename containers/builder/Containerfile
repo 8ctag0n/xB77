@@ -1,0 +1,17 @@
+FROM xb77-noir-sunspot:1.0.0-beta.13
+
+# Install dependencies for Solana CLI
+RUN apt-get update && apt-get install -y \
+    libudev-dev \
+    llvm \
+    libclang-dev \
+    protobuf-compiler \
+    bzip2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install modern Solana CLI (Anza/Agave)
+RUN sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+
+ENV PATH="/root/.local/share/solana/install/active_release/bin:$PATH"
+
+WORKDIR /app

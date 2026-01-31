@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Configuration
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BIN_DIR="${ROOT_DIR}/containers/surfpool/bin"
+BIN_DIR="${ROOT_DIR}/containers/light/bin"
 LEDGER_DIR="${ROOT_DIR}/.localnet/ledger-light"
 
 # Program IDs
@@ -46,14 +46,11 @@ echo "Token Program:  ${TOKEN_PROGRAM_ID}"
 echo "Compression:    ${COMPRESSION_PROGRAM_ID}"
 
 # Ensure ledger directory exists
-mkdir -p "${ROOT_DIR}/.localnet"
+#mkdir -p "${ROOT_DIR}/.localnet"
 
 # Run without --quiet to show progress
 solana-test-validator \
-    --ledger "${LEDGER_DIR}" \
     --bpf-program "${SYSTEM_PROGRAM_ID}" "${SYSTEM_SO}" \
     --bpf-program "${TOKEN_PROGRAM_ID}" "${TOKEN_SO}" \
     --bpf-program "${COMPRESSION_PROGRAM_ID}" "${COMPRESSION_SO}" \
-    --rpc-port 8899 \
-    --dynamic-port-range 8000-8025 \
-    --reset
+    --account-dir "${ROOT_DIR}/scripts/light/local/accounts" \

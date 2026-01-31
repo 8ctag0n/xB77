@@ -15,13 +15,14 @@ Goal: Establish a stable local environment for End-to-End testing of ZK Compress
 * Issue: The surfpool/surfpool image starts successfully but does not preload Light Protocol programs by default.
 * Runbooks: Configuration via Surfpool.toml or .tx files requires specific syntax (Txtx) that is not clearly documented for this use case.
 * Devnet Forking: Starting with --network devnet fails to reliably serve the program accounts locally in the containerized environment.
+* Note: Surfpool remains in the repo for historical reference, but the Light Protocol binaries now live in `containers/light/bin` and the surfpool container is not required for normal testing.
 
 ## Solution: Manual Binary Loading
 
 The necessary Light Protocol programs have been compiled from source. The reliable path forward is to use the standard Solana Validator and load these binaries explicitly via the --bpf-program flag.
 
 ### 1. Compiled Binaries (Artifacts)
-Binaries are extracted to: containers/surfpool/bin/
+Binaries are extracted to: containers/light/bin (cut & paste from the old Surfpool artifacts).
 1. light_system_program_pinocchio.so
 2. light_compressed_token.so
 3. account_compression.so
@@ -41,9 +42,9 @@ Instead of light test-validator or surfpool, use:
 
 ```bash
 solana-test-validator \
-  --bpf-program SySTEM1eSU2p4BGQfQpimFEWWSC1XDFeun3Nqzz3rT7 containers/surfpool/bin/light_system_program_pinocchio.so \
-  --bpf-program cTokenmWW8bLPjZEBAUgYy3zKxQZW6VKi7bqNFEVv3m containers/surfpool/bin/light_compressed_token.so \
-  --bpf-program compr6CUsB5m2jS4Y3831ztGSTnDpnKJTKS95d64XVq containers/surfpool/bin/account_compression.so \
+  --bpf-program SySTEM1eSU2p4BGQfQpimFEWWSC1XDFeun3Nqzz3rT7 containers/light/bin/light_system_program_pinocchio.so \
+  --bpf-program cTokenmWW8bLPjZEBAUgYy3zKxQZW6VKi7bqNFEVv3m containers/light/bin/light_compressed_token.so \
+  --bpf-program compr6CUsB5m2jS4Y3831ztGSTnDpnKJTKS95d64XVq containers/light/bin/account_compression.so \
   --reset
 ```
 

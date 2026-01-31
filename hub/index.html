@@ -3,139 +3,395 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MiniHub Control</title>
+    <title>Merchant Hub</title>
     <link rel="stylesheet" href="./hub.css" />
   </head>
   <body>
     <div class="page">
-      <header class="hero">
-        <div>
-          <p class="kicker">Private Agent Control Plane</p>
-          <h1>MiniHub Control</h1>
-          <p class="subhead">
-            Register MCP agents, inspect status, and dispatch tool calls from a single local hub.
-          </p>
+      <nav class="main-nav">
+        <div class="nav-brand">xB77 Merchant</div>
+        <div class="nav-links">
+          <button class="nav-tab active" data-target="view-merchant">Terminal</button>
+          <button class="nav-tab" data-target="view-governance">Governance</button>
+          <button class="nav-tab" data-target="view-control">Control Plane</button>
         </div>
         <div class="status-pill">
           <span class="dot"></span>
-          <span>Local Hub</span>
-          <span id="hub-port">:7777</span>
+          <span id="connection-status">Disconnected</span>
         </div>
-      </header>
-      <div class="token-bar">
-        <label>
-          Hub Token (optional)
-          <input id="hub-token" placeholder="Set if HUB_TOKEN is enabled" />
-        </label>
+      </nav>
+
+      <!-- MERCHANT TERMINAL VIEW -->
+      <div id="view-merchant" class="view">
+        <header class="merchant-hero">
+          <div class="hero-content">
+            <h1>Commercial Terminal</h1>
+            <p>Manage sales, configure strategies, and monitor cross-chain liquidity.</p>
+          </div>
+          <div class="hero-stats">
+             <div class="stat-card">
+               <span class="label">Total Sales</span>
+               <span class="value" id="stat-sales">$0.00</span>
+             </div>
+             <div class="stat-card">
+               <span class="label">Pending</span>
+               <span class="value" id="stat-pending">0</span>
+             </div>
+          </div>
+        </header>
+
+            <div class="terminal-layout">
+              <div class="terminal-main">
+                <div class="forensic-radar hidden" id="forensic-radar">
+                  <div class="radar-scanner">
+                    <div class="scanner-line"></div>
+                    <div class="scanner-grid"></div>
+                  </div>
+                  <div class="radar-info">
+                    <h3>HELIUS FORENSIC SCAN</h3>
+                    <div class="radar-details" id="radar-details">
+                      <div class="radar-row"><span>Target:</span> <strong id="radar-target">---</strong></div>
+                      <div class="radar-row"><span>Risk Score:</span> <strong id="radar-score">---</strong></div>
+                      <div class="radar-row"><span>Compliance:</span> <strong id="radar-compliance">---</strong></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card product-card-grid">
+                  <div class="card-header">
+                    <h2>Available Services</h2>
+                    <button class="btn-sm" id="btn-add-product">List New Service</button>
+                  </div>
+                  <div class="product-grid" id="product-grid">
+                    <!-- Products injected here -->
+                  </div>
+                </div>
+
+                <div class="card">
+                  <div class="card-header">
+                    <h2>Operational History</h2>
+                    <div class="header-actions">
+                      <div class="privacy-toggle shielded" id="privacy-toggle" title="Toggle between Public and Shielded Receipts">
+                        <span class="toggle-label">SHIELDED</span>
+                        <div class="toggle-switch"></div>
+                      </div>
+                      <span class="live-indicator">LIVE</span>
+                    </div>
+                  </div>
+                  <div class="activity-feed" id="activity-feed">
+                    <!-- Activity items injected here -->
+                  </div>
+                </div>
+              </div>
+
+              <div class="terminal-sidebar">
+                <!-- LIVE INTEL POLLING WIDGET -->
+                <div class="card intel-card">
+                  <div class="card-header">
+                    <h2>Market Intel Polling</h2>
+                    <span class="intel-status pulse">LIVE CONSENSUS</span>
+                  </div>
+                  <div class="intel-body" id="intel-poll">
+                    <div class="poll-question">Auto-rebalance liquidity now?</div>
+                    <div class="poll-options">
+                      <div class="poll-bar-container" data-opt="A">
+                        <div class="poll-label"><span>YES (SHIELDED)</span><span class="pct">68%</span></div>
+                        <div class="poll-bar"><div class="poll-fill" style="width: 68%"></div></div>
+                      </div>
+                      <div class="poll-bar-container" data-opt="B">
+                        <div class="poll-label"><span>NO (WAIT)</span><span class="pct">32%</span></div>
+                        <div class="poll-bar"><div class="poll-fill" style="width: 32%"></div></div>
+                      </div>
+                    </div>
+                    <div class="intel-footer muted">Epoch 77 • consensus in 14s</div>
+                  </div>
+                </div>
+
+                <div class="card thought-card">
+                  <div class="card-header">
+                    <h2>Agent Thought Stream</h2>
+                  </div>
+                  <div class="thought-stream" id="thought-stream">
+                    <div class="empty muted">Waiting for agent activity...</div>
+                  </div>
+                </div>
+                
+                <div class="card stats-card">
+                  <div class="card-header">
+                    <h2>CFO Snapshot</h2>
+                  </div>
+                  <div class="stats-grid">
+                    <div class="stat-item">
+                      <label>Total Managed</label>
+                      <span id="stat-sales-sidebar">$0.00</span>
+                    </div>
+                    <div class="stat-item">
+                      <label>Active Tasks</label>
+                      <span id="stat-pending-sidebar">0</span>
+                    </div>
+                    <div class="efficiency-gauge">
+                      <label>Sustainability Index</label>
+                      <div class="gauge-bar">
+                        <div class="gauge-fill" id="efficiency-fill" style="width: 0%"></div>
+                      </div>
+                      <div class="gauge-labels">
+                        <span id="efficiency-status">Initializing...</span>
+                        <span id="efficiency-percent">0%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+
       </div>
 
-      <main class="grid">
-        <section class="panel" id="agents-panel">
-          <div class="panel-header">
-            <h2>Agents</h2>
-            <button id="refresh-btn">Refresh</button>
+      <!-- GOVERNANCE VIEW -->
+      <div id="view-governance" class="view hidden">
+        <header class="hero">
+          <div>
+            <p class="kicker">Security & Compliance</p>
+            <h1>Shadow Governance</h1>
+            <p class="subhead">
+              Approve or reject high-value transactions using privacy-preserving signals.
+            </p>
           </div>
-          <div id="agents-list" class="agents-list"></div>
-        </section>
+          <div class="status-pill">
+            <span class="dot online"></span>
+            <span>Secure Channel</span>
+          </div>
+        </header>
 
-        <section class="panel" id="details-panel">
-          <div class="panel-header">
-            <h2>Agent Detail</h2>
-          </div>
-          <div id="agent-detail" class="agent-detail muted">
-            Select an agent to see details.
-          </div>
-        </section>
+        <main class="grid">
+          <section class="panel" style="grid-column: span 2;">
+            <div class="panel-header">
+              <h2>Pending Approvals</h2>
+              <button class="btn-xs" id="refresh-gov">↻ Refresh</button>
+            </div>
+            <div id="governance-list" class="governance-list">
+              <div class="empty-state">No pending requests.</div>
+            </div>
+          </section>
+          
+          <section class="panel">
+            <div class="panel-header"><h2>Security Log</h2></div>
+             <div class="log-console" id="gov-log">
+               <div class="log-line">System initialized. Waiting for encrypted intents...</div>
+             </div>
+          </section>
+        </main>
+      </div>
 
-        <section class="panel" id="register-panel">
-          <div class="panel-header">
-            <h2>Connect MCP</h2>
+      <!-- CONTROL PLANE VIEW -->
+      <div id="view-control" class="view hidden">
+        <header class="hero">
+          <div>
+            <p class="kicker">Private Agent Control Plane</p>
+            <h1>MiniHub Control</h1>
+            <p class="subhead">
+              Register MCP agents, inspect status, and dispatch tool calls from a single local hub.
+            </p>
           </div>
-          <form id="register-form" class="form">
-            <label>
-              Agent ID
-              <input name="agent_id" placeholder="agent-alpha" required />
-            </label>
-            <label>
-              MCP URL
-              <input name="mcp_url" placeholder="http://localhost:7001/mcp" required />
-            </label>
-            <label>
-              Transport
-              <select name="transport">
-                <option value="http">http</option>
-                <option value="stdio">stdio</option>
-              </select>
-            </label>
-            <label>
-              Capabilities (comma)
-              <input name="capabilities" placeholder="pay, balance, status" />
-            </label>
-            <label>
-              Public Key (optional)
-              <input name="pubkey" placeholder="base58..." />
-            </label>
-            <button type="submit">Register Agent</button>
-          </form>
-          <p class="hint">Tip: agents can auto-register via POST /register.</p>
-        </section>
+          <div class="status-pill">
+            <span class="dot"></span>
+            <span>Local Hub</span>
+            <span id="hub-port">:7777</span>
+          </div>
+        </header>
+        <div class="token-bar">
+          <label>
+            Hub Token (optional)
+            <input id="hub-token" placeholder="Set if HUB_TOKEN is enabled" />
+          </label>
+        </div>
 
-        <section class="panel" id="spawn-panel">
-          <div class="panel-header">
-            <h2>Launch CLI Agent</h2>
-          </div>
-          <form id="spawn-form" class="form">
-            <label>
-              Agent ID
-              <input name="agent_id" placeholder="agent-alpha" required />
-            </label>
-            <label>
-              Command
-              <input name="command" placeholder="bun" required />
-            </label>
-            <label>
-              Args (space separated)
-              <input name="args" placeholder="run mcp/src/index.ts" />
-            </label>
-            <label>
-              Working Dir (optional)
-              <input name="cwd" placeholder="/path/to/repo" />
-            </label>
-            <label>
-              Env (JSON)
-              <textarea name="env" rows="4">{}</textarea>
-            </label>
-            <button type="submit">Spawn Process</button>
-          </form>
-          <p class="hint">Requires HUB_ALLOW_SPAWN=true on the hub server.</p>
-        </section>
+        <main class="grid">
+          <section class="panel" id="agents-panel">
+            <div class="panel-header">
+              <h2>Agents</h2>
+              <button id="refresh-btn">Refresh</button>
+            </div>
+            <div id="agents-list" class="agents-list"></div>
+          </section>
 
-        <section class="panel" id="tool-panel">
-          <div class="panel-header">
-            <h2>Tool Runner</h2>
-          </div>
-          <form id="tool-form" class="form">
-            <label>
-              Tool Name
-              <input name="tool" placeholder="agent.pay" required />
-            </label>
-            <label>
-              Payload (JSON)
-              <textarea name="payload" rows="6">{}</textarea>
-            </label>
-            <button type="submit">Send Tool Call</button>
-          </form>
-          <pre id="tool-response" class="response muted">No response yet.</pre>
-        </section>
+          <section class="panel" id="details-panel">
+            <div class="panel-header">
+              <h2>Agent Detail</h2>
+            </div>
+            <div id="agent-detail" class="agent-detail muted">
+              Select an agent to see details.
+            </div>
+          </section>
 
-        <section class="panel" id="process-panel">
-          <div class="panel-header">
-            <h2>Processes</h2>
-            <button id="refresh-processes">Refresh</button>
+          <section class="panel" id="observability-panel">
+            <div class="panel-header">
+              <h2>Observability</h2>
+              <button id="refresh-observability">Refresh</button>
+            </div>
+            <div id="observability-status" class="muted">
+              Select an agent to load live state.
+            </div>
+            <div class="obs-grid">
+              <div class="obs-card">
+                <div class="obs-label">Balance</div>
+                <div id="obs-balance" class="obs-value">-</div>
+                <div id="obs-balance-meta" class="obs-sub muted"></div>
+              </div>
+              <div class="obs-card">
+                <div class="obs-label">Latest Receipt</div>
+                <pre id="obs-latest-receipt" class="response muted">No data yet.</pre>
+              </div>
+              <div class="obs-card">
+                <div class="obs-label">Recent Receipts</div>
+                <div id="obs-receipts" class="receipt-list muted">No receipts yet.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" id="register-panel">
+            <div class="panel-header">
+              <h2>Connect MCP</h2>
+            </div>
+            <form id="register-form" class="form">
+              <label>
+                Agent ID
+                <input name="agent_id" placeholder="agent-alpha" required />
+              </label>
+              <label>
+                MCP URL
+                <input name="mcp_url" placeholder="http://localhost:7001/tool" required />
+              </label>
+              <label>
+                Transport
+                <select name="transport">
+                  <option value="http">http</option>
+                  <option value="stdio">stdio</option>
+                </select>
+              </label>
+              <label>
+                Capabilities (comma)
+                <input name="capabilities" placeholder="pay, balance, status" />
+              </label>
+              <label>
+                Public Key (optional)
+                <input name="pubkey" placeholder="base58..." />
+              </label>
+              <button type="submit">Register Agent</button>
+            </form>
+            <p class="hint">Tip: agents can auto-register via POST /register.</p>
+          </section>
+
+          <section class="panel" id="spawn-panel">
+            <div class="panel-header">
+              <h2>Launch CLI Agent</h2>
+            </div>
+            <form id="spawn-form" class="form">
+              <label>
+                Agent ID
+                <input name="agent_id" placeholder="agent-alpha" required />
+              </label>
+              <label>
+                Command
+                <input name="command" placeholder="bun" required />
+              </label>
+              <label>
+                Args (space separated)
+                <input name="args" placeholder="run mcp/src/index.ts" />
+              </label>
+              <label>
+                Working Dir (optional)
+                <input name="cwd" placeholder="/path/to/repo" />
+              </label>
+              <label>
+                Env (JSON)
+                <textarea name="env" rows="4">{}</textarea>
+              </label>
+              <button type="submit">Spawn Process</button>
+            </form>
+            <p class="hint">Requires HUB_ALLOW_SPAWN=true on the hub server.</p>
+          </section>
+
+          <section class="panel" id="tool-panel">
+            <div class="panel-header">
+              <h2>Tool Runner</h2>
+            </div>
+            <form id="tool-form" class="form">
+              <label>
+                Tool Name
+                <input name="tool" placeholder="agent.pay" required />
+              </label>
+              <label>
+                Payload (JSON)
+                <textarea name="payload" rows="6">{}</textarea>
+              </label>
+              <button type="submit">Send Tool Call</button>
+            </form>
+            <pre id="tool-response" class="response muted">No response yet.</pre>
+          </section>
+
+          <section class="panel" id="process-panel">
+            <div class="panel-header">
+              <h2>Processes</h2>
+              <button id="refresh-processes">Refresh</button>
+            </div>
+            <div id="process-list" class="process-list muted">No processes yet.</div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <!-- COMPLIANCE MODAL -->
+    <div class="modal-overlay hidden" id="governance-overlay">
+      <div class="modal-content compliance-alert lockdown">
+        <div class="alert-icon">🔒</div>
+        <h2>GOVERNANCE INTERVENTION REQUIRED</h2>
+        <p>Security protocol triggered by Range Protocol. Transaction halted.</p>
+        <div class="risk-details">
+          <div class="risk-row"><span>Detected Risk:</span> <strong id="lockdown-risk">Sanctioned Entity</strong></div>
+          <div class="risk-row"><span>Compliance:</span> <strong>Critical Violation</strong></div>
+          <div class="risk-row"><span>Requested Action:</span> <strong>Human Override Required</strong></div>
+        </div>
+        <div class="lockdown-actions">
+           <button class="btn-danger" id="lockdown-reject">Abort & Blacklist</button>
+           <button class="btn-success" id="lockdown-approve">Authorize Override</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="compliance-modal" class="modal-overlay hidden">
+      <div class="modal-content compliance-alert">
+        <div class="alert-icon">⚠️</div>
+        <h2>Risk Alert: Range Protocol</h2>
+        <div class="alert-body">
+          <p>Transaction blocked due to high-risk destination detection.</p>
+          <div class="risk-details">
+            <div class="risk-row"><span>Entity</span><strong id="risk-entity">Unknown</strong></div>
+            <div class="risk-row"><span>Risk Score</span><strong id="risk-score">90/100</strong></div>
+            <div class="risk-row"><span>Reason</span><strong id="risk-reason">Sanctioned Address</strong></div>
           </div>
-          <div id="process-list" class="process-list muted">No processes yet.</div>
-        </section>
-      </main>
+        </div>
+        <button id="close-modal" class="btn-danger">Acknowledge Security Alert</button>
+      </div>
+    </div>
+
+    <!-- INVOICE MODAL -->
+    <div id="invoice-modal" class="modal-overlay hidden">
+      <div class="modal-content invoice-modal">
+        <div class="invoice-header">
+          <span class="invoice-logo">🧾 INVOICE</span>
+          <div class="invoice-meta" id="inv-id">#INV-0000</div>
+          <div class="invoice-meta" id="inv-date">...</div>
+        </div>
+        <div class="invoice-body" id="inv-body">
+          <!-- Items injected -->
+        </div>
+        <div class="invoice-footer">
+          <div>VERIFIED BY LIGHT PROTOCOL</div>
+          <div class="zk-hash" id="inv-hash">0x...</div>
+          <button class="btn-sm" style="margin-top: 12px; width: 100%;" onclick="document.getElementById('invoice-modal').classList.add('hidden')">Close</button>
+        </div>
+      </div>
     </div>
 
     <script type="module" src="./hub.ts"></script>

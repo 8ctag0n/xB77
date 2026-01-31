@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>xB77 - Autonomous Commerce Stack</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&amp;family=Share+Tech+Mono&amp;family=Fira+Code:wght@300;400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "cyber-black": "#050505",
+                        "cyber-dark": "#0a0a0a",
+                        "cyber-panel": "#0f0f11",
+                        "acid-yellow": "#FCEE0A", 
+                        "hot-pink": "#FF003C",   
+                        "neon-cyan": "#00F0FF",   
+                        "terminal-green": "#00FF41",
+                        "terminal-amber": "#FFB000",
+                        "cyber-gray": "#333333",
+                        "dim-gray": "#1a1a1a",
+                    },
+                    fontFamily: {
+                        "cyber": ["Rajdhani", "sans-serif"],
+                        "mono": ["Share Tech Mono", "monospace"],
+                        "fira": ["Fira Code", "monospace"],
+                    },
+                    backgroundImage: {
+                        'cyber-grid': "linear-gradient(to right, #1a1a1a 1px, transparent 1px), linear-gradient(to bottom, #1a1a1a 1px, transparent 1px)",
+                        'striped-bg': "repeating-linear-gradient(45deg, #0a0a0a, #0a0a0a 10px, #0f0f11 10px, #0f0f11 20px)",
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'terminal-scroll': 'scroll 40s linear infinite',
+                        'blink': 'blink 1s step-end infinite',
+                        'flow-line': 'flow 3s linear infinite',
+                    },
+                    keyframes: {
+                        scroll: {
+                            '0%': { transform: 'translateY(0)' },
+                            '100%': { transform: 'translateY(-100%)' }
+                        },
+                        blink: {
+                            'from, to': { opacity: 1 },
+                            '50%': { opacity: 0 }
+                        },
+                        flow: {
+                            '0%': { backgroundPosition: '0% 50%' },
+                            '100%': { backgroundPosition: '100% 50%' }
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.4;
+        }
+        .crt-flicker {
+            animation: flicker 0.15s infinite;
+        }
+        @keyframes flicker {
+            0% { opacity: 0.98; }
+            50% { opacity: 1; }
+            100% { opacity: 0.99; }
+        }
+        .chromatic-text {
+            text-shadow: -2px 0 #FF003C, 2px 0 #00F0FF;
+            letter-spacing: 0.05em;
+        }
+        .clip-corner {
+            clip-path: polygon(0 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%);
+        }
+        .clip-corner-reverse {
+            clip-path: polygon(15px 0, 100% 0, 100% 100%, 0 100%, 0 15px);
+        }
+        .terminal-container {
+            position: relative;
+            background: #000;
+            border: 1px solid #333;
+            box-shadow: inset 0 0 40px rgba(0, 255, 65, 0.05);
+        }
+        .terminal-container::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 2px;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .terminal-screen {
+            height: 450px;
+            overflow: hidden;
+            position: relative;
+        }
+        .terminal-log {
+            animation: terminal-scroll 35s linear infinite;
+        }
+        .holographic-card {
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.1) 0%, rgba(255, 0, 60, 0.05) 50%, rgba(252, 238, 10, 0.05) 100%);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .holographic-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.05), transparent);
+            transform: rotate(45deg);
+        }
+        .pipeline-line {
+            background: linear-gradient(90deg, #00F0FF 0%, #FF003C 50%, #FCEE0A 100%);
+            background-size: 200% 100%;
+            animation: flow 2s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-cyber-black text-white font-cyber antialiased overflow-x-hidden selection:bg-hot-pink selection:text-white">
+<div class="scanlines"></div>
+<div class="relative flex flex-col min-h-screen w-full crt-flicker">
+<header class="fixed top-0 z-50 w-full bg-cyber-black/90 border-b border-white/10 backdrop-blur-sm">
+<div class="max-w-[1400px] mx-auto w-full">
+<div class="flex h-20 items-stretch justify-between">
+<div class="flex items-center gap-4 px-6 border-r border-white/10 bg-cyber-dark relative group">
+<div class="flex items-center justify-center size-10 border border-acid-yellow bg-acid-yellow/20 text-acid-yellow">
+<span class="material-symbols-outlined">layers</span>
+</div>
+<div class="flex flex-col">
+<span class="text-2xl font-bold tracking-widest text-white">xB77</span>
+<span class="text-[10px] text-acid-yellow font-mono tracking-[0.2em] leading-none">COMMERCE_STACK</span>
+</div>
+</div>
+<nav class="hidden md:flex flex-1 items-stretch justify-center">
+<div class="flex items-center gap-px bg-white/10 h-full w-full max-w-3xl px-px clip-corner-reverse">
+<a class="flex-1 h-full flex items-center justify-center bg-cyber-black hover:bg-white/5 border-t-2 border-transparent hover:border-neon-cyan transition-all group relative" href="#">
+<span class="font-mono text-sm tracking-widest text-gray-400 group-hover:text-neon-cyan uppercase">01 // IDENTITY</span>
+</a>
+<a class="flex-1 h-full flex items-center justify-center bg-cyber-black hover:bg-white/5 border-t-2 border-transparent hover:border-hot-pink transition-all group relative" href="#">
+<span class="font-mono text-sm tracking-widest text-gray-400 group-hover:text-hot-pink uppercase">02 // PAYMENT</span>
+</a>
+<a class="flex-1 h-full flex items-center justify-center bg-cyber-black hover:bg-white/5 border-t-2 border-transparent hover:border-acid-yellow transition-all group relative" href="#">
+<span class="font-mono text-sm tracking-widest text-gray-400 group-hover:text-acid-yellow uppercase">03 // API LINK</span>
+</a>
+<a class="flex-1 h-full flex items-center justify-center bg-cyber-black hover:bg-white/5 border-t-2 border-transparent hover:border-terminal-green transition-all group relative" href="#">
+<span class="font-mono text-sm tracking-widest text-gray-400 group-hover:text-terminal-green uppercase">04 // ZK PROOF</span>
+</a>
+</div>
+</nav>
+<div class="hidden md:flex items-center px-6 border-l border-white/10 gap-6 bg-cyber-dark">
+<button class="relative inline-flex h-10 items-center justify-center overflow-hidden bg-acid-yellow px-8 text-sm font-bold text-black uppercase tracking-widest hover:bg-white transition-colors clip-corner group">
+<span class="relative z-10">Start Pipeline</span>
+</button>
+</div>
+</div>
+</div>
+</header>
+<main class="flex-grow pt-20">
+<section class="relative flex min-h-[70vh] items-center justify-center overflow-hidden border-b border-white/10">
+<div class="absolute inset-0 z-0 bg-cyber-grid bg-[length:40px_40px] opacity-20 pointer-events-none"></div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-hot-pink/5 blur-[120px] rounded-full mix-blend-screen pointer-events-none"></div>
+<div class="relative z-10 container mx-auto px-4 md:px-6">
+<div class="flex flex-col items-center text-center space-y-10 max-w-5xl mx-auto">
+<div class="inline-flex items-center gap-3 border border-hot-pink/30 bg-black/50 px-4 py-2 text-xs font-mono text-hot-pink backdrop-blur-md uppercase tracking-widest clip-corner-reverse">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-none bg-hot-pink opacity-75"></span>
+<span class="relative inline-flex rounded-none h-2 w-2 bg-hot-pink"></span>
+</span>
+<span>Stack Architecture V2.0</span>
+</div>
+<div class="relative">
+<h1 class="text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter text-white leading-[0.85] uppercase">
+                            Autonomous<br/>
+<span class="chromatic-text text-transparent bg-clip-text bg-white">Commerce Stack</span>
+</h1>
+<div class="absolute -right-8 top-0 text-xs font-mono text-neon-cyan rotate-90 origin-left opacity-70 hidden md:block">PIPELINE_ACTIVE</div>
+</div>
+<p class="max-w-3xl text-lg md:text-xl text-gray-400 font-mono leading-relaxed border-l-2 border-hot-pink pl-6 text-left md:text-center md:border-l-0 md:pl-0">
+                        End-to-end encrypted payment rails for AI agents. 
+                        <span class="text-neon-cyan">Neural Identity.</span>
+<span class="text-hot-pink">Restricted API.</span>
+<span class="text-acid-yellow">Zero-Knowledge Receipts.</span>
+</p>
+<div class="flex flex-col sm:flex-row gap-6 w-full justify-center pt-8">
+<button class="clip-corner relative inline-flex h-14 items-center justify-center bg-hot-pink px-10 text-lg font-bold text-black uppercase tracking-wide transition-all hover:bg-white hover:text-black">
+                            Initialize Stack
+                        </button>
+<button class="clip-corner relative inline-flex h-14 items-center justify-center border border-white/20 bg-black/50 px-10 text-lg font-bold text-white uppercase tracking-wide transition-all hover:bg-white/10 hover:border-white">
+                            View Documentation
+                        </button>
+</div>
+</div>
+</div>
+</section>
+<section class="relative py-24 bg-cyber-black overflow-hidden border-b border-white/10">
+<div class="absolute inset-0 bg-striped-bg opacity-10 pointer-events-none"></div>
+<div class="container mx-auto px-4 md:px-6 relative z-10">
+<div class="flex flex-col md:flex-row justify-between items-end mb-16 border-b border-white/10 pb-8">
+<div>
+<div class="text-neon-cyan font-mono text-sm mb-2">0x02_PIPELINE</div>
+<h2 class="text-4xl md:text-5xl font-bold tracking-tighter text-white uppercase">Commerce Pipeline</h2>
+</div>
+<p class="text-gray-400 font-mono text-sm max-w-md mt-4 md:mt-0 text-right">
+                        // SECURE FLOW: IDENTITY -&gt; PAYMENT -&gt; VENDOR -&gt; PROOF.<br/>
+                        // CRYPTOGRAPHIC VERIFICATION AT EVERY HOP.
+                    </p>
+</div>
+<div class="relative">
+<div class="hidden md:block absolute top-[60px] left-0 right-0 h-0.5 bg-gray-800 z-0"></div>
+<div class="hidden md:block absolute top-[60px] left-0 right-0 h-0.5 pipeline-line z-0 shadow-[0_0_10px_#00F0FF]"></div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+<div class="group relative bg-cyber-panel p-1 transition-all duration-300 hover:-translate-y-2 z-10">
+<div class="absolute inset-0 border border-white/10 group-hover:border-neon-cyan/50 transition-colors bg-cyber-black"></div>
+<div class="relative h-full p-6 flex flex-col items-center text-center">
+<div class="w-16 h-16 rounded-full bg-cyber-black border border-neon-cyan/50 flex items-center justify-center mb-6 shadow-[0_0_15px_rgba(0,240,255,0.3)] z-10 relative">
+<span class="material-symbols-outlined text-neon-cyan text-3xl">fingerprint</span>
+<div class="absolute inset-0 rounded-full border border-neon-cyan animate-ping opacity-20"></div>
+</div>
+<h3 class="text-xl font-bold text-white uppercase mb-2 group-hover:text-neon-cyan transition-colors">1. Agent Identity</h3>
+<p class="text-gray-500 font-mono text-xs leading-relaxed mb-4">
+                                    Neural key verification binds transaction intent to specific model weights.
+                                </p>
+<div class="mt-auto border border-neon-cyan/30 bg-neon-cyan/5 px-2 py-1 text-[10px] font-mono text-neon-cyan">
+                                    AUTH_LEVEL: MAX
+                                </div>
+</div>
+</div>
+<div class="group relative bg-cyber-panel p-1 transition-all duration-300 hover:-translate-y-2 z-10">
+<div class="absolute inset-0 border border-white/10 group-hover:border-hot-pink/50 transition-colors bg-cyber-black"></div>
+<div class="relative h-full p-6 flex flex-col items-center text-center">
+<div class="w-16 h-16 rounded-full bg-cyber-black border border-hot-pink/50 flex items-center justify-center mb-6 shadow-[0_0_15px_rgba(255,0,60,0.3)] z-10 relative">
+<span class="material-symbols-outlined text-hot-pink text-3xl">credit_card</span>
+</div>
+<h3 class="text-xl font-bold text-white uppercase mb-2 group-hover:text-hot-pink transition-colors">2. Encrypted Payment</h3>
+<p class="text-gray-500 font-mono text-xs leading-relaxed mb-4">
+                                    One-time virtual card generation encrypted with agent's public key.
+                                </p>
+<div class="mt-auto border border-hot-pink/30 bg-hot-pink/5 px-2 py-1 text-[10px] font-mono text-hot-pink">
+                                    VIRTUAL_PAN: GEN
+                                </div>
+</div>
+</div>
+<div class="group relative bg-cyber-panel p-1 transition-all duration-300 hover:-translate-y-2 z-10">
+<div class="absolute inset-0 border border-white/10 group-hover:border-acid-yellow/50 transition-colors bg-cyber-black"></div>
+<div class="relative h-full p-6 flex flex-col items-center text-center">
+<div class="w-16 h-16 rounded-full bg-cyber-black border border-acid-yellow/50 flex items-center justify-center mb-6 shadow-[0_0_15px_rgba(252,238,10,0.3)] z-10 relative">
+<span class="material-symbols-outlined text-acid-yellow text-3xl">router</span>
+</div>
+<h3 class="text-xl font-bold text-white uppercase mb-2 group-hover:text-acid-yellow transition-colors">3. Restricted API</h3>
+<p class="text-gray-500 font-mono text-xs leading-relaxed mb-4">
+                                    Isolated handshake with merchant API. Scoped permissions only.
+                                </p>
+<div class="mt-auto border border-acid-yellow/30 bg-acid-yellow/5 px-2 py-1 text-[10px] font-mono text-acid-yellow">
+                                    SCOPE: RESTRICTED
+                                </div>
+</div>
+</div>
+<div class="group relative bg-cyber-panel p-1 transition-all duration-300 hover:-translate-y-2 z-10">
+<div class="absolute inset-0 border border-white/10 group-hover:border-terminal-green/50 transition-colors bg-cyber-black"></div>
+<div class="relative h-full p-6 flex flex-col items-center text-center">
+<div class="w-16 h-16 rounded-full bg-cyber-black border border-terminal-green/50 flex items-center justify-center mb-6 shadow-[0_0_15px_rgba(0,255,65,0.3)] z-10 relative">
+<span class="material-symbols-outlined text-terminal-green text-3xl">verified_user</span>
+</div>
+<h3 class="text-xl font-bold text-white uppercase mb-2 group-hover:text-terminal-green transition-colors">4. ZKP Receipt</h3>
+<p class="text-gray-500 font-mono text-xs leading-relaxed mb-4">
+                                    Private proof of purchase. Zero data leakage to public ledgers.
+                                </p>
+<div class="mt-auto border border-terminal-green/30 bg-terminal-green/5 px-2 py-1 text-[10px] font-mono text-terminal-green">
+                                    PRIVACY: ZK-SNARK
+                                </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="relative bg-cyber-black py-20 overflow-hidden border-b border-white/10">
+<div class="container mx-auto px-4 md:px-6">
+<div class="max-w-5xl mx-auto">
+<div class="flex justify-between items-end mb-4 px-2">
+<div class="font-mono text-[10px] text-gray-500 flex gap-4 uppercase">
+<span>TERM_ID: XB-DATA-PIPE</span>
+<span class="text-terminal-green">DATA INGESTION ACTIVE</span>
+</div>
+<div class="font-mono text-[10px] text-gray-500 uppercase">
+                            V.2.0-STABLE
+                        </div>
+</div>
+<div class="terminal-container p-6 md:p-10 border-gray-800 shadow-2xl">
+<div class="absolute -top-1 -left-1 w-6 h-6 border-t-2 border-l-2 border-gray-600"></div>
+<div class="absolute -top-1 -right-1 w-6 h-6 border-t-2 border-r-2 border-gray-600"></div>
+<div class="absolute -bottom-1 -left-1 w-6 h-6 border-b-2 border-l-2 border-gray-600"></div>
+<div class="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-gray-600"></div>
+<div class="absolute top-4 right-6 flex items-center gap-3 z-10 bg-black/40 px-3 py-1 border border-white/5">
+<div class="relative flex h-3 w-3">
+<div class="animate-ping absolute inline-flex h-full w-full rounded-full bg-hot-pink opacity-40"></div>
+<div class="relative inline-flex rounded-full h-3 w-3 bg-hot-pink"></div>
+</div>
+<span class="font-fira text-[11px] font-bold text-hot-pink tracking-wider uppercase">Pipeline: PROCESSING</span>
+</div>
+<div class="terminal-screen font-fira">
+<div class="terminal-log space-y-1 text-terminal-green/80 text-xs md:text-sm tracking-tight leading-relaxed">
+<div class="flex gap-4"><span class="opacity-30">10:00:01</span><span>[INIT] PIPELINE_START: AGENT_ID_X99</span></div>
+<div class="flex gap-4"><span class="opacity-30">10:00:02</span><span>[AUTH] NEURAL_KEY_VERIFIED (CONFIDENCE: 99.9%)</span></div>
+<div class="flex gap-4"><span class="opacity-30">10:00:03</span><span>[PAY] VIRTUAL_CARD_GENERATED <span class="text-neon-cyan">****-****-****-7781</span></span></div>
+<div class="pl-4 py-2 opacity-90">
+<span class="text-gray-500">const</span> <span class="text-acid-yellow">transaction</span> = {<br/>
+<span class="pl-4"><span class="text-hot-pink">"metadata"</span>: {</span><br/>
+<span class="pl-8"><span class="text-neon-cyan">"merchant_id"</span>: "AWS_COMPUTE_US_EAST",</span><br/>
+<span class="pl-8"><span class="text-neon-cyan">"privacy_level"</span>: "MAX",</span><br/>
+<span class="pl-8"><span class="text-neon-cyan">"amount"</span>: "0.45 ETH",</span><br/>
+<span class="pl-8"><span class="text-neon-cyan">"timestamp"</span>: "1689234002"</span><br/>
+<span class="pl-4">},</span><br/>
+<span class="pl-4"><span class="text-hot-pink">"agent_sig"</span>: "0x7a...9f2"</span><br/>
+                                        }
+                                    </div>
+<div class="flex gap-4"><span class="opacity-30">10:00:04</span><span>[API] MERCHANT_HANDSHAKE: SUCCESS [TLS_1.3]</span></div>
+<div class="flex gap-4"><span class="opacity-30">10:00:05</span><span class="text-terminal-amber">[ZKP] GENERATING_ZERO_KNOWLEDGE_PROOF...</span></div>
+<div class="pl-4 py-2 opacity-90">
+<span class="text-gray-500">return</span> <span class="text-acid-yellow">proof_receipt</span> = {<br/>
+<span class="pl-4"><span class="text-hot-pink">"zk_snark"</span>: "0x3f...1a9",</span><br/>
+<span class="pl-4"><span class="text-hot-pink">"public_inputs"</span>: "ENCRYPTED_BLOB",</span><br/>
+<span class="pl-4"><span class="text-hot-pink">"verification"</span>: <span class="text-terminal-green">true</span></span><br/>
+                                        }
+                                    </div>
+<div class="flex gap-4"><span class="opacity-30">10:00:06</span><span>[END] RECEIPT_STORED_ON_CHAIN (GAS: 12 GWEI)</span></div>
+<div class="flex gap-4 mt-4"><span class="opacity-30">10:01:00</span><span>[INIT] PIPELINE_START: AGENT_ID_Y02</span></div>
+<div class="flex gap-4"><span class="opacity-30">10:01:01</span><span>[AUTH] NEURAL_KEY_VERIFIED</span></div>
+<div class="flex gap-4"><span class="opacity-30">10:01:02</span><span>[PAY] VIRTUAL_CARD_GENERATED <span class="text-neon-cyan">****-****-****-0042</span></span></div>
+<div class="pl-4 py-2 opacity-90">
+<span class="text-gray-500">const</span> <span class="text-acid-yellow">transaction</span> = {<br/>
+<span class="pl-4"><span class="text-hot-pink">"metadata"</span>: {</span><br/>
+<span class="pl-8"><span class="text-neon-cyan">"merchant_id"</span>: "OPENAI_API_USAGE",</span><br/>
+<span class="pl-8"><span class="text-neon-cyan">"privacy_level"</span>: "STANDARD"</span><br/>
+<span class="pl-4">}</span><br/>
+                                        }
+                                    </div>
+<div class="flex gap-2 items-center mt-4">
+<span class="text-terminal-green">_</span>
+<span class="animate-blink bg-terminal-green w-2 h-5"></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<div class="w-full bg-neon-cyan border-y-2 border-black py-1 overflow-hidden">
+<div class="container mx-auto px-4 flex justify-between font-mono text-xs text-black font-bold select-none uppercase tracking-widest">
+<span class="animate-pulse">TX_FLOW: 14,892/SEC</span>
+<span class="hidden sm:inline">ZK_PROVER: ONLINE</span>
+<span class="hidden md:inline">GAS: 11 GWEI</span>
+<span>MAINNET: CONNECTED</span>
+</div>
+</div>
+</main>
+<footer class="bg-cyber-dark py-16 border-t border-white/10 relative">
+<div class="absolute top-0 left-10 w-px h-16 bg-gradient-to-b from-hot-pink to-transparent"></div>
+<div class="container mx-auto px-4 md:px-6">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-12">
+<div class="col-span-1 md:col-span-1">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-hot-pink">layers</span>
+<span class="text-2xl font-bold text-white tracking-widest">xB77</span>
+</div>
+<p class="text-gray-500 font-mono text-xs leading-relaxed">
+                        COPYRIGHT © 2077 INC.<br/>
+                        AUTONOMOUS COMMERCE STACK.<br/>
+                        SECTOR 4 - NIGHT CITY.
+                    </p>
+</div>
+<div class="col-span-1 md:col-span-2 flex flex-wrap gap-8 md:gap-16 items-start">
+<div class="flex flex-col gap-4">
+<h4 class="text-neon-cyan font-mono text-xs uppercase tracking-widest">Stack</h4>
+<a class="text-sm text-gray-400 hover:text-white transition-all" href="#">Identity_Layer</a>
+<a class="text-sm text-gray-400 hover:text-white transition-all" href="#">Payment_Rails</a>
+<a class="text-sm text-gray-400 hover:text-white transition-all" href="#">ZK_Receipts</a>
+</div>
+<div class="flex flex-col gap-4">
+<h4 class="text-hot-pink font-mono text-xs uppercase tracking-widest">Dev</h4>
+<a class="text-sm text-gray-400 hover:text-white transition-all" href="#">Pipeline_SDK</a>
+<a class="text-sm text-gray-400 hover:text-white transition-all" href="#">Node_Status</a>
+<a class="text-sm text-gray-400 hover:text-white transition-all" href="#">Audit_Logs</a>
+</div>
+</div>
+<div class="col-span-1 flex flex-col items-start md:items-end gap-4">
+<div class="flex gap-4">
+<a class="size-10 flex items-center justify-center border border-gray-700 bg-cyber-black text-gray-400 hover:border-neon-cyan hover:text-neon-cyan transition-all" href="#">
+<svg class="h-5 w-5 fill-current" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path></svg>
+</a>
+</div>
+</div>
+</div>
+<div class="mt-12 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] font-mono text-gray-600 uppercase">
+<span>Network_ID: xB77-STACK-V2</span>
+<span>Last_Sync: 2077.04.12 10:00:06</span>
+</div>
+</div>
+</footer>
+</div>
+</body></html>

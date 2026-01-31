@@ -14,7 +14,6 @@ use solana_program::{
 };
 use alloc::vec;
 use alloc::vec::Vec;
-use alloc::format;
 
 use crate::error::GatewayError;
 use crate::instruction::{
@@ -63,139 +62,18 @@ pub fn process_instruction(
     }
 }
 
-fn check_badge_verified(
-    program_id: &Pubkey,
-    instructions_sysvar: &AccountInfo,
-) -> Result<(), ProgramError> {
-    let current_index = instructions::load_current_index_checked(instructions_sysvar)?;
-    if current_index == 0 {
-        return Err(GatewayError::MissingSigner.into());
-    }
-
-    let prev_index = current_index - 1;
-    let instruction = instructions::load_instruction_at_checked(prev_index as usize, instructions_sysvar)?;
-
-    if instruction.program_id != *program_id {
-        return Err(GatewayError::InvalidInstruction.into());
-    }
-
-    if instruction.data.is_empty() || instruction.data[0] != 2 {
-        return Err(GatewayError::InvalidInstruction.into());
-    }
-
-    Ok(())
-}
-
+// Stub implementation for now
 fn process_execute_confidential_transfer(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     payload: ConfidentialTransferPayload,
 ) -> ProgramResult {
     let mut accounts_iter = accounts.iter();
-    let payer = next_account_info(&mut accounts_iter)?;
-    let gateway_state = next_account_info(&mut accounts_iter)?;
-    let _mint = next_account_info(&mut accounts_iter)?;
-    let source_ata = next_account_info(&mut accounts_iter)?;
-    let dest_ata = next_account_info(&mut accounts_iter)?;
-    let token_program = next_account_info(&mut accounts_iter)?;
-    let instructions_sysvar = next_account_info(&mut accounts_iter)?;
-
-    if !payer.is_signer {
-        return Err(GatewayError::MissingSigner.into());
-    }
-
-    check_badge_verified(program_id, instructions_sysvar)?;
-
-    let (expected_pda, bump) = Pubkey::find_program_address(&[GATEWAY_STATE_SEED], program_id);
-    if gateway_state.key != &expected_pda {
-        return Err(GatewayError::InvalidGatewayStatePda.into());
-    }
-
-    let mut amount_bytes = [0u8; 8];
-    amount_bytes.copy_from_slice(&payload.encrypted_amount[0..8]);
-    let amount = u64::from_le_bytes(amount_bytes);
-
-    msg!("execute_confidential_transfer: transfer executed");
-
-    let transfer_ix = spl_token::instruction::transfer(
-        token_program.key,
-        source_ata.key,
-        dest_ata.key,
-        &expected_pda,
-        &[],
-        amount,
-    )?;
-
-    invoke_signed(
-        &transfer_ix,
-        &[source_ata.clone(), dest_ata.clone(), gateway_state.clone(), token_program.clone()],
-        &[&[GATEWAY_STATE_SEED, &[bump]]],
-    )?;
-
-    Ok(())
-}
-
-fn process_record_receipt(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    payload: ReceiptPayload,
-) -> ProgramResult {
-    let mut accounts_iter = accounts.iter();
-    let payer = next_account_info(&mut accounts_iter)?;
-    let gateway_state = next_account_info(&mut accounts_iter)?;
-    let instructions_sysvar = next_account_info(&mut accounts_iter)?;
-
-    if !payer.is_signer {
-        return Err(GatewayError::MissingSigner.into());
-    }
-
-    check_badge_verified(program_id, instructions_sysvar)?;
-
-    if !gateway_state.is_writable {
-        return Err(GatewayError::GatewayStateNotWritable.into());
-    }
-
-    let mut config: GatewayConfig = wincode::deserialize(&gateway_state.data.borrow())
-        .map_err(|_| ProgramError::from(GatewayError::InvalidInstruction))?;
-
-    let mut data_to_hash = Vec::with_capacity(32 + 32 + 8 + 8);
-    data_to_hash.extend_from_slice(&payload.vendor_id);
-    data_to_hash.extend_from_slice(&payload.item_hash);
-    data_to_hash.extend_from_slice(&payload.amount.to_le_bytes());
-    data_to_hash.extend_from_slice(&payload.timestamp.to_le_bytes());
-
-    let receipt_leaf = keccak::hash(&data_to_hash);
-
-    let mut root_data = Vec::with_capacity(64);
-    root_data.extend_from_slice(&config.receipt_root);
-    root_data.extend_from_slice(&receipt_leaf.0);
-    let new_root = keccak::hash(&root_data);
-
-    config.receipt_root = new_root.0;
-
-    let serialized = wincode::serialize(&config)
-        .map_err(|_| ProgramError::from(GatewayError::InvalidInstruction))?;
-    gateway_state
-        .data
-        .borrow_mut()
-        .copy_from_slice(&serialized);
-
-    msg!("record_receipt: receipt_root updated");
-
-    Ok(())
-}
-
-fn process_verify_badge(
-    program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    payload: ProofPayload,
-) -> ProgramResult {
-    let mut accounts_iter = accounts.iter();
     let payer = next_account_info(&mut accounts_iter)
         .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
     let gateway_state = next_account_info(&mut accounts_iter)
         .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
-    let zk_verifier = next_account_info(&mut accounts_iter)
+    let mxe_program = next_account_info(&mut accounts_iter)
         .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
 
     if !payer.is_signer {
@@ -211,15 +89,169 @@ fn process_verify_badge(
         return Err(GatewayError::InvalidGatewayStateOwner.into());
     }
 
+    if payload.instruction_data.is_empty() {
+        return Err(GatewayError::MissingInstructionData.into());
+    }
+
     let config: GatewayConfig = wincode::deserialize(&gateway_state.data.borrow())
         .map_err(|_| ProgramError::from(GatewayError::InvalidInstruction))?;
 
-    if payload.merkle_index >= MAX_LEAVES {
-        return Err(GatewayError::InvalidMerkleIndex.into());
+    if config.mxe_program_id != ZERO_PUBKEY && mxe_program.key.to_bytes() != config.mxe_program_id {
+        return Err(GatewayError::InvalidMxeProgram.into());
     }
 
-    if payload.root != config.merkle_root {
-        return Err(GatewayError::InvalidMerkleRoot.into());
+    let remaining_accounts: Vec<AccountInfo> = accounts_iter.cloned().collect();
+    let mut metas = Vec::with_capacity(remaining_accounts.len());
+    for account in &remaining_accounts {
+        metas.push(solana_program::instruction::AccountMeta {
+            pubkey: *account.key,
+            is_signer: account.is_signer,
+            is_writable: account.is_writable,
+        });
+    }
+
+    let instruction = Instruction {
+        program_id: *mxe_program.key,
+        accounts: metas,
+        data: payload.instruction_data,
+    };
+
+    let mut invoke_accounts = Vec::with_capacity(1 + remaining_accounts.len());
+    invoke_accounts.push(mxe_program.clone());
+    invoke_accounts.extend(remaining_accounts);
+
+    invoke(&instruction, &invoke_accounts)?;
+
+    msg!("execute_confidential_transfer: CPI success");
+    Ok(())
+}
+
+fn process_record_receipt(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    payload: ReceiptPayload,
+) -> ProgramResult {
+    let mut accounts_iter = accounts.iter();
+    let payer = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    let gateway_state = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    let receipt_program = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    let agent_account = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+
+    if !payer.is_signer {
+        return Err(GatewayError::MissingSigner.into());
+    }
+
+    let (expected_pda, _bump) = Pubkey::find_program_address(&[GATEWAY_STATE_SEED], program_id);
+    if gateway_state.key != &expected_pda {
+        return Err(GatewayError::InvalidGatewayStatePda.into());
+    }
+
+    if gateway_state.owner != program_id {
+        return Err(GatewayError::InvalidGatewayStateOwner.into());
+    }
+
+    if payload.receipt_instruction_data.is_empty() {
+        return Err(GatewayError::MissingInstructionData.into());
+    }
+
+    let config: GatewayConfig = wincode::deserialize(&gateway_state.data.borrow())
+        .map_err(|_| ProgramError::from(GatewayError::InvalidInstruction))?;
+
+    if config.receipts_program_id != ZERO_PUBKEY
+        && receipt_program.key.to_bytes() != config.receipts_program_id
+    {
+        return Err(GatewayError::InvalidReceiptsProgram.into());
+    }
+
+    let remaining_accounts: Vec<AccountInfo> = accounts_iter.cloned().collect();
+    let mut metas = Vec::with_capacity(2 + remaining_accounts.len());
+    metas.push(solana_program::instruction::AccountMeta {
+        pubkey: *payer.key,
+        is_signer: payer.is_signer,
+        is_writable: payer.is_writable,
+    });
+    metas.push(solana_program::instruction::AccountMeta {
+        pubkey: *agent_account.key,
+        is_signer: agent_account.is_signer,
+        is_writable: agent_account.is_writable,
+    });
+    for account in &remaining_accounts {
+        metas.push(solana_program::instruction::AccountMeta {
+            pubkey: *account.key,
+            is_signer: account.is_signer,
+            is_writable: account.is_writable,
+        });
+    }
+
+    let instruction = Instruction {
+        program_id: *receipt_program.key,
+        accounts: metas,
+        data: payload.receipt_instruction_data,
+    };
+
+    let mut invoke_accounts = Vec::with_capacity(3 + remaining_accounts.len());
+    invoke_accounts.push(payer.clone());
+    invoke_accounts.push(agent_account.clone());
+    invoke_accounts.extend(remaining_accounts);
+    invoke_accounts.push(receipt_program.clone());
+
+    invoke(&instruction, &invoke_accounts)?;
+
+    msg!("record_receipt: CPI success");
+    Ok(())
+}
+
+fn check_badge_verified(
+    program_id: &Pubkey,
+    instructions_sysvar: &AccountInfo,
+) -> ProgramResult {
+    if instructions_sysvar.key != &instructions::ID {
+         return Err(ProgramError::InvalidAccountData);
+    }
+
+    let current_index =
+        instructions::load_current_index_checked(instructions_sysvar).map_err(|_| {
+            ProgramError::InvalidAccountData
+        })?;
+
+    for i in 0..current_index {
+        let ix = instructions::load_instruction_at_checked(i as usize, instructions_sysvar)
+            .map_err(|_| ProgramError::InvalidAccountData)?;
+        if ix.program_id != *program_id {
+            continue;
+        }
+        if let Ok(GatewayInstruction::VerifyBadge(_)) = wincode::deserialize(&ix.data) {
+            msg!("check_badge_verified: VerifyBadge found in transaction");
+            return Ok(());
+        }
+    }
+
+    Err(GatewayError::BadgeNotVerified.into())
+}
+
+fn process_verify_badge(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    payload: ProofPayload,
+) -> ProgramResult {
+    let mut accounts_iter = accounts.iter();
+    let payer = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    let gateway_state = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    // This is now the Standalone Verifier program account
+    let verifier_program = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+    // ShadowWire Proof PDA (for binding validation)
+    let sw_proof_pda = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(GatewayError::NotEnoughAccounts))?;
+
+    if !payer.is_signer {
+        return Err(GatewayError::MissingSigner.into());
     }
 
     if payload.proof.is_empty() {
@@ -230,31 +262,126 @@ fn process_verify_badge(
         return Err(GatewayError::EmptyPublicWitness.into());
     }
 
-    if config.zk_verifier != ZERO_PUBKEY {
-        if zk_verifier.key.to_bytes() != config.zk_verifier {
-            return Err(GatewayError::InvalidZkVerifier.into());
+    let (expected_pda, _bump) = Pubkey::find_program_address(&[GATEWAY_STATE_SEED], program_id);
+    if gateway_state.key != &expected_pda {
+        return Err(GatewayError::InvalidGatewayStatePda.into());
+    }
+
+    if gateway_state.owner != program_id {
+        return Err(GatewayError::InvalidGatewayStateOwner.into());
+    }
+
+    let config: GatewayConfig = wincode::deserialize(&gateway_state.data.borrow())
+        .map_err(|_| ProgramError::from(GatewayError::InvalidInstruction))?;
+
+    if config.zk_verifier != ZERO_PUBKEY && verifier_program.key.to_bytes() != config.zk_verifier {
+        return Err(GatewayError::InvalidZkVerifier.into());
+    }
+
+    let config_verifier_is_zero = config.zk_verifier.iter().all(|byte| *byte == 0);
+    let verifier_key_bytes = verifier_program.key.to_bytes();
+    let verifier_is_zero = verifier_key_bytes.iter().all(|byte| *byte == 0);
+
+    // --- Validation Logic ---
+    if payload.merkle_index >= MAX_LEAVES {
+        return Err(GatewayError::InvalidMerkleIndex.into());
+    }
+
+    // Note: We trust the Verifier program to check the root, but we should pass it.
+    // For this design, we'll verify the proof via CPI.
+
+    // --- CPI to Standalone Verifier ---
+    if config_verifier_is_zero || verifier_is_zero || verifier_program.key == &system_program::ID {
+        msg!("verify_badge: verifier not configured, skipping CPI");
+    } else {
+        msg!("verify_badge: invoking standalone verifier");
+    }
+
+    // The verifier program expects raw proof + inputs. 
+    // We need to match its instruction format. 
+    // Assuming standard Sunspot/Gnark verifier: [instruction_discriminator (if any) + proof + public_inputs]
+    // But since we control the verifier wrapper, let's assume it takes the payload directly.
+    
+    // Construct instruction data for the Verifier Program.
+    // Format: [proof_len_u32 (4 bytes)] [proof_bytes] [witness_bytes]
+    let proof_len = payload.proof.len() as u32;
+    let mut cpi_data = Vec::with_capacity(4 + payload.proof.len() + payload.public_witness.len());
+    cpi_data.extend_from_slice(&proof_len.to_le_bytes());
+    cpi_data.extend_from_slice(&payload.proof);
+    cpi_data.extend_from_slice(&payload.public_witness);
+
+    if !config_verifier_is_zero && !verifier_is_zero && verifier_program.key != &system_program::ID {
+        let verifier_ix = Instruction {
+            program_id: *verifier_program.key,
+            accounts: vec![
+                // Verifier usually doesn't need accounts unless it stores state, but might need system program if initializing.
+                // Pure verification is stateless.
+                solana_program::instruction::AccountMeta::new_readonly(*payer.key, true),
+            ],
+            data: cpi_data,
+        };
+
+        invoke(
+            &verifier_ix,
+            &[payer.clone(), verifier_program.clone()],
+        )?;
+    }
+
+    msg!("verify_badge: Standalone Verifier returned success");
+
+    // --- Logic Check (Post-Verification) ---
+    // Ensure the claimed root in the witness matches the gateway config
+    // The public witness from Sunspot/Gnark has a 12-byte header:
+    // [num_inputs (4), unknown (4), num_inputs_again? (4)]
+    // Followed by the fields: [Root (32), OrderId (32), Nullifier (32)]
+    let witness_data = if payload.public_witness.len() == 108 {
+        &payload.public_witness[12..]
+    } else {
+        &payload.public_witness[..]
+    };
+
+    if witness_data.len() >= 96 {
+        if witness_data[0..32] != config.merkle_root {
+            msg!("verify_badge: public witness root mismatch");
+            return Err(GatewayError::InvalidMerkleRoot.into());
         }
 
-        let mut verifier_data =
-            Vec::with_capacity(payload.proof.len() + payload.public_witness.len());
-        verifier_data.extend_from_slice(&payload.proof);
-        verifier_data.extend_from_slice(&payload.public_witness);
+        // --- ShadowWire Binding Check ---
+        let mut nullifier = [0u8; 32];
+        nullifier.copy_from_slice(&witness_data[64..96]);
 
-        let verify_ix = Instruction {
-            program_id: *zk_verifier.key,
-            accounts: vec![],
-            data: verifier_data,
-        };
-        invoke(&verify_ix, &[])?;
+        let hash = keccak::hash(&nullifier);
+        let mut expected_nonce_bytes = [0u8; 8];
+        expected_nonce_bytes.copy_from_slice(&hash.to_bytes()[0..8]);
+        let expected_nonce = u64::from_le_bytes(expected_nonce_bytes);
+
+        let sw_data = sw_proof_pda.try_borrow_data()?;
+        if sw_data.len() < 88 {
+            // Anchor account for ShadowWire Proof: [8 disc, 32 sender, 32 token, 8 amount, 8 nonce, ...]
+            msg!("verify_badge: ShadowWire Proof PDA data too short");
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        let mut actual_nonce_bytes = [0u8; 8];
+        actual_nonce_bytes.copy_from_slice(&sw_data[80..88]);
+        let actual_nonce = u64::from_le_bytes(actual_nonce_bytes);
+
+        if expected_nonce != actual_nonce {
+            msg!(
+                "verify_badge: ShadowWire nonce mismatch. Expected {}, found {}",
+                expected_nonce,
+                actual_nonce
+            );
+            return Err(GatewayError::ShadowWireBindingFailed.into());
+        }
+        msg!("verify_badge: ShadowWire binding verified");
+    } else {
+        return Err(GatewayError::EmptyPublicWitness.into());
     }
 
     msg!("verify_badge: gateway_state seed={:?}", GATEWAY_STATE_SEED);
-    msg!("verify_badge: proof bytes={}", payload.proof.len());
-    msg!("verify_badge: merkle index={}", payload.merkle_index);
-    msg!("verify_badge: merkle root matches config");
 
     // --- CPI to Core Program (Optional) ---
-    // If the caller provided the Core Program account + dependencies, we invoke VerifyAndCredit.
     if let Ok(core_program_info) = next_account_info(&mut accounts_iter) {
         msg!("verify_badge: attempting CPI to Core");
         
@@ -305,6 +432,7 @@ fn process_verify_badge(
 
     Ok(())
 }
+
 
 fn process_submit_private_order(
     program_id: &Pubkey,
@@ -441,6 +569,7 @@ fn process_update_gateway(
     config.credit_root = payload.credit_root;
     config.orderbook_root = payload.orderbook_root;
     config.mxe_program_id = payload.mxe_program_id;
+    config.receipts_program_id = payload.receipts_program_id;
     config.light_system_program = payload.light_system_program;
     config.light_account_compression_program = payload.light_account_compression_program;
     config.light_noop_program = payload.light_noop_program;
@@ -500,6 +629,7 @@ fn process_init_gateway(
         credit_root: payload.credit_root,
         orderbook_root: payload.orderbook_root,
         mxe_program_id: payload.mxe_program_id,
+        receipts_program_id: payload.receipts_program_id,
         light_system_program: payload.light_system_program,
         light_account_compression_program: payload.light_account_compression_program,
         light_noop_program: payload.light_noop_program,

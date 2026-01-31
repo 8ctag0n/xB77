@@ -13,7 +13,7 @@ use solana_program::{
 use crate::error::RegistryError;
 use crate::instruction::{
     AddCatalogPayload, DeactivateCatalogPayload, InitMerchantPayload, RegistryInstruction,
-    UpdateCatalogPayload,
+    UpdateCatalogPayload, UpdateMerchantPayload,
 };
 use crate::state::{
     CatalogAccount, MerchantAccount, CATALOG_SEED, MAX_CATALOG_URL_LEN, MAX_MERCHANT_ID_LEN,
@@ -65,6 +65,9 @@ pub fn process_instruction(
         RegistryInstruction::InitMerchant(payload) => {
             process_init_merchant(program_id, accounts, payload)
         }
+        RegistryInstruction::UpdateMerchant(payload) => {
+            process_update_merchant(program_id, accounts, payload)
+        }
         RegistryInstruction::AddCatalog(payload) => {
             process_add_catalog(program_id, accounts, payload)
         }
@@ -111,6 +114,7 @@ fn process_init_merchant(
     let merchant = MerchantAccount {
         merchant_id: payload.merchant_id,
         owner: payer.key.to_bytes(),
+        supported_methods: payload.supported_methods,
         catalog_count: 0,
         created_at: now,
         updated_at: now,
@@ -139,6 +143,55 @@ fn process_init_merchant(
         .borrow_mut()
         .copy_from_slice(&serialized);
     msg!("merchant initialized");
+    Ok(())
+}
+
+fn process_update_merchant(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    payload: UpdateMerchantPayload,
+) -> ProgramResult {
+    let mut accounts_iter = accounts.iter();
+    let payer = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(RegistryError::NotEnoughAccounts))?;
+    let merchant_account = next_account_info(&mut accounts_iter)
+        .map_err(|_| ProgramError::from(RegistryError::NotEnoughAccounts))?;
+
+    if !payer.is_signer {
+        return Err(RegistryError::MissingSigner.into());
+    }
+
+    validate_merchant_id(&payload.merchant_id)?;
+    let (merchant_pda, _) = derive_merchant_pda(program_id, &payload.merchant_id);
+    if merchant_account.key != &merchant_pda {
+        return Err(RegistryError::InvalidMerchantPda.into());
+    }
+    if merchant_account.data_is_empty() {
+        return Err(RegistryError::MerchantNotInitialized.into());
+    }
+
+    let mut merchant: MerchantAccount = wincode::deserialize(&merchant_account.data.borrow())
+        .map_err(|_| ProgramError::from(RegistryError::InvalidInstruction))?;
+    if merchant.owner != payer.key.to_bytes() {
+        return Err(RegistryError::InvalidOwner.into());
+    }
+
+    if let Some(methods) = payload.supported_methods {
+        merchant.supported_methods = methods;
+    }
+    merchant.updated_at = now_ts()?;
+
+    let serialized = wincode::serialize(&merchant)
+        .map_err(|_| ProgramError::from(RegistryError::InvalidInstruction))?;
+    if serialized.len() > merchant_account.data_len() {
+        return Err(RegistryError::DataTooLarge.into());
+    }
+    merchant_account
+        .data
+        .borrow_mut()
+        .copy_from_slice(&serialized);
+
+    msg!("merchant updated");
     Ok(())
 }
 

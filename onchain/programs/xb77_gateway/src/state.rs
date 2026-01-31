@@ -11,6 +11,7 @@ pub struct GatewayConfig {
     pub credit_root: [u8; 32],
     pub orderbook_root: [u8; 32],
     pub mxe_program_id: [u8; 32],
+    pub receipts_program_id: [u8; 32],
     pub light_system_program: [u8; 32],
     pub light_account_compression_program: [u8; 32],
     pub light_noop_program: [u8; 32],

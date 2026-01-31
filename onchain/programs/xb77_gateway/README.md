@@ -2,13 +2,13 @@
 
 Gateway program responsibilities:
 - Verify the Noir proof (agent authorization).
-- If valid, execute a confidential transfer via Arcium C-SPL.
+- Execute a transfer via CPI (program-agnostic payload).
 - Record an encrypted receipt via Light Protocol.
 
 Planned instruction flow:
 1) `verify_badge`: verify proof + inputs (agent, root, index).
 2) `submit_private_order`: submit order payload for private execution.
-3) `execute_confidential_transfer`: CPI into C-SPL to move funds.
+3) `execute_confidential_transfer`: CPI into external program to move funds (payload is raw instruction data).
 4) `record_receipt`: write compressed receipt via Light SDK/CPI.
 
 Account sketch (to refine):
@@ -25,6 +25,8 @@ Current account order (minimal):
 - `update_gateway`: `[admin signer, gateway_state]`
 - `verify_badge`: `[payer signer, gateway_state, zk_verifier_program]`
 - `submit_private_order`: `[payer signer, gateway_state, nullifier_pda, system_program]`
+- `execute_confidential_transfer`: `[payer signer, gateway_state, mxe_program, ...remaining_accounts]`
+- `record_receipt`: `[payer signer, gateway_state, receipt_program, agent_account, ...remaining_accounts]`
 - `resolve_private_order`: `[payer signer, gateway_state, instructions_sysvar, receipt_program, ...receipt_remaining_accounts]`
 
 Receipt CPI account order (for `resolve_private_order` when `receipt_instruction_data` is set):

@@ -1,7 +1,7 @@
 import { PaymentReceipt, PaymentType } from './receipts';
 import { SupportedToken } from './wallet';
 
-export type PaymentProvider = 'shadowwire' | 'privacy_cash';
+export type PaymentProvider = 'shadowwire' | 'privacy_cash' | 'starpay' | 'xb77';
 export type PaymentStatus = 'success' | 'failed';
 
 export interface PaymentRequest {
@@ -12,6 +12,7 @@ export interface PaymentRequest {
   memoHash?: string;
   type?: PaymentType;
   provider?: PaymentProvider;
+  nullifier?: string;
 }
 
 export interface PaymentExecutionResult {
@@ -20,7 +21,7 @@ export interface PaymentExecutionResult {
   txSignature?: string;
   paidAmount?: number;
   proofPda?: string;
-  nonce?: number;
+  nonce?: number | bigint;
   fee?: number;
   raw?: unknown;
 }
@@ -68,16 +69,28 @@ export function buildPaymentReceipt(
     throw new Error('Cannot build receipt from failed payment result');
   }
 
+  const raw = result.raw as any;
+
   return {
     sender: request.agentId,
     recipient: request.vendor,
     token: request.currency,
     amount: result.paidAmount ?? request.amount,
     type: request.type ?? 'external',
+    provider: result.provider,
     proofPda: result.proofPda,
     nonce: result.nonce,
     txSignature: result.txSignature,
     timestamp,
+    metadata: {
+      ...(raw?.method ? { method: raw.method } : {}),
+      providerName: result.provider === 'starpay' ? 'Starpay' : 'ShadowWire',
+      ...(raw?.cardId ? { cardLast4: raw.cardId.slice(-4) } : {}),
+      ...(raw?.cardId ? { externalRef: raw.cardId } : {}),
+      ...(!raw?.cardId && raw?.transfer?.tx_signature
+        ? { externalRef: raw.transfer.tx_signature }
+        : {})
+    }
   };
 }
 

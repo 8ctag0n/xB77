@@ -1,12 +1,24 @@
+loght_forensics/
+*.txt
+cache
+.env
 **/target/
 sdk/src/artifacts/
 .localnet/
+.devnet/
 contracts/target/
 onchain/target/
 target/
 test-ledger/
 private/
-
+node_modules
+*.sw?
 # Onchain builds
 **/*.so
 **/*.ds_store
+*.db
+*.log
+mcp/listener.pid
+demo/keys/*.json
+demo/logs/
+demo/data/
