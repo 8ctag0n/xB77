@@ -45,10 +45,13 @@ export default defineConfig({
           {
             text: '03_INTEGRATIONS',
             items: [
-              { text: 'Starpay (Fiat)', link: '/docs/integrations/starpay' },
-              { text: 'ShadowWire (Privacy)', link: '/docs/integrations/shadowwire' },
-              { text: 'Kamino (Yield)', link: '/docs/integrations/kamino' },
-              { text: 'MCP (Agent)', link: '/docs/integrations/mcp' }
+              { text: 'Helius (RPC & DAS)', link: '/docs/integrations/helius' },
+              { text: 'Noir (Agent Identity)', link: '/docs/integrations/noir' },
+              { text: 'Light Protocol (Compression)', link: '/docs/integrations/light-protocol' },
+              { text: 'ShadowWire (Shielded Rail)', link: '/docs/integrations/shadow-wire' },
+              { text: 'Privacy Cash (Obfuscation)', link: '/docs/integrations/privacy-cash' },
+              { text: 'Starpay (Fiat Bridge)', link: '/docs/integrations/starpay' },
+              { text: 'Future (Arcium & Kamino)', link: '/docs/integrations/future-roadmap' }
             ]
           },
           {
@@ -93,10 +96,13 @@ export default defineConfig({
           {
             text: '03_INTEGRACIONES',
             items: [
-              { text: 'Starpay (Fiat)', link: '/docs/integrations/starpay' },
-              { text: 'ShadowWire (Privacidad)', link: '/docs/integrations/shadowwire' },
-              { text: 'Kamino (Rendimiento)', link: '/docs/integrations/kamino' },
-              { text: 'MCP (Agente)', link: '/docs/integrations/mcp' }
+              { text: 'Helius (RPC & DAS)', link: '/es/docs/integrations/helius' },
+              { text: 'Noir (Identidad)', link: '/es/docs/integrations/noir' },
+              { text: 'Light Protocol (Compresión)', link: '/es/docs/integrations/light-protocol' },
+              { text: 'ShadowWire (Riel Protegido)', link: '/es/docs/integrations/shadow-wire' },
+              { text: 'Privacy Cash (Obfuscación)', link: '/es/docs/integrations/privacy-cash' },
+              { text: 'Starpay (Puente Fiat)', link: '/es/docs/integrations/starpay' },
+              { text: 'Futuro (Arcium y Kamino)', link: '/es/docs/integrations/future-roadmap' }
             ]
           },
           {
@@ -113,12 +119,12 @@ export default defineConfig({
 
   themeConfig: {
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/xB77-labs' }
+      { icon: 'github', link: 'https://github.com/8ctag0n/xB77' }
     ],
     footer: {
       message: 'Built for the Solana Privacy Hackathon 2026',
       copyright: 'Copyright © 2026 xB77 Labs'
     }
   },
-  appearance: 'dark'
+  appearance: 'auto'
 })

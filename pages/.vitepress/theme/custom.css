@@ -24,6 +24,18 @@
   --vp-f-mono: 'Fira Code', 'Share Tech Mono', monospace;
 }
 
+[data-theme='light'] {
+  --vp-c-bg: #f7f8fb;
+  --vp-c-bg-alt: #ffffff;
+  --vp-c-bg-soft: #f0f1f5;
+  --vp-c-text-1: #050505;
+  --vp-c-text-2: #555555;
+  --vp-c-divider: #dcdde4;
+  --vp-c-gutter: #e2e4ec;
+  --vp-home-hero-name-color: #050505;
+  --vp-home-hero-name-background: linear-gradient(135deg, #FF003C 0%, #00F0FF 100%);
+}
+
 /* Animations */
 @keyframes flicker {
   0% { opacity: 0.98; }
@@ -47,6 +59,10 @@ body {
   background-color: var(--vp-c-bg);
   background-image: linear-gradient(to right, #1a1a1a 1px, transparent 1px), linear-gradient(to bottom, #1a1a1a 1px, transparent 1px);
   background-size: 40px 40px;
+}
+
+[data-theme='light'] body {
+  background-image: linear-gradient(to right, rgba(0, 0, 0, 0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 1px, transparent 1px);
 }
 
 .crt-flicker {
@@ -140,6 +156,11 @@ body::before {
   opacity: 0.2;
 }
 
+[data-theme='light'] body::before {
+  background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.04) 50%, rgba(0,0,0,0.04));
+  opacity: 0.15;
+}
+
 /* Custom Layout Overrides */
 .VPHero.VPHero {
   padding-top: 4rem;
@@ -174,5 +195,15 @@ body::before {
 .VPNavBar {
   background-color: rgba(5, 5, 5, 0.8) !important;
   backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+[data-theme='light'] .VPSidebar {
+  background-color: var(--vp-c-bg-alt) !important;
+  border-right: 1px solid var(--vp-c-divider);
+}
+
+[data-theme='light'] .VPNavBar {
+  background-color: rgba(255, 255, 255, 0.88) !important;
   border-bottom: 1px solid var(--vp-c-divider);
 }
