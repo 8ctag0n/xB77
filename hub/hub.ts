@@ -895,10 +895,15 @@ async function showInvoice(receipt: any) {
       <div class="line-item"><span>Vendor</span> <strong>${vendor}</strong></div>
       <div class="line-item"><span>Status</span> <span class="badge success">CERTIFIED</span></div>
       <div class="line-divider"></div>
-      <div class="line-item"><span>Service (Audit Ready)</span> <span>$${subtotal.toFixed(2)}</span></div>
-      <div class="line-item"><span>VAT (21%)</span> <span>$${tax.toFixed(2)}</span></div>
-      <div class="line-divider"></div>
-      <div class="invoice-total"><span>TOTAL</span> <span>$${amount.toFixed(2)}</span></div>
+      
+      <!-- BLURRED SECTION START -->
+      <div id="zk-protected-content" class="zk-blur" style="padding: 10px; border-radius: 4px;">
+        <div class="line-item"><span>Service (Audit Ready)</span> <span>$${subtotal.toFixed(2)}</span></div>
+        <div class="line-item"><span>VAT (21%)</span> <span>$${tax.toFixed(2)}</span></div>
+        <div class="line-divider"></div>
+        <div class="invoice-total"><span>TOTAL</span> <span>$${amount.toFixed(2)}</span></div>
+      </div>
+      <!-- BLURRED SECTION END -->
       
       <div class="verification-zone" id="verif-${proof.receiptId}">
          <button class="btn-verify" onclick="window.verifyOnChain('${proof.receiptId}', '${proof.attestation}')">
@@ -931,6 +936,13 @@ async function verifyOnChain(receiptId: string, attestation: string) {
     });
     
     const result = unwrapToolResponse(response);
+
+    // REVEAL ANIMATION
+    const protectedContent = document.getElementById('zk-protected-content');
+    if (protectedContent) {
+      protectedContent.classList.remove('zk-blur');
+      protectedContent.classList.add('zk-revealed');
+    }
 
     zone.innerHTML = `
       <div class="zk-success-badge">
@@ -1092,6 +1104,10 @@ async function handleBuy(product: typeof products[0]) {
       const govOverlay = document.getElementById('governance-overlay') as HTMLDivElement;
       const riskLabel = document.getElementById('lockdown-risk') as HTMLElement;
       
+      // TRIGGER SYSTEM LOCKDOWN VISUALS
+      document.body.classList.add('system-lockdown');
+      if (thoughtStream) thoughtStream.classList.add('panic-mode');
+      
       if (govOverlay) {
         riskLabel.textContent = strategy.intel?.reasoning || 'Range Protocol: High Risk Detected';
         govOverlay.classList.remove('hidden');
@@ -1101,6 +1117,10 @@ async function handleBuy(product: typeof products[0]) {
         return;
       }
     }
+    
+    // Reset visuals if safe
+    document.body.classList.remove('system-lockdown');
+    if (thoughtStream) thoughtStream.classList.remove('panic-mode');
 
     // Brief delay for the user to see the "Scan result"
     await new Promise(r => setTimeout(r, 1500));
