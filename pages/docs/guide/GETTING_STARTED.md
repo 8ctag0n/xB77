@@ -52,3 +52,31 @@ High-value or high-risk transactions will automatically trigger a **Lockdown Mod
 2. Transaction is paused.
 3. Hub displays a red alert.
 4. Human operator must click "Authorize" to provide an Ed25519 override signature.
+
+## 5. Demo Proxy (Podman + nginx)
+
+Si quieres grabar la demo con un solo puerto expuesto (ideal para túneles y grabaciones) puedes usar el proxy nginx empaquetado en `containers/demo-proxy`. Él recibe todo el tráfico en `http://localhost:7777`, sirve una landing estática y enruta los tres procesos reales hacia tu host.
+
+1.  Mantén los tres componentes ejecutándose localmente como siempre, pero evita que el Hub use el puerto 7777 porque el proxy lo está escuchando:
+    ```bash
+    bun run mcp/src/listener.ts        # escucha webhooks en :7002
+    PORT=7778 bun hub/index.ts          # UI en :7778 (proxy la expone en :7777)
+    bun run mcp/src/http.ts             # MCP HTTP en :7001
+    ```
+2.  Construye el proxy de nginx usando Podman (puedes usar el nombre que prefieras):
+    ```bash
+    podman build -t xb77-demo-proxy containers/demo-proxy
+    ```
+3.  Ejecuta el proxy unificado (ajusta los puertos según lo que uses en el paso anterior):
+    ```bash
+    podman run --rm --name xb77-demo-proxy \
+      -p 7777:7777 \
+      -e HOST_ALIAS=host.containers.internal \
+      -e HUB_PORT=7778 \
+      -e LISTENER_PORT=7002 \
+      -e MCP_PORT=7001 \
+      xb77-demo-proxy
+    ```
+4.  Navega a `http://localhost:7777` en Chrome/Brave. Ahí verás la landing, con enlaces directos a `/hub/`, `/listener/health` y `/agent/health`.
+
+Planea la grabación con las tres pestañas habituales (`Merchant Terminal`, `Governance`, `Tool Runner`), pero recuerda que el navegador se conecta siempre al puerto 7777. `podman logs -f xb77-demo-proxy` te ayuda a verificar los envíos de `/hub/`, `/listener/` y `/agent/`.
