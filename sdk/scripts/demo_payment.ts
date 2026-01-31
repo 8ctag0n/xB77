@@ -1,4 +1,5 @@
 import { PrivacyAgent } from '../src/agent';
+import { StaticBalanceProvider } from '../src/economy/adapters';
 import { Keypair } from '@solana/web3.js';
 
 async function main() {
@@ -6,7 +7,11 @@ async function main() {
 
   // 1. Setup Agent with a fresh keypair
   const keypair = Keypair.generate();
-  const agent = new PrivacyAgent({ keypair, debug: true });
+  const agent = new PrivacyAgent({
+    keypair,
+    debug: true,
+    balanceProvider: new StaticBalanceProvider({ SOL: 0, USD1: 0, USDC: 0 }, 'mock'),
+  });
 
   console.log(`\n🔑 Agent Public Key: ${agent.wallet.publicKey.toBase58()}`);
 
@@ -19,19 +24,15 @@ async function main() {
     console.error("   Error checking balance (Expected if no network):", err);
   }
 
-  // 3. Attempt Payment (Simulation)
+  // 3. Attempt Payment (Mocked)
   const recipient = Keypair.generate().publicKey.toBase58();
   const amount = 100; // USD1
 
   console.log(`\n💸 Attempting Payment of ${amount} USD1 to ${recipient}...`);
-  console.log("   (Note: This will likely fail due to insufficient funds/network, but proves the interface works)");
+  console.log("   (Note: Mock adapter returns deterministic success in localnet)");
 
-  try {
-    await agent.pay(recipient, amount, 'USD1');
-  } catch (error: any) {
-    console.log("   ✅ Payment intent captured! (Error expected in demo environment without funds)");
-    console.log(`   Error message: ${error.message}`);
-  }
+  const result = await agent.pay(recipient, amount, 'USD1');
+  console.log(`   ✅ Mock payment success. txSignature: ${result.txSignature}`);
 
   console.log("\n✨ Demo Complete. The 'PrivacyAgent' is ready for integration.");
 }

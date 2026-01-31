@@ -1,0 +1,149 @@
+{
+  "version": "0.1.0",
+  "name": "xb77_receipts",
+  "instructions": [
+    {
+      "name": "RecordReceipt",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "The payer and authority for the transaction"
+          ]
+        },
+        {
+          "name": "agentAccount",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "The agent account that will own the receipt"
+          ]
+        },
+        {
+          "name": "lightCpiSigner",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "The PDA signing for Light Protocol CPI"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "The System Program"
+          ]
+        },
+        {
+          "name": "lightSystemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "The Light System Program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "recordReceiptInstructionData",
+          "type": {
+            "defined": "RecordReceiptInstructionData"
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 0
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "CompressedReceipt",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "publicKey"
+          },
+          {
+            "name": "vendor",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "memoHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "RecordReceiptInstructionData",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "proof",
+            "type": "bytes"
+          },
+          {
+            "name": "addressTreeInfo",
+            "type": "bytes"
+          },
+          {
+            "name": "outputStateTreeIndex",
+            "type": "u8"
+          },
+          {
+            "name": "vendor",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "memoHash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "origin": "shank",
+    "address": "9kknYrFBjkBUuMyZZhksoHcj29gjfzGsDMgnyfp3Y6VM"
+  }
+}

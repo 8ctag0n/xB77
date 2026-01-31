@@ -35,8 +35,8 @@ if [ -n "${NULLIFIER_HEX:-}" ]; then
   NULLIFIER_ARG=(--nullifier-hex "${NULLIFIER_HEX}")
 fi
 
-pushd "${ROOT_DIR}/contracts" >/dev/null
-cargo run -p xb77_gateway_cli -- submit-order \
+pushd "${ROOT_DIR}/cli" >/dev/null
+cargo run -- submit-order \
   --url "${SOLANA_URL}" \
   --config-dir "${ROOT_DIR}/.localnet" \
   --meta "${ROOT_DIR}/sdk/target/agent_badge.meta.json" \

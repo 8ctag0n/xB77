@@ -1,73 +1,53 @@
-# Research Report: Worktree B (Vault & Receipts)
+# Research Report: Light Protocol and Local Validator Infrastructure
 
-## 1. Objective
-Implement a "Privacy Treasury" flow aligned with Arcium's "Encrypted Instructions" and Light Protocol's "ZK Compression".
+Date: Jan 20, 2026
+Context: Worktree B (Vault Light / Gateway)
+Goal: Establish a stable local environment for End-to-End testing of ZK Compression.
 
-## 2. Component Design
+## Blockers
 
-### A. Arcium C-SPL (Mock)
-Instead of simple mocks, we emulate the **Asynchronous MPC Callback** pattern.
+### 1. Official CLI (light test-validator)
+* Issue: The tool attempts to download binary artifacts from GitHub Release URLs that return 404 Not Found.
+* Specific Failures: light_system_program_pinocchio.so, light_compressed_token.so.
+* Conclusion: Cannot rely on the automated setup of the @lightprotocol/zk-compression-cli.
 
-**State (`GatewayConfig`):**
-- `treasury_mint`: Pubkey.
-- `pending_transfers`: Counter or specialized PDA (to track pending MPC callbacks).
+### 2. Surfpool (Docker)
+* Issue: The surfpool/surfpool image starts successfully but does not preload Light Protocol programs by default.
+* Runbooks: Configuration via Surfpool.toml or .tx files requires specific syntax (Txtx) that is not clearly documented for this use case.
+* Devnet Forking: Starting with --network devnet fails to reliably serve the program accounts locally in the containerized environment.
+* Note: Surfpool remains in the repo for historical reference, but the Light Protocol binaries now live in `containers/light/bin` and the surfpool container is not required for normal testing.
 
-**Instruction (`ExecuteConfidentialTransfer`):**
-- **Payload** (mimics `Enc<Shared, u64>`):
-  - `encrypted_amount`: [u8; 32] (Ciphertext).
-  - `nonce`: [u8; 12].
-  - `public_key`: [u8; 32] (Ephemeral key for ECDH).
-- **Logic**:
-  1. **Auth Gate**: Verify `VerifyBadge` (via Introspection).
-  2. **Simulate MPC Request**:
-     - Log "Emitting MPC Request".
-     - In a real world, this would CPI to Arcium.
-     - Here, we immediately "resolve" it by performing the SPL Token Transfer (CPI).
-     - *Constraint*: Real Arcium is async. We will simulate "Optimistic Execution" where the Gateway approves the transfer immediately if the ZK proof (Auth Gate) is valid.
+## Solution: Manual Binary Loading
 
-### B. Light Protocol Receipts (ZK Compression)
-Simulate State Compression via Hashing + Logs.
+The necessary Light Protocol programs have been compiled from source. The reliable path forward is to use the standard Solana Validator and load these binaries explicitly via the --bpf-program flag.
 
-**Schema (`Receipt` - Off-chain/Calldata):**
-```rust
-struct Receipt {
-    vendor_id: [u8; 32],
-    item_hash: [u8; 32],
-    amount: u64,
-    timestamp: i64,
-}
+### 1. Compiled Binaries (Artifacts)
+Binaries are extracted to: containers/light/bin (cut & paste from the old Surfpool artifacts).
+1. light_system_program_pinocchio.so
+2. light_compressed_token.so
+3. account_compression.so
+
+### 2. Critical Program IDs
+The following addresses must be used when loading the programs:
+
+| Program | ID (Mainnet/Devnet) |
+| :--- | :--- |
+| Light System Program | SySTEM1eSU2p4BGQfQpimFEWWSC1XDFeun3Nqzz3rT7 |
+| Compressed Token | cTokenmWW8bLPjZEBAUgYy3zKxQZW6VKi7bqNFEVv3m |
+| Account Compression | compr6CUsB5m2jS4Y3831ztGSTnDpnKJTKS95d64XVq |
+| Noop Program | noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV |
+
+### 3. Execution Command
+Instead of light test-validator or surfpool, use:
+
+```bash
+solana-test-validator \
+  --bpf-program SySTEM1eSU2p4BGQfQpimFEWWSC1XDFeun3Nqzz3rT7 containers/light/bin/light_system_program_pinocchio.so \
+  --bpf-program cTokenmWW8bLPjZEBAUgYy3zKxQZW6VKi7bqNFEVv3m containers/light/bin/light_compressed_token.so \
+  --bpf-program compr6CUsB5m2jS4Y3831ztGSTnDpnKJTKS95d64XVq containers/light/bin/account_compression.so \
+  --reset
 ```
 
-**Instruction (`RecordReceipt`):**
-- **Payload**: `Receipt` data.
-- **Logic**:
-  1. Serialize `Receipt`.
-  2. Compute Leaf Hash (Poseidon or Keccak).
-  3. **Update State**: `GatewayConfig.merkle_root` (or a separate `receipt_root` if we want to separate Badge vs Receipt trees).
-     - *Decision*: Use a separate `receipt_root` in `GatewayConfig`.
-  4. **Emit Event**: Standard Program Log with the full receipt data (simulating Availability on Solana Ledger).
-
-## 3. Implementation Plan
-
-### Phase 1: Gateway Config & State
-- Add `treasury_mint` (Pubkey) and `receipt_root` ([u8; 32]) to `GatewayConfig`.
-
-### Phase 2: Instructions
-- Define `ConfidentialTransferPayload` with `ciphertext`, `nonce`, `pubkey`.
-- Define `Receipt` struct.
-
-### Phase 3: Processor Logic
-- `ExecuteConfidentialTransfer`:
-    - Introspection check (`VerifyBadge`).
-    - SPL Token CPI (Transfer from Gateway PDA to User).
-- `RecordReceipt`:
-    - Hashing logic.
-    - Root update.
-
-### Phase 4: Verification (Tests)
-- Update `gateway.rs` to include the full flow:
-  `Init -> VerifyBadge -> ConfidentialTransfer -> RecordReceipt`.
-
-## 4. Risks & Mitigations
-- **CPI Complexity**: calling `VerifyBadge` + `Transfer` + `Receipt` in one tx is heavy.
-  - *Mitigation*: The test script will structure the transaction carefully.
+## Next Steps
+1. Create scripts/localnet/start-validator-light.sh to automate this setup.
+2. Validate the local RPC responses before deploying the Gateway program.

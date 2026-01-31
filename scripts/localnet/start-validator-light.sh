@@ -1,53 +1,56 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Configuration
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-LEDGER_DIR="${ROOT_DIR}/.localnet/ledger"
-PAYER_KEYPAIR="${ROOT_DIR}/.localnet/payer.json"
-BPF_BIN_DIR="${ROOT_DIR}/containers/surfpool/bin"
+BIN_DIR="${ROOT_DIR}/containers/light/bin"
+LEDGER_DIR="${ROOT_DIR}/.localnet/ledger-light"
 
-if ! command -v solana-test-validator >/dev/null 2>&1; then
-  echo "solana-test-validator not found. Install Solana CLI tools." >&2
-  exit 1
-fi
-if ! command -v solana-keygen >/dev/null 2>&1; then
-  echo "solana-keygen not found. Install Solana CLI tools." >&2
-  exit 1
-fi
-if [ ! -d "${BPF_BIN_DIR}" ]; then
-  echo "Missing Surfpool bin directory at ${BPF_BIN_DIR}." >&2
-  exit 1
-fi
+# Program IDs
+SYSTEM_PROGRAM_ID="SySTEM1eSU2p4BGQfQpimFEWWSC1XDFeun3Nqzz3rT7"
+TOKEN_PROGRAM_ID="cTokenmWW8bLPjZEBAUgYy3zKxQZW6VKi7bqNFEVv3m"
+COMPRESSION_PROGRAM_ID="compr6CUsB5m2jS4Y3831ztGSTnDpnKJTKS95d64XVq"
 
-mkdir -p "${LEDGER_DIR}"
-mkdir -p "$(dirname "${PAYER_KEYPAIR}")"
+# Binary Paths
+SYSTEM_SO="${BIN_DIR}/light_system_program_pinocchio.so"
+TOKEN_SO="${BIN_DIR}/light_compressed_token.so"
+COMPRESSION_SO="${BIN_DIR}/account_compression.so"
 
-if [ ! -f "${PAYER_KEYPAIR}" ]; then
-  solana-keygen new --no-bip39-passphrase -o "${PAYER_KEYPAIR}"
-fi
+echo "--- Setup Check ---"
+echo "Root Dir: ${ROOT_DIR}"
+echo "Bin Dir:  ${BIN_DIR}"
 
-MINT_PUBKEY="$(solana-keygen pubkey "${PAYER_KEYPAIR}")"
-
-BPF_PROGRAMS=(
-  "SySTEM1eSU2p4BGQfQpimFEWWSC1XDFeun3Nqzz3rT7:${BPF_BIN_DIR}/light_system_program_pinocchio.so"
-  "cTokenmWW8bLPjZEBAUgYy3zKxQZW6VKi7bqNFEVv3m:${BPF_BIN_DIR}/light_compressed_token.so"
-  "compr6CUsB5m2jS4Y3831ztGSTnDpnKJTKS95d64XVq:${BPF_BIN_DIR}/account_compression.so"
-)
-
-VALIDATOR_ARGS=(
-  --reset
-  --ledger "${LEDGER_DIR}"
-  --limit-ledger-size 10000
-  --mint "${MINT_PUBKEY}"
-)
-
-for entry in "${BPF_PROGRAMS[@]}"; do
-  IFS=":" read -r program_id program_path <<< "${entry}"
-  if [ ! -f "${program_path}" ]; then
-    echo "Missing BPF program at ${program_path}." >&2
-    exit 1
-  fi
-  VALIDATOR_ARGS+=(--bpf-program "${program_id}" "${program_path}")
+# Validate Binaries
+missing=0
+for bin in "${SYSTEM_SO}" "${TOKEN_SO}" "${COMPRESSION_SO}"; do
+    if [ ! -f "$bin" ]; then
+        echo "ERROR: Missing binary: $bin"
+        missing=1
+    else
+        echo "OK: Found $(basename "$bin")"
+    fi
 done
 
-exec solana-test-validator "${VALIDATOR_ARGS[@]}"
+if [ $missing -eq 1 ]; then
+    echo "--------------------------------------------------------"
+    echo "FATAL: One or more Light Protocol binaries are missing."
+    echo "Please ensure you have extracted the artifacts to:"
+    echo "  ${BIN_DIR}"
+    echo "--------------------------------------------------------"
+    exit 1
+fi
+
+echo "--- Starting Validator ---"
+echo "System Program: ${SYSTEM_PROGRAM_ID}"
+echo "Token Program:  ${TOKEN_PROGRAM_ID}"
+echo "Compression:    ${COMPRESSION_PROGRAM_ID}"
+
+# Ensure ledger directory exists
+#mkdir -p "${ROOT_DIR}/.localnet"
+
+# Run without --quiet to show progress
+solana-test-validator \
+    --bpf-program "${SYSTEM_PROGRAM_ID}" "${SYSTEM_SO}" \
+    --bpf-program "${TOKEN_PROGRAM_ID}" "${TOKEN_SO}" \
+    --bpf-program "${COMPRESSION_PROGRAM_ID}" "${COMPRESSION_SO}" \
+    --account-dir "${ROOT_DIR}/scripts/light/local/accounts" \

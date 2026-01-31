@@ -27,6 +27,7 @@ pub struct InitGatewayPayload {
     pub credit_root: [u8; 32],
     pub orderbook_root: [u8; 32],
     pub mxe_program_id: [u8; 32],
+    pub receipts_program_id: [u8; 32],
     pub light_system_program: [u8; 32],
     pub light_account_compression_program: [u8; 32],
     pub light_noop_program: [u8; 32],
@@ -39,6 +40,7 @@ pub struct UpdateGatewayPayload {
     pub credit_root: [u8; 32],
     pub orderbook_root: [u8; 32],
     pub mxe_program_id: [u8; 32],
+    pub receipts_program_id: [u8; 32],
     pub light_system_program: [u8; 32],
     pub light_account_compression_program: [u8; 32],
     pub light_noop_program: [u8; 32],
@@ -46,17 +48,12 @@ pub struct UpdateGatewayPayload {
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
 pub struct ConfidentialTransferPayload {
-    pub encrypted_amount: [u8; 32],
-    pub nonce: [u8; 12],
-    pub public_key: [u8; 32],
+    pub instruction_data: Vec<u8>,
 }
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
 pub struct ReceiptPayload {
-    pub vendor_id: [u8; 32],
-    pub item_hash: [u8; 32],
-    pub amount: u64,
-    pub timestamp: i64,
+    pub receipt_instruction_data: Vec<u8>,
 }
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
@@ -72,6 +69,23 @@ pub struct AuditRevealPayload {
     pub order_commitment: [u8; 32],
     pub audit_hash: [u8; 32],
 }
+
+// --- Core Program CPI Types ---
+#[derive(Debug, SchemaRead, SchemaWrite)]
+pub struct VerifyAndCreditPayload {
+    pub agent_id: [u8; 32],
+    pub proof_ref: [u8; 32],
+    pub credit_amount: u64,
+}
+
+#[derive(Debug, SchemaRead, SchemaWrite)]
+pub enum CoreInstruction {
+    InitCore, // Placeholder, 0
+    RegisterAgent, // Placeholder, 1
+    VerifyAndCredit(VerifyAndCreditPayload), // Target, 2
+    RequestPayment, // Placeholder, 3
+}
+// -----------------------------
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
 pub enum GatewayInstruction {

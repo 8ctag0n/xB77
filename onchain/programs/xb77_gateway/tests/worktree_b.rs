@@ -70,6 +70,8 @@ fn worktree_b_full_flow() {
     store.insert(admin, Account::new(1_000_000_000, 0, &program_pubkey(system_program::ID)));
     store.insert(payer, Account::new(1_000_000_000, 0, &program_pubkey(system_program::ID)));
     store.insert(gateway_state, Account::new(0, 0, &program_pubkey(system_program::ID)));
+    let sw_proof_pda = program_pubkey(solana_program::pubkey::Pubkey::new_from_array([7u8; 32]));
+    store.insert(sw_proof_pda, Account::new(0, 0, &program_pubkey(system_program::ID)));
     insert_system_program(&mut store);
     // We need to mock SPL Token program presence if we want CPI to succeed (or fail nicely)
     // For now we just add accounts, but without the program ELF, CPI will fail with "ProgramNotFound".
@@ -88,6 +90,7 @@ fn worktree_b_full_flow() {
         credit_root: [0u8; 32],
         orderbook_root: [0u8; 32],
         mxe_program_id: [0u8; 32],
+        receipts_program_id: [0u8; 32],
         light_system_program: [0u8; 32],
         light_account_compression_program: [0u8; 32],
         light_noop_program: [0u8; 32],
@@ -132,14 +135,13 @@ fn worktree_b_full_flow() {
             AccountMeta::new(payer, true),
             AccountMeta::new(gateway_state, false),
             AccountMeta::new_readonly(zk_verifier, false),
+            AccountMeta::new_readonly(sw_proof_pda, false),
         ],
     );
 
     // Step 2b: Execute Confidential Transfer
     let transfer_payload = ConfidentialTransferPayload {
-        encrypted_amount: [8u8; 32],
-        nonce: [0u8; 12],
-        public_key: [0u8; 32],
+        instruction_data: vec![1, 2, 3],
     };
     let transfer_data = wincode::serialize(&GatewayInstruction::ExecuteConfidentialTransfer(transfer_payload)).unwrap();
     // Accounts: Payer, GatewayState, Mint, Source, Dest, TokenProg, Instructions
@@ -149,6 +151,7 @@ fn worktree_b_full_flow() {
         vec![
             AccountMeta::new(payer, true),
             AccountMeta::new(gateway_state, false),
+            AccountMeta::new_readonly(program_pubkey(system_program::ID), false),
             AccountMeta::new_readonly(treasury_mint, false),
             AccountMeta::new(gateway_ata, false),
             AccountMeta::new(user_ata, false),
@@ -159,10 +162,7 @@ fn worktree_b_full_flow() {
 
     // Step 2c: Record Receipt
     let receipt_payload = ReceiptPayload {
-        vendor_id: [1u8; 32],
-        item_hash: [2u8; 32],
-        amount: 100,
-        timestamp: 123456789,
+        receipt_instruction_data: vec![4, 5, 6],
     };
     let receipt_data = wincode::serialize(&GatewayInstruction::RecordReceipt(receipt_payload)).unwrap();
     let receipt_ix = Instruction::new_with_bytes(
@@ -171,7 +171,8 @@ fn worktree_b_full_flow() {
         vec![
             AccountMeta::new(payer, true),
             AccountMeta::new(gateway_state, false),
-            AccountMeta::new_readonly(program_pubkey(solana_program::sysvar::instructions::ID), false),
+            AccountMeta::new_readonly(program_pubkey(system_program::ID), false),
+            AccountMeta::new_readonly(payer, false),
         ],
     );
 

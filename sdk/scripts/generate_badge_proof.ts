@@ -45,7 +45,7 @@ async function main() {
 
   const secret = BigInt(input.secret);
   const salt = BigInt(input.salt);
-  const orderId = BigInt(input.orderId);
+  const orderId = process.env.ORDER_ID ? BigInt(process.env.ORDER_ID) : BigInt(input.orderId);
   const pathValues = input.path.map((value) => BigInt(value));
   const merkleIndex = BigInt(input.merkleIndex);
 
@@ -59,12 +59,12 @@ async function main() {
   const rootHex = `0x${BigInt(root).toString(16).padStart(64, "0")}`;
   const computedNullifier = poseidon([secret, orderId]);
   const computedNullifierStr = field.toString(computedNullifier);
-  const nullifierValue = input.nullifier ?? computedNullifierStr;
+  const nullifierValue = process.env.NULLIFIER ?? input.nullifier ?? computedNullifierStr;
   const nullifierHex = `0x${BigInt(nullifierValue).toString(16).padStart(64, "0")}`;
 
   const tomlLines = [
     `root = "${root}"`,
-    `order_id = "${input.orderId}"`,
+    `order_id = "${orderId}"`,
     `nullifier = "${nullifierValue}"`,
     `agent_secret = "${input.secret}"`,
     `agent_salt = "${input.salt}"`,
@@ -124,7 +124,7 @@ async function main() {
       {
         merkle_root_hex: rootHex,
         merkle_index: input.merkleIndex,
-        order_id: input.orderId,
+        order_id: orderId.toString(),
         nullifier: nullifierValue,
         nullifier_hex: nullifierHex,
       },

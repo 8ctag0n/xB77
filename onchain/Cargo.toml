@@ -1,10 +1,15 @@
 [workspace]
-resolver = "2"
 members = [
-    "cli",
+    "programs/xb77_core",
     "programs/xb77_gateway",
-    # "programs/xb77_receipts",
+    "programs/xb77_registry",
+    "programs/xb77_receipts",
+    "programs/xb77_test_utils",
 ]
 default-members = [
+    "programs/xb77_core",
     "programs/xb77_gateway",
+    "programs/xb77_registry",
+    "programs/xb77_receipts",
+    "programs/xb77_test_utils",
 ]

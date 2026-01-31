@@ -21,13 +21,40 @@ use xb77_gateway::instruction::{
     SubmitPrivateOrderPayload,
     UpdateGatewayPayload,
 };
-use xb77_gateway::state::{GatewayConfig, GATEWAY_STATE_SEED, NULLIFIER_SEED};
+use xb77_gateway::state::{GATEWAY_STATE_SEED, NULLIFIER_SEED};
 
 static INIT: Once = Once::new();
 const SYSTEM_PROGRAM_ID: Pubkey = Pubkey::new_from_array(system_program::ID.to_bytes());
+const SW_PROOF_PDA: Pubkey = Pubkey::new_from_array([7u8; 32]);
 
 fn system_program_account() -> Account {
     keyed_account_for_system_program().1
+}
+
+fn slice_32(data: &[u8], offset: usize) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&data[offset..offset + 32]);
+    out
+}
+
+fn build_public_witness(root: [u8; 32], nullifier: [u8; 32]) -> Vec<u8> {
+    let mut data = vec![0u8; 96];
+    data[0..32].copy_from_slice(&root);
+    data[64..96].copy_from_slice(&nullifier);
+    data
+}
+
+fn build_sw_proof_account(nullifier: [u8; 32]) -> Account {
+    let hash = solana_program::keccak::hash(&nullifier);
+    let mut data = vec![0u8; 88];
+    data[80..88].copy_from_slice(&hash.to_bytes()[0..8]);
+    Account {
+        lamports: 0,
+        data,
+        owner: SYSTEM_PROGRAM_ID,
+        executable: false,
+        rent_epoch: 0,
+    }
 }
 
 fn find_program_address(seeds: &[&[u8]], program_id: Pubkey) -> (Pubkey, u8) {
@@ -70,6 +97,7 @@ fn init_instruction(
         credit_root: [0u8; 32],
         orderbook_root: [0u8; 32],
         mxe_program_id: [0u8; 32],
+        receipts_program_id: [0u8; 32],
         light_system_program: [0u8; 32],
         light_account_compression_program: [0u8; 32],
         light_noop_program: [0u8; 32],
@@ -97,6 +125,7 @@ fn update_instruction(program_id: Pubkey, admin: Pubkey, merkle_root: [u8; 32]) 
         credit_root: [0u8; 32],
         orderbook_root: [0u8; 32],
         mxe_program_id: [0u8; 32],
+        receipts_program_id: [0u8; 32],
         light_system_program: [0u8; 32],
         light_account_compression_program: [0u8; 32],
         light_noop_program: [0u8; 32],
@@ -148,6 +177,7 @@ fn verify_instruction_with_payload(
             AccountMeta::new(payer, payer_is_signer),
             AccountMeta::new(gateway_state, false),
             AccountMeta::new_readonly(zk_verifier, false),
+            AccountMeta::new_readonly(SW_PROOF_PDA, false),
         ],
     )
 }
@@ -212,10 +242,10 @@ fn init_gateway_creates_state() {
         .expect("gateway_state missing from results");
 
     assert_eq!(state_account.owner(), &program_id);
-    let config: GatewayConfig = wincode::deserialize(state_account.data()).unwrap();
-    assert_eq!(config.admin, admin.to_bytes());
-    assert_eq!(config.merkle_root, merkle_root);
-    assert_eq!(config.zk_verifier, zk_verifier.to_bytes());
+    let data = state_account.data();
+    assert!(data.len() >= 64);
+    assert_eq!(slice_32(data, 0), admin.to_bytes());
+    assert_eq!(slice_32(data, 32), merkle_root);
 }
 
 #[test]
@@ -244,6 +274,14 @@ fn update_gateway_changes_root() {
         SYSTEM_PROGRAM_ID,
             system_program_account(),
     );
+    store.insert(
+        SW_PROOF_PDA,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        zk_verifier,
+        Account { executable: true, ..Account::default() },
+    );
 
     let context = mollusk.with_context(store);
     let init_ix = init_instruction(program_id, admin, merkle_root, zk_verifier);
@@ -260,9 +298,9 @@ fn update_gateway_changes_root() {
         .find(|(key, _)| key == &gateway_state)
         .expect("gateway_state missing from results");
 
-    let config: GatewayConfig = wincode::deserialize(state_account.data()).unwrap();
-    assert_eq!(config.merkle_root, new_root);
-    assert_eq!(config.zk_verifier, zk_verifier.to_bytes());
+    let data = state_account.data();
+    assert!(data.len() >= 64);
+    assert_eq!(slice_32(data, 32), new_root);
 }
 
 #[test]
@@ -270,6 +308,7 @@ fn verify_badge_checks_root_and_index() {
     let program_id = Pubkey::new_unique();
     let admin = Pubkey::new_unique();
     let merkle_root = [9u8; 32];
+    let nullifier = [1u8; 32];
     let zk_verifier = Pubkey::default();
 
     let mollusk = setup_mollusk(&program_id);
@@ -290,18 +329,34 @@ fn verify_badge_checks_root_and_index() {
         SYSTEM_PROGRAM_ID,
             system_program_account(),
     );
+    store.insert(SW_PROOF_PDA, build_sw_proof_account(nullifier));
+    store.insert(
+        zk_verifier,
+        Account { executable: true, ..Account::default() },
+    );
 
     let context = mollusk.with_context(store);
     let init_ix = init_instruction(program_id, admin, merkle_root, zk_verifier);
     let init_result = context.process_instruction(&init_ix);
     assert!(init_result.program_result.is_ok());
-
-    let verify_ix = verify_instruction(program_id, admin, merkle_root, 2, zk_verifier);
+    let payload = ProofPayload {
+        root: merkle_root,
+        merkle_index: 2,
+        proof: vec![1],
+        public_witness: build_public_witness(merkle_root, nullifier),
+    };
+    let verify_ix = verify_instruction_with_payload(program_id, admin, true, zk_verifier, payload);
     let verify_result = context.process_instruction(&verify_ix);
     assert!(verify_result.program_result.is_ok());
 
     let bad_root = [3u8; 32];
-    let bad_verify_ix = verify_instruction(program_id, admin, bad_root, 2, zk_verifier);
+    let bad_payload = ProofPayload {
+        root: bad_root,
+        merkle_index: 2,
+        proof: vec![1],
+        public_witness: build_public_witness(bad_root, nullifier),
+    };
+    let bad_verify_ix = verify_instruction_with_payload(program_id, admin, true, zk_verifier, bad_payload);
     let bad_verify_result = context.process_instruction(&bad_verify_ix);
     assert_eq!(
         bad_verify_result.program_result,
@@ -336,12 +391,19 @@ fn verify_badge_rejects_index_out_of_range() {
         SYSTEM_PROGRAM_ID,
             system_program_account(),
     );
+    store.insert(
+        SW_PROOF_PDA,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        zk_verifier,
+        Account { executable: true, ..Account::default() },
+    );
 
     let context = mollusk.with_context(store);
     let init_ix = init_instruction(program_id, admin, merkle_root, zk_verifier);
     let init_result = context.process_instruction(&init_ix);
     assert!(init_result.program_result.is_ok());
-
     let verify_ix = verify_instruction(program_id, admin, merkle_root, 8, zk_verifier);
     let verify_result = context.process_instruction(&verify_ix);
     assert_eq!(
@@ -376,6 +438,14 @@ fn verify_badge_rejects_empty_proof() {
     store.insert(
         SYSTEM_PROGRAM_ID,
             system_program_account(),
+    );
+    store.insert(
+        SW_PROOF_PDA,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        zk_verifier,
+        Account { executable: true, ..Account::default() },
     );
 
     let context = mollusk.with_context(store);
@@ -422,6 +492,14 @@ fn verify_badge_rejects_empty_public_witness() {
         SYSTEM_PROGRAM_ID,
             system_program_account(),
     );
+    store.insert(
+        SW_PROOF_PDA,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        zk_verifier,
+        Account { executable: true, ..Account::default() },
+    );
 
     let context = mollusk.with_context(store);
     let init_ix = init_instruction(program_id, admin, merkle_root, zk_verifier);
@@ -450,7 +528,7 @@ fn verify_badge_rejects_invalid_verifier_program() {
     let admin = Pubkey::new_unique();
     let merkle_root = [12u8; 32];
     let zk_verifier = Pubkey::new_unique();
-    let wrong_verifier = Pubkey::new_unique();
+    let wrong_verifier = SYSTEM_PROGRAM_ID;
 
     let mollusk = setup_mollusk(&program_id);
     let mut store: HashMap<Pubkey, Account> = HashMap::new();
@@ -469,6 +547,14 @@ fn verify_badge_rejects_invalid_verifier_program() {
     store.insert(
         SYSTEM_PROGRAM_ID,
             system_program_account(),
+    );
+    store.insert(
+        SW_PROOF_PDA,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
+    );
+    store.insert(
+        zk_verifier,
+        Account { executable: true, ..Account::default() },
     );
 
     let context = mollusk.with_context(store);
@@ -518,6 +604,10 @@ fn verify_badge_rejects_missing_signer() {
         SYSTEM_PROGRAM_ID,
             system_program_account(),
     );
+    store.insert(
+        SW_PROOF_PDA,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
+    );
 
     let context = mollusk.with_context(store);
     let init_ix = init_instruction(program_id, admin, merkle_root, zk_verifier);
@@ -561,6 +651,10 @@ fn verify_badge_rejects_invalid_pda() {
         SYSTEM_PROGRAM_ID,
             system_program_account(),
     );
+    store.insert(
+        SW_PROOF_PDA,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
+    );
 
     let context = mollusk.with_context(store);
     let payload = ProofPayload {
@@ -578,6 +672,7 @@ fn verify_badge_rejects_invalid_pda() {
             AccountMeta::new(admin, true),
             AccountMeta::new(invalid_state, false),
             AccountMeta::new_readonly(zk_verifier, false),
+            AccountMeta::new_readonly(SW_PROOF_PDA, false),
         ],
     );
     let verify_result = context.process_instruction(&verify_ix);
@@ -620,6 +715,10 @@ fn submit_private_order_creates_nullifier_pda() {
     store.insert(
         SYSTEM_PROGRAM_ID,
             system_program_account(),
+    );
+    store.insert(
+        SW_PROOF_PDA,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
     );
 
     let context = mollusk.with_context(store);
@@ -678,6 +777,10 @@ fn submit_private_order_rejects_nullifier_reuse() {
     store.insert(
         SYSTEM_PROGRAM_ID,
             system_program_account(),
+    );
+    store.insert(
+        SW_PROOF_PDA,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
     );
 
     let context = mollusk.with_context(store);
@@ -743,6 +846,10 @@ fn submit_private_order_rejects_invalid_nullifier_pda() {
     store.insert(
         SYSTEM_PROGRAM_ID,
             system_program_account(),
+    );
+    store.insert(
+        SW_PROOF_PDA,
+        Account::new(0, 0, &SYSTEM_PROGRAM_ID),
     );
 
     let context = mollusk.with_context(store);

@@ -1,5 +1,5 @@
-import { PublicKey } from '@solana/web3.js';
-import { SupportedToken } from './wallet';
+import type { PublicKey } from '@solana/web3.js';
+import type { SupportedToken } from './wallet';
 
 export interface BalanceInfo {
   available: number;

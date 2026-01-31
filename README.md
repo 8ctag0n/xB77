@@ -1,88 +1,90 @@
-# xB77: SOLANA PRIVACY HACKATHON MASTER PLAN
-> **Objective:** SWEEP THE BOARD. Target $35k+ in prizes by integrating the "Privacy Triad".
-> **Narrative:** "The Operating System for the Shadow Economy of AI Agents."
+# xB77: Autonomous Financial Infrastructure for AI Agents
+
+## Sovereign Financial Operating System for Autonomous Entities
+## Sistema Operativo Financiero Soberano para Entidades Autónomas
 
 ---
 
-## 🏆 THE LOOT (TARGET PRIZES)
-1.  **Grand Prize ($10,000):** Best overall project (Agent Infra Narrative).
-2.  **Arcium Prize ($10,000):** Best use of C-SPL (Confidential Treasury).
-3.  **Privacy Track ($15,000):** General privacy excellence (Noir Auth).
-4.  **Light Protocol / Privacy Tooling:** Best use of ZK Compression (Private Audit Trail).
-5.  **USD1 Bounty ($2,500):** Integration of Privacy Cash.
-6.  **Helius Bounty:** Best use of RPC/DAS/Webhooks.
+### Abstract / Resumen
+
+[EN] AI Agents represent a new class of economic actors that currently face significant financial limitations. Public blockchain transparency exposes proprietary strategies and vendor relationships, while lack of legal identity prevents access to traditional banking. xB77 provides a hybrid infrastructure that enables agents to manage shielded treasuries, optimize capital through autonomous yield generation, and maintain compliance through certified selective disclosure.
+
+[ES] Los Agentes de IA representan una nueva clase de actores económicos que actualmente enfrentan limitaciones financieras significativas. La transparencia de las redes públicas expone estrategias propietarias y relaciones con proveedores, mientras que la falta de identidad legal impide el acceso a la banca tradicional. xB77 proporciona una infraestructura híbrida que permite a los agentes gestionar tesorerías protegidas, optimizar capital mediante la generación autónoma de rendimiento y mantener el cumplimiento normativo a través de la revelación selectiva certificada.
 
 ---
 
-## 🏗 THE ARCHITECTURE: "THE PRIVACY TRIAD"
+### Core Components / Componentes Principales
 
-### 1. THE VAULT (ARCIUM C-SPL)
-*   **Goal:** Hide the Money.
-*   **Tech:** **Arcium Confidential Token Standard (C-SPL)**.
-*   **Function:** The Corporate Treasury is a **C-SPL Account**.
-    *   Funds (USD1/USDC) enter and become **Confidential**.
-    *   The balance is encrypted. Only the CFO with the viewing key can see it.
-    *   *Why this wins:* Real-world B2B use case for Arcium.
+#### 1. Shielded Treasury Management
+Leveraging Light Protocol and ShadowWire to decouple agent identity from transaction history, ensuring enterprise-grade privacy for B2B operations.
 
-### 2. THE BLACK BOX (LIGHT PROTOCOL)
-*   **Goal:** Hide the Data (History).
-*   **Tech:** **Light Protocol (ZK Compression)**.
-*   **Function:** Every transaction generates a "Ghost Receipt".
-    *   We store the encrypted invoice details (Vendor, Item, Amount) in a **Compressed PDA**.
-    *   Cost is near zero. Privacy is absolute.
-    *   *Why this wins:* Solves the "Audit vs. Privacy" dilemma using ZK Compression.
+#### 2. Autonomous Yield Optimization
+Idle capital is dynamically allocated to lending protocols such as Kamino. This enables agents to self-fund their operational expenses, including network fees and computational costs, without external intervention.
 
-### 3. THE GHOST BADGE (NOIR)
-*   **Goal:** Hide the Actor (Identity).
-*   **Tech:** **Noir (Aztec) Circuits**.
-*   **Function:** The Agent proves "I am Authorized" without revealing its Public Key.
-    *   Circuit: `verify_membership(merkle_root, private_key)`.
-    *   *Why this wins:* Standard ZK identity, executed perfectly.
+#### 3. Certified Selective Disclosure
+A Zero-Knowledge based auditing framework that allows agents to prove transaction validity (amount, date, status) to authorized entities without compromising the privacy of recipients or sensitive metadata.
+
+#### 4. Institutional Compliance
+Integrated real-time screening via Range Protocol to ensure all autonomous transactions adhere to global sanctions and risk management standards.
 
 ---
 
-## ⚡ INFRASTRUCTURE RAILS
-*   **Settlement:** **USD1** (Privacy Cash) is the native unit of account.
-*   **Speed:** **Helius** Priority Fees ensure agents never get stuck.
-*   **Events:** **Helius Webhooks** trigger the "Audit" indexing when a C-SPL transfer occurs.
+### Technical Architecture / Arquitectura Técnica
+
+*   ZK Framework: Noir (Identity Attestation & Selective Disclosure).
+*   Settlement Layer: Solana (Anchor Protocol).
+*   Execution Environment: TypeScript / Bun (Agentic Financial OS).
+*   Data Observability: Helius RPC & Webhooks.
 
 ---
 
-## 📅 EXECUTION PLAN (7-DAY SPRINT)
+### Devnet Deployment Status (Live Jan 28, 2026)
 
-### PHASE 1: THE CORE (Days 1-2)
-*   [ ] **Scaffold:** Repo setup (DONE).
-*   [ ] **Noir:** Implement `agent_badge.nr` in `./circuits`.
-*   [ ] **Arcium:** Setup local devnet with C-SPL support (Docker).
+#### 1. On-Chain Programs (The Core)
+All programs deployed and authorized by the Deployer.
 
-### PHASE 2: THE INTEGRATION (Days 3-5)
-*   [ ] **The Gateway:** Connect Noir Verifier -> Arcium C-SPL Transfer in `./contracts`.
-    *   *Logic:* If Proof Valid -> Execute Confidential Transfer.
-*   [ ] **Light SDK:** Implement `@xb77/audit` in `./sdk` to write compressed receipts.
-*   [ ] **Agent SDK & "God Level" Tooling:** 
-    *   `@xb77/client` (Typescript SDK) in `./sdk`.
-    *   **MCP Server (Model Context Protocol):** Enabling LLMs (Claude/GPT) to see private balances.
-    *   **LangChain Tool:** "Plug & Play" private payments for any AI Agent.
+| Program | Address | Role |
+| :--- | :--- | :--- |
+| **xB77 Core** | `FpWZN1FB9yMfip3vYQhsZhgT4fCB3US9BqAv5kh5uDxv` | Payment Orchestrator & Credit Logic |
+| **xB77 Gateway** | `4gDQBWwzncRdTspJW37NoH56mGELj8UTqdC8VLdu7BGC` | Multi-Rail Adapter (Router) |
+| **xB77 Receipts** | `8iGuTTFLhNfbUN8teY6t1SEJ7vFFzVKd3bsXUhi1R12W` | ZK-Proof Storage & Verification |
+| **xB77 Registry** | `8Asy6SMxj38vqz5dJb7TYCoV1RctrF88KxFu19A6DPWz` | Agent Identity Directory |
+| **xB77 Test Utils** | `2cevUmfqJU8uvHvR7jbn4vrYqG2KwgytDVypueQt5Wtx` | Mock Treasury / Faucets |
 
-### PHASE 3: THE UI & POLISH (Days 6-7)
-*   [ ] **Shadow Console:** Terminal UI for the CFO (Decrypt Balances & History) in `./web`.
-*   [ ] **Demo Video:** A cinematic walkthrough of an Agent buying intel privately.
+#### 2. Identity & Authority
+*   **Deployer/Admin/Agent:** `4uvdh823eysqVDR9e3o6st3fGWUyctZMxMK5dJ5h49dC`
+*   **Role:** Protocol Owner & Active Agent
+*   **Devnet Balance:** ~12 SOL
+
+#### 3. On-Chain State (PDAs)
+Initialized via `scripts/init-devnet.ts`.
+*   **Global Config PDA:** `Ese5D21LUHfn2QSAtwG8KdUqQ7swxqQvcFsxeCGMKhi1`
+*   **Agent Credit Line PDA:** `FRhR1XKQJpZUpNgD3qPXyPNahU8UngMvXmwafwCs7Rx5`
+    *   **Status:** Active
+    *   **Limit:** $5,000 USD1
+
+#### 4. Integration Stack (The Bounties)
+| Integration | Status | Role |
+| :--- | :--- | :--- |
+| **Helius** | **Active** | Priority Fees, Forensic Radar, ZK-RPC (via Resilience Mode) |
+| **Starpay** | **Active** | Virtual Cards (Visa/Mastercard) Off-ramp |
+| **ShadowWire** | **Active** | Institutional Privacy Rail (with xB77 Fallback) |
+| **PrivacyCash** | **Active** | Retail Privacy Pool (with xB77 Fallback) |
+| **Light Protocol** | **Active** | Native ZK-Compression (via xB77 Native Adapter) |
+
+#### 5. Local Persistence
+*   **Database:** SQLite (`xb77_agent_4uvdh...db`)
+*   **Data:** Stores full receipt history, ZK audit trails, and agent metadata locally.
 
 ---
 
-## 🚀 IMMEDIATE NEXT STEPS
-1.  **Initialize Noir:** `./circuits`.
-2.  **Initialize SDK:** `./sdk`.
-3.  **Check Arcium Docs:** Verify C-SPL devnet availability.
+### Documentation / Documentación
 
-## 🧪 LOCALNET TOOLING
-Common helpers:
-- `make localnet-start` (run Solana local validator)
-- `make localnet-start-light` (run solana-test-validator with Light Protocol programs)
-- `make localnet-verifier` (build + deploy Sunspot verifier to localnet)
-- `make localnet-gateway` (build + deploy gateway program)
-- `make proof-badge` (generate proof + instruction data)
-- `make localnet-init` (initialize gateway with verifier + root)
-- `make localnet-verify` (send verify_badge with proof)
-- `scripts/localnet/submit-private-order.sh` (submit_private_order call; requires TOKEN_MINT + RECIPIENT)
-- `scripts/localnet/demo-private-order.sh` (prints the required manual steps; run scripts separately)
+*   [Operation Guide / Guía de Inicio](docs/guide/GETTING_STARTED)
+*   [Technical Whitepaper (EN)](docs/whitepaper/WHITEPAPER_EN)
+*   [Libro Blanco Técnico (ES)](docs/whitepaper/WHITEPAPER_ES)
+*   [Architecture & Data Flow (EN)](docs/architecture/DIAGRAMS)
+*   [Arquitectura y Flujo (ES)](docs/architecture/DIAGRAMS_ES)
+
+---
+Copyright (c) 2026 xB77 Labs. All rights reserved.

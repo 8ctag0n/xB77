@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>xB77 // Merchant Hub</title>
+    <link rel="stylesheet" href="./hub.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div class="crt-scanline"></div>
+    
+    <div class="page">
+      <nav class="main-nav">
+        <div class="nav-brand">
+            <span class="brand-prefix">xB77</span> // MERCHANT
+        </div>
+        <div class="nav-links">
+          <button class="nav-tab active" data-target="view-merchant">
+            <span class="tab-icon">◈</span> Terminal
+          </button>
+          <button class="nav-tab" data-target="view-governance">
+            <span class="tab-icon">⚖</span> Governance
+          </button>
+          <button class="nav-tab" data-target="view-control">
+            <span class="tab-icon">⚡</span> Control Plane
+          </button>
+        </div>
+        <div class="status-pill">
+          <span class="status-label">SYS.NET</span>
+          <span class="dot"></span>
+          <span id="connection-status">DISCONNECTED</span>
+        </div>
+      </nav>
+
+      <div id="view-merchant" class="view">
+        <header class="merchant-hero">
+          <div class="hero-content">
+            <div class="kicker">:: OPERATIONAL DASHBOARD</div>
+            <h1>Commercial Terminal</h1>
+            <p>Liquidity management & strategy execution protocol.</p>
+          </div>
+          <div class="hero-stats">
+             <div class="stat-card cyber-border">
+               <span class="label">Total Volume</span>
+               <span class="value glitch-text" id="stat-sales">$0.00</span>
+             </div>
+             <div class="stat-card cyber-border">
+               <span class="label">Pending Ops</span>
+               <span class="value" id="stat-pending">0</span>
+             </div>
+          </div>
+        </header>
+
+        <div class="terminal-layout">
+           <div class="terminal-main">
+            <div class="forensic-radar hidden" id="forensic-radar">
+              <div class="radar-container">
+                  <div class="radar-scanner">
+                    <div class="scanner-sweep"></div>
+                    <div class="scanner-grid"></div>
+                  </div>
+              </div>
+              <div class="radar-info">
+                <h3>⚠ HELIUS FORENSIC SCAN</h3>
+                <div class="radar-details" id="radar-details">
+                  <div class="radar-row"><span>TARGET_ID:</span> <strong id="radar-target" class="mono">---</strong></div>
+                  <div class="radar-row"><span>RISK_LVL:</span> <strong id="radar-score" class="mono">---</strong></div>
+                  <div class="radar-row"><span>COMPLIANCE:</span> <strong id="radar-compliance" class="mono">---</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card product-card-grid cyber-panel">
+              <div class="card-header">
+                <h2>Available Services</h2>
+                <button class="btn-sm btn-glitch" id="btn-add-product">
+                    <span>+ List Service</span>
+                </button>
+              </div>
+              <div class="product-grid" id="product-grid">
+                </div>
+            </div>
+
+            <div class="card cyber-panel">
+              <div class="card-header">
+                <h2>Operational History</h2>
+                <div class="header-actions">
+                  <span class="live-indicator"><span class="blink">●</span> LIVE FEED</span>
+                </div>
+              </div>
+              <div class="activity-feed custom-scroll" id="activity-feed">
+                </div>
+            </div>
+          </div>
+
+          <div class="terminal-sidebar">
+            <div class="card thought-card cyber-panel">
+              <div class="card-header">
+                <h2>Agent Thought Stream</h2>
+              </div>
+              <div class="thought-stream custom-scroll" id="thought-stream">
+                <div class="empty muted">:: Waiting for neural activity...</div>
+              </div>
+            </div>
+
+            <div class="card stats-card cyber-panel">
+              <div class="card-header">
+                <h2>CFO Snapshot</h2>
+              </div>
+              <div class="stats-grid">
+                <div class="efficiency-gauge">
+                  <div class="gauge-header">
+                      <label>Sustainability Index</label>
+                      <span id="efficiency-percent" class="mono-gold">0%</span>
+                  </div>
+                  <div class="gauge-bar-bg">
+                    <div class="gauge-fill" id="efficiency-fill" style="width: 0%"></div>
+                  </div>
+                  <div class="gauge-labels">
+                    <span id="efficiency-status">INITIALIZING...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="view-governance" class="view hidden">
+        <header class="merchant-hero">
+          <div class="hero-content">
+            <p class="kicker">Security & Compliance Layer</p>
+            <h1>Shadow Governance</h1>
+          </div>
+          <div class="status-pill secure">
+            <span class="dot online"></span>
+            <span>SECURE CHANNEL_ENCRYPTED</span>
+          </div>
+        </header>
+
+        <main class="grid-gov">
+          <section class="panel cyber-panel full-width">
+            <div class="panel-header">
+              <h2>Pending Approvals</h2>
+              <button class="btn-sm" id="refresh-gov">↻ SYNC</button>
+            </div>
+            <div id="governance-list" class="governance-list">
+              <div class="empty-state">:: No pending requests intercepted.</div>
+            </div>
+          </section>
+
+          <section class="panel cyber-panel full-width">
+            <div class="panel-header"><h2>Security Log</h2></div>
+             <div class="log-console custom-scroll" id="gov-log">
+               <div class="log-line"><span class="ts">[SYS_BOOT]</span> System initialized. Waiting for encrypted intents...</div>
+             </div>
+          </section>
+        </main>
+      </div>
+
+      <div id="view-control" class="view hidden">
+        <header class="merchant-hero">
+          <div class="hero-content">
+            <p class="kicker">Local Agent Orchestration</p>
+            <h1>Control Plane</h1>
+          </div>
+          <div class="status-pill local">
+            <span class="dot"></span>
+            <span>LOCALHOST <span id="hub-port">:7777</span></span>
+          </div>
+        </header>
+        
+        <div class="token-bar" style="margin-bottom: 20px;">
+             <input id="hub-token" class="cyber-input" placeholder=":: ENTER HUB_TOKEN FOR ACCESS" />
+        </div>
+
+        <main class="control-grid">
+          <section class="panel cyber-panel" id="agents-panel">
+            <div class="panel-header">
+              <h2>Active Agents</h2>
+              <button id="refresh-btn" class="btn-sm">↻</button>
+            </div>
+            <div id="agents-list" class="agents-list custom-scroll"></div>
+          </section>
+
+          <div class="control-center">
+              <section class="panel cyber-panel" id="register-panel">
+                <div class="panel-header"><h2>Connect MCP</h2></div>
+                <form id="register-form" class="form-stack">
+                  <input class="cyber-input" name="agent_id" placeholder="Agent ID" required />
+                  <input class="cyber-input" name="mcp_url" placeholder="MCP URL" required />
+                  <select class="cyber-input" name="transport">
+                    <option value="http">HTTP</option>
+                    <option value="stdio">STDIO</option>
+                  </select>
+                  <input class="cyber-input" name="capabilities" placeholder="Capabilities" />
+                  <button type="submit" class="btn-full">Register Agent</button>
+                </form>
+              </section>
+
+              <section class="panel cyber-panel" id="tool-panel">
+                <div class="panel-header"><h2>Tool Runner</h2></div>
+                <form id="tool-form" class="form-stack">
+                  <input class="cyber-input" name="tool" placeholder="Tool Name (e.g. agent.pay)" required />
+                  <textarea class="cyber-input" name="payload" rows="3" placeholder='{"amount": 100}'></textarea>
+                  <button type="submit" class="btn-full">Execute Tool</button>
+                </form>
+                <div class="response-box" style="padding: 12px;">
+                    <pre id="tool-response" class="muted">:: Ready for output...</pre>
+                </div>
+              </section>
+          </div>
+
+          <section class="panel cyber-panel" id="observability-panel">
+            <div class="panel-header">
+              <h2>Observability</h2>
+              <button id="refresh-observability" class="btn-sm">↻</button>
+            </div>
+            <div id="observability-status" class="muted" style="padding:12px">Select agent...</div>
+            <div class="obs-grid" style="padding:12px; display:flex; flex-direction:column; gap:12px;">
+              <div class="obs-card" style="border:1px solid #333; padding:12px;">
+                <div class="obs-label" style="font-size:10px; color:#666;">Balance</div>
+                <div id="obs-balance" class="obs-value mono">-</div>
+                 <div id="obs-balance-meta" class="obs-sub muted"></div>
+              </div>
+              <div class="obs-card" style="border:1px solid #333; padding:12px;">
+                <div class="obs-label" style="font-size:10px; color:#666;">Recent Traffic</div>
+                <div id="obs-receipts" class="receipt-list muted custom-scroll">No signal.</div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="modal-overlay hidden" id="governance-overlay">
+      <div class="modal-content compliance-alert lockdown">
+        <div class="alert-header">
+            <div class="alert-icon blink">🔒</div>
+            <h2>GOVERNANCE INTERVENTION</h2>
+        </div>
+        <p class="alert-msg">Range Protocol has flagged a transaction violation.</p>
+        <div class="risk-details">
+          <div class="risk-row"><span>RISK_TYPE:</span> <strong id="lockdown-risk" class="text-red">Sanctioned Entity</strong></div>
+          <div class="risk-row"><span>STATUS:</span> <strong class="text-red">CRITICAL</strong></div>
+        </div>
+        <div class="lockdown-actions">
+           <button class="btn-danger" id="lockdown-reject">ABORT & BLACKLIST</button>
+           <button class="btn-success" id="lockdown-approve">OVERRIDE (AUTH REQ)</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="compliance-modal" class="modal-overlay hidden">
+      <div class="modal-content compliance-alert warning">
+        <div class="alert-icon">⚠️</div>
+        <h2>RISK DETECTED</h2>
+        <div class="alert-body">
+          <div class="risk-details">
+            <div class="risk-row"><span>ENTITY</span><strong id="risk-entity">Unknown</strong></div>
+            <div class="risk-row"><span>SCORE</span><strong id="risk-score">90/100</strong></div>
+             <div class="risk-row"><span>REASON</span><strong id="risk-reason">---</strong></div>
+          </div>
+        </div>
+        <button id="close-modal" class="btn-danger" style="margin-top:16px; width:100%">ACKNOWLEDGE</button>
+      </div>
+    </div>
+
+    <div id="invoice-modal" class="modal-overlay hidden">
+      <div class="modal-content invoice-modal cyber-panel">
+        <div class="invoice-header">
+          <span class="invoice-logo">🧾 PROOF OF PURCHASE</span>
+          <div class="invoice-meta mono" id="inv-id">#INV-0000</div>
+          <div class="invoice-meta mono" id="inv-date"></div>
+        </div>
+        <div class="invoice-body" id="inv-body"></div>
+        <div class="invoice-footer">
+          <div class="zk-badge">VERIFIED BY LIGHT PROTOCOL</div>
+          <div class="zk-hash mono" id="inv-hash">0x...</div>
+          <button class="btn-sm" style="margin-top:16px; width:100%" id="btn-close-invoice">CLOSE</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="list-service-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <h2>List a New Service</h2>
+        <p class="muted" style="margin-bottom:16px;">High/critical risk listings automatically demo a governance escalation.</p>
+        <form id="list-service-form" class="form-stack">
+          <input class="cyber-input" name="service_name" placeholder="Service Name" required />
+          <input class="cyber-input" name="service_price" type="number" step="0.01" min="0" placeholder="Price (USD1)" required />
+          <select class="cyber-input" name="service_risk" required>
+            <option value="low">Low Risk</option>
+            <option value="medium">Medium Risk</option>
+            <option value="high">High Risk</option>
+            <option value="critical">Critical Risk</option>
+          </select>
+          <input class="cyber-input" name="service_recipient" placeholder="Recipient Alias (e.g. So11...X)" />
+          <textarea class="cyber-input" name="service_note" rows="3" placeholder="Optional governance note"></textarea>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button type="submit" class="btn-full" style="flex:1;">List Service</button>
+            <button type="button" id="btn-cancel-list" class="btn-sm" style="flex:1; border:1px solid #444; background:none;">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script type="module" src="./hub.ts"></script>
+  </body>
+</html>

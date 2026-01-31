@@ -1,0 +1,12 @@
+FROM docker.io/library/nginx:1.26-alpine
+
+# Template and landing page
+COPY default.conf.template /etc/nginx/templates/default.conf.template
+COPY html /usr/share/nginx/html
+COPY entrypoint.sh /entrypoint.sh
+
+RUN apk add --no-cache gettext \
+    && chmod +x /entrypoint.sh
+
+EXPOSE 7777
+ENTRYPOINT ["/entrypoint.sh"]

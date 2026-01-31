@@ -1,24 +1,27 @@
 import { ShadowWireClient, TokenUtils } from '@radr/shadowwire';
-import { Keypair, PublicKey } from '@solana/web3.js';
+import { Keypair, PublicKey, Connection, Transaction, sendAndConfirmTransaction } from '@solana/web3.js';
 import nacl from 'tweetnacl';
-import { PaymentType } from './receipts';
+import type { PaymentType } from './receipts';
 
 export type SupportedToken = 'SOL' | 'USD1' | 'USDC';
 
 export interface PaymentResult {
   txSignature?: string;
   proofPda?: string;
-  nonce?: number;
+  nonce?: number | bigint;
+  provider?: string;
   raw: unknown;
 }
 
 export class AgentWallet {
   private client: ShadowWireClient;
   private keypair: Keypair;
+  private debug: boolean;
 
   constructor(keypair: Keypair, debug: boolean = false) {
     this.keypair = keypair;
     this.client = new ShadowWireClient({ debug });
+    this.debug = debug;
   }
 
   /**
@@ -26,6 +29,16 @@ export class AgentWallet {
    */
   get publicKey(): PublicKey {
     return this.keypair.publicKey;
+  }
+
+  /**
+   * Generic method to sign and send a transaction
+   */
+  async sendTransaction(connection: Connection, transaction: Transaction): Promise<string> {
+    if (this.debug) {
+      console.log(`[AgentWallet] Sending transaction...`);
+    }
+    return await sendAndConfirmTransaction(connection, transaction, [this.keypair]);
   }
 
   /**

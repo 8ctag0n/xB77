@@ -1,0 +1,13 @@
+[package]
+name = "verifier_program"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+solana-program = "1.18"
+verifier-lib = { git = "https://github.com/reilabs/sunspot.git", rev = "7edafaf6a3b47cdcb8d008e87d477abe82e5ca1d" }
+constant_time_eq = "=0.3.1"
+blake3 = "=1.8.2"
+
+[lib]
+crate-type = ["cdylib", "lib"]
