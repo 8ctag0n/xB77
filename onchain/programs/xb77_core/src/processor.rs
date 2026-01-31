@@ -253,6 +253,16 @@ fn process_request_payment(
     
     // Collect remaining accounts (Light Protocol accounts passed by client)
     let remaining_accounts: Vec<AccountInfo> = account_info_iter.cloned().collect();
+    
+    if !remaining_accounts.is_empty() {
+        msg!("DEBUG CORE: Remaining[0]: {:?}", remaining_accounts[0].key);
+    }
+    if remaining_accounts.len() > 1 {
+        msg!("DEBUG CORE: Remaining[1]: {:?}", remaining_accounts[1].key);
+    }
+    if remaining_accounts.len() > 2 {
+        msg!("DEBUG CORE: Remaining[2]: {:?}", remaining_accounts[2].key);
+    }
 
     // Prepare CPI Data
     #[derive(borsh::BorshSerialize)]
@@ -280,16 +290,14 @@ fn process_request_payment(
         .map_err(|_| ProgramError::InvalidInstructionData)?;
 
     // Prepare CPI Accounts
-    // xb77_receipts expects: [Signer, Owner, ...LightAccounts]
+    // xb77_receipts expects: [Signer, ...LightAccounts, Owner]
     
     let mut cpi_accounts = Vec::with_capacity(2 + remaining_accounts.len());
     
     // 1. Signer (Agent)
-    cpi_accounts.push(solana_program::instruction::AccountMeta::new_readonly(*agent_signer.key, true));
-    // 2. Owner (Agent) - duplicate, but distinct role in receipts program
-    cpi_accounts.push(solana_program::instruction::AccountMeta::new_readonly(*agent_signer.key, false));
-    
-    // 3. Remaining Light Accounts
+    cpi_accounts.push(solana_program::instruction::AccountMeta::new(*agent_signer.key, true));
+
+    // 2. Remaining Light Accounts (NOW IN THE MIDDLE)
     for acc in &remaining_accounts {
         if acc.is_writable {
             cpi_accounts.push(solana_program::instruction::AccountMeta::new(*acc.key, acc.is_signer));
@@ -297,6 +305,10 @@ fn process_request_payment(
             cpi_accounts.push(solana_program::instruction::AccountMeta::new_readonly(*acc.key, acc.is_signer));
         }
     }
+    
+    // 3. Owner (Agent) - duplicate, but distinct role in receipts program (NOW AT THE END)
+    cpi_accounts.push(solana_program::instruction::AccountMeta::new(*agent_signer.key, false));
+    
 
     let instruction = solana_program::instruction::Instruction {
         program_id: receipts_program_id,
@@ -308,8 +320,8 @@ fn process_request_payment(
     let mut invoke_account_infos = Vec::with_capacity(4 + remaining_accounts.len());
     invoke_account_infos.push(receipts_program_account.clone()); // Executable
     invoke_account_infos.push(agent_signer.clone()); // Signer
-    invoke_account_infos.push(agent_signer.clone()); // Owner
     invoke_account_infos.extend(remaining_accounts); // Light Accounts
+    invoke_account_infos.push(agent_signer.clone()); // Owner (at the end)
     
     solana_program::program::invoke(
         &instruction,

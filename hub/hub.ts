@@ -48,10 +48,16 @@ const connectionStatus = document.getElementById('connection-status') as HTMLSpa
 // Merchant Elements
 const statSales = document.getElementById('stat-sales') as HTMLSpanElement;
 const statPending = document.getElementById('stat-pending') as HTMLSpanElement;
+const statSalesSidebar = document.getElementById('stat-sales-sidebar') as HTMLSpanElement;
+const statPendingSidebar = document.getElementById('stat-pending-sidebar') as HTMLSpanElement;
 const productGrid = document.getElementById('product-grid') as HTMLDivElement;
 const activityFeed = document.getElementById('activity-feed') as HTMLDivElement;
 const thoughtStream = document.getElementById('thought-stream') as HTMLDivElement;
 const btnAddProduct = document.getElementById('btn-add-product') as HTMLButtonElement;
+const privacyToggle = document.getElementById('privacy-toggle') as HTMLDivElement;
+
+// Intel Polling Elements
+const intelPoll = document.getElementById('intel-poll') as HTMLDivElement;
 
 function logThought(message: string) {
   if (!thoughtStream) return;
@@ -102,6 +108,24 @@ function logThought(message: string) {
   }
 }
 
+function renderProductGrid() {
+  productGrid.innerHTML = '';
+  products.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'product-card';
+    card.innerHTML = `
+      <div class="product-icon">${p.icon}</div>
+      <div class="product-info">
+        <h3>${p.name}</h3>
+        <div class="product-price">$${p.price.toFixed(2)}</div>
+      </div>
+      <button class="btn-sm" data-id="${p.id}">Buy Now</button>
+    `;
+    card.querySelector('button')?.addEventListener('click', () => handleBuy(p));
+    productGrid.appendChild(card);
+  });
+}
+
 async function streamThoughts(thoughts: string[]) {
   for (const thought of thoughts) {
     logThought(thought);
@@ -118,6 +142,7 @@ let agents: AgentSummary[] = [];
 let salesTotal = 0;
 let pendingCount = 0;
 let revealedReceipts = new Set<string>();
+let isShielded = true; // Default to Shielded for the demo
 
 const PAYMENT_METHODS = {
   PRIVACY_CASH: 'privacy_cash',
@@ -125,7 +150,41 @@ const PAYMENT_METHODS = {
   SHADOWWIRE: 'shadowwire',
 };
 
-// ... (previous code)
+// --- Privacy Toggle Logic ---
+if (privacyToggle) {
+  privacyToggle.onclick = () => {
+    isShielded = !isShielded;
+    privacyToggle.classList.toggle('shielded', isShielded);
+    const label = privacyToggle.querySelector('.toggle-label');
+    if (label) label.textContent = isShielded ? 'SHIELDED' : 'PUBLIC';
+    
+    logThought(`Privacy mode changed to: ${isShielded ? 'High-Privacy (Shielded)' : 'Transparency (Public)'}`);
+    refreshLiveActivity().catch(() => null);
+  };
+}
+
+// --- Intel Polling simulation ---
+function updateIntelPoll() {
+  if (!intelPoll) return;
+  const bars = intelPoll.querySelectorAll('.poll-bar-container');
+  let total = 0;
+  const vals = Array.from(bars).map(() => Math.random() * 10 + 20); // Random base movement
+  
+  // Create a more realistic "Yes" bias for the demo
+  const weights = [0.7, 0.3]; 
+  const processed = vals.map((v, i) => v * weights[i]);
+  const sum = processed.reduce((a, b) => a + b, 0);
+  
+  bars.forEach((bar, i) => {
+    const pct = (processed[i] / sum) * 100;
+    const fill = bar.querySelector('.poll-fill') as HTMLDivElement;
+    const label = bar.querySelector('.pct') as HTMLSpanElement;
+    if (fill) fill.style.width = `${pct}%`;
+    if (label) label.textContent = `${pct.toFixed(0)}%`;
+  });
+}
+
+setInterval(updateIntelPoll, 4000);
 
 const govList = document.getElementById('governance-list') as HTMLDivElement;
 const govLog = document.getElementById('gov-log') as HTMLDivElement;
@@ -298,35 +357,11 @@ setInterval(() => {
 const govTab = document.querySelector('button[data-target="view-governance"]');
 if (govTab) govTab.addEventListener('click', () => refreshGovernance());
 
-const products = [
-  { id: 'p1', name: 'AWS Credits ($100)', price: 95, icon: ICONS.CLOUD, recipient: 'So11111111111111111111111111111111111111112' },
-  { id: 'p2', name: 'DevOps Hour', price: 150, icon: ICONS.TOOL, recipient: 'So11111111111111111111111111111111111111112' },
-  { id: 'p3', name: 'VPN Subscription', price: 12, icon: ICONS.LOCK, recipient: 'So11111111111111111111111111111111111111112' },
-  { id: 'p4', name: 'Dark Web Data', price: 499, icon: ICONS.DATA, recipient: 'BAD_sanctioned_address_123' },
-  { id: 'p5', name: 'Quantum Farm', price: 50000, icon: ICONS.SHIELD, recipient: 'So11111111111111111111111111111111111111112' },
-];
+// Products definition moved after ICONS
 
 if (hubPort) {
   hubPort.textContent = `:${window.location.port || '7777'}`;
 }
-
-// --- Navigation ---
-function initNav() {
-  const tabs = document.querySelectorAll('.nav-tab');
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-      
-      tab.classList.add('active');
-      const target = (tab as HTMLElement).dataset.target;
-      if (target) {
-        document.getElementById(target)?.classList.remove('hidden');
-      }
-    });
-  });
-}
-
 // --- API Helpers ---
 function getHubToken(): string | undefined {
   const value = hubTokenInput?.value?.trim();
@@ -354,38 +389,6 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-// --- Control Plane Logic ---
-
-function renderAgents(list: AgentSummary[]) {
-  agentsList.innerHTML = '';
-  if (list.length === 0) {
-    agentsList.innerHTML = '<div class="empty muted">No agents registered.</div>';
-    return;
-  }
-
-  list.forEach((agent) => {
-    const card = document.createElement('button');
-    card.type = 'button';
-    card.className = `agent-card ${agent.status}`;
-    card.dataset.id = agent.id;
-    if (agent.id === selectedAgentId) {
-      card.classList.add('selected');
-    }
-    card.innerHTML = `
-      <div>
-        <div class="agent-title">${agent.id}</div>
-        <div class="agent-meta">${agent.transport.toUpperCase()} · ${agent.capabilities.join(', ') || 'no caps'}</div>
-      </div>
-      <div class="agent-status">
-        <span class="dot ${agent.status}"></span>
-        ${agent.status}
-      </div>
-    `;
-    card.addEventListener('click', () => selectAgent(agent.id));
-    agentsList.appendChild(card);
-  });
-}
-
 // --- Icons ---
 const ICONS = {
   SHIELD: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`,
@@ -398,9 +401,15 @@ const ICONS = {
   DATA: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse></svg>`,
 };
 
-// ... (existing code) ...
+const products = [
+  { id: 'p1', name: 'AWS Credits ($100)', price: 95, icon: ICONS.CLOUD, recipient: 'So11111111111111111111111111111111111111112' },
+  { id: 'p2', name: 'DevOps Hour', price: 150, icon: ICONS.TOOL, recipient: 'So11111111111111111111111111111111111111112' },
+  { id: 'p3', name: 'VPN Subscription', price: 12, icon: ICONS.LOCK, recipient: 'So11111111111111111111111111111111111111112' },
+  { id: 'p4', name: 'Dark Web Data', price: 499, icon: ICONS.DATA, recipient: 'BAD_sanctioned_address_123' },
+  { id: 'p5', name: 'Quantum Farm', price: 50000, icon: ICONS.SHIELD, recipient: 'So11111111111111111111111111111111111111112' },
+];
 
-function renderAgentDetail(agent?: AgentSummary) {
+function renderAgentDetail(agent?: AgentSummary, identity?: any) {
   if (!agent) {
     agentDetail.classList.add('muted');
     agentDetail.textContent = 'Select an agent to see details.';
@@ -409,18 +418,25 @@ function renderAgentDetail(agent?: AgentSummary) {
     return;
   }
   
-  // Mocking Noir Proof Data for Demo
-  const hasBadge = true; 
+  const hasBadge = !!identity; 
   const badgeHtml = hasBadge ? `
     <div class="noir-badge" title="Verified by Noir ZK-Circuit">
       <div class="badge-icon">${ICONS.BADGE}</div>
       <div class="badge-info">
         <span class="badge-label">IDENTITY VERIFIED</span>
-        <span class="badge-sub">Noir Proof: 0x9f...a2</span>
+        <span class="badge-sub">Root: ${identity.merkleRootHex.slice(0, 10)}...</span>
       </div>
       <div class="badge-check">${ICONS.CHECK}</div>
     </div>
-  ` : '';
+  ` : `
+    <div class="noir-badge warning" title="No active identity proof found. Generate one to verify access.">
+      <div class="badge-icon" style="color: var(--danger)">${ICONS.BADGE}</div>
+      <div class="badge-info">
+        <span class="badge-label" style="color: var(--danger)">IDENTITY UNVERIFIED</span>
+        <span class="badge-sub">No Proof Detected</span>
+      </div>
+    </div>
+  `;
 
   agentDetail.classList.remove('muted');
   agentDetail.innerHTML = `
@@ -443,11 +459,21 @@ function renderAgentDetail(agent?: AgentSummary) {
         <label>Capabilities</label>
         <span>${agent.capabilities.length} active</span>
       </div>
+      ${identity ? `
+      <div class="detail-item">
+        <label>Merkle Index</label>
+        <span>#${identity.merkleIndex}</span>
+      </div>
+      <div class="detail-item">
+        <label>Nullifier</label>
+        <span class="code-font text-xxs">${identity.nullifierHex.slice(0, 12)}...</span>
+      </div>
+      ` : ''}
       <div class="detail-item full-width">
         <label>MCP Endpoint</label>
         <span class="code-font">${agent.mcpUrl}</span>
       </div>
-       <div class="detail-item full-width">
+      <div class="detail-item full-width">
         <label>Public Key</label>
         <span class="code-font text-xs">${agent.pubkey ?? 'n/a'}</span>
       </div>
@@ -471,53 +497,45 @@ function renderAgentDetail(agent?: AgentSummary) {
   }
 }
 
-function renderProcesses(list: ProcessSummary[]) {
-  if (!list.length) {
-    processList.classList.add('muted');
-    processList.textContent = 'No processes yet.';
-    return;
-  }
-  processList.classList.remove('muted');
-  processList.innerHTML = '';
-  list.forEach((process) => {
-    const row = document.createElement('div');
-    row.className = 'process-row';
-    row.innerHTML = `
-      <div>
-        <div class="process-title">${process.agentId}</div>
-        <div class="process-meta">pid ${process.pid} · ${process.command} ${process.args.join(' ')}</div>
-      </div>
-      <div class="process-actions">
-        <span class="badge ${process.status}">${process.status}</span>
-        <button data-id="${process.id}" ${process.status !== 'running' ? 'disabled' : ''}>Stop</button>
-      </div>
-    `;
-    row.querySelector('button')?.addEventListener('click', () => stopProcess(process.id));
-    processList.appendChild(row);
-  });
-}
-
 async function refreshAgents() {
   try {
     const response = await fetchJson<{ ok: boolean; agents: AgentSummary[] }>('/agents');
     agents = response.agents;
     
-    // Auto-select first online agent if none selected
     if (!selectedAgentId && agents.length > 0) {
       const firstOnline = agents.find(a => a.status === 'online');
       if (firstOnline) selectAgent(firstOnline.id);
     }
     
     renderAgents(agents);
-    renderAgentDetail(agents.find((agent) => agent.id === selectedAgentId));
   } catch (e) {
     console.error('Failed to refresh agents', e);
   }
 }
 
-async function refreshProcessList() {
-  const response = await fetchJson<{ ok: boolean; processes: ProcessSummary[] }>('/processes');
-  renderProcesses(response.processes);
+function renderAgents(list: AgentSummary[]) {
+  agentsList.innerHTML = '';
+  list.forEach((agent) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = `agent-card ${agent.status}`;
+    card.dataset.id = agent.id;
+    if (agent.id === selectedAgentId) {
+      card.classList.add('selected');
+    }
+    card.innerHTML = `
+      <div>
+        <div class="agent-title">${agent.id}</div>
+        <div class="agent-meta">${agent.transport.toUpperCase()}</div>
+      </div>
+      <div class="agent-status">
+        <span class="dot ${agent.status}"></span>
+        ${agent.status}
+      </div>
+    `;
+    card.addEventListener('click', () => selectAgent(agent.id));
+    agentsList.appendChild(card);
+  });
 }
 
 function selectAgent(id: string) {
@@ -545,9 +563,7 @@ function unwrapToolResponse(response: any) {
 }
 
 function extractToolError(payload: any): string | null {
-  if (!payload) {
-    return 'No response.';
-  }
+  if (!payload) return 'No response.';
   if (payload?.isError && Array.isArray(payload?.content)) {
     const text = payload.content[0]?.text;
     if (typeof text === 'string') {
@@ -563,20 +579,11 @@ function extractToolError(payload: any): string | null {
 }
 
 async function callTool(name: string, args: Record<string, unknown> = {}) {
-  if (!selectedAgentId) {
-    throw new Error('Select an agent first.');
-  }
+  if (!selectedAgentId) throw new Error('Select an agent first.');
   return await fetchJson(`/agent/${selectedAgentId}/tool`, {
     method: 'POST',
     body: JSON.stringify({ name, arguments: args }),
   });
-}
-
-function formatTimestamp(value: unknown): string {
-  if (typeof value !== 'number') {
-    return 'n/a';
-  }
-  return new Date(value).toLocaleString();
 }
 
 function renderBalance(balance: any) {
@@ -586,20 +593,13 @@ function renderBalance(balance: any) {
     return;
   }
   
-  // CFO State (Snapshot with yield)
   if (typeof balance === 'object' && 'treasury' in balance) {
     const t = balance.treasury;
     const available = t.crypto.available || 0;
     const yieldAmt = t.yield?.available || 0;
     const total = available + yieldAmt;
     
-    obsBalance.innerHTML = `
-      <div class="balance-main">$${total.toFixed(2)}</div>
-      <div class="balance-split">
-        <span class="bal-cash" title="Liquid Privacy Rail">$${available.toFixed(2)}</span> + 
-        <span class="bal-yield" title="Interest Bearing Assets (Kamino)">$${yieldAmt.toFixed(2)}</span>
-      </div>
-    `;
+    obsBalance.innerHTML = `<div class="balance-main">$${total.toFixed(2)}</div>`;
     obsBalanceMeta.innerHTML = `<span class="tag-solana">OPTIMIZING YIELD (8.5% APY)</span>`;
     
     // Efficiency Gauge Update
@@ -626,87 +626,12 @@ function renderBalance(balance: any) {
     }
     return;
   }
-
-  if (typeof balance === 'object' && 'credit' in balance) {
-    const available = (balance as any).available || 0;
-    const credit = (balance as any).credit || 0;
-    const total = available + credit;
-    
-    obsBalance.innerHTML = `
-      <div class="balance-main">$${total.toFixed(2)}</div>
-      <div class="balance-split">
-        <span class="bal-cash" title="Vault Cash">$${available.toFixed(2)}</span> + 
-        <span class="bal-credit" title="On-Chain Credit">$${credit.toFixed(2)}</span>
-      </div>
-    `;
-    obsBalanceMeta.innerHTML = `<span class="tag-solana">ON-CHAIN SYNCED</span>`;
-    return;
-  }
-
-  if (typeof balance === 'number' || typeof balance === 'string') {
-    obsBalance.textContent = `$${Number(balance).toFixed(2)}`;
-    obsBalanceMeta.textContent = '';
-    return;
-  }
-  
-  obsBalance.textContent = String((balance as any).available || '0');
-  obsBalanceMeta.textContent = JSON.stringify(balance);
-}
-
-function renderLatestReceipt(receipt: any) {
-  if (!receipt) {
-    obsLatestReceipt.classList.add('muted');
-    obsLatestReceipt.textContent = 'No data yet.';
-    return;
-  }
-  obsLatestReceipt.classList.remove('muted');
-  obsLatestReceipt.textContent = JSON.stringify(receipt, null, 2);
-}
-
-function renderReceiptsList(receipts: any) {
-  obsReceipts.innerHTML = '';
-  if (!Array.isArray(receipts) || receipts.length === 0) {
-    obsReceipts.classList.add('muted');
-    obsReceipts.textContent = 'No receipts yet.';
-    return;
-  }
-  obsReceipts.classList.remove('muted');
-  receipts.forEach((receipt: any) => {
-    const row = document.createElement('div');
-    row.className = 'receipt-item';
-    const summary = `${receipt?.amount ?? '-'} ${receipt?.token ?? ''} → ${
-      receipt?.recipient ?? 'unknown'
-    }`;
-    row.innerHTML = `
-      <div>${summary}</div>
-      <div class="receipt-meta">${receipt?.type ?? 'n/a'} · ${formatTimestamp(
-        receipt?.timestamp
-      )}</div>
-    `;
-    obsReceipts.appendChild(row);
-  });
 }
 
 async function refreshObservabilityPanel() {
   const selected = getSelectedAgent();
-  if (!selected) {
-    observabilityStatus.classList.add('muted');
-    observabilityStatus.textContent = 'Select an agent to load live state.';
-    renderBalance(null);
-    renderLatestReceipt(null);
-    renderReceiptsList([]);
-    return;
-  }
-  if (selected.transport === 'stdio') {
-    observabilityStatus.classList.add('muted');
-    observabilityStatus.textContent = 'HTTP transport required for live tool calls.';
-    renderBalance(null);
-    renderLatestReceipt(null);
-    renderReceiptsList([]);
-    return;
-  }
-  observabilityStatus.classList.remove('muted');
-  observabilityStatus.textContent = 'Loading...';
+  if (!selected || selected.transport === 'stdio') return;
+  
   try {
     const [stateResponse, listResponse] = await Promise.all([
       callTool('agent.state.get', {}),
@@ -716,117 +641,21 @@ async function refreshObservabilityPanel() {
     const statePayload = unwrapToolResponse(stateResponse);
     const listPayload = unwrapToolResponse(listResponse);
 
-    const stateError = extractToolError(statePayload);
-    const listError = extractToolError(listPayload);
-    if (stateError || listError) {
-      throw new Error(stateError ?? listError ?? 'Tool error.');
+    renderBalance(statePayload?.balance ?? statePayload?.data?.balance);
+    renderAgentDetail(selected, statePayload?.identity ?? statePayload?.data?.identity);
+    
+    // Sync Sales/Stats for Hub
+    const bal = statePayload?.balance ?? statePayload?.data?.balance;
+    if (bal?.treasury) {
+      const total = bal.treasury.crypto.available + bal.treasury.yield.available;
+      if (statSales) statSales.textContent = `$${total.toFixed(2)}`;
+      if (statSalesSidebar) statSalesSidebar.textContent = `$${total.toFixed(2)}`;
     }
 
-    renderBalance(statePayload?.balance ?? statePayload?.data?.balance);
-    renderLatestReceipt(statePayload?.latestReceipt ?? statePayload?.data?.latestReceipt);
-    renderReceiptsList(listPayload);
     observabilityStatus.textContent = `Updated ${new Date().toLocaleTimeString()}`;
   } catch (error: any) {
-    observabilityStatus.classList.add('muted');
-    observabilityStatus.textContent = `Error: ${error.message ?? 'failed to load'}`;
-    renderBalance(null);
-    renderLatestReceipt(null);
-    renderReceiptsList([]);
+    console.error('Observability failed', error);
   }
-}
-
-async function submitRegister(event: SubmitEvent) {
-  event.preventDefault();
-  const form = new FormData(registerForm);
-  const payload = {
-    agent_id: form.get('agent_id'),
-    mcp_url: form.get('mcp_url'),
-    transport: form.get('transport'),
-    capabilities: String(form.get('capabilities') ?? '')
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean),
-    pubkey: form.get('pubkey') || undefined,
-  };
-  await fetchJson('/register', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  registerForm.reset();
-  await refreshAgents();
-}
-
-async function submitSpawn(event: SubmitEvent) {
-  event.preventDefault();
-  const form = new FormData(spawnForm);
-  const rawEnv = String(form.get('env') ?? '{}').trim();
-  let env: Record<string, string> | undefined;
-  try {
-    env = rawEnv ? (JSON.parse(rawEnv) as Record<string, string>) : undefined;
-  } catch {
-    toolResponse.classList.remove('muted');
-    toolResponse.textContent = 'Invalid env JSON.';
-    return;
-  }
-  const args = String(form.get('args') ?? '')
-    .split(' ')
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const payload = {
-    agent_id: form.get('agent_id'),
-    command: form.get('command'),
-    args,
-    cwd: form.get('cwd') || undefined,
-    env,
-  };
-  await fetchJson('/spawn', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  spawnForm.reset();
-  await refreshProcessList();
-  await refreshAgents();
-}
-
-async function submitTool(event: SubmitEvent) {
-  event.preventDefault();
-  if (!selectedAgentId) {
-    toolResponse.classList.remove('muted');
-    toolResponse.textContent = 'Select an agent first.';
-    return;
-  }
-  const selected = getSelectedAgent();
-  if (selected?.transport === 'stdio') {
-    toolResponse.classList.remove('muted');
-    toolResponse.textContent = 'Tool calls are disabled for stdio agents.';
-    return;
-  }
-  const form = new FormData(toolForm);
-  const tool = String(form.get('tool') ?? '').trim();
-  const rawPayload = String(form.get('payload') ?? '{}');
-  let payloadObject: unknown = {};
-  try {
-    payloadObject = rawPayload ? JSON.parse(rawPayload) : {};
-  } catch {
-    toolResponse.classList.remove('muted');
-    toolResponse.textContent = 'Invalid JSON payload.';
-    return;
-  }
-  const payload = {
-    name: tool,
-    arguments: payloadObject,
-  };
-  const response = await fetchJson(`/agent/${selectedAgentId}/tool`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  toolResponse.classList.remove('muted');
-  toolResponse.textContent = JSON.stringify(response, null, 2);
-}
-
-async function stopProcess(id: string) {
-  await fetchJson(`/process/${id}/stop`, { method: 'POST' });
-  await refreshProcessList();
 }
 
 // --- Merchant Terminal Logic ---
@@ -834,45 +663,30 @@ async function stopProcess(id: string) {
 function logActivity(message: string, type: 'info' | 'sale' = 'info') {
   const item = document.createElement('div');
   item.className = `feed-item ${type}`;
-  item.innerHTML = `
-    <span class="time">${new Date().toLocaleTimeString()}</span>
-    ${message}
-  `;
+  item.innerHTML = `<span class="time">${new Date().toLocaleTimeString()}</span> ${message}`;
   activityFeed.prepend(item);
-  // Keep limit
-  if (activityFeed.children.length > 20) {
-    activityFeed.lastElementChild?.remove();
-  }
 }
 
 function toggleReceiptReveal(sig: string) {
-  if (revealedReceipts.has(sig)) {
-    revealedReceipts.delete(sig);
-  } else {
-    revealedReceipts.add(sig);
-  }
+  if (revealedReceipts.has(sig)) revealedReceipts.delete(sig);
+  else revealedReceipts.add(sig);
   refreshLiveActivity().catch(() => null);
 }
 
-// ... (imports)
-
-const invoiceModal = document.getElementById('invoice-modal') as HTMLDivElement;
-const invId = document.getElementById('inv-id') as HTMLElement;
-const invDate = document.getElementById('inv-date') as HTMLElement;
-const invBody = document.getElementById('inv-body') as HTMLElement;
-const invHash = document.getElementById('inv-hash') as HTMLElement;
-
 async function showInvoice(receipt: any) {
+  const invoiceModal = document.getElementById('invoice-modal') as HTMLDivElement;
+  const invId = document.getElementById('inv-id') as HTMLElement;
+  const invBody = document.getElementById('inv-body') as HTMLElement;
+  const invHash = document.getElementById('inv-hash') as HTMLElement;
+  const invDate = document.getElementById('inv-date') as HTMLElement;
+
   if (!invoiceModal) return;
   
-  // 1. Show Loading State
-  invId.textContent = "GENREATING CERTIFIED PROOF...";
+  invId.textContent = "GENERATING CERTIFIED PROOF...";
   invBody.innerHTML = `<div class="loading-spinner"></div><p class="muted">Requesting selective disclosure from Agent Auditor...</p>`;
   invoiceModal.classList.remove('hidden');
 
   try {
-    // 2. Call Auditor via MCP
-    // We only reveal what's necessary for a basic invoice
     const response = await callTool('agent.audit.report', {
       receiptId: receipt.txSignature,
       fields: ['type', 'provider', 'metadata'] 
@@ -881,7 +695,6 @@ async function showInvoice(receipt: any) {
     const proof = unwrapToolResponse(response);
     const data = proof.revealedData;
 
-    // 3. Populate UI with Certified Data
     const vendor = data.metadata?.vendorName || receipt.recipient.slice(0, 8) + '...';
     const amount = data.amount / 100;
     const tax = amount * 0.21;
@@ -895,10 +708,15 @@ async function showInvoice(receipt: any) {
       <div class="line-item"><span>Vendor</span> <strong>${vendor}</strong></div>
       <div class="line-item"><span>Status</span> <span class="badge success">CERTIFIED</span></div>
       <div class="line-divider"></div>
-      <div class="line-item"><span>Service (Audit Ready)</span> <span>$${subtotal.toFixed(2)}</span></div>
-      <div class="line-item"><span>VAT (21%)</span> <span>$${tax.toFixed(2)}</span></div>
-      <div class="line-divider"></div>
-      <div class="invoice-total"><span>TOTAL</span> <span>$${amount.toFixed(2)}</span></div>
+      
+      <!-- BLURRED SECTION START -->
+      <div id="zk-protected-content" class="zk-blur" style="padding: 10px; border-radius: 4px;">
+        <div class="line-item"><span>Service (Audit Ready)</span> <span>$${subtotal.toFixed(2)}</span></div>
+        <div class="line-item"><span>VAT (21%)</span> <span>$${tax.toFixed(2)}</span></div>
+        <div class="line-divider"></div>
+        <div class="invoice-total"><span>TOTAL</span> <span>$${amount.toFixed(2)}</span></div>
+      </div>
+      <!-- BLURRED SECTION END -->
       
       <div class="verification-zone" id="verif-${proof.receiptId}">
          <button class="btn-verify" onclick="window.verifyOnChain('${proof.receiptId}', '${proof.attestation}')">
@@ -921,16 +739,20 @@ async function showInvoice(receipt: any) {
 async function verifyOnChain(receiptId: string, attestation: string) {
   const zone = document.getElementById(`verif-${receiptId}`);
   if (!zone) return;
-
-  zone.innerHTML = `<div class="loading-spinner"></div><p class="text-xxs muted">Invoking On-Chain Verifier...</p>`;
+  zone.innerHTML = `<div class="loading-spinner"></div>`;
 
   try {
     const response = await callTool('agent.audit.verify_onchain', {
       receiptId,
       proof: attestation
     });
-    
     const result = unwrapToolResponse(response);
+    // REVEAL ANIMATION
+    const protectedContent = document.getElementById('zk-protected-content');
+    if (protectedContent) {
+      protectedContent.classList.remove('zk-blur');
+      protectedContent.classList.add('zk-revealed');
+    }
 
     zone.innerHTML = `
       <div class="zk-success-badge">
@@ -944,12 +766,9 @@ async function verifyOnChain(receiptId: string, attestation: string) {
     
     logThought(`Proof for ${receiptId.slice(0,8)} verified by Solana Verifier Program.`);
   } catch (e: any) {
-    zone.innerHTML = `<p class="danger text-xs">Verification failed: ${e.message}</p>`;
+    zone.innerHTML = `<p class="danger text-xs">Failed: ${e.message}</p>`;
   }
 }
-
-(window as any).verifyOnChain = verifyOnChain;
-(window as any).showInvoice = showInvoice; // Expose for onclick
 
 async function refreshLiveActivity() {
   try {
@@ -958,33 +777,24 @@ async function refreshLiveActivity() {
     const { receipts } = await response.json();
     
     activityFeed.innerHTML = '';
-    
     receipts.forEach((r: any) => {
       const isPrivate = r.provider === 'shadowwire' || r.provider === 'privacy_cash';
       const isRevealed = revealedReceipts.has(r.txSignature);
+      const forceShield = isShielded && isPrivate && !isRevealed;
       const item = document.createElement('div');
       item.className = `feed-item ${r.type === 'external' ? 'sale' : 'info'}`;
       
-      const amountDisplay = (isPrivate && !isRevealed) ? '*******' : `$${(r.amount / 100).toFixed(2)}`;
-      const vendorDisplay = (isPrivate && !isRevealed) ? 'Shielded Destination' : (r.metadata?.vendorName || r.recipient.slice(0, 8) + '...');
-      const privacyIcon = isPrivate ? '🔒' : '🔓';
+      const amountDisplay = forceShield ? '*******' : `$${(r.amount / 100).toFixed(2)}`;
+      const vendorDisplay = forceShield ? 'Shielded Destination' : (r.metadata?.vendorName || r.recipient.slice(0, 8) + '...');
+      const privacyIcon = forceShield ? '🔒' : '🔓';
       
-      // Pass the whole receipt object to the function. We need to serialize it safely or store it.
-      // For simplicity in this demo, we'll attach it to the button's click handler via closure? 
-      // No, passing JSON string in HTML is messy. Let's just pass the ID/Sig and find it? 
-      // Or just pass the fields we need. 
-      // Better: Store receipts in a map? 
-      // Simplest for now: Pass key fields.
-      const safeVendor = (r.metadata?.vendorName || 'Unknown').replace(/'/g, "\\'");
-      
-      // Using a global map to store receipts for easy access by ID would be cleaner, 
-      // but let's just stick the receipt JSON into a data attribute for the "View Invoice" button.
+      // Simplified data passing to the invoice helper.
       const receiptJson = JSON.stringify(r).replace(/"/g, '&quot;');
 
       item.innerHTML = `
         <span class="time">${new Date(r.timestamp).toLocaleTimeString()}</span>
         <div class="feed-content">
-          <span class="privacy-toggle" onclick="window.toggleReceiptReveal('${r.txSignature}')">${privacyIcon}</span>
+          <span class="privacy-toggle" onclick="window.toggleReceiptReveal('${r.txSignature}')" style="cursor:pointer; margin-right:8px">${privacyIcon}</span>
           <strong>${amountDisplay}</strong> to ${vendorDisplay}
           <div class="receipt-meta">
             ${r.provider} · ${r.txSignature.slice(0, 8)}...
@@ -994,31 +804,24 @@ async function refreshLiveActivity() {
       `;
       activityFeed.appendChild(item);
     });
-  } catch (e) {
-    // Silent fail for polling
-  }
+  } catch (e) { /* silent */ }
 }
 
-// ... (rest of code)
-
-// Expose to window for onclick
+(window as any).verifyOnChain = verifyOnChain;
+(window as any).showInvoice = showInvoice;
 (window as any).toggleReceiptReveal = toggleReceiptReveal;
 
-function renderProductGrid() {
-  productGrid.innerHTML = '';
-  products.forEach(p => {
-    const card = document.createElement('div');
-    card.className = 'product-card';
-    card.innerHTML = `
-      <div class="product-icon">${p.icon}</div>
-      <div class="product-info">
-        <h3>${p.name}</h3>
-        <div class="product-price">$${p.price.toFixed(2)}</div>
-      </div>
-      <button class="btn-sm" data-id="${p.id}">Buy Now</button>
-    `;
-    card.querySelector('button')?.addEventListener('click', () => handleBuy(p));
-    productGrid.appendChild(card);
+// Navigation and Initializers
+function initNav() {
+  const tabs = document.querySelectorAll('.nav-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+      tab.classList.add('active');
+      const target = (tab as HTMLElement).dataset.target;
+      if (target) document.getElementById(target)?.classList.remove('hidden');
+    });
   });
 }
 
@@ -1092,6 +895,10 @@ async function handleBuy(product: typeof products[0]) {
       const govOverlay = document.getElementById('governance-overlay') as HTMLDivElement;
       const riskLabel = document.getElementById('lockdown-risk') as HTMLElement;
       
+      // TRIGGER SYSTEM LOCKDOWN VISUALS
+      document.body.classList.add('system-lockdown');
+      if (thoughtStream) thoughtStream.classList.add('panic-mode');
+      
       if (govOverlay) {
         riskLabel.textContent = strategy.intel?.reasoning || 'Range Protocol: High Risk Detected';
         govOverlay.classList.remove('hidden');
@@ -1101,6 +908,10 @@ async function handleBuy(product: typeof products[0]) {
         return;
       }
     }
+    
+    // Reset visuals if safe
+    document.body.classList.remove('system-lockdown');
+    if (thoughtStream) thoughtStream.classList.remove('panic-mode');
 
     // Brief delay for the user to see the "Scan result"
     await new Promise(r => setTimeout(r, 1500));
@@ -1185,49 +996,11 @@ btnAddProduct.addEventListener('click', () => {
   }
 });
 
-// --- Initialization ---
-
 initNav();
-renderProductGrid();
 logActivity('Merchant Terminal initialized.');
-
-refreshBtn.addEventListener('click', () => refreshAgents());
-refreshProcesses.addEventListener('click', () => refreshProcessList());
-refreshObservability.addEventListener('click', () => refreshObservabilityPanel());
-registerForm.addEventListener('submit', submitRegister);
-spawnForm.addEventListener('submit', submitSpawn);
-toolForm.addEventListener('submit', submitTool);
-
 refreshAgents().catch(() => null);
-
-refreshProcessList().catch(() => null);
-
-refreshObservabilityPanel().catch(() => null);
-
-refreshLiveActivity().catch(() => null);
-
-
-
 setInterval(() => {
-
   refreshAgents().catch(() => null);
-
-  refreshProcessList().catch(() => null);
-
-}, 5000);
-
-
-
-setInterval(() => {
-
-  refreshObservabilityPanel().catch(() => null);
-
-}, 10000);
-
-
-
-setInterval(() => {
-
   refreshLiveActivity().catch(() => null);
-
 }, 3000);
+setInterval(() => refreshObservabilityPanel().catch(() => null), 10000);

@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Configuration
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BIN_DIR="${ROOT_DIR}/containers/surfpool/bin"
+BIN_DIR="${ROOT_DIR}/containers/light/bin"
 LEDGER_DIR="${ROOT_DIR}/.localnet/ledger-light"
 
 # Program IDs
@@ -53,3 +53,4 @@ solana-test-validator \
     --bpf-program "${SYSTEM_PROGRAM_ID}" "${SYSTEM_SO}" \
     --bpf-program "${TOKEN_PROGRAM_ID}" "${TOKEN_SO}" \
     --bpf-program "${COMPRESSION_PROGRAM_ID}" "${COMPRESSION_SO}" \
+    --account-dir "${ROOT_DIR}/scripts/light/local/accounts" \

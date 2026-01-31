@@ -58,7 +58,7 @@ export function serializeRequestPaymentPayload(serializer: WincodeSerializer, va
   serializer.writeU8(value.outputStateTreeIndex);
 }
 
-export const PROGRAM_ID = new PublicKey('11111111111111111111111111111111');
+export const PROGRAM_ID = new PublicKey('FpWZN1FB9yMfip3vYQhsZhgT4fCB3US9BqAv5kh5uDxv');
 
 export function createInitCoreInstruction(payload: InitCorePayload, accounts: { configAccount: PublicKey, adminSigner: PublicKey, systemProgram: PublicKey }, programId: PublicKey = PROGRAM_ID): TransactionInstruction {
   const serializer = new WincodeSerializer();

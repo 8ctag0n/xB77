@@ -124,7 +124,7 @@ export function serializeAuditRevealPayload(serializer: WincodeSerializer, value
   serializer.writeFixedArray(Buffer.from(value.auditHash), 32);
 }
 
-export const PROGRAM_ID = new PublicKey('11111111111111111111111111111111');
+export const PROGRAM_ID = new PublicKey('4gDQBWwzncRdTspJW37NoH56mGELj8UTqdC8VLdu7BGC');
 
 export function createInitGatewayInstruction(payload: InitGatewayPayload, accounts: { payer: PublicKey, gatewayState: PublicKey, systemProgram: PublicKey }, programId: PublicKey = PROGRAM_ID): TransactionInstruction {
   const serializer = new WincodeSerializer();
