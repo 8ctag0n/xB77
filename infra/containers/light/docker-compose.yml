@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  light-localnet:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: light-localnet
+    ports:
+      - "8899:8899"
+      - "8784:8784"
+      - "3001:3001"
+    volumes:
+      - solana_config:/root/.config/solana
+      - solana_ledger:/root/.local/share/solana
+      - ../../..:/work
+    working_dir: /work
+    restart: unless-stopped
+
+volumes:
+  solana_config:
+  solana_ledger:
