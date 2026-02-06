@@ -18,8 +18,8 @@ const ADDRESS_TREE = new PublicKey("amt2kaJA14v3urZbZvnc5v2np8jqvc4Z8zDep5wbtzx"
 // ]
 
 const SEED_RECEIPT = new Uint8Array([114, 101, 99, 101, 105, 112, 116]);
-const SEED_VENDOR = new Uint8Array([195, 86, 112, 139, 134, 131, 26, 225, 201, 242, 114, 234, 152, 141, 41, 153, 145, 208, 46, 200, 93, 245, 173, 49, 208, 231, 61, 149, 108, 68, 114, 46]);
-const SEED_MEMO = new Uint8Array([175, 224, 101, 244, 89, 81, 206, 63, 130, 191, 145, 61, 255, 91, 194, 37, 124, 251, 173, 45, 206, 120, 62, 194, 189, 63, 51, 159, 255, 241, 24, 224]);
+const SEED_VENDOR = new Uint8Array(32).fill(1);
+const SEED_MEMO = new Uint8Array(32).fill(2);
 
 async function main() {
     console.log("Replicating Derivation...");

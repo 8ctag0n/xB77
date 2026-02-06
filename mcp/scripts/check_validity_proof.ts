@@ -12,7 +12,7 @@ if (!HELIUS_KEY) {
 const RPC_URL = `https://devnet.helius-rpc.com/?api-key=${HELIUS_KEY}`;
 
 // Constants from receipts_light.ts
-const RECEIPT_PROGRAM_ID = new PublicKey('6LM5tQioTsog9AmiHbXBN69YrFBzzhspVWyxBvxKZss3');
+const RECEIPT_PROGRAM_ID = new PublicKey('8iGuTTFLhNfbUN8teY6t1SEJ7vFFzvkd3bsXUhi1R12W');
 const RECEIPT_ADDRESS_SEED = new TextEncoder().encode('receipt');
 
 // Inputs causing the crash (mocked)

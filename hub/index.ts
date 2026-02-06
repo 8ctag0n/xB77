@@ -31,6 +31,7 @@ const ALLOW_SPAWN = Bun.env.HUB_ALLOW_SPAWN === 'true';
 const STALE_AFTER_MS = 45_000;
 const registry = new Map<string, AgentRecord>();
 const processes = new Map<string, ProcessRecord>();
+const spawnedPids = new Set<number>();
 
 function jsonResponse(payload: unknown, status: number = 200) {
   return new Response(JSON.stringify(payload, null, 2), {
@@ -84,6 +85,86 @@ function normalizeAgent(payload: any) {
   };
 }
 
+function upsertAgent(payload: any) {
+  const normalized = normalizeAgent(payload);
+  const now = Date.now();
+  const record: AgentRecord = {
+    ...normalized,
+    registeredAt: registry.get(normalized.id)?.registeredAt ?? now,
+    lastSeen: now,
+  };
+  registry.set(normalized.id, record);
+  return record;
+}
+
+function spawnProcess(params: {
+  agentId: string;
+  command: string;
+  args?: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+  capabilities?: string[];
+  registerAgent?: boolean;
+  transport?: 'http' | 'stdio';
+  mcpUrl?: string;
+}) {
+  const id = `${params.agentId}-${Date.now()}`;
+  const proc = Bun.spawn({
+    cmd: [params.command, ...(params.args ?? [])],
+    cwd: params.cwd,
+    env: params.env,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+
+  const record: ProcessRecord = {
+    id,
+    agentId: params.agentId,
+    command: params.command,
+    args: params.args ?? [],
+    cwd: params.cwd,
+    env: params.env,
+    pid: proc.pid,
+    startedAt: Date.now(),
+    status: 'running',
+  };
+  processes.set(id, record);
+  spawnedPids.add(proc.pid);
+
+  if (params.registerAgent) {
+    const now = Date.now();
+    registry.set(params.agentId, {
+      id: params.agentId,
+      mcpUrl:
+        params.mcpUrl ??
+        `http://localhost:${params.env?.MCP_HTTP_PORT ?? '7001'}/tool`,
+      capabilities: params.capabilities ?? [],
+      registeredAt: registry.get(params.agentId)?.registeredAt ?? now,
+      lastSeen: now,
+      transport: params.transport ?? 'http',
+    });
+  }
+
+  proc.exited.then((exitCode) => {
+    const stored = processes.get(id);
+    if (stored) {
+      stored.status = 'stopped';
+      stored.exitCode = exitCode;
+      processes.set(id, stored);
+    }
+  });
+
+  return record;
+}
+
+function shutdownChildren() {
+  for (const pid of spawnedPids) {
+    try {
+      process.kill(pid);
+    } catch {}
+  }
+}
+
 function buildPublicAgent(record: AgentRecord) {
   const now = Date.now();
   const age = now - record.lastSeen;
@@ -133,14 +214,7 @@ const server = Bun.serve({
           return jsonResponse({ ok: false, error: 'invalid_json' }, 400);
         }
         try {
-          const normalized = normalizeAgent(payload);
-          const now = Date.now();
-          const record: AgentRecord = {
-            ...normalized,
-            registeredAt: registry.get(normalized.id)?.registeredAt ?? now,
-            lastSeen: now,
-          };
-          registry.set(normalized.id, record);
+          const record = upsertAgent(payload);
           return jsonResponse({ ok: true, agent: buildPublicAgent(record) });
         } catch (error: any) {
           return jsonResponse({ ok: false, error: error.message }, 400);
@@ -163,11 +237,18 @@ const server = Bun.serve({
         const agentId = payload?.agent_id ?? payload?.agentId;
         const command = payload?.command;
         const args = Array.isArray(payload?.args) ? payload.args.map(String) : [];
+        const transport = payload?.transport === 'http' ? 'http' : 'stdio';
+        const mcpUrl =
+          transport === 'http'
+            ? String(payload?.mcp_url ?? payload?.mcpUrl ?? '')
+            : `stdio://${agentId}`;
         if (!agentId || !command) {
           return jsonResponse({ ok: false, error: 'agent_id and command are required' }, 400);
         }
+        if (transport === 'http' && !mcpUrl) {
+          return jsonResponse({ ok: false, error: 'mcp_url is required for http transport' }, 400);
+        }
 
-        const id = `${agentId}-${Date.now()}`;
         const env =
           payload?.env && typeof payload.env === 'object'
             ? Object.fromEntries(
@@ -175,45 +256,16 @@ const server = Bun.serve({
               )
             : undefined;
         const cwd = payload?.cwd ? String(payload.cwd) : undefined;
-
-        const proc = Bun.spawn({
-          cmd: [String(command), ...args],
-          cwd,
-          env,
-          stdout: 'pipe',
-          stderr: 'pipe',
-        });
-
-        const record: ProcessRecord = {
-          id,
+        const record = spawnProcess({
           agentId: String(agentId),
           command: String(command),
           args,
           cwd,
           env,
-          pid: proc.pid,
-          startedAt: Date.now(),
-          status: 'running',
-        };
-        processes.set(id, record);
-
-        const now = Date.now();
-        registry.set(String(agentId), {
-          id: String(agentId),
-          mcpUrl: `stdio://${agentId}`,
           capabilities: Array.isArray(payload?.capabilities) ? payload.capabilities : [],
-          registeredAt: registry.get(String(agentId))?.registeredAt ?? now,
-          lastSeen: now,
-          transport: 'stdio',
-        });
-
-        proc.exited.then((exitCode) => {
-          const stored = processes.get(id);
-          if (stored) {
-            stored.status = 'stopped';
-            stored.exitCode = exitCode;
-            processes.set(id, stored);
-          }
+          registerAgent: true,
+          transport,
+          mcpUrl,
         });
 
         return jsonResponse({ ok: true, process: record });
@@ -327,3 +379,46 @@ const server = Bun.serve({
 });
 
 console.log(`MiniHub listening on http://localhost:${server.port}`);
+
+if (Bun.env.HUB_BOOTSTRAP === 'true') {
+  const root = new URL('..', import.meta.url).pathname;
+  const mcpPort = Bun.env.MCP_HTTP_PORT ?? '7001';
+  const listenerPort = Bun.env.LISTENER_PORT ?? '7002';
+  const agentId = Bun.env.HUB_BOOTSTRAP_AGENT_ID ?? 'agent-alpha';
+
+  const sharedEnv = {
+    ...process.env,
+    MCP_HTTP_PORT: mcpPort,
+    LISTENER_PORT: listenerPort,
+    XB77_PAYMENT_MODE: Bun.env.XB77_PAYMENT_MODE ?? 'mock',
+    XB77_OFFLINE: Bun.env.XB77_OFFLINE ?? 'true',
+  } as Record<string, string>;
+
+  spawnProcess({
+    agentId: 'listener',
+    command: 'bun',
+    args: ['run', 'mcp/src/listener.ts'],
+    cwd: root,
+    env: {
+      ...sharedEnv,
+      XB77_LISTENER_URL: `http://localhost:${listenerPort}`,
+    },
+  });
+
+  spawnProcess({
+    agentId,
+    command: 'bun',
+    args: ['run', 'mcp/src/http.ts'],
+    cwd: root,
+    env: sharedEnv,
+    capabilities: ['agent.pay', 'agent.status', 'agent.receipts.latest'],
+    registerAgent: true,
+  });
+
+  console.log(`[Boot] Spawned listener on :${listenerPort} and agent ${agentId} on :${mcpPort}`);
+}
+
+process.on('SIGINT', () => {
+  shutdownChildren();
+  process.exit(0);
+});

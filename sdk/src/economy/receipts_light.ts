@@ -243,23 +243,29 @@ export async function buildLightRecordReceiptContext(input: {
 }): Promise<LightRecordReceiptContext> {
   const seeds = [RECEIPT_ADDRESS_SEED, input.vendor, input.memoHash];
   console.log("[DEBUGGEANDO PARCERO]",seeds); 
+  let addressTreeInfo = input.addressTreeInfo;
   const addressSeed = deriveAddressSeedV2(
     seeds,
   );
   console.log(`[Client] Address Seed: [${Array.from(addressSeed).join(', ')}]`);
-  const derivedAddress = deriveAddressV2(addressSeed, input.addressTreeInfo.tree,input.receiptProgramId);
+  const derivedAddress = deriveAddressV2(addressSeed, addressTreeInfo.tree,input.receiptProgramId);
   console.log(`[Client] Derived Address: ${derivedAddress.toBase58()}`);
   console.log(`[Client] Seeds Components: receipt, ${Buffer.from(input.vendor).toString('hex').slice(0,8)}..., ${Buffer.from(input.memoHash).toString('hex').slice(0,8)}...`);
-  console.log("INFO->" ,input.addressTreeInfo);
-  console.log("INFO[tree]->" ,input.addressTreeInfo.tree);
-  console.log("INFO->" ,input.addressTreeInfo.queue);
+  console.log("INFO->" ,addressTreeInfo);
+  console.log("INFO[tree]->" ,addressTreeInfo.tree);
+  console.log("INFO->" ,addressTreeInfo.queue);
   const validity = await input.rpc.getValidityProofV0([], [
     {
-      tree: input.addressTreeInfo.tree,
-      queue: input.addressTreeInfo.queue,
+      tree: addressTreeInfo.tree,
+      queue: addressTreeInfo.queue,
       address: bn(addressSeed)
     }
   ]);
+  const proofTreeInfo = validity.treeInfos?.[0];
+  if (proofTreeInfo && !proofTreeInfo.queue.equals(addressTreeInfo.queue)) {
+    console.log('[DEBUG_RECEIPT_CONTEXT] Overriding queue from proof treeInfo to match validity proof.');
+    addressTreeInfo = { ...addressTreeInfo, queue: proofTreeInfo.queue };
+  }
   const overridePath = process.env.RECEIPT_VALIDITY_OVERRIDE_PATH;
   if (overridePath) {
     try {
@@ -291,8 +297,8 @@ export async function buildLightRecordReceiptContext(input: {
         : null;
       const dump = {
         timestamp: new Date().toISOString(),
-        tree: input.addressTreeInfo.tree.toBase58(),
-        queue: input.addressTreeInfo.queue.toBase58(),
+        tree: addressTreeInfo.tree.toBase58(),
+        queue: addressTreeInfo.queue.toBase58(),
         addressSeed: Array.from(addressSeed),
         derivedAddress: derivedAddress.toBase58(),
         proof: serializedProof,
@@ -321,11 +327,16 @@ export async function buildLightRecordReceiptContext(input: {
   const packedAccounts = PackedAccounts.newWithSystemAccountsV2(
     SystemAccountMetaConfig.new(input.receiptProgramId)
   );
+  const [lightCpiSigner] = PublicKey.findProgramAddressSync(
+    [Buffer.from('light_cpi')],
+    input.receiptProgramId
+  );
+  packedAccounts.insertOrGet(lightCpiSigner);
 
   const addressMerkleTreePubkeyIndex = packedAccounts.insertOrGet(
-    input.addressTreeInfo.tree
+    addressTreeInfo.tree
   );
-  const addressQueuePubkeyIndex = packedAccounts.insertOrGet(input.addressTreeInfo.queue);
+  const addressQueuePubkeyIndex = packedAccounts.insertOrGet(addressTreeInfo.queue);
   const outputStateTreeAccount = getOutputStateTreeAccount(input.outputStateTreeInfo);
   const outputStateTreeIndex = packedAccounts.insertOrGet(outputStateTreeAccount);
 
@@ -336,8 +347,8 @@ export async function buildLightRecordReceiptContext(input: {
     indexByKey.set(meta.pubkey.toBase58(), idx);
   });
 
-  const realTreeIndex = indexByKey.get(input.addressTreeInfo.tree.toBase58());
-  const realQueueIndex = indexByKey.get(input.addressTreeInfo.queue.toBase58());
+  const realTreeIndex = indexByKey.get(addressTreeInfo.tree.toBase58());
+  const realQueueIndex = indexByKey.get(addressTreeInfo.queue.toBase58());
   const realOutputIndex = indexByKey.get(outputStateTreeAccount.toBase58());
 
   if (
@@ -352,7 +363,7 @@ export async function buildLightRecordReceiptContext(input: {
     throw new Error('Output state tree index is colliding with the address queue');
   }
 
-  const addressTreeInfo: PackedAddressTreeInfo = {
+  const packedAddressTreeInfo: PackedAddressTreeInfo = {
     addressMerkleTreePubkeyIndex: realTreeIndex,
     addressQueuePubkeyIndex: realQueueIndex,
     rootIndex: validity.rootIndices[0]
@@ -363,7 +374,7 @@ export async function buildLightRecordReceiptContext(input: {
   const receiptContext: LightRecordReceiptContext = {
     instructionData: serializeRecordReceiptInstructionFromLight({
       proof: validity.compressedProof,
-      addressTreeInfo,
+      addressTreeInfo: packedAddressTreeInfo,
       outputStateTreeIndex: finalOutputIndex,
       vendor: input.vendor,
       amount: input.amount,
@@ -372,7 +383,7 @@ export async function buildLightRecordReceiptContext(input: {
     remainingAccounts: accountMetas.remainingAccounts,
     derivedAddress,
     proof: validity.compressedProof,
-    addressTreeInfo,
+    addressTreeInfo: packedAddressTreeInfo,
     outputStateTreeIndex: finalOutputIndex
   };
 
@@ -381,8 +392,8 @@ export async function buildLightRecordReceiptContext(input: {
 
   if (process.env.DEBUG_RECEIPT_CONTEXT === '1') {
     console.log('[DEBUG_RECEIPT_CONTEXT] PACKED ACCOUNTS MODE');
-    console.log('[DEBUG_RECEIPT_CONTEXT] Tree Index (sent):', addressTreeInfo.addressMerkleTreePubkeyIndex);
-    console.log('[DEBUG_RECEIPT_CONTEXT] Queue Index (sent):', addressTreeInfo.addressQueuePubkeyIndex);
+    console.log('[DEBUG_RECEIPT_CONTEXT] Tree Index (sent):', packedAddressTreeInfo.addressMerkleTreePubkeyIndex);
+    console.log('[DEBUG_RECEIPT_CONTEXT] Queue Index (sent):', packedAddressTreeInfo.addressQueuePubkeyIndex);
     console.log('[DEBUG_RECEIPT_CONTEXT] Output Index (sent):', receiptContext.outputStateTreeIndex);
     accountMetas.remainingAccounts.forEach((a, i) => console.log(`[DEBUG_RECEIPT_CONTEXT] Rem[${i}]: ${a.pubkey.toBase58()}`));
     console.log('[DEBUG_RECEIPT_CONTEXT] Output Account Meta:', {
@@ -418,7 +429,7 @@ export async function buildLightRecordReceiptContext(input: {
         queueAccountMeta.pubkey,
         LIGHT_SYSTEM_PROGRAM_ID,
         'confirmed',
-        input.addressTreeInfo,
+        addressTreeInfo,
       );
       console.log('[DEBUG_RECEIPT_CONTEXT] Queue Account Info:', queueAccountInfo?.accountInfo && {
         owner: queueAccountInfo.accountInfo.owner.toBase58(),

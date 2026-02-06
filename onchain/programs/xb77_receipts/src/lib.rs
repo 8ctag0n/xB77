@@ -172,7 +172,7 @@ fn record_receipt(
     //let address = Pubkey::new_from_array(address_bytes);
     // Then proceed with new_address_params, etc.
     let new_address_params = address_tree_info
-        .into_new_address_params_assigned_packed(address_seed, Some(0));
+        .into_new_address_params_assigned_packed(address_seed, None);
     msg!("DEBUG: Derived Address Seed: {:?}", address_seed.0);
     msg!("DEBUG: Derived Address (V2): {:?}", Pubkey::new_from_array(address_bytes));
     let mut receipt = LightAccount::<CompressedReceipt>::new_init(
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn test_derive_address_lab() {
         let program_id = Pubkey::from_str("8iGuTTFLhNfbUN8teY6t1SEJ7vFFzvkd3bsXUhi1R12W").unwrap();
-        let address_tree_pubkey = Pubkey::from_str("CCa2h58a36K2d6zJ6Sj45UjS2u9K5K3h2u5K5K3h2u5K").unwrap(); // Use actual V2 tree in real tests
+        let address_tree_pubkey = Pubkey::from_str("amt2kaJA14v3urZbZvnc5v2np8jqvc4Z8zDep5wbtzx").unwrap(); // Use actual V2 tree in real tests
         let vendor = [1u8; 32];
         let memo_hash = [2u8; 32];
         // Use standard Rust SDK V2 derivation

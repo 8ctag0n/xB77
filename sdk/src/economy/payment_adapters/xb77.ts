@@ -1,7 +1,7 @@
 import { Connection, PublicKey, Transaction, Keypair, sendAndConfirmTransaction, SendTransactionError } from '@solana/web3.js';
 import { createHash } from 'crypto';
 import { Buffer } from 'buffer';
-import { createRpc, selectStateTreeInfo, TreeType, batchAddressTree, type TreeInfo } from '@lightprotocol/stateless.js';
+import { createRpc, addressQueue, addressTree, selectStateTreeInfo, TreeType, type TreeInfo } from '@lightprotocol/stateless.js';
 import { 
   PaymentAdapter, 
   PaymentRequest, 
@@ -14,6 +14,9 @@ import {
 } from '../../generated/instructions/xb77_core';
 import { SupportedToken } from '../wallet';
 import { buildLightRecordReceiptContext, serializePackedAddressTreeInfo, serializeValidityProof } from '../receipts_light';
+
+const BATCH_ADDRESS_TREE = new PublicKey('amt2kaJA14v3urZbZvnc5v2np8jqvc4Z8zDep5wbtzx');
+const BATCH_ADDRESS_QUEUE = new PublicKey('oq1na8gojfdUhsfCpyjNt6h4JaDWtHf1yQj4koBWfto');
 
 export interface XB77AdapterOptions {
   connection: Connection;
@@ -46,9 +49,26 @@ export class XB77Adapter implements PaymentAdapter {
     this.coreProgramId = options.coreProgramId || CORE_PROGRAM_ID;
     this.gatewayProgramId = options.gatewayProgramId || new PublicKey("4gDQBWwzncRdTspJW37NoH56mGELj8UTqdC8VLdu7BGC");
     this.receiptsProgramId = options.receiptsProgramId || new PublicKey("8iGuTTFLhNfbUN8teY6t1SEJ7vFFzvkd3bsXUhi1R12W");
-    this.lightRpcUrl = options.lightRpcUrl ?? process.env.SOLANA_RPC_URL;
-    this.lightCompressionUrl = options.lightCompressionUrl ?? process.env.LIGHT_COMPRESSION_RPC_URL;
-    this.lightProverUrl = options.lightProverUrl ?? process.env.LIGHT_PROVER_RPC_URL;
+    const heliusKey = process.env.HELIUS_API_KEY;
+    const buildHeliusUrl = (url?: string) => {
+      if (!url && heliusKey) {
+        return `https://devnet.helius-rpc.com/?api-key=${heliusKey}`;
+      }
+      if (url && heliusKey && url.includes('helius-rpc.com') && !url.includes('api-key=')) {
+        const sep = url.includes('?') ? '&' : '?';
+        return `${url}${sep}api-key=${heliusKey}`;
+      }
+      return url;
+    };
+
+    const baseRpc = buildHeliusUrl(options.lightRpcUrl ?? process.env.SOLANA_RPC_URL);
+    this.lightRpcUrl = baseRpc;
+    this.lightCompressionUrl = buildHeliusUrl(
+      options.lightCompressionUrl ?? process.env.LIGHT_COMPRESSION_RPC_URL ?? baseRpc
+    );
+    this.lightProverUrl = buildHeliusUrl(
+      options.lightProverUrl ?? process.env.LIGHT_PROVER_RPC_URL ?? baseRpc
+    );
     this.addressTreeInfo = options.addressTreeInfo;
     this.stateTreeInfo = options.stateTreeInfo;
     this.payer = options.payer;
@@ -92,36 +112,38 @@ export class XB77Adapter implements PaymentAdapter {
         ? this.parseHex32(request.memoHash, 'memoHash')
         : this.hashMemo(`${request.vendor}:${request.amount}:${Date.now()}`);
 
-      let proofBytes = new Uint8Array();
-      let addressTreeInfoBytes = new Uint8Array();
-      let outputStateTreeIndex = 0;
-      let receiptAccounts: Array<{ pubkey: PublicKey; isSigner: boolean; isWritable: boolean }> = [];
-
-      try {
+      const buildContext = async (mode: 'v2-batch' | 'v1') => {
         if (!this.lightRpcUrl || !this.lightCompressionUrl || !this.lightProverUrl) {
           throw new Error('Missing Light RPC endpoints.');
         }
-        // 1) RPC
+
         const rpc = createRpc(this.lightRpcUrl, this.lightCompressionUrl, this.lightProverUrl);
-        
-        // 2) State tree (único discovery válido)
         const stateTrees = await rpc.getStateTreeInfos();
+
         const stateTreeInfo =
-          this.stateTreeInfo
-          ?? selectStateTreeInfo(stateTrees, TreeType.StateV2)
-          ?? selectStateTreeInfo(stateTrees, TreeType.StateV1);
-        
-        if (!stateTreeInfo) throw new Error("No state tree found");
-        
-        // 3) Address tree (FIJO)
-        
-        const addressTree = new PublicKey(batchAddressTree);
-        const addressTreeInfo = {
-          tree: addressTree,
-          queue: addressTree,
-        };
-        
-        // 4) Build receipt context (OJO con la address)
+          this.stateTreeInfo ??
+          (mode === 'v1'
+            ? selectStateTreeInfo(stateTrees, TreeType.StateV1)
+            : selectStateTreeInfo(stateTrees, TreeType.StateV2));
+
+        if (!stateTreeInfo) throw new Error(`No state tree found for mode ${mode}`);
+
+          const addressTreeInfo = this.addressTreeInfo ?? (mode === 'v1'
+            ? {
+                tree: new PublicKey(addressTree),
+                queue: new PublicKey(addressQueue),
+                treeType: TreeType.AddressV1,
+                nextTreeInfo: null
+              }
+            : {
+                tree: BATCH_ADDRESS_TREE,
+                queue: BATCH_ADDRESS_QUEUE,
+                treeType: TreeType.AddressV2,
+                nextTreeInfo: null
+              });
+
+        console.log(`[XB77Adapter] Light tree mode=${mode} tree=${addressTreeInfo.tree.toBase58()} queue=${addressTreeInfo.queue.toBase58()}`);
+
         const context = await buildLightRecordReceiptContext({
           rpc,
           receiptProgramId: this.receiptsProgramId,
@@ -131,115 +153,98 @@ export class XB77Adapter implements PaymentAdapter {
           amount: BigInt(request.amount),
           memoHash,
         });
-        
-        // 5) Usar context tal cual
-        proofBytes = serializeValidityProof(context.proof);
-        addressTreeInfoBytes = serializePackedAddressTreeInfo(context.addressTreeInfo);
-        outputStateTreeIndex = context.outputStateTreeIndex;
-        receiptAccounts = context.remainingAccounts;
-        // 1) RPC
 
-//        const rpc = createRpc(this.lightRpcUrl, this.lightCompressionUrl, this.lightProverUrl);
-//        
-//        const allTrees = await rpc.getStateTreeInfos();
-//        if (!allTrees.length) throw new Error("No state trees found on RPC.");
-//
-//        const stateTreeInfo = this.stateTreeInfo ?? selectStateTreeInfo(allTrees, TreeType.StateV2) ?? selectStateTreeInfo(allTrees, TreeType.StateV1);
-//        const allAddressTrees = allTrees.filter(t => (t as any).treeType === 2 || (t as any).type === 'Address');
-//        
-//        const { batchAddressTree } = await import('@lightprotocol/stateless.js');
-//        const STABLE_ADDR_TREE = new PublicKey(batchAddressTree);
-//
-//        if (!allAddressTrees.find(t => t.tree.equals(STABLE_ADDR_TREE))) {
-//            allAddressTrees.push({
-//                tree: STABLE_ADDR_TREE,
-//                queue: STABLE_ADDR_TREE
-//            } as any);
-//        }
-//
-//        console.log(`[XB77Adapter] Discovered ${allAddressTrees.length} potential Address Trees.`);
-//
-//        let bestAddressTreeInfo: TreeInfo | undefined;
-//        let bestReceiptContext: any;
-//        let highestRootIndex = -1;
-//
-//        for (const tree of allAddressTrees) {
-//          try {
-//            console.log(`[XB77Adapter] Testing Tree: ${tree.tree.toBase58()}`);
-//            const context = await buildLightRecordReceiptContext({
-//              rpc,
-//              receiptProgramId: this.receiptsProgramId,
-//              addressTreeInfo: tree,
-//              outputStateTreeInfo: stateTreeInfo,
-//              vendor: new Uint8Array(vendorPubKey.toBytes()),
-//              amount: BigInt(request.amount),
-//              memoHash
-//            });
-//
-//            if (context.addressTreeInfo.rootIndex > highestRootIndex) {
-//               highestRootIndex = context.addressTreeInfo.rootIndex;
-//               bestAddressTreeInfo = tree;
-//               bestReceiptContext = context;
-//            }
-//          } catch (e) {
-//            console.log(`[XB77Adapter] Tree ${tree.tree.toBase58()} failed validation: ${e}`);
-//          }
-//        }
-//
-//        if (!bestAddressTreeInfo || !bestReceiptContext) {
-//           throw new Error('No Address Tree found that returns a valid proof from Helius');
-//        }
-//
-//        console.log(`[XB77Adapter] Selected Best Tree: ${bestAddressTreeInfo.tree.toBase58()} (Root Index: ${highestRootIndex})`);
-//
-//        proofBytes = serializeValidityProof(bestReceiptContext.proof);
-//        addressTreeInfoBytes = serializePackedAddressTreeInfo(bestReceiptContext.addressTreeInfo);
-//        outputStateTreeIndex = bestReceiptContext.outputStateTreeIndex;
-//        receiptAccounts = bestReceiptContext.remainingAccounts;
-      } catch (error) {
-        throw new Error(`Receipt context unavailable: ${error instanceof Error ? error.message : String(error)}`);
-      }
-
-      const ix = createRequestPaymentInstruction(
-        {
-          requestId: BigInt(Date.now()),
-          amount: BigInt(request.amount),
-          vendor: Array.from(vendorPubKey.toBuffer()),
-          memoHash: Array.from(memoHash),
-          proof: proofBytes,
-          addressTreeInfo: addressTreeInfoBytes,
-          outputStateTreeIndex: outputStateTreeIndex
-        },
-        {
-          configAccount: configPda,
-          creditLineAccount: creditLinePda,
-          agentSigner: agentPubKey,
-          receiptsProgram: this.receiptsProgramId
-        },
-        this.coreProgramId
-      );
-
-      if (receiptAccounts.length) {
-        ix.keys.push(...receiptAccounts);
-      }
-
-      const tx = new Transaction().add(ix);
-      const signature = await sendAndConfirmTransaction(
-        this.connection, 
-        tx, 
-        [this.payer],
-        { commitment: 'confirmed' }
-      );
-
-      console.log(`[XB77Adapter] Transaction Successful: ${signature}`);
-
-      return {
-        provider: this.provider,
-        status: 'success',
-        txSignature: signature,
-        paidAmount: request.amount,
-        raw: { signature }
+        return {
+          proofBytes: serializeValidityProof(context.proof),
+          addressTreeInfoBytes: serializePackedAddressTreeInfo(context.addressTreeInfo),
+          outputStateTreeIndex: context.outputStateTreeIndex,
+          receiptAccounts: context.remainingAccounts
+        };
       };
+
+      const shouldFallback = (err: any) => {
+        if (Array.isArray(err?.logs)) {
+          return err.logs.some((line: string) =>
+            line.includes('PANICKED') ||
+            line.includes('verify_proof') ||
+            line.includes('invalid instruction data')
+          );
+        }
+        const msg = err?.message ?? '';
+        return msg.includes('invalid instruction data') || msg.includes('simulation failed');
+      };
+
+      const modes: Array<'v2-batch' | 'v1'> = ['v2-batch', 'v1'];
+      let lastError: any;
+
+      for (let i = 0; i < modes.length; i += 1) {
+        const mode = modes[i];
+        let ctx: {
+          proofBytes: Uint8Array;
+          addressTreeInfoBytes: Uint8Array;
+          outputStateTreeIndex: number;
+          receiptAccounts: Array<{ pubkey: PublicKey; isSigner: boolean; isWritable: boolean }>;
+        };
+
+        try {
+          ctx = await buildContext(mode);
+        } catch (error) {
+          throw new Error(`Receipt context unavailable: ${error instanceof Error ? error.message : String(error)}`);
+        }
+
+        const ix = createRequestPaymentInstruction(
+          {
+            requestId: BigInt(Date.now()),
+            amount: BigInt(request.amount),
+            vendor: Array.from(vendorPubKey.toBuffer()),
+            memoHash: Array.from(memoHash),
+            proof: ctx.proofBytes,
+            addressTreeInfo: ctx.addressTreeInfoBytes,
+            outputStateTreeIndex: ctx.outputStateTreeIndex
+          },
+          {
+            configAccount: configPda,
+            creditLineAccount: creditLinePda,
+            agentSigner: agentPubKey,
+            receiptsProgram: this.receiptsProgramId
+          },
+          this.coreProgramId
+        );
+
+        if (ctx.receiptAccounts.length) {
+          ix.keys.push(...ctx.receiptAccounts);
+        }
+
+        const tx = new Transaction().add(ix);
+
+        try {
+          const signature = await sendAndConfirmTransaction(
+            this.connection,
+            tx,
+            [this.payer],
+            { commitment: 'confirmed' }
+          );
+
+          console.log(`[XB77Adapter] Transaction Successful: ${signature}`);
+
+          return {
+            provider: this.provider,
+            status: 'success',
+            txSignature: signature,
+            paidAmount: request.amount,
+            raw: { signature }
+          };
+        } catch (error: any) {
+          lastError = error;
+          if (i < modes.length - 1 && shouldFallback(error)) {
+            console.warn('[XB77Adapter] V2 failed. Falling back to V1 proof flow.');
+            continue;
+          }
+          throw error;
+        }
+      }
+
+      throw lastError;
 
     } catch (error: any) {
       if (Array.isArray(error?.logs)) {

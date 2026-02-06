@@ -11,6 +11,7 @@ import {
   type ReceiptStore,
   type SupportedToken,
 } from '../../sdk/index.ts';
+import { resolveRpcUrls } from './rpc.ts';
 
 export interface AgentContext {
   agent: PrivacyAgent;
@@ -63,14 +64,12 @@ export async function buildAgentContext(options?: {
   rpcUrl?: string;
 }): Promise<AgentContext> {
   const offline = options?.offline ?? process.env.XB77_OFFLINE === 'true';
-  const heliusKey = process.env.HELIUS_API_KEY;
-  
-  // Smart Default: If no RPC provided but we have a Helius Key, use Devnet Helius.
-  const defaultRpc = heliusKey 
-    ? `https://devnet.helius-rpc.com/?api-key=${heliusKey}`
-    : 'http://localhost:8899';
-
-  const rpcUrl = options?.rpcUrl ?? process.env.SOLANA_RPC_URL ?? defaultRpc;
+  const { rpcUrl } = resolveRpcUrls({
+    rpcUrl: options?.rpcUrl ?? process.env.SOLANA_RPC_URL,
+    compressionUrl: process.env.XB77_LIGHT_COMPRESSION_RPC_URL ?? process.env.LIGHT_COMPRESSION_RPC_URL,
+    proverUrl: process.env.XB77_LIGHT_PROVER_RPC_URL ?? process.env.LIGHT_PROVER_RPC_URL,
+    fallbackRpc: 'http://localhost:8899'
+  });
   const connection = !offline ? new Connection(rpcUrl, 'confirmed') : undefined;
 
   const paymentMode =
@@ -108,24 +107,12 @@ export async function buildAgentContext(options?: {
   const gatewayProgramId = parsePubkeyEnv(process.env.XB77_GATEWAY_PROGRAM_ID);
   const receiptsProgramId = parsePubkeyEnv(process.env.XB77_RECEIPTS_PROGRAM_ID);
   
-  const formatHeliusUrl = (url: string | undefined, fallback: string) => {
-    let target = url || fallback;
-    if (heliusKey && target.includes('helius-rpc.com') && !target.includes('api-key=')) {
-      const separator = target.includes('?') ? '&' : '?';
-      target = `${target}${separator}api-key=${heliusKey}`;
-    }
-    return target;
-  };
-
-  const lightRpcUrl = formatHeliusUrl(process.env.XB77_LIGHT_RPC_URL, rpcUrl);
-  const lightCompressionUrl = formatHeliusUrl(
-    process.env.XB77_LIGHT_COMPRESSION_RPC_URL, 
-    process.env.LIGHT_COMPRESSION_RPC_URL || lightRpcUrl
-  );
-  const lightProverUrl = formatHeliusUrl(
-    process.env.XB77_LIGHT_PROVER_RPC_URL, 
-    process.env.LIGHT_PROVER_RPC_URL || lightRpcUrl
-  );
+  const lightRpcUrl = resolveRpcUrls({
+    rpcUrl: process.env.XB77_LIGHT_RPC_URL,
+    compressionUrl: process.env.XB77_LIGHT_COMPRESSION_RPC_URL,
+    proverUrl: process.env.XB77_LIGHT_PROVER_RPC_URL,
+    fallbackRpc: rpcUrl
+  });
 
   const safeLogUrl = (url: string) => {
       if (url.includes('api-key=')) {
@@ -133,7 +120,7 @@ export async function buildAgentContext(options?: {
       }
       return url;
   };
-  console.error(`[Debug] Light RPC URL: ${safeLogUrl(lightRpcUrl)}`);
+  console.error(`[Debug] Light RPC URL: ${safeLogUrl(lightRpcUrl.rpcUrl)}`);
 
   const starpayApiKey = process.env.STARPAY_API_KEY || 'mock_key';
   const starpayBaseUrl = process.env.STARPAY_BASE_URL;
@@ -148,9 +135,9 @@ export async function buildAgentContext(options?: {
     coreProgramId,
     gatewayProgramId,
     receiptsProgramId,
-    lightRpcUrl,
-    lightCompressionUrl,
-    lightProverUrl,
+    lightRpcUrl: lightRpcUrl.rpcUrl,
+    lightCompressionUrl: lightRpcUrl.compressionUrl,
+    lightProverUrl: lightRpcUrl.proverUrl,
     paymentGatewayOptions: {
       mode: paymentMode,
       defaultProvider: paymentProvider,
@@ -637,7 +624,7 @@ export async function handleToolCall(
              if (connection) {
                 const [proofPda] = PublicKey.findProgramAddressSync(
                   [Buffer.from("proof"), Buffer.from(receiptId.slice(0, 16))],
-                  new PublicKey("6LM5tQioTsog9AmiHbXBN69YrFBzzhspVWyxBvxKZss3") // Receipts Program
+                  new PublicKey("8iGuTTFLhNfbUN8teY6t1SEJ7vFFzvkd3bsXUhi1R12W") // Receipts Program
                 );
                 
                 const info = await connection.getAccountInfo(proofPda);

@@ -7,17 +7,21 @@ import {
   RECEIPT_INSTRUCTION_DISCRIMINATORS
 } from '../../sdk/src/economy/receipts_light';
 import { createRpc, getDefaultAddressTreeInfo, selectStateTreeInfo } from '@lightprotocol/stateless.js';
+import { resolveRpcUrls } from './rpc.ts';
 
 // Hack: TreeType not exported in CJS build of @lightprotocol/stateless.js v0.19.0
 const TreeType = { StateV1: 3 };
 
 const PORT = Number(Bun.env.LISTENER_PORT ?? 7002);
-const RPC_URL = process.env.SOLANA_RPC_URL ?? 'http://localhost:8899';
-const COMPRESSION_URL = process.env.LIGHT_COMPRESSION_RPC_URL ?? 'http://localhost:8899';
-const PROVER_URL = process.env.LIGHT_PROVER_RPC_URL ?? 'http://localhost:8899';
+const { rpcUrl: RPC_URL, compressionUrl: COMPRESSION_URL, proverUrl: PROVER_URL } = resolveRpcUrls({
+  rpcUrl: process.env.SOLANA_RPC_URL,
+  compressionUrl: process.env.LIGHT_COMPRESSION_RPC_URL,
+  proverUrl: process.env.LIGHT_PROVER_RPC_URL,
+  fallbackRpc: 'http://localhost:8899'
+});
 
 // El ID del programa de recibos (debe coincidir con onchain/programs/xb77_receipts/src/lib.rs)
-const RECEIPT_PROGRAM_ID = new PublicKey('6LM5tQioTsog9AmiHbXBN69YrFBzzhspVWyxBvxKZss3');
+const RECEIPT_PROGRAM_ID = new PublicKey('8iGuTTFLhNfbUN8teY6t1SEJ7vFFzvkd3bsXUhi1R12W');
 
 interface HeliusWebhookPayload {
   type: string;

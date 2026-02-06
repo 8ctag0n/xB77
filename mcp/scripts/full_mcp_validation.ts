@@ -3,6 +3,7 @@ import { buildAgentContext, handleToolCall } from '../src/agent_tools.ts';
 import * as fs from 'fs';
 import * as path from 'path';
 import dotenv from "dotenv";
+import { resolveRpcUrls } from '../src/rpc.ts';
 
 dotenv.config();
 
@@ -13,19 +14,24 @@ async function main() {
   console.log("=".repeat(60) + "\n");
 
   // 1. Setup Environment
-  const kpPath = path.resolve(process.cwd(), '../.devnet/deployer.json');
+  const kpPath =
+    process.env.XB77_KEYPAIR_PATH ??
+    path.resolve(process.cwd(), '../.devnet/deployer.json');
   const secretKey = Uint8Array.from(JSON.parse(fs.readFileSync(kpPath, 'utf-8')));
   const keypair = Keypair.fromSecretKey(secretKey);
-  const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+  const { rpcUrl } = resolveRpcUrls({
+    rpcUrl: process.env.SOLANA_RPC_URL,
+    fallbackRpc: "https://api.devnet.solana.com"
+  });
+  const connection = new Connection(rpcUrl, "confirmed");
 
   console.log(`[Identity] Loaded Agent: ${keypair.publicKey.toBase58()}`);
-  console.log(`[Network] Connected to Solana Devnet (api.devnet.solana.com)`);
+  console.log(`[Network] Connected to Solana Devnet (${rpcUrl})`);
   
-  const rpc_helius= process.env.SOLANA_RPC_URL;
   const context = await buildAgentContext({
     keypair,
     offline: false,
-    rpcUrl: rpc_helius
+    rpcUrl
   });
 
   console.log("[System] Privacy Rails: ONLINE");
