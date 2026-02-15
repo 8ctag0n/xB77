@@ -19,9 +19,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
   && apt-get update && apt-get install -y nodejs \
   && rm -rf /var/lib/apt/lists/*
 
-# Solana CLI - VERSIÓN ACTUALIZADA
+# Solana CLI (legacy line compatible with Light CLI flags)
+# NOTE: release.anza.xyz installs Agave 2.x, which breaks `light test-validator`
+# due to removed flags like `--gossip-host`.
+# Use legacy Solana 1.18 from release.solana.com instead.
 RUN rm -rf /root/.local/share/solana || true
-RUN sh -c "$(curl -sSfL https://release.anza.xyz/v2.2.2/install)"
+RUN sh -c "$(curl -sSfL https://release.solana.com/v1.18.26/install)"
 RUN solana --version
 
 # Photon para indexar bien de bien
@@ -40,18 +43,37 @@ WORKDIR /work
 EXPOSE 8899 8784 3001
 WORKDIR /work
 
-# Wrapper para forzar bind en 0.0.0.0
-RUN printf '#!/bin/bash\n\
-# Reemplazar 127.0.0.1 por 0.0.0.0 en los comandos que lanza Light CLI\n\
+# Wrapper para forzar bind en 0.0.0.0 y mantener procesos vivos
+RUN printf '#!/bin/bash\nset -e\n\
+\n\
 export SOLANA_RPC_URL=http://0.0.0.0:8899\n\
 \n\
-# Ejecutar light con variables de entorno modificadas\n\
-light test-validator "$@" & LIGHT_PID=$!\n\
+cleanup() {\n\
+  echo "Shutting down..."\n\
+  pkill -f solana-test-validator || true\n\
+  pkill -f photon || true\n\
+  pkill -f prover || true\n\
+  exit 0\n\
+}\n\
+trap cleanup SIGTERM SIGINT\n\
 \n\
-# Esperar a que arranque y patchear procesos si es necesario\n\
-sleep 5\n\
+echo "Starting light test-validator..."\n\
+light test-validator "$@"\n\
 \n\
-# Mantener el proceso vivo\n\
-wait $LIGHT_PID\n' > /usr/local/bin/start-light.sh && chmod +x /usr/local/bin/start-light.sh
+echo "Setup complete. Monitoring processes..."\n\
+\n\
+# Esperar a que los servicios estén up\n\
+sleep 3\n\
+\n\
+# Loop infinito monitoreando los procesos\n\
+while true; do\n\
+  # Verificar que solana-test-validator sigue corriendo\n\
+  if ! pgrep -f solana-test-validator > /dev/null; then\n\
+    echo "ERROR: solana-test-validator died, restarting..."\n\
+    light test-validator "$@"\n\
+    sleep 3\n\
+  fi\n\
+  sleep 10\n\
+done\n' > /usr/local/bin/start-light.sh && chmod +x /usr/local/bin/start-light.sh
 
 CMD ["/usr/local/bin/start-light.sh"]

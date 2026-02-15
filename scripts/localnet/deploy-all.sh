@@ -5,13 +5,19 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PROGRAMS_DIR="${ROOT_DIR}/onchain/programs"
 TARGET_DIR="${ROOT_DIR}/onchain/target/deploy"
 KEYPAIRS_DIR="${ROOT_DIR}/.localnet/keypairs"
+CANONICAL_KEYPAIRS_DIR="${ROOT_DIR}/.devnet/keypairs"
+SOLANA_RPC_URL="${SOLANA_RPC_URL:-http://127.0.0.1:8899}"
 
 mkdir -p "${KEYPAIRS_DIR}"
 
 # --- Helper Functions ---
 check_validator() {
-  if ! solana cluster-version >/dev/null 2>&1; then
-    echo "Error: Solana validator is not running. Please run './scripts/localnet/start-validator-light.sh' in a separate terminal."
+  if [ "${SOLANA_SKIP_VALIDATOR_CHECK:-}" = "1" ]; then
+    echo "Skipping validator check (SOLANA_SKIP_VALIDATOR_CHECK=1)."
+    return 0
+  fi
+  if ! solana -u "${SOLANA_RPC_URL}" cluster-version >/dev/null 2>&1; then
+    echo "Error: Solana validator is not reachable at ${SOLANA_RPC_URL}. Please run './scripts/localnet/start-validator-light.sh' in a separate terminal."
     exit 1
   fi
 }
@@ -26,8 +32,17 @@ deploy_program() {
   local program_name=$1
   local so_path="${TARGET_DIR}/${program_name}.so"
   local keypair_path="${KEYPAIRS_DIR}/${program_name}.json"
+  local canonical_keypair_path="${CANONICAL_KEYPAIRS_DIR}/${program_name}.json"
+  local deploy_args=()
 
-  if [ ! -f "${keypair_path}" ]; then
+  if [ "${SOLANA_USE_RPC:-}" = "1" ]; then
+    deploy_args+=(--use-rpc)
+  fi
+
+  if [ -f "${canonical_keypair_path}" ]; then
+    keypair_path="${canonical_keypair_path}"
+    echo "Using canonical keypair for ${program_name}: ${keypair_path}"
+  elif [ ! -f "${keypair_path}" ]; then
     echo "Generating keypair for ${program_name}..."
     solana-keygen new --no-bip39-passphrase -o "${keypair_path}" --silent
   fi
@@ -35,8 +50,9 @@ deploy_program() {
   local program_id=$(solana-keygen pubkey "${keypair_path}")
   echo "Deploying ${program_name} (${program_id})..."
   
-  solana program deploy \
+  solana -u "${SOLANA_RPC_URL}" program deploy \
     --program-id "${keypair_path}" \
+    "${deploy_args[@]}" \
     "${so_path}"
     
   echo "${program_name}_ID=${program_id}" >> "${ROOT_DIR}/.localnet/program_ids.env"
