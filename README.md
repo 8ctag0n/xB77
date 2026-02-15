@@ -49,7 +49,7 @@ All programs deployed and authorized by the Deployer.
 | :--- | :--- | :--- |
 | **xB77 Core** | `FpWZN1FB9yMfip3vYQhsZhgT4fCB3US9BqAv5kh5uDxv` | Payment Orchestrator & Credit Logic |
 | **xB77 Gateway** | `4gDQBWwzncRdTspJW37NoH56mGELj8UTqdC8VLdu7BGC` | Multi-Rail Adapter (Router) |
-| **xB77 Receipts** | `8iGuTTFLhNfbUN8teY6t1SEJ7vFFzVKd3bsXUhi1R12W` | ZK-Proof Storage & Verification |
+| **xB77 Receipts** | `8iGuTTFLhNfbUN8teY6t1SEJ7vFFzvkd3bsXUhi1R12W` | ZK-Proof Storage & Verification |
 | **xB77 Registry** | `8Asy6SMxj38vqz5dJb7TYCoV1RctrF88KxFu19A6DPWz` | Agent Identity Directory |
 | **xB77 Test Utils** | `2cevUmfqJU8uvHvR7jbn4vrYqG2KwgytDVypueQt5Wtx` | Mock Treasury / Faucets |
 
