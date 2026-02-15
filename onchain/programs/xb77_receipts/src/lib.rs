@@ -32,13 +32,11 @@ entrypoint!(process_instruction);
 #[derive(Debug, Clone, ShankInstruction)]
 pub enum ReceiptInstruction {
     #[account(0, signer, name="signer", desc="The payer and authority for the transaction")]
-    #[account(1, name="agent_account", desc="The agent account that will own the receipt")]
-    #[account(2, name="light_cpi_signer", desc="The PDA signing for Light Protocol CPI")]
-    #[account(3, name="system_program", desc="The System Program")]
-    #[account(4, name="light_system_program", desc="The Light System Program")]
-    // Remaining accounts are variable Light Protocol accounts (trees, etc)
+    // CpiAccounts will take accounts from index 1..N-1
+    // Agent account is expected to be the last account (index N)
     RecordReceipt(RecordReceiptInstructionData),
 }
+
 #[derive(Debug, Clone, Default, BorshSerialize, BorshDeserialize, LightDiscriminator)]
 pub struct CompressedReceipt {
     pub owner: Pubkey,
@@ -47,6 +45,7 @@ pub struct CompressedReceipt {
     pub timestamp: i64,
     pub memo_hash: [u8; 32],
 }
+
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize, ShankType)]
 pub struct RecordReceiptInstructionData {
     pub proof: Vec<u8>,
@@ -56,6 +55,7 @@ pub struct RecordReceiptInstructionData {
     pub amount: u64,
     pub memo_hash: [u8; 32],
 }
+
 pub fn process_instruction(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -71,11 +71,12 @@ pub fn process_instruction(
         0 => {
             let data = RecordReceiptInstructionData::try_from_slice(&instruction_data[1..])
                 .map_err(|_| ProgramError::InvalidInstructionData)?;
-            record_receipt(program_id,accounts, data)
+            record_receipt(program_id, accounts, data)
         }
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }
+
 fn record_receipt(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -86,65 +87,95 @@ fn record_receipt(
         .map_err(|_| ProgramError::InvalidInstructionData)?;
     let address_tree_info = PackedAddressTreeInfo::try_from_slice(&instruction_data.address_tree_info)
         .map_err(|_| ProgramError::InvalidInstructionData)?;
-    // ACCOUNTS:
-            // DUMP ALL ACCOUNTS
-            msg!("--- DEBUG: DUMP ACCOUNTS ---");
-            for (i, acc) in accounts.iter().enumerate() {
-                msg!("Account[{}]: {:?}", i, acc.key);
-            }
-            msg!("--- END DUMP ---");
-        
-            // 0. Signer (Payer/Authority)
-            // 1..N-1. Light accounts (Passed to CpiAccounts)
-        
-        // N. Agent (Owner of the receipt) - MOVED TO END
-        let signer = accounts
-            .first()
-            .ok_or(ProgramError::NotEnoughAccountKeys)?;
-        
-        // Agent account is now expected to be the last account
-        let agent_account = accounts
-            .last()
-            .ok_or(ProgramError::NotEnoughAccountKeys)?;
+
+    if accounts.len() < 3 {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    // 0. Signer (Payer/Authority)
+    let signer = &accounts[0];
+    if !signer.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    // Last account: Agent (Owner of the receipt)
+    let agent_account = accounts
+        .last()
+        .ok_or(ProgramError::NotEnoughAccountKeys)?;
+
+    // Light accounts: Everything between signer and agent
+    let light_accounts_slice = &accounts[1..accounts.len() - 1];
+    if light_accounts_slice.is_empty() {
+        msg!("ERROR: No light accounts provided between signer and agent");
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    msg!("DEBUG: Light Accounts Slice Len: {}", light_accounts_slice.len());
     
-        if !signer.is_signer {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
-        
-            // V2: CpiAccounts constructor takes (signer, remaining_accounts, cpi_signer)
-        
-            // We pass accounts starting from 1 up to (but not including) the last account (agent)
-        
-            let light_accounts_slice = &accounts[1..accounts.len() - 1];
-            msg!("DEBUG: Light Accounts Slice Len: {}", light_accounts_slice.len());
-            for (i, acc) in light_accounts_slice.iter().enumerate() {
-                 msg!("DEBUG: LightSlice[{}]: {:?}", i, acc.key);
-            }
-        
-            let light_cpi_accounts = CpiAccounts::new(signer, light_accounts_slice, LIGHT_CPI_SIGNER);
-        
-            
-        
-            // Manual lookup bypassing get_tree_pubkey to avoid opaque index errors
-        
-            let index = address_tree_info.address_merkle_tree_pubkey_index as usize;
-            msg!("DEBUG: Address Tree Packed Index: {}", index);
-            msg!("DEBUG: Address Tree Root Index: {}", address_tree_info.root_index);
-        
-            let address_tree_pubkey = light_cpi_accounts
-        
-                .get_account_info(index)
-        
-                .map(|acc| *acc.key)
-        
-                .map_err(|_| {
-                     msg!("ERROR: Failed to get address tree at index {}", index);
-                     ProgramError::NotEnoughAccountKeys
-                })?;
+    let light_cpi_accounts = CpiAccounts::new(signer, light_accounts_slice, LIGHT_CPI_SIGNER);
+
+    let address_tree_index = address_tree_info.address_merkle_tree_pubkey_index as usize;
+    let address_queue_index = address_tree_info.address_queue_pubkey_index as usize;
+    let output_state_tree_index = instruction_data.output_state_tree_index as usize;
+    msg!("DEBUG: Address Tree Packed Index: {}", address_tree_index);
+    msg!("DEBUG: Address Queue Packed Index: {}", address_queue_index);
+    msg!("DEBUG: Output State Tree Packed Index: {}", output_state_tree_index);
+
+    if address_tree_index >= light_accounts_slice.len() {
+        msg!(
+            "ERROR: Address tree index {} out of range for light accounts len {}",
+            address_tree_index,
+            light_accounts_slice.len()
+        );
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    if address_queue_index >= light_accounts_slice.len() {
+        msg!(
+            "ERROR: Address queue index {} out of range for light accounts len {}",
+            address_queue_index,
+            light_accounts_slice.len()
+        );
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    if output_state_tree_index >= light_accounts_slice.len() {
+        msg!(
+            "ERROR: Output state tree index {} out of range for light accounts len {}",
+            output_state_tree_index,
+            light_accounts_slice.len()
+        );
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    let address_tree_pubkey = light_cpi_accounts
+        .get_account_info(address_tree_index)
+        .map(|acc| *acc.key)
+        .map_err(|_| {
+             msg!("ERROR: Failed to get address tree at index {}", address_tree_index);
+             ProgramError::NotEnoughAccountKeys
+        })?;
+    let address_queue_pubkey = light_cpi_accounts
+        .get_account_info(address_queue_index)
+        .map(|acc| *acc.key)
+        .map_err(|_| {
+            msg!("ERROR: Failed to get address queue at index {}", address_queue_index);
+            ProgramError::NotEnoughAccountKeys
+        })?;
+    let output_state_tree_pubkey = light_cpi_accounts
+        .get_account_info(output_state_tree_index)
+        .map(|acc| *acc.key)
+        .map_err(|_| {
+            msg!(
+                "ERROR: Failed to get output state tree at index {}",
+                output_state_tree_index
+            );
+            ProgramError::NotEnoughAccountKeys
+        })?;
         
         
         
                 msg!("DEBUG: Address Tree Pubkey: {:?}", address_tree_pubkey);
+                msg!("DEBUG: Address Queue Pubkey: {:?}", address_queue_pubkey);
+                msg!("DEBUG: Output State Tree Pubkey: {:?}", output_state_tree_pubkey);
         
         
         

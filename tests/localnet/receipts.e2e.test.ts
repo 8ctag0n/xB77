@@ -35,7 +35,7 @@ maybeTest('receipts: direct record_receipt (light)', async () => {
 
   const rpc = createRpc(LIGHT_RPC_URL!, LIGHT_COMPRESSION_RPC_URL!, LIGHT_PROVER_RPC_URL!);
   const addressTreeInfo = getDefaultAddressTreeInfo();
-  const stateTreeInfo = selectStateTreeInfo(await rpc.getStateTreeInfos(), TreeType.StateV1);
+  const stateTreeInfo = selectStateTreeInfo(await rpc.getStateTreeInfos(), TreeType.StateV2);
 
   const memoHash = new Uint8Array(32).fill(7);
   const vendorBytes = new Uint8Array(vendor.toBuffer());
@@ -71,7 +71,11 @@ maybeTest('receipts: direct record_receipt (light)', async () => {
     ids.receipts
   );
 
-  ix.keys.push(...ctx.remainingAccounts);
+  const signerKey = ix.keys[0];
+  const agentKey = ix.keys[1];
+  if (!signerKey || !agentKey) throw new Error('Missing signer/agent account keys');
+  // receipts program expects: signer, light accounts..., agent(last)
+  ix.keys = [signerKey, ...ctx.remainingAccounts, agentKey];
 
   try {
     await sendAndConfirmTransaction(conn, new Transaction().add(ix), [payer]);

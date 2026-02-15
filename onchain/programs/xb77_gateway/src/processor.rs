@@ -174,11 +174,6 @@ fn process_record_receipt(
         is_signer: payer.is_signer,
         is_writable: payer.is_writable,
     });
-    metas.push(solana_program::instruction::AccountMeta {
-        pubkey: *agent_account.key,
-        is_signer: agent_account.is_signer,
-        is_writable: agent_account.is_writable,
-    });
     for account in &remaining_accounts {
         metas.push(solana_program::instruction::AccountMeta {
             pubkey: *account.key,
@@ -186,6 +181,12 @@ fn process_record_receipt(
             is_writable: account.is_writable,
         });
     }
+    // xb77_receipts contract: [signer, ...light_accounts, agent_owner]
+    metas.push(solana_program::instruction::AccountMeta {
+        pubkey: *agent_account.key,
+        is_signer: agent_account.is_signer,
+        is_writable: agent_account.is_writable,
+    });
 
     let instruction = Instruction {
         program_id: *receipt_program.key,
@@ -195,8 +196,8 @@ fn process_record_receipt(
 
     let mut invoke_accounts = Vec::with_capacity(3 + remaining_accounts.len());
     invoke_accounts.push(payer.clone());
-    invoke_accounts.push(agent_account.clone());
     invoke_accounts.extend(remaining_accounts);
+    invoke_accounts.push(agent_account.clone());
     invoke_accounts.push(receipt_program.clone());
 
     invoke(&instruction, &invoke_accounts)?;

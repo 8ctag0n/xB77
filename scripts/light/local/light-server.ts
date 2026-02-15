@@ -1,40 +1,48 @@
 import { createServer } from 'http';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
 
 const compressionPort = Number(process.env.LIGHT_COMPRESSION_PORT || 8784);
 const proverPort = Number(process.env.LIGHT_PROVER_PORT || 3001);
-const accountsDir = resolve(__dirname, 'accounts');
+
+const ADDRESS_TREE_V2 = 'amt2kaJA14v3urZbZvnc5v2np8jqvc4Z8zDep5wbtzx';
+const ADDRESS_QUEUE_V2 = 'aq1S9z4reTSQAdgWHGD2zDaS39sjGrAxbR31vxJ2F4F';
+const STATE_TREE_V1 = 'smt1NamzXdq4AMqS2fS2F1i5KTYPZRhoHgWx38d8WsT';
+const NULLIFIER_QUEUE_V1 = 'nfq1NvQDJ2GEgnS8zt9prAe8rjjpAW1zFkrvZoBR148';
+const STATE_TREE_V2 = 'bmt1LryLZUMmF7ZtqESaw7wifBXLfXHQYoE4GAmrahU';
+const OUTPUT_QUEUE_V2 = 'oq1na8gojfdUhsfCpyjNt6h4JaDWtHf1yQj4koBWfto';
+const ZERO_B58 = '11111111111111111111111111111111';
+
+const treeQueueMap: Record<string, string> = {
+  [ADDRESS_TREE_V2]: ADDRESS_QUEUE_V2,
+  [STATE_TREE_V1]: NULLIFIER_QUEUE_V1,
+  [STATE_TREE_V2]: OUTPUT_QUEUE_V2,
+};
 
 // 128 bytes total: a(32) + b(64) + c(32)
 const proofFixture = {
-  a: Array(32).fill(7),
-  b: Array(64).fill(7),
-  c: Array(32).fill(7),
+  a: Array.from({ length: 32 }, (_, i) => i + 1),
+  b: Array.from({ length: 64 }, (_, i) => i + 1),
+  c: Array.from({ length: 32 }, (_, i) => i + 1),
 };
 
 function buildTreeInfos() {
   return [
     {
-      treeId: 'state-tree-1',
-      tree: 'bmt1LryLZUMmF7ZtqESaw7wifBXLfXHQYoE4GAmrahU',
-      height: 26,
-      rootIndex: 0,
-      queue: 'oq1na8gojfdUhsfCpyjNt6h4JaDWtHf1yQj4koBWfto',
+      tree: STATE_TREE_V1,
+      queue: NULLIFIER_QUEUE_V1,
+      treeType: 1,
+      nextTreeInfo: null,
     },
     {
-      treeId: 'address-tree-1',
-      tree: 'amt1Ayt45jfbdw5YSo7iz6WZxUmnZsQTYXy82hVwyC2',
-      height: 26,
-      rootIndex: 0,
-      queue: 'aq1S9z4reTSQAdgWHGD2zDaS39sjGrAxbR31vxJ2F4F',
+      tree: STATE_TREE_V2,
+      queue: OUTPUT_QUEUE_V2,
+      treeType: 3,
+      nextTreeInfo: null,
     },
     {
-      treeId: 'address-tree-2',
-      tree: 'amt2kaJA14v3urZbZvnc5v2np8jqvc4Z8zDep5wbtzx',
-      height: 26,
-      rootIndex: 0,
-      queue: 'aq1S9z4reTSQAdgWHGD2zDaS39sjGrAxbR31vxJ2F4F', // Reuse queue for stub
+      tree: ADDRESS_TREE_V2,
+      queue: ADDRESS_QUEUE_V2,
+      treeType: 4,
+      nextTreeInfo: null,
     },
   ];
 }
@@ -71,25 +79,34 @@ const rpcServer = createServer(async (req, res) => {
 
   switch (payload.method) {
     case 'getStateTreeInfos':
-      return respond({ trees: buildTreeInfos() });
+      return respond(buildTreeInfos());
     case 'getValidityProofV0':
     case 'getValidityProofV2':
-      const trees = buildTreeInfos();
+      const requestedAddress =
+        payload?.params?.newAddressesWithTrees?.[0] ??
+        payload?.params?.newAddresses?.[0] ??
+        payload?.params?.[1]?.[0] ??
+        {};
+      const address = typeof requestedAddress.address === 'string' ? requestedAddress.address : ZERO_B58;
+      const tree = typeof requestedAddress.tree === 'string' ? requestedAddress.tree : ADDRESS_TREE_V2;
+      const queue = treeQueueMap[tree] ?? ADDRESS_QUEUE_V2;
       const validityResponse = {
-        compressedProof: proofFixture,
-        proof: proofFixture,
-        rootIndices: [0],
-        merkleTreeRootIndices: [],
-        addressMerkleTreeRootIndices: [0],
-        leaves: [Array(32).fill(0)],
-        roots: [Array(32).fill(0)],
-        proveByIndices: [0],
-        leafIndices: [0],
-        treeInfos: trees,
+        compressedProof: null,
         accounts: [],
-        addresses: [],
-        addressMerkleTreeIndices: [],
-        addressQueueIndices: [],
+        addresses: [
+          {
+            address,
+            merkleContext: {
+              tree,
+              queue,
+              treeType: 4,
+              cpiContext: null,
+              nextTreeContext: null,
+            },
+            rootIndex: 0,
+            root: ZERO_B58,
+          },
+        ],
       };
       return respond({
         value: validityResponse,

@@ -254,13 +254,18 @@ export async function buildLightRecordReceiptContext(input: {
   console.log("INFO->" ,addressTreeInfo);
   console.log("INFO[tree]->" ,addressTreeInfo.tree);
   console.log("INFO->" ,addressTreeInfo.queue);
-  const validity = await input.rpc.getValidityProofV0([], [
+  const proofAddress = bn(derivedAddress.toBytes());
+  const validityRaw = await input.rpc.getValidityProofV0([], [
     {
       tree: addressTreeInfo.tree,
       queue: addressTreeInfo.queue,
-      address: bn(addressSeed)
+      address: proofAddress,
     }
   ]);
+  const validity: any =
+    validityRaw && typeof validityRaw === 'object' && 'value' in (validityRaw as Record<string, unknown>)
+      ? (validityRaw as any).value
+      : validityRaw;
   const proofTreeInfo = validity.treeInfos?.[0];
   if (proofTreeInfo && !proofTreeInfo.queue.equals(addressTreeInfo.queue)) {
     console.log('[DEBUG_RECEIPT_CONTEXT] Overriding queue from proof treeInfo to match validity proof.');
@@ -300,6 +305,7 @@ export async function buildLightRecordReceiptContext(input: {
         tree: addressTreeInfo.tree.toBase58(),
         queue: addressTreeInfo.queue.toBase58(),
         addressSeed: Array.from(addressSeed),
+        proofAddress: proofAddress.toString(16),
         derivedAddress: derivedAddress.toBase58(),
         proof: serializedProof,
         rootIndices: validity.rootIndices,
@@ -316,6 +322,10 @@ export async function buildLightRecordReceiptContext(input: {
       console.warn('[DEBUG_RECEIPT_CONTEXT] Failed to persist validity dump', err);
     }
   }
+  if (!Array.isArray(validity.treeInfos) || validity.treeInfos.length === 0) {
+    throw new Error('Light RPC returned no treeInfos in validity proof response');
+  }
+
   if (validity.rootIndices.length === 0) {
     validity.rootIndices = [0];
   }
