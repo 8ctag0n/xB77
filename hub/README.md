@@ -15,11 +15,17 @@ A dual-mode interface serving as both a **Commercial Terminal** for merchants an
 
 ## Run
 
+Quick start (single command, hub + listener + one agent in the same process manager):
+
 ```bash
-bun --hot hub/index.ts
+HUB_BOOTSTRAP=true bun hub/index.ts
 ```
 
 Visit `http://localhost:7777`.
+
+```bash
+bun --hot hub/index.ts
+```
 
 ## Usage Flow
 
