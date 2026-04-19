@@ -32,12 +32,23 @@ pub const PaymentRouter = struct {
     sol_client: *solana.SolanaClient,
     vaults: *vault_mod.VaultSet,
 
+    // Dirección de Tesorería para recolectar el Infra Overhead
+    pub const TREASURY_SOL = "Dk6vYdPu3EAb2WT1amGdgYS5puTZRiRzvehBmYhzffJo"; // Agente xB77 Admin
+    pub const INFRA_TAX_PERCENT = 11; // 11% overhead por facilitación de infra
+
     pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, vaults: *vault_mod.VaultSet) PaymentRouter {
         return .{
             .allocator = allocator,
             .sol_client = sol_client,
             .vaults = vaults,
         };
+    }
+
+    /// Calcula el costo de facilitación (QuickNode + Cloudflare + Z-Node)
+    fn calculateInfraOverhead(self: *PaymentRouter, base_fee: u64) u64 {
+        _ = self;
+        // El overhead del 11% se aplica sobre el costo operativo del servicio
+        return (base_fee * INFRA_TAX_PERCENT) / 100;
     }
 
     pub fn pay(self: *PaymentRouter, request: PaymentRequest) !PaymentResult {

@@ -1,19 +1,25 @@
-# WEEK PLAN S7: THE SOVEREIGN SWAP
-**Goal:** Pivot from 3rd party protocols to the native ZDK (Zig-based Development Kit).
+# WEEK PLAN S7: OPERATION SYNAPSE ⚡
 
-## ✅ Progress Checkpoint (Current Session)
-- [x] **Limpieza Total:** Limpiamos la estructura del proyecto, eliminando el "ruido" de infraestructuras viejas y consolidando el core en Zig.
-- [x] **Identidad Dual:** Implementada la generación y manejo de llaves para Solana y EVM en `core/crypto.zig`.
-- [x] **Cerebro (Policies):** Programada la lógica de límites de gasto y validación de políticas en `core/core.zig`.
-- [x] **Fontanería (Transaction Serializer):** Implementado el serializador de transacciones de Solana en `core/tx.zig`, incluyendo soporte para compact-u16 y firmas.
-- [x] **El Latido (Engine):** Estructura del motor 24/7 con integración MCP lista en `core/engine.zig`.
+**Status:** Infrastructure ready. Core purified. Vision locked.
+**Goal:** Transition to Reactive HFT-Latency Commerce.
 
-## 🛠️ Next Session Roadmap
-- [ ] **Fix Writer Types:** Corregir los últimos errores de tipos en el `Writer` de Zig (punteros `const` vs `var`).
-- [ ] **First Real Payment:** Ejecutar `xb77 pay` y verificar la transacción en Solana Devnet.
-- [ ] **Z-Node Bridge:** Iniciar el bridge en Rust para conectar los Yellowstone Streams (QuickNode) con el core en Zig.
-- [ ] **Stylus Integration:** Probar la compilación de las Policies a WASM para su ejecución en Arbitrum Stylus.
+## 🏁 Starting Point (Start here next session)
+1. **[Z-Node Glue]**: Connect `znode/parser.zig` with `core/engine.zig` via Unix Sockets.
+2. **[Risk Recon]**: Implement the first rule in `core/audit.zig` (e.g., Block if recipient has received from known mixers).
+3. **[Infra Tax]**: Add the 11% facilitation fee instruction to `core/tx.zig`.
+4. **[Edge Ready]**: Run `zig build -Dtarget=wasm32-wasi` and fix any WASM-incompatible code.
 
-## Success Criteria
-- **Simple:** `xb77` compila y realiza un pago básico en Solana Devnet de forma nativa.
-- **Ambicioso:** El agente procesa transacciones automáticas filtradas por políticas de gasto y notificadas vía MCP.
+## 🛠️ Technical Debt / Small Tasks
+- [ ] Fix `sendResponse` in `mcp/server.zig` to handle `id: null` better.
+- [ ] Add `std.debug` logs to the Z-Node Parser to see raw bytes flow.
+- [ ] Implement `recordSpend` with persistent storage (SQLite or Flat File).
+
+## 🚀 The "Big Wins"
+- **Reactive Pulse:** First time the agent wakes up because of a slot event without polling.
+- **ZK-Factura:** Generate a Noir proof of a compliant payment.
+- **Merchant Hub:** Deploy the first `/.well-known/xb77.json` for a test business.
+
+## Success Metrics
+- Binary Size: < 500 KB (ReleaseSmall).
+- Memory Usage: < 10 MB in operation.
+- Latency: < 50ms (Event to Decision).

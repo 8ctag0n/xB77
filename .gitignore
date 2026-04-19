@@ -1,3 +1,4 @@
+round2
 zig-out/
 .zig-cache/
 loght_forensics/
@@ -24,3 +25,4 @@ mcp/listener.pid
 demo/keys/*.json
 demo/logs/
 demo/data/
+round2/
