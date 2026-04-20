@@ -75,12 +75,12 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
 }
 
 fn sendResponse(writer: anytype, id: ?std.json.Value, result_json: []const u8) !void {
-    try writer.interface.print("{{\"jsonrpc\":\"2.0\",\"id\":", .{});
+    try writer.interface.print("{{\"jsonrpc\":\"2.0\",", .{});
     if (id) |v| {
-        try writer.interface.print("{f}", .{std.json.fmt(v, .{})});
+        try writer.interface.print("\"id\":{any},", .{std.json.fmt(v, .{})});
     } else {
-        try writer.interface.print("0", .{});
+        try writer.interface.print("\"id\":null,", .{});
     }
-    try writer.interface.print(",\"result\":{s}}}\n", .{result_json});
+    try writer.interface.print("\"result\":{s}}}\n", .{result_json});
     try writer.interface.flush();
 }

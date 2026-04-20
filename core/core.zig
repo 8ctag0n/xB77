@@ -11,7 +11,15 @@ pub const pay = @import("pay.zig");
 pub const receipt = @import("receipt.zig");
 pub const evm = @import("evm.zig");
 pub const tx = @import("tx.zig");
+pub const rlp = @import("rlp.zig");
 
 // Re-exportar funciones comunes
 pub const generateKeypair = crypto.generateKeypair;
 pub const pubkeyToString = crypto.pubkeyToString;
+pub const encodeBase58 = crypto.encodeBase58;
+pub const decodeBase58 = crypto.decodeBase58;
+pub const sign = crypto.sign;
+pub const verify = crypto.verify;
+pub const generateEthKeypair = crypto.generateEthKeypair;
+pub const signEthMessage = crypto.signEthMessage;
+pub const recoverEthPublicKey = crypto.recoverEthPublicKey;

@@ -27,31 +27,45 @@ pub const PaymentResult = struct {
     fee_paid: u64,
 };
 
+const audit_mod = @import("audit.zig");
+const receipt_mod = @import("receipt.zig");
+
 pub const PaymentRouter = struct {
     allocator: std.mem.Allocator,
     sol_client: *solana.SolanaClient,
     vaults: *vault_mod.VaultSet,
+    risk_scorer: audit_mod.RiskScorer,
 
     // Dirección de Tesorería para recolectar el Infra Overhead
     pub const TREASURY_SOL = "Dk6vYdPu3EAb2WT1amGdgYS5puTZRiRzvehBmYhzffJo"; // Agente xB77 Admin
-    pub const INFRA_TAX_PERCENT = 11; // 11% overhead por facilitación de infra
+    pub const INFRA_TAX_BPS = 11; // 0.11% (11 Basis Points)
 
     pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, vaults: *vault_mod.VaultSet) PaymentRouter {
         return .{
             .allocator = allocator,
             .sol_client = sol_client,
             .vaults = vaults,
+            .risk_scorer = audit_mod.RiskScorer.init(allocator),
         };
     }
 
-    /// Calcula el costo de facilitación (QuickNode + Cloudflare + Z-Node)
-    fn calculateInfraOverhead(self: *PaymentRouter, base_fee: u64) u64 {
+    /// Calcula el costo de facilitación (0.11%)
+    fn calculateInfraOverhead(self: *PaymentRouter, amount: u64) u64 {
         _ = self;
-        // El overhead del 11% se aplica sobre el costo operativo del servicio
-        return (base_fee * INFRA_TAX_PERCENT) / 100;
+        // (Amount * 11) / 10,000 = 0.11%
+        return (amount * INFRA_TAX_BPS) / 10000;
     }
 
     pub fn pay(self: *PaymentRouter, request: PaymentRequest) !PaymentResult {
+        // 1. Auditoría de Riesgo (Risk Recon)
+        if (request.recipient == .sol) {
+            const report = try self.risk_scorer.assess(request.recipient.sol, request.amount);
+            if (!report.passed) {
+                std.debug.print("[PaymentRouter] ❌ Riesgo detectado: {s}\n", .{report.flags[0]});
+                return error.RiskAuditFailed;
+            }
+        }
+
         const strategy = self.selectStrategy(request);
         
         return switch (request.asset.chain) {
@@ -69,40 +83,56 @@ pub const PaymentRouter = struct {
     fn paySolana(self: *PaymentRouter, request: PaymentRequest, strategy: PaymentStrategy) !PaymentResult {
         const v = &self.vaults.ops;
 
-        // 1. Verificar Policy
-        const recipient_sol = if (request.recipient == .sol) request.recipient.sol else null;
-        if (!try v.canSpend(request.amount, request.asset, recipient_sol)) return error.PolicyViolation;
+        // 1. Calcular Tax (Infra Tax)
+        const tax_amount = self.calculateInfraOverhead(request.amount);
+        const total_amount = request.amount + tax_amount;
 
-        // 2. Obtener Blockhash
+        // 2. Verificar Policy
+        const recipient_sol = if (request.recipient == .sol) request.recipient.sol else null;
+        if (!try v.canSpend(total_amount, request.asset, recipient_sol)) return error.PolicyViolation;
+
+        // 3. Obtener Blockhash
         const blockhash = try self.sol_client.getLatestBlockhash();
 
-        // 3. Construir Transacción
-        const tx_bytes = try tx_mod.buildTransferTx(
+        // 4. Preparar Transferencias
+        const treasury_pubkey = try crypto.stringToPubkey(self.allocator, TREASURY_SOL);
+        
+        var transfers = std.ArrayListUnmanaged(tx_mod.Transfer){};
+        defer transfers.deinit(self.allocator);
+        
+        try transfers.append(self.allocator, .{ .to = request.recipient.sol, .lamports = request.amount });
+        try transfers.append(self.allocator, .{ .to = treasury_pubkey, .lamports = tax_amount });
+
+        // 5. Construir Transacción Mult-Instrucción
+        const tx_bytes = try tx_mod.buildMultiTransferTx(
             self.allocator,
             v.sol_kp.public,
-            request.recipient.sol,
-            request.amount,
+            transfers.items,
             blockhash,
         );
         defer self.allocator.free(tx_bytes);
 
-        // 4. Firmar (La firma va después del primer byte del wire format en un transfer simple)
-        // El mensaje empieza en el byte 65 (1 byte de count + 64 bytes de firma placeholder)
+        // 6. Firmar
         const message = tx_bytes[65..];
         const signature = crypto.sign(message, &v.sol_kp);
         @memcpy(tx_bytes[1..65], &signature);
 
-        // 5. Enviar
+        // --- NUEVO: GENERAR ZK RECEIPT ---
+        const receipt = try receipt_mod.ZkReceipt.generate(request.amount, tax_amount, request.recipient.sol);
+        try receipt.writeProverToml("circuits/zk_receipt/Prover.toml");
+        std.debug.print("[PaymentRouter] 🧾 ZK-Receipt Prover.toml generado en circuits/zk_receipt/\n", .{});
+
+        // 7. Enviar
         const sig_str = try self.sol_client.sendTransaction(tx_bytes);
 
-        // 6. Registrar Gasto
-        try v.recordSpend(request.amount, request.asset);
+        // 8. Registrar Gasto
+        try v.recordSpend(total_amount, request.asset);
 
         return PaymentResult{
             .tx_signature = sig_str,
             .chain = .solana,
             .strategy = strategy,
-            .fee_paid = 5000,
+            .fee_paid = 5000 + tax_amount,
         };
     }
 

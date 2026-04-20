@@ -30,21 +30,52 @@ pub const Vault = struct {
     eth_kp: ?types.EthKeypair = null,
     policy: SpendPolicy,
     history: std.ArrayListUnmanaged(SpendRecord),
+    storage_path: []const u8,
     
-    pub fn init(allocator: std.mem.Allocator, role: VaultRole, policy: SpendPolicy) Vault {
-        return .{
+    pub fn init(allocator: std.mem.Allocator, role: VaultRole, policy: SpendPolicy, storage_path: []const u8) !Vault {
+        var v = Vault{
             .allocator = allocator,
             .role = role,
             .sol_kp = crypto.generateKeypair(),
             .eth_kp = null,
             .policy = policy,
             .history = std.ArrayListUnmanaged(SpendRecord){},
+            .storage_path = try allocator.dupe(u8, storage_path),
         };
+        try v.loadHistory();
+        return v;
     }
 
     pub fn deinit(self: *Vault) void {
         self.history.deinit(self.allocator);
         self.policy.blacklist.deinit();
+        self.allocator.free(self.storage_path);
+    }
+
+    fn loadHistory(self: *Vault) !void {
+        const file = std.fs.cwd().openFile(self.storage_path, .{}) catch return;
+        defer file.close();
+
+        const content = try file.readToEndAlloc(self.allocator, 1024 * 1024);
+        defer self.allocator.free(content);
+
+        var lines = std.mem.splitScalar(u8, content, '\n');
+        while (lines.next()) |line| {
+            if (line.len == 0) continue;
+            var iter = std.mem.splitScalar(u8, line, ',');
+            const ts_str = iter.next() orelse continue;
+            const amt_str = iter.next() orelse continue;
+            const sym = iter.next() orelse "SOL";
+
+            const ts = std.fmt.parseInt(i64, ts_str, 10) catch continue;
+            const amt = std.fmt.parseInt(u64, amt_str, 10) catch continue;
+
+            try self.history.append(self.allocator, .{
+                .timestamp = ts,
+                .amount = amt,
+                .asset = .{ .chain = .solana, .symbol = try self.allocator.dupe(u8, sym) },
+            });
+        }
     }
 
     pub fn address(self: *const Vault, chain: types.Chain, allocator: std.mem.Allocator) ![]u8 {
@@ -81,11 +112,20 @@ pub const Vault = struct {
     }
 
     pub fn recordSpend(self: *Vault, amount: u64, asset: types.Asset) !void {
+        const ts = std.time.milliTimestamp();
         try self.history.append(self.allocator, .{
-            .timestamp = std.time.milliTimestamp(),
+            .timestamp = ts,
             .amount = amount,
             .asset = asset,
         });
+
+        const file = try std.fs.cwd().createFile(self.storage_path, .{ .truncate = false });
+        defer file.close();
+        try file.seekFromEnd(0);
+        
+        var fmt_buf: [256]u8 = undefined;
+        const line = try std.fmt.bufPrint(&fmt_buf, "{d},{d},{s}\n", .{ ts, amount, asset.symbol });
+        try file.writeAll(line);
     }
 };
 
@@ -95,7 +135,7 @@ pub const VaultSet = struct {
     yield: Vault,
     allocator: std.mem.Allocator,
 
-    pub fn init(allocator: std.mem.Allocator) VaultSet {
+    pub fn init(allocator: std.mem.Allocator) !VaultSet {
         const default_policy = SpendPolicy{
             .daily_limit = 1_000_000_000,
             .per_tx_limit = 500_000_000,
@@ -103,9 +143,9 @@ pub const VaultSet = struct {
         };
         return .{
             .allocator = allocator,
-            .ops = Vault.init(allocator, .ops, default_policy),
-            .reserve = Vault.init(allocator, .reserve, default_policy),
-            .yield = Vault.init(allocator, .yield, default_policy),
+            .ops = try Vault.init(allocator, .ops, default_policy, "ops_vault.csv"),
+            .reserve = try Vault.init(allocator, .reserve, default_policy, "reserve_vault.csv"),
+            .yield = try Vault.init(allocator, .yield, default_policy, "yield_vault.csv"),
         };
     }
 

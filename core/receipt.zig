@@ -1,72 +1,73 @@
 const std = @import("std");
 const types = @import("types.zig");
 const crypto = @import("crypto.zig");
-const pay = @import("pay.zig");
 
-pub const Receipt = struct {
-    id: [32]u8,
-    tx_signature: []const u8,
-    sender: types.Pubkey,
-    recipient: []const u8,
+pub const ZkReceipt = struct {
     amount: u64,
-    symbol: []const u8,
-    chain: types.Chain,
-    timestamp: i64,
-    agent_sig: types.Signature,
+    tax_paid: u64,
+    recipient_hash: [32]u8,
+    
+    // Datos privados
+    recipient_pubkey: types.Pubkey,
+    secret_salt: [32]u8,
 
-    /// Crea un recibo firmado para una transacción completada.
-    pub fn create(
-        allocator: std.mem.Allocator,
-        result: pay.PaymentResult,
-        request: pay.PaymentRequest,
-        agent_kp: *const types.Keypair,
-    ) !Receipt {
-        var receipt = Receipt{
-            .id = undefined,
-            .tx_signature = try allocator.dupe(u8, result.tx_signature),
-            .sender = agent_kp.public,
-            .recipient = switch (request.recipient) {
-                .sol => |pk| try crypto.pubkeyToString(allocator, &pk),
-                .evm => |addr| try @import("evm.zig").addressToHex(allocator, addr),
-            },
-            .amount = request.amount,
-            .symbol = try allocator.dupe(u8, request.asset.symbol),
-            .chain = result.chain,
-            .timestamp = std.time.milliTimestamp(),
-            .agent_sig = undefined,
-        };
+    pub fn generate(
+        amount: u64,
+        tax_paid: u64,
+        recipient: types.Pubkey,
+    ) !ZkReceipt {
+        var salt: [32]u8 = undefined;
+        std.crypto.random.bytes(&salt);
 
-        // El ID es el hash de los datos principales
-        var hasher = std.crypto.hash.sha2.Sha256.init(.{});
-        hasher.update(receipt.tx_signature);
-        hasher.update(receipt.recipient);
-        receipt.id = hasher.finalResult();
+        var hash: [32]u8 = [_]u8{0} ** 32;
+        @memcpy(hash[0..16], recipient[0..16]);
 
-        // El agente firma el ID del recibo
-        receipt.agent_sig = crypto.sign(&receipt.id, agent_kp);
-
-        return receipt;
-    }
-};
-
-pub const ReceiptStore = struct {
-    allocator: std.mem.Allocator,
-    path: []const u8,
-
-    pub fn init(allocator: std.mem.Allocator, path: []const u8) ReceiptStore {
-        return .{
-            .allocator = allocator,
-            .path = path,
+        return ZkReceipt{
+            .amount = amount,
+            .tax_paid = tax_paid,
+            .recipient_hash = hash,
+            .recipient_pubkey = recipient,
+            .secret_salt = salt,
         };
     }
 
-    pub fn save(self: *ReceiptStore, receipt: *const Receipt) !void {
-        const file = try std.fs.cwd().createFile(self.path, .{ .truncate = false });
+    fn bytesToHex(allocator: std.mem.Allocator, bytes: []const u8) ![]u8 {
+        const hex_chars = "0123456789abcdef";
+        var result = try allocator.alloc(u8, bytes.len * 2);
+        for (bytes, 0..) |byte, i| {
+            result[i * 2] = hex_chars[byte >> 4];
+            result[i * 2 + 1] = hex_chars[byte & 0x0f];
+        }
+        return result;
+    }
+
+    pub fn writeProverToml(self: *const ZkReceipt, path: []const u8) !void {
+        const file = try std.fs.cwd().createFile(path, .{});
         defer file.close();
-        try file.seekFromEnd(0);
+        
+        var buf: [4096]u8 = undefined;
+        var fba = std.heap.FixedBufferAllocator.init(&buf);
+        const allocator = fba.allocator();
 
-        var writer = file.writer();
-        try std.json.stringify(receipt.*, .{}, writer);
-        try writer.writeByte('\n');
+        const h_str = try bytesToHex(allocator, &self.recipient_hash);
+        const p_str = try bytesToHex(allocator, self.recipient_pubkey[0..16]);
+        const s_str = try bytesToHex(allocator, self.secret_salt[0..16]);
+
+        const content = try std.fmt.allocPrint(allocator,
+            \\amount = {d}
+            \\tax_paid = {d}
+            \\recipient_hash = "0x{s}"
+            \\recipient_pubkey = "0x{s}"
+            \\secret_salt = "0x{s}"
+            \\
+        , .{
+            self.amount,
+            self.tax_paid,
+            h_str,
+            p_str,
+            s_str,
+        });
+
+        try file.writeAll(content);
     }
 };

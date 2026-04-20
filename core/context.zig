@@ -14,7 +14,7 @@ pub const AgentContext = struct {
         // En una app real, aquí cargaríamos el agent.toml
         return AgentContext{
             .allocator = allocator,
-            .vaults = vault.VaultSet.init(allocator),
+            .vaults = try vault.VaultSet.init(allocator),
             .sol_client = solana.SolanaClient.init(allocator, "https://api.devnet.solana.com"),
             .config_dir = try allocator.dupe(u8, config_dir),
         };

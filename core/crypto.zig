@@ -2,8 +2,10 @@ const std = @import("std");
 pub const types = @import("types.zig");
 
 pub const Ed25519 = std.crypto.sign.Ed25519;
+pub const Secp256k1 = std.crypto.ecc.Secp256k1;
+pub const Keccak256 = std.crypto.hash.sha3.Keccak256;
 
-/// Genera un nuevo par de llaves Ed25519.
+/// Genera un nuevo par de llaves Ed25519 (Solana).
 pub fn generateKeypair() types.Keypair {
     const kp = Ed25519.KeyPair.generate();
     return .{
@@ -12,7 +14,7 @@ pub fn generateKeypair() types.Keypair {
     };
 }
 
-/// Firma un mensaje con la llave secreta.
+/// Firma un mensaje Ed25519.
 pub fn sign(message: []const u8, keypair: *const types.Keypair) types.Signature {
     const sk = Ed25519.SecretKey.fromBytes(keypair.secret) catch unreachable;
     const pk = Ed25519.PublicKey.fromBytes(keypair.public) catch unreachable;
@@ -22,6 +24,78 @@ pub fn sign(message: []const u8, keypair: *const types.Keypair) types.Signature 
     };
     const signature = kp.sign(message, null) catch unreachable;
     return signature.toBytes();
+}
+
+/// Genera un nuevo par de llaves Secp256k1 (Ethereum).
+pub fn generateEthKeypair() !types.EthKeypair {
+    const secret_key = std.crypto.ecc.Secp256k1.scalar.random(.big);
+    const public_key = try std.crypto.ecc.Secp256k1.basePoint.mul(secret_key, .big);
+    
+    // La dirección de Ethereum son los últimos 20 bytes del hash Keccak de la pubkey (sin el primer byte 0x04)
+    const uncompressed_pk = public_key.toUncompressedSec1();
+    var hash: [32]u8 = undefined;
+    Keccak256.hash(uncompressed_pk[1..], &hash, .{});
+    
+    var addr: [20]u8 = undefined;
+    @memcpy(&addr, hash[12..32]);
+
+    return .{
+        .address = addr,
+        .secret = secret_key,
+    };
+}
+
+pub const EthSignature = struct {
+    r: [32]u8,
+    s: [32]u8,
+    v: u8,
+};
+
+/// Firma un mensaje con Secp256k1 (formato Ethereum).
+pub fn signEthMessage(message_hash: [32]u8, secret_key_bytes: [32]u8) !EthSignature {
+    const EcdsaKeccak = std.crypto.sign.ecdsa.Ecdsa(std.crypto.ecc.Secp256k1, std.crypto.hash.sha3.Keccak256);
+    const keypair = try EcdsaKeccak.KeyPair.fromSecretKey(secret_key_bytes);
+    const sig = try keypair.sign(&message_hash, null);
+    
+    // Para obtener 'v' (recovery ID), derivamos la pubkey y probamos cuál v la recupera.
+    const actual_pk_bytes = keypair.public_key.toUncompressedSec1();
+
+    var v: u8 = 0;
+    while (v < 2) : (v += 1) {
+        if (recoverEthPublicKey(message_hash, sig.r, sig.s, v)) |recovered_pk| {
+            const recovered_bytes = recovered_pk.toUncompressedSec1();
+            if (std.mem.eql(u8, &actual_pk_bytes, &recovered_bytes)) {
+                return EthSignature{
+                    .r = sig.r,
+                    .s = sig.s,
+                    .v = v,
+                };
+            }
+        } else |_| {}
+    }
+
+    return error.RecoveryFailed;
+}
+
+/// Recupera la llave pública a partir de una firma y el hash del mensaje.
+pub fn recoverEthPublicKey(message_hash: [32]u8, r: [32]u8, s: [32]u8, v: u8) !std.crypto.ecc.Secp256k1.Point {
+    // 1. Levantar R a partir de r y v
+    var compressed_R = [_]u8{0} ** 33;
+    compressed_R[0] = 0x02 + v;
+    @memcpy(compressed_R[1..33], &r);
+    const R = try Secp256k1.Point.fromCompressed(compressed_R);
+    
+    // 2. Q = r⁻¹ * (sR - zG)
+    // Para invertir r, sí necesitamos el escalar. 
+    const r_scalar = try std.crypto.ecc.Secp256k1.Scalar.fromBytes(r, .big);
+    const r_inv = r_scalar.invert();
+    const sR = try R.mul(s, .big);
+    const zG = try Secp256k1.basePoint.mul(message_hash, .big);
+    
+    const neg_zG = zG.neg();
+    const sR_minus_zG = sR.add(neg_zG);
+    
+    return try sR_minus_zG.mul(r_inv.toBytes(.big), .big);
 }
 
 /// Verifica una firma.
