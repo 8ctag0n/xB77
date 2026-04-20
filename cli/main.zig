@@ -62,19 +62,28 @@ fn handleInit(allocator: std.mem.Allocator) !void {
 fn handleStatus(allocator: std.mem.Allocator) !void {
     var ctx = try core.context.AgentContext.init(allocator, "./.xb77");
     defer ctx.deinit();
+
     const sol_addr = try ctx.vaults.ops.address(.solana, allocator);
     defer allocator.free(sol_addr);
-    std.debug.print("--- ESTADO DEL AGENTE ---\nVault (Ops): {s}\n-------------------------\n", .{sol_addr});
+
+    const eth_addr = try ctx.vaults.ops.address(.base, allocator);
+    defer allocator.free(eth_addr);
+
+    std.debug.print("--- ESTADO DEL AGENTE ---\n", .{});
+    std.debug.print("Vault (Ops) Solana: {s}\n", .{sol_addr});
+    std.debug.print("Vault (Ops) EVM:    {s}\n", .{eth_addr});
+    std.debug.print("-------------------------\n", .{});
 }
 
 fn handlePay(allocator: std.mem.Allocator, args: []const []const u8) !void {
     if (args.len < 2) {
-        std.debug.print("Uso: xb77 pay <destinatario> <monto>\n", .{});
+        std.debug.print("Uso: xb77 pay <destinatario> <monto> [chain]\n", .{});
         return;
     }
 
     const dest_str = args[0];
     const amount_val = std.fmt.parseInt(u64, args[1], 10) catch 0;
+    const chain_name = if (args.len > 2) args[2] else "solana";
 
     var ctx = try core.context.AgentContext.init(allocator, "./.xb77");
     defer ctx.deinit();
@@ -86,21 +95,30 @@ fn handlePay(allocator: std.mem.Allocator, args: []const []const u8) !void {
         .blacklist = std.AutoHashMap(core.types.Pubkey, void).init(allocator),
     };
 
-    const dest_pubkey = try core.crypto.stringToPubkey(allocator, dest_str);
+    var router = core.pay.PaymentRouter.init(allocator, &ctx.sol_client, &ctx.evm_client, &ctx.vaults);
 
-    std.debug.print("🚀 Ejecutando pago real en Solana Devnet...\n", .{});
-    
-    var router = core.pay.PaymentRouter.init(allocator, &ctx.sol_client, &ctx.vaults);
-    const result = try router.pay(.{
-        .amount = amount_val,
-        .asset = .{ .chain = .solana, .symbol = "SOL" },
-        .recipient = .{ .sol = dest_pubkey },
-    });
-
-    std.debug.print("✅ Pago exitoso!\n", .{});
-    std.debug.print("Firma: {s}\n", .{result.tx_signature});
+    if (std.mem.eql(u8, chain_name, "solana")) {
+        const dest_pubkey = try core.crypto.stringToPubkey(allocator, dest_str);
+        std.debug.print("🚀 Ejecutando pago en Solana Devnet...\n", .{});
+        const result = try router.pay(.{
+            .amount = amount_val,
+            .asset = .{ .chain = .solana, .symbol = "SOL" },
+            .recipient = .{ .sol = dest_pubkey },
+        });
+        std.debug.print("✅ Pago exitoso! Firma: {s}\n", .{result.tx_signature});
+    } else if (std.mem.eql(u8, chain_name, "evm") or std.mem.eql(u8, chain_name, "base")) {
+        const dest_addr = try core.evm.hexToAddress(dest_str);
+        std.debug.print("🚀 Ejecutando pago en Base Sepolia...\n", .{});
+        const result = try router.pay(.{
+            .amount = amount_val,
+            .asset = .{ .chain = .base, .symbol = "ETH" },
+            .recipient = .{ .evm = dest_addr },
+        });
+        std.debug.print("✅ Pago exitoso! Hash: {s}\n", .{result.tx_signature});
+    } else {
+        std.debug.print("Chain no soportada: {s}\n", .{chain_name});
+    }
 }
-
 fn handleMcp(allocator: std.mem.Allocator) !void {
     var ctx = try core.context.AgentContext.init(allocator, "./.xb77");
     defer ctx.deinit();

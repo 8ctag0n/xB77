@@ -102,7 +102,7 @@ pub const EvmClient = struct {
 
         const result = parsed.value.object.get("result") orelse {
             if (parsed.value.object.get("error")) |err| {
-                std.debug.print("RPC Error: {s}\n", .{err});
+                std.debug.print("RPC Error: {any}\n", .{err});
             }
             return error.RpcError;
         };
@@ -135,7 +135,7 @@ pub const EvmClient = struct {
             return error.RpcError;
         }
 
-        const body = try req.reader().allocAll(self.allocator, 10 * 1024 * 1024); // 10MB limit
+        const body = try req.reader.interface.readAlloc(self.allocator, 10 * 1024 * 1024); // 10MB limit
         return body;
     }
 };

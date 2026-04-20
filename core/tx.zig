@@ -19,34 +19,34 @@ pub fn buildEthEip1559Tx(allocator: std.mem.Allocator, tx: EthEip1559Tx) ![]u8 {
     // Para EIP-1559, firmamos: rlp([chain_id, nonce, max_priority_fee, max_fee, gas_limit, destination, amount, data, access_list])
     // Prefijado con 0x02.
 
-    var list = std.ArrayList([]const u8).init(allocator);
+    var list = std.ArrayListUnmanaged([]const u8){};
     defer {
         for (list.items) |i| allocator.free(i);
-        list.deinit();
+        list.deinit(allocator);
     }
 
-    try list.append(try rlp.encode(allocator, tx.chain_id));
-    try list.append(try rlp.encode(allocator, tx.nonce));
-    try list.append(try rlp.encode(allocator, tx.max_priority_fee_per_gas));
-    try list.append(try rlp.encode(allocator, tx.max_fee_per_gas));
-    try list.append(try rlp.encode(allocator, tx.gas_limit));
+    try list.append(allocator, try rlp.encode(allocator, tx.chain_id));
+    try list.append(allocator, try rlp.encode(allocator, tx.nonce));
+    try list.append(allocator, try rlp.encode(allocator, tx.max_priority_fee_per_gas));
+    try list.append(allocator, try rlp.encode(allocator, tx.max_fee_per_gas));
+    try list.append(allocator, try rlp.encode(allocator, tx.gas_limit));
     
     if (tx.to) |addr| {
-        try list.append(try rlp.encode(allocator, &addr));
+        try list.append(allocator, try rlp.encode(allocator, &addr));
     } else {
-        try list.append(try rlp.encode(allocator, &[_]u8{}));
+        try list.append(allocator, try rlp.encode(allocator, &[_]u8{}));
     }
     
-    try list.append(try rlp.encode(allocator, tx.value));
-    try list.append(try rlp.encode(allocator, tx.data));
+    try list.append(allocator, try rlp.encode(allocator, tx.value));
+    try list.append(allocator, try rlp.encode(allocator, tx.data));
     
     // Access list (vacia por ahora)
-    try list.append(try rlp.encode(allocator, tx.access_list));
+    try list.append(allocator, try rlp.encode(allocator, tx.access_list));
 
     // Consolidar lista en RLP
-    var payload = std.ArrayList(u8).init(allocator);
-    defer payload.deinit();
-    for (list.items) |i| try payload.appendSlice(i);
+    var payload = std.ArrayListUnmanaged(u8){};
+    defer payload.deinit(allocator);
+    for (list.items) |i| try payload.appendSlice(allocator, i);
 
     const encoded_list = try rlp.encodeListFixed(allocator, payload.items);
     defer allocator.free(encoded_list);

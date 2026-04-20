@@ -7,16 +7,21 @@ pub fn encode(allocator: std.mem.Allocator, item: anytype) ![]u8 {
         u8, u16, u32, u64, u128, usize => return try encodeInt(allocator, item),
         else => {
             const info = @typeInfo(T);
-            if (info == .Struct or info == .Array) {
-                return try encodeList(allocator, item);
+            switch (info) {
+                .pointer => return try encodeString(allocator, item),
+                .@"struct", .array => return try encodeList(allocator, item),
+                else => @compileError("Unsupported type for RLP encoding: " ++ @typeName(T)),
             }
-            @compileError("Unsupported type for RLP encoding: " ++ @typeName(T));
         },
     }
 }
 
 fn encodeInt(allocator: std.mem.Allocator, value: anytype) ![]u8 {
-    if (value == 0) return try encodeString(allocator, &[_]u8{});
+    if (value == 0) {
+        var res = try allocator.alloc(u8, 1);
+        res[0] = 0x80;
+        return res;
+    }
     
     var buf: [16]u8 = undefined;
     std.mem.writeInt(u128, &buf, value, .big);
@@ -56,7 +61,10 @@ pub fn encodeList(allocator: std.mem.Allocator, items: anytype) ![]u8 {
         try out.appendSlice(encoded);
     }
 
-    const payload = out.items;
+    return try encodeListFixed(allocator, out.items);
+}
+
+pub fn encodeListFixed(allocator: std.mem.Allocator, payload: []const u8) ![]u8 {
     if (payload.len <= 55) {
         var res = try allocator.alloc(u8, 1 + payload.len);
         res[0] = @intCast(0xc0 + payload.len);

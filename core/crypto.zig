@@ -54,7 +54,8 @@ pub const EthSignature = struct {
 /// Firma un mensaje con Secp256k1 (formato Ethereum).
 pub fn signEthMessage(message_hash: [32]u8, secret_key_bytes: [32]u8) !EthSignature {
     const EcdsaKeccak = std.crypto.sign.ecdsa.Ecdsa(std.crypto.ecc.Secp256k1, std.crypto.hash.sha3.Keccak256);
-    const keypair = try EcdsaKeccak.KeyPair.fromSecretKey(secret_key_bytes);
+    const sk = try EcdsaKeccak.SecretKey.fromBytes(secret_key_bytes);
+    const keypair = try EcdsaKeccak.KeyPair.fromSecretKey(sk);
     const sig = try keypair.sign(&message_hash, null);
     
     // Para obtener 'v' (recovery ID), derivamos la pubkey y probamos cuál v la recupera.
@@ -78,24 +79,33 @@ pub fn signEthMessage(message_hash: [32]u8, secret_key_bytes: [32]u8) !EthSignat
 }
 
 /// Recupera la llave pública a partir de una firma y el hash del mensaje.
-pub fn recoverEthPublicKey(message_hash: [32]u8, r: [32]u8, s: [32]u8, v: u8) !std.crypto.ecc.Secp256k1.Point {
+pub fn recoverEthPublicKey(message_hash: [32]u8, r: [32]u8, s: [32]u8, v: u8) !std.crypto.ecc.Secp256k1 {
     // 1. Levantar R a partir de r y v
     var compressed_R = [_]u8{0} ** 33;
     compressed_R[0] = 0x02 + v;
     @memcpy(compressed_R[1..33], &r);
-    const R = try Secp256k1.Point.fromCompressed(compressed_R);
+    const R = try Secp256k1.fromSec1(&compressed_R);
     
     // 2. Q = r⁻¹ * (sR - zG)
-    // Para invertir r, sí necesitamos el escalar. 
-    const r_scalar = try std.crypto.ecc.Secp256k1.Scalar.fromBytes(r, .big);
-    const r_inv = r_scalar.invert();
+    const r_scalar = try Secp256k1.scalar.Scalar.fromBytes(r, .big);
+    const r_inv = Secp256k1.scalar.Scalar.invert(r_scalar);
     const sR = try R.mul(s, .big);
     const zG = try Secp256k1.basePoint.mul(message_hash, .big);
     
     const neg_zG = zG.neg();
     const sR_minus_zG = sR.add(neg_zG);
     
-    return try sR_minus_zG.mul(r_inv.toBytes(.big), .big);
+    return try sR_minus_zG.mul(Secp256k1.scalar.Scalar.toBytes(r_inv, .big), .big);
+}
+
+pub fn bytesToHex(allocator: std.mem.Allocator, bytes: []const u8) ![]u8 {
+    const hex_chars = "0123456789abcdef";
+    var result = try allocator.alloc(u8, bytes.len * 2);
+    for (bytes, 0..) |byte, i| {
+        result[i * 2] = hex_chars[byte >> 4];
+        result[i * 2 + 1] = hex_chars[byte & 0x0f];
+    }
+    return result;
 }
 
 /// Verifica una firma.

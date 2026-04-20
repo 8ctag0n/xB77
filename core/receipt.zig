@@ -31,16 +31,6 @@ pub const ZkReceipt = struct {
         };
     }
 
-    fn bytesToHex(allocator: std.mem.Allocator, bytes: []const u8) ![]u8 {
-        const hex_chars = "0123456789abcdef";
-        var result = try allocator.alloc(u8, bytes.len * 2);
-        for (bytes, 0..) |byte, i| {
-            result[i * 2] = hex_chars[byte >> 4];
-            result[i * 2 + 1] = hex_chars[byte & 0x0f];
-        }
-        return result;
-    }
-
     pub fn writeProverToml(self: *const ZkReceipt, path: []const u8) !void {
         const file = try std.fs.cwd().createFile(path, .{});
         defer file.close();
@@ -49,9 +39,9 @@ pub const ZkReceipt = struct {
         var fba = std.heap.FixedBufferAllocator.init(&buf);
         const allocator = fba.allocator();
 
-        const h_str = try bytesToHex(allocator, &self.recipient_hash);
-        const p_str = try bytesToHex(allocator, self.recipient_pubkey[0..16]);
-        const s_str = try bytesToHex(allocator, self.secret_salt[0..16]);
+        const h_str = try crypto.bytesToHex(allocator, &self.recipient_hash);
+        const p_str = try crypto.bytesToHex(allocator, self.recipient_pubkey[0..16]);
+        const s_str = try crypto.bytesToHex(allocator, self.secret_salt[0..16]);
 
         const content = try std.fmt.allocPrint(allocator,
             \\amount = {d}

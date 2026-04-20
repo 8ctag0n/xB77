@@ -2,6 +2,7 @@ const std = @import("std");
 const types = @import("types.zig");
 const vault_mod = @import("vault.zig");
 const solana = @import("solana.zig");
+const evm_mod = @import("evm.zig");
 const tx_mod = @import("tx.zig");
 const crypto = @import("crypto.zig");
 
@@ -33,17 +34,20 @@ const receipt_mod = @import("receipt.zig");
 pub const PaymentRouter = struct {
     allocator: std.mem.Allocator,
     sol_client: *solana.SolanaClient,
+    evm_client: *evm_mod.EvmClient,
     vaults: *vault_mod.VaultSet,
     risk_scorer: audit_mod.RiskScorer,
 
     // Dirección de Tesorería para recolectar el Infra Overhead
     pub const TREASURY_SOL = "Dk6vYdPu3EAb2WT1amGdgYS5puTZRiRzvehBmYhzffJo"; // Agente xB77 Admin
+    pub const TREASURY_EVM = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // Mock treasury
     pub const INFRA_TAX_BPS = 11; // 0.11% (11 Basis Points)
 
-    pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, vaults: *vault_mod.VaultSet) PaymentRouter {
+    pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, evm_client: *evm_mod.EvmClient, vaults: *vault_mod.VaultSet) PaymentRouter {
         return .{
             .allocator = allocator,
             .sol_client = sol_client,
+            .evm_client = evm_client,
             .vaults = vaults,
             .risk_scorer = audit_mod.RiskScorer.init(allocator),
         };
@@ -137,11 +141,93 @@ pub const PaymentRouter = struct {
     }
 
     fn payEVM(self: *PaymentRouter, request: PaymentRequest, strategy: PaymentStrategy) !PaymentResult {
+        const v = &self.vaults.ops;
+        const eth_kp = v.eth_kp orelse return error.EthKeypairNotInitialized;
+
+        // 1. Calcular Tax (Infra Tax)
+        const tax_amount = self.calculateInfraOverhead(request.amount);
+        const total_amount = request.amount + tax_amount;
+
+        // 2. Verificar Policy
+        if (!try v.canSpend(total_amount, request.asset, null)) return error.PolicyViolation;
+
+        // 3. Obtener Nonce y Gas
+        const nonce = try self.evm_client.getNonce(eth_kp.address);
+        const gas_price = try self.evm_client.getGasPrice();
+
+        // 4. Construir Transacción (Transferencia Simple para demo)
+        const tx = tx_mod.EthEip1559Tx{
+            .chain_id = 84532, // Base Sepolia
+            .nonce = nonce,
+            .max_priority_fee_per_gas = 1_000_000_000, // 1 Gwei
+            .max_fee_per_gas = gas_price + 1_000_000_000,
+            .gas_limit = 21000,
+            .to = request.recipient.evm,
+            .value = request.amount,
+            .data = &.{},
+        };
+
+        const unsigned_tx = try tx_mod.buildEthEip1559Tx(self.allocator, tx);
+        defer self.allocator.free(unsigned_tx);
+
+        // 5. Firmar
+        var hash: [32]u8 = undefined;
+        crypto.Keccak256.hash(unsigned_tx, &hash, .{});
+        const sig = try crypto.signEthMessage(hash, eth_kp.secret);
+
+        // 6. Codificar Transacción Firmada (RLP: [tx_list, r, s, v])
+        // Nota: El formato EIP-1559 firmado es 0x02 || rlp([chain_id, nonce, ..., y_parity, r, s])
+        // Para simplificar la demo, codificamos el payload RLP completo
+        
+        const rlp = @import("rlp.zig");
+        var list = std.ArrayListUnmanaged([]const u8){};
+        defer {
+            for (list.items) |i| self.allocator.free(i);
+            list.deinit(self.allocator);
+        }
+
+        try list.append(self.allocator, try rlp.encode(self.allocator, tx.chain_id));
+        try list.append(self.allocator, try rlp.encode(self.allocator, tx.nonce));
+        try list.append(self.allocator, try rlp.encode(self.allocator, tx.max_priority_fee_per_gas));
+        try list.append(self.allocator, try rlp.encode(self.allocator, tx.max_fee_per_gas));
+        try list.append(self.allocator, try rlp.encode(self.allocator, tx.gas_limit));
+        try list.append(self.allocator, try rlp.encode(self.allocator, &request.recipient.evm));
+        try list.append(self.allocator, try rlp.encode(self.allocator, tx.value));
+        try list.append(self.allocator, try rlp.encode(self.allocator, tx.data));
+        try list.append(self.allocator, try rlp.encode(self.allocator, tx.access_list));
+        try list.append(self.allocator, try rlp.encode(self.allocator, sig.v));
+        try list.append(self.allocator, try rlp.encode(self.allocator, &sig.r));
+        try list.append(self.allocator, try rlp.encode(self.allocator, &sig.s));
+
+        var payload = std.ArrayListUnmanaged(u8){};
+        defer payload.deinit(self.allocator);
+        for (list.items) |i| try payload.appendSlice(self.allocator, i);
+
+        const encoded_list = try rlp.encodeListFixed(self.allocator, payload.items);
+        defer self.allocator.free(encoded_list);
+
+        const hex_buf = try crypto.bytesToHex(self.allocator, encoded_list);
+        defer self.allocator.free(hex_buf);
+
+        const tx_hex = try std.fmt.allocPrint(self.allocator, "0x02{s}", .{hex_buf});
+        defer self.allocator.free(tx_hex);
+
+        // 7. Enviar
+        const tx_hash = try self.evm_client.sendRawTransaction(tx_hex);
+        
+        const hash_hex = try crypto.bytesToHex(self.allocator, &tx_hash);
+        defer self.allocator.free(hash_hex);
+        
+        const tx_hash_str = try std.fmt.allocPrint(self.allocator, "0x{s}", .{hash_hex});
+
+        // 8. Registrar Gasto
+        try v.recordSpend(total_amount, request.asset);
+
         return PaymentResult{
-            .tx_signature = try self.allocator.dupe(u8, "0xmock_evm_sig"),
+            .tx_signature = tx_hash_str,
             .chain = request.asset.chain,
             .strategy = strategy,
-            .fee_paid = 21000,
+            .fee_paid = (21000 * gas_price) + tax_amount,
         };
     }
 };
