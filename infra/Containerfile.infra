@@ -1,0 +1,28 @@
+# xB77 Sovereign Infrastructure (Zig-optimized)
+FROM ghcr.io/foundry-rs/foundry:latest AS anvil-source
+
+FROM debian:bookworm-slim
+
+# Dependencias mínimas
+RUN apt-get update && apt-get install -y \
+    curl \
+    netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar Anvil (EVM Local Node)
+COPY --from=anvil-source /usr/local/bin/anvil /usr/local/bin/anvil
+
+# Puertos
+# 8545: EVM RPC (Anvil)
+EXPOSE 8545
+
+# Script de inicio
+RUN echo '#!/bin/bash\n\
+echo "🚀 Levantando Infraestructura Soberana xB77..."\n\
+echo "🔹 Iniciando Anvil (EVM Mock) en puerto 8545..."\n\
+anvil --host 0.0.0.0 --port 8545 --chain-id 84532 --block-time 2 &\n\
+\n\
+wait -n\n\
+' > /usr/local/bin/start-infra.sh && chmod +x /usr/local/bin/start-infra.sh
+
+CMD ["/usr/local/bin/start-infra.sh"]

@@ -60,7 +60,7 @@ fn handleInit(allocator: std.mem.Allocator) !void {
 }
 
 fn handleStatus(allocator: std.mem.Allocator) !void {
-    var ctx = try core.context.AgentContext.init(allocator, "./.xb77");
+    var ctx = try core.context.AgentContext.init(allocator, "agent.toml");
     defer ctx.deinit();
 
     const sol_addr = try ctx.vaults.ops.address(.solana, allocator);
@@ -69,10 +69,12 @@ fn handleStatus(allocator: std.mem.Allocator) !void {
     const eth_addr = try ctx.vaults.ops.address(.base, allocator);
     defer allocator.free(eth_addr);
 
-    std.debug.print("--- ESTADO DEL AGENTE ---\n", .{});
+    std.debug.print("--- ESTADO DEL AGENTE (Identidad Soberana) ---\n", .{});
     std.debug.print("Vault (Ops) Solana: {s}\n", .{sol_addr});
     std.debug.print("Vault (Ops) EVM:    {s}\n", .{eth_addr});
-    std.debug.print("-------------------------\n", .{});
+    std.debug.print("RPC Solana:         {s}\n", .{ctx.config.rpc.solana});
+    std.debug.print("RPC EVM:            {s}\n", .{ctx.config.rpc.base});
+    std.debug.print("--------------------------------------------\n", .{});
 }
 
 fn handlePay(allocator: std.mem.Allocator, args: []const []const u8) !void {
@@ -85,13 +87,13 @@ fn handlePay(allocator: std.mem.Allocator, args: []const []const u8) !void {
     const amount_val = std.fmt.parseInt(u64, args[1], 10) catch 0;
     const chain_name = if (args.len > 2) args[2] else "solana";
 
-    var ctx = try core.context.AgentContext.init(allocator, "./.xb77");
+    var ctx = try core.context.AgentContext.init(allocator, "agent.toml");
     defer ctx.deinit();
 
-    // Configurar política temporal para la demo
+    // Configurar política temporal para la demo (puedes mover esto al TOML luego)
     ctx.vaults.ops.policy = .{
-        .daily_limit = 10_000_000_000,
-        .per_tx_limit = 5_000_000_000,
+        .daily_limit = 10_000_000_000_000_000_000, // 10 ETH
+        .per_tx_limit = 5_000_000_000_000_000_000,  // 5 ETH
         .blacklist = std.AutoHashMap(core.types.Pubkey, void).init(allocator),
     };
 
@@ -120,13 +122,13 @@ fn handlePay(allocator: std.mem.Allocator, args: []const []const u8) !void {
     }
 }
 fn handleMcp(allocator: std.mem.Allocator) !void {
-    var ctx = try core.context.AgentContext.init(allocator, "./.xb77");
+    var ctx = try core.context.AgentContext.init(allocator, "agent.toml");
     defer ctx.deinit();
     try mcp_server.run(allocator, &ctx);
 }
 
 fn handleServe(allocator: std.mem.Allocator) !void {
-    var ctx = try core.context.AgentContext.init(allocator, "./.xb77");
+    var ctx = try core.context.AgentContext.init(allocator, "agent.toml");
     defer ctx.deinit();
     var agent_engine = core.engine.Engine.init(allocator, &ctx);
     try agent_engine.start();

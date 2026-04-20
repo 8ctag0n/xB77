@@ -8,8 +8,14 @@ pub fn encode(allocator: std.mem.Allocator, item: anytype) ![]u8 {
         else => {
             const info = @typeInfo(T);
             switch (info) {
-                .pointer => return try encodeString(allocator, item),
-                .@"struct", .array => return try encodeList(allocator, item),
+                .pointer => {
+                    // Si es un puntero a algo que podemos tratar como string
+                    return try encodeString(allocator, item);
+                },
+                .@"struct", .array => {
+                    // Tratar como lista RLP
+                    return try encodeList(allocator, item);
+                },
                 else => @compileError("Unsupported type for RLP encoding: " ++ @typeName(T)),
             }
         },
@@ -29,7 +35,11 @@ fn encodeInt(allocator: std.mem.Allocator, value: anytype) ![]u8 {
     var start: usize = 0;
     while (start < 16 and buf[start] == 0) : (start += 1) {}
     
-    return try encodeString(allocator, buf[start..]);
+    const bytes = buf[start..];
+    if (bytes.len == 1 and bytes[0] < 0x80) {
+        return try allocator.dupe(u8, bytes);
+    }
+    return try encodeString(allocator, bytes);
 }
 
 fn encodeString(allocator: std.mem.Allocator, s: []const u8) ![]u8 {
@@ -52,13 +62,24 @@ fn encodeString(allocator: std.mem.Allocator, s: []const u8) ![]u8 {
 }
 
 pub fn encodeList(allocator: std.mem.Allocator, items: anytype) ![]u8 {
-    var out = std.ArrayList(u8).init(allocator);
-    defer out.deinit();
+    var out = std.ArrayListUnmanaged(u8){};
+    defer out.deinit(allocator);
 
-    inline for (items) |item| {
-        const encoded = try encode(allocator, item);
-        defer allocator.free(encoded);
-        try out.appendSlice(encoded);
+    const T = @TypeOf(items);
+    const info = @typeInfo(T);
+
+    if (info == .@"struct") {
+        inline for (std.meta.fields(T)) |f| {
+            const encoded = try encode(allocator, @field(items, f.name));
+            defer allocator.free(encoded);
+            try out.appendSlice(allocator, encoded);
+        }
+    } else if (info == .pointer or info == .array) {
+        for (items) |item| {
+            const encoded = try encode(allocator, item);
+            defer allocator.free(encoded);
+            try out.appendSlice(allocator, encoded);
+        }
     }
 
     return try encodeListFixed(allocator, out.items);

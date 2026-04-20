@@ -195,7 +195,7 @@ pub const PaymentRouter = struct {
         try list.append(self.allocator, try rlp.encode(self.allocator, tx.value));
         try list.append(self.allocator, try rlp.encode(self.allocator, tx.data));
         try list.append(self.allocator, try rlp.encode(self.allocator, tx.access_list));
-        try list.append(self.allocator, try rlp.encode(self.allocator, sig.v));
+        try list.append(self.allocator, try rlp.encode(self.allocator, @as(u8, sig.v))); // y_parity
         try list.append(self.allocator, try rlp.encode(self.allocator, &sig.r));
         try list.append(self.allocator, try rlp.encode(self.allocator, &sig.s));
 

@@ -1,7 +1,12 @@
-.PHONY: noir-compile noir-execute sunspot proof-badge localnet-start localnet-start-bg localnet-start-light localnet-stop localnet-verifier localnet-gateway localnet-init localnet-verify localnet-setup localnet-e2e demo-payment
+.PHONY: noir-compile noir-execute sunspot proof-badge localnet-start localnet-start-bg localnet-start-light localnet-stop localnet-verifier localnet-gateway localnet-init localnet-verify localnet-setup localnet-e2e demo-payment infra-up infra-down
 
-noir-compile:
-	./scripts/build-noir-artifacts.sh
+infra-up:
+	podman build -t xb77-infra -f infra/Containerfile.infra .
+	podman run -d --name xb77-infra-dev -p 8545:8545 xb77-infra
+
+infra-down:
+	podman stop xb77-infra-dev || true
+	podman rm xb77-infra-dev || true
 
 noir-execute:
 	./scripts/noir-execute.sh
