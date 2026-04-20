@@ -19,26 +19,45 @@ pub const AuditReport = struct {
 pub const RiskScorer = struct {
     allocator: std.mem.Allocator,
 
-    // Direcciones de mixers conocidos (Ejemplos para la demo)
-    pub const KNOWN_MIXERS = [_][]const u8{
-        "67p69nUfQunq1YJmP6K3R4A2rKaxN6K4zYQY4pY7nABC", // Falso Tornado
+    pub const MIXERS_SOL = [_][]const u8{
+        "67p69nUfQunq1YJmP6K3R4A2rKaxN6K4zYQY4pY7nABC",
+    };
+
+    pub const MIXERS_EVM = [_][]const u8{
+        "0x7777777777777777777777777777777777777777", // Mock Tornado
     };
 
     pub fn init(allocator: std.mem.Allocator) RiskScorer {
         return .{ .allocator = allocator };
     }
 
+    pub const Recipient = union(enum) {
+        sol: types.Pubkey,
+        evm: types.EthAddress,
+    };
+
     /// Analiza una transacción antes de que el Agente la firme
-    pub fn assess(self: *RiskScorer, recipient: types.Pubkey, amount: u64) !AuditReport {
+    pub fn assess(self: *RiskScorer, recipient: Recipient, amount: u64) !AuditReport {
         _ = amount;
-        
-        // 1. Convertir Pubkey a String para comparar
         const crypto = @import("crypto.zig");
-        const recipient_str = try crypto.pubkeyToString(self.allocator, &recipient);
+        
+        var recipient_str: []u8 = undefined;
+        var mixers: []const []const u8 = undefined;
+
+        switch (recipient) {
+            .sol => |pk| {
+                recipient_str = try crypto.pubkeyToString(self.allocator, &pk);
+                mixers = &MIXERS_SOL;
+            },
+            .evm => |addr| {
+                recipient_str = try crypto.encodeEthAddress(self.allocator, addr);
+                mixers = &MIXERS_EVM;
+            },
+        }
         defer self.allocator.free(recipient_str);
 
         // 2. Check Mixers
-        for (KNOWN_MIXERS) |mixer| {
+        for (mixers) |mixer| {
             if (std.mem.eql(u8, recipient_str, mixer)) {
                 var flags = try self.allocator.alloc([]const u8, 1);
                 flags[0] = try self.allocator.dupe(u8, "RECIPIENT_IS_KNOWN_MIXER");

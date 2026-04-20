@@ -15,45 +15,82 @@ pub const EthEip1559Tx = struct {
     access_list: []const u8 = &[_]u8{}, // Simplificado para xB77
 };
 
-pub fn buildEthEip1559Tx(allocator: std.mem.Allocator, tx: EthEip1559Tx) ![]u8 {
-    // Para EIP-1559, firmamos: rlp([chain_id, nonce, max_priority_fee, max_fee, gas_limit, destination, amount, data, access_list])
-    // Prefijado con 0x02.
+pub fn buildEthEip1559Tx(allocator: std.mem.Allocator, tx: EthEip1559Tx, keypair: *const types.EthKeypair) ![]u8 {
+    // Helper para codificar y añadir al buffer liberando la memoria intermedia
+    const helpers = struct {
+        fn encodeAndAppend(alloc: std.mem.Allocator, list: *std.ArrayListUnmanaged(u8), item: anytype) !void {
+            const encoded = try rlp.encode(alloc, item);
+            defer alloc.free(encoded);
+            try list.appendSlice(alloc, encoded);
+        }
+    };
 
-    var list = std.ArrayListUnmanaged([]const u8){};
-    defer {
-        for (list.items) |i| allocator.free(i);
-        list.deinit(allocator);
-    }
+    // 1. Construir el payload para firmar
+    var list = std.ArrayListUnmanaged(u8){};
+    defer list.deinit(allocator);
 
-    try list.append(allocator, try rlp.encode(allocator, tx.chain_id));
-    try list.append(allocator, try rlp.encode(allocator, tx.nonce));
-    try list.append(allocator, try rlp.encode(allocator, tx.max_priority_fee_per_gas));
-    try list.append(allocator, try rlp.encode(allocator, tx.max_fee_per_gas));
-    try list.append(allocator, try rlp.encode(allocator, tx.gas_limit));
+    try helpers.encodeAndAppend(allocator, &list, tx.chain_id);
+    try helpers.encodeAndAppend(allocator, &list, tx.nonce);
+    try helpers.encodeAndAppend(allocator, &list, tx.max_priority_fee_per_gas);
+    try helpers.encodeAndAppend(allocator, &list, tx.max_fee_per_gas);
+    try helpers.encodeAndAppend(allocator, &list, tx.gas_limit);
     
     if (tx.to) |addr| {
-        try list.append(allocator, try rlp.encode(allocator, &addr));
+        try helpers.encodeAndAppend(allocator, &list, &addr);
     } else {
-        try list.append(allocator, try rlp.encode(allocator, &[_]u8{}));
+        try helpers.encodeAndAppend(allocator, &list, "");
     }
     
-    try list.append(allocator, try rlp.encode(allocator, tx.value));
-    try list.append(allocator, try rlp.encode(allocator, tx.data));
+    try helpers.encodeAndAppend(allocator, &list, tx.value);
+    try helpers.encodeAndAppend(allocator, &list, tx.data);
     
-    // Access list (vacia por ahora)
-    try list.append(allocator, try rlp.encode(allocator, tx.access_list));
+    const empty_access_list = try rlp.encodeListFixed(allocator, "");
+    defer allocator.free(empty_access_list);
+    try list.appendSlice(allocator, empty_access_list);
 
-    // Consolidar lista en RLP
-    var payload = std.ArrayListUnmanaged(u8){};
-    defer payload.deinit(allocator);
-    for (list.items) |i| try payload.appendSlice(allocator, i);
+    const encoded_fields = try rlp.encodeListFixed(allocator, list.items);
+    defer allocator.free(encoded_fields);
 
-    const encoded_list = try rlp.encodeListFixed(allocator, payload.items);
-    defer allocator.free(encoded_list);
+    // 2. Hash del payload prefijado con 0x02
+    var sig_payload = try allocator.alloc(u8, 1 + encoded_fields.len);
+    defer allocator.free(sig_payload);
+    sig_payload[0] = 0x02;
+    @memcpy(sig_payload[1..], encoded_fields);
 
-    var result = try allocator.alloc(u8, 1 + encoded_list.len);
-    result[0] = 0x02; // EIP-1559 type prefix
-    @memcpy(result[1..], encoded_list);
+    var msg_hash: [32]u8 = undefined;
+    crypto.Keccak256.hash(sig_payload, &msg_hash, .{});
+
+    // 3. Firmar el hash
+    const signature = try crypto.signEthMessage(msg_hash, keypair.secret);
+
+    // 4. Construir RLP final: [chain_id, nonce, ..., v, r, s]
+    list.clearRetainingCapacity();
+    try helpers.encodeAndAppend(allocator, &list, tx.chain_id);
+    try helpers.encodeAndAppend(allocator, &list, tx.nonce);
+    try helpers.encodeAndAppend(allocator, &list, tx.max_priority_fee_per_gas);
+    try helpers.encodeAndAppend(allocator, &list, tx.max_fee_per_gas);
+    try helpers.encodeAndAppend(allocator, &list, tx.gas_limit);
+    
+    if (tx.to) |addr| {
+        try helpers.encodeAndAppend(allocator, &list, &addr);
+    } else {
+        try helpers.encodeAndAppend(allocator, &list, "");
+    }
+    
+    try helpers.encodeAndAppend(allocator, &list, tx.value);
+    try helpers.encodeAndAppend(allocator, &list, tx.data);
+    try list.appendSlice(allocator, empty_access_list); // Reutilizamos el access list vacio
+    
+    try helpers.encodeAndAppend(allocator, &list, signature.v);
+    try helpers.encodeAndAppend(allocator, &list, &signature.r);
+    try helpers.encodeAndAppend(allocator, &list, &signature.s);
+
+    const final_list = try rlp.encodeListFixed(allocator, list.items);
+    defer allocator.free(final_list);
+
+    var result = try allocator.alloc(u8, 1 + final_list.len);
+    result[0] = 0x02;
+    @memcpy(result[1..], final_list);
     
     return result;
 }

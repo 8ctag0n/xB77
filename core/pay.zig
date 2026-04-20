@@ -61,13 +61,16 @@ pub const PaymentRouter = struct {
     }
 
     pub fn pay(self: *PaymentRouter, request: PaymentRequest) !PaymentResult {
-        // 1. Auditoría de Riesgo (Risk Recon)
-        if (request.recipient == .sol) {
-            const report = try self.risk_scorer.assess(request.recipient.sol, request.amount);
-            if (!report.passed) {
-                std.debug.print("[PaymentRouter] ❌ Riesgo detectado: {s}\n", .{report.flags[0]});
-                return error.RiskAuditFailed;
-            }
+        // 1. Auditoría de Riesgo (Risk Recon) - Multi-Chain
+        const audit_recipient = switch (request.recipient) {
+            .sol => |pk| audit_mod.RiskScorer.Recipient{ .sol = pk },
+            .evm => |addr| audit_mod.RiskScorer.Recipient{ .evm = addr },
+        };
+        
+        const report = try self.risk_scorer.assess(audit_recipient, request.amount);
+        if (!report.passed) {
+            std.debug.print("[PaymentRouter] ❌ Riesgo detectado: {s}\n", .{report.flags[0]});
+            return error.RiskAuditFailed;
         }
 
         const strategy = self.selectStrategy(request);
@@ -92,8 +95,8 @@ pub const PaymentRouter = struct {
         const total_amount = request.amount + tax_amount;
 
         // 2. Verificar Policy
-        const recipient_sol = if (request.recipient == .sol) request.recipient.sol else null;
-        if (!try v.canSpend(total_amount, request.asset, recipient_sol)) return error.PolicyViolation;
+        const recipient = vault_mod.Recipient{ .sol = request.recipient.sol };
+        if (!try v.canSpend(total_amount, request.asset, recipient)) return error.PolicyViolation;
 
         // 3. Obtener Blockhash
         const blockhash = try self.sol_client.getLatestBlockhash();
@@ -149,13 +152,14 @@ pub const PaymentRouter = struct {
         const total_amount = request.amount + tax_amount;
 
         // 2. Verificar Policy
-        if (!try v.canSpend(total_amount, request.asset, null)) return error.PolicyViolation;
+        const recipient = vault_mod.Recipient{ .evm = request.recipient.evm };
+        if (!try v.canSpend(total_amount, request.asset, recipient)) return error.PolicyViolation;
 
         // 3. Obtener Nonce y Gas
         const nonce = try self.evm_client.getNonce(eth_kp.address);
         const gas_price = try self.evm_client.getGasPrice();
 
-        // 4. Construir Transacción (Transferencia Simple para demo)
+        // 4. Construir y Firmar Transacción (EIP-1559)
         const tx = tx_mod.EthEip1559Tx{
             .chain_id = 84532, // Base Sepolia
             .nonce = nonce,
@@ -167,49 +171,10 @@ pub const PaymentRouter = struct {
             .data = &.{},
         };
 
-        const unsigned_tx = try tx_mod.buildEthEip1559Tx(self.allocator, tx);
-        defer self.allocator.free(unsigned_tx);
+        const signed_tx = try tx_mod.buildEthEip1559Tx(self.allocator, tx, &eth_kp);
+        defer self.allocator.free(signed_tx);
 
-        // 5. Firmar
-        var hash: [32]u8 = undefined;
-        crypto.Keccak256.hash(unsigned_tx, &hash, .{});
-        const sig = try crypto.signEthMessage(hash, eth_kp.secret);
-
-        // 6. Codificar Transacción Firmada (RLP: [tx_list, r, s, v])
-        // Nota: El formato EIP-1559 firmado es 0x02 || rlp([chain_id, nonce, ..., y_parity, r, s])
-        // Para simplificar la demo, codificamos el payload RLP completo
-        
-        const rlp = @import("rlp.zig");
-        var list = std.ArrayListUnmanaged([]const u8){};
-        defer {
-            for (list.items) |i| self.allocator.free(i);
-            list.deinit(self.allocator);
-        }
-
-        try list.append(self.allocator, try rlp.encode(self.allocator, tx.chain_id));
-        try list.append(self.allocator, try rlp.encode(self.allocator, tx.nonce));
-        try list.append(self.allocator, try rlp.encode(self.allocator, tx.max_priority_fee_per_gas));
-        try list.append(self.allocator, try rlp.encode(self.allocator, tx.max_fee_per_gas));
-        try list.append(self.allocator, try rlp.encode(self.allocator, tx.gas_limit));
-        try list.append(self.allocator, try rlp.encode(self.allocator, &request.recipient.evm));
-        try list.append(self.allocator, try rlp.encode(self.allocator, tx.value));
-        try list.append(self.allocator, try rlp.encode(self.allocator, tx.data));
-        try list.append(self.allocator, try rlp.encode(self.allocator, tx.access_list));
-        try list.append(self.allocator, try rlp.encode(self.allocator, @as(u8, sig.v))); // y_parity
-        try list.append(self.allocator, try rlp.encode(self.allocator, &sig.r));
-        try list.append(self.allocator, try rlp.encode(self.allocator, &sig.s));
-
-        var payload = std.ArrayListUnmanaged(u8){};
-        defer payload.deinit(self.allocator);
-        for (list.items) |i| try payload.appendSlice(self.allocator, i);
-
-        const encoded_list = try rlp.encodeListFixed(self.allocator, payload.items);
-        defer self.allocator.free(encoded_list);
-
-        const hex_buf = try crypto.bytesToHex(self.allocator, encoded_list);
-        defer self.allocator.free(hex_buf);
-
-        const tx_hex = try std.fmt.allocPrint(self.allocator, "0x02{s}", .{hex_buf});
+        const tx_hex = try std.fmt.allocPrint(self.allocator, "0x{s}", .{try crypto.bytesToHex(self.allocator, signed_tx)});
         defer self.allocator.free(tx_hex);
 
         // 7. Enviar

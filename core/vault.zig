@@ -14,7 +14,12 @@ pub const SpendPolicy = struct {
     per_tx_limit: u64,
     governance_threshold: ?u64 = null,
     allowed_assets: []const types.Asset = &.{},
-    blacklist: std.AutoHashMap(types.Pubkey, void),
+    blacklist: std.StringHashMap(void),
+};
+
+pub const Recipient = union(enum) {
+    sol: types.Pubkey,
+    evm: types.EthAddress,
 };
 
 pub const SpendRecord = struct {
@@ -36,14 +41,62 @@ pub const Vault = struct {
         var v = Vault{
             .allocator = allocator,
             .role = role,
-            .sol_kp = crypto.generateKeypair(),
-            .eth_kp = try crypto.generateEthKeypair(),
+            .sol_kp = undefined,
+            .eth_kp = null,
             .policy = policy,
             .history = std.ArrayListUnmanaged(SpendRecord){},
             .storage_path = try allocator.dupe(u8, storage_path),
         };
+        
+        try v.ensureKeys();
         try v.loadHistory();
         return v;
+    }
+
+    fn ensureKeys(self: *Vault) !void {
+        const key_path = try std.fmt.allocPrint(self.allocator, "{s}.key", .{self.storage_path});
+        defer self.allocator.free(key_path);
+
+        if (std.fs.cwd().openFile(key_path, .{})) |file| {
+            defer file.close();
+            var buf: [64 + 32]u8 = undefined;
+            const bytes_read = try file.readAll(&buf);
+            if (bytes_read == 96) {
+                @memcpy(&self.sol_kp.secret, buf[0..64]);
+                // Re-derivar public key de Solana
+                const pk = try crypto.Ed25519.PublicKey.fromBytes(self.sol_kp.secret[32..64].*);
+                self.sol_kp.public = pk.toBytes();
+
+                var eth_secret: [32]u8 = undefined;
+                @memcpy(&eth_secret, buf[64..96]);
+                
+                // Re-derivar EthAddress usando la API de ECDSA
+                const sk = try crypto.EcdsaKeccak.SecretKey.fromBytes(eth_secret);
+                const kp = try crypto.EcdsaKeccak.KeyPair.fromSecretKey(sk);
+                const uncompressed_pk = kp.public_key.p.toUncompressedSec1();
+                
+                var hash: [32]u8 = undefined;
+                crypto.Keccak256.hash(uncompressed_pk[1..], &hash, .{});
+                
+                var addr: types.EthAddress = undefined;
+                @memcpy(&addr, hash[12..32]);
+
+                self.eth_kp = .{
+                    .address = addr,
+                    .secret = eth_secret,
+                };
+                return;
+            }
+        } else |_| {}
+
+        // Generar nuevas si no existen o están corruptas
+        self.sol_kp = crypto.generateKeypair();
+        self.eth_kp = try crypto.generateEthKeypair();
+
+        const file = try std.fs.cwd().createFile(key_path, .{});
+        defer file.close();
+        try file.writeAll(&self.sol_kp.secret);
+        try file.writeAll(&self.eth_kp.?.secret);
     }
 
     pub fn deinit(self: *Vault) void {
@@ -88,9 +141,14 @@ pub const Vault = struct {
         };
     }
 
-    pub fn canSpend(self: *Vault, amount: u64, asset: types.Asset, recipient: ?types.Pubkey) !bool {
+    pub fn canSpend(self: *Vault, amount: u64, asset: types.Asset, recipient: ?Recipient) !bool {
         if (recipient) |r| {
-            if (self.policy.blacklist.contains(r)) return false;
+            const addr_str = switch (r) {
+                .sol => |pk| try crypto.pubkeyToString(self.allocator, &pk),
+                .evm => |addr| try @import("evm.zig").addressToHex(self.allocator, addr),
+            };
+            defer self.allocator.free(addr_str);
+            if (self.policy.blacklist.contains(addr_str)) return false;
         }
 
         if (amount > self.policy.per_tx_limit) return false;
@@ -139,7 +197,7 @@ pub const VaultSet = struct {
         const default_policy = SpendPolicy{
             .daily_limit = 1_000_000_000,
             .per_tx_limit = 500_000_000,
-            .blacklist = std.AutoHashMap(types.Pubkey, void).init(allocator),
+            .blacklist = std.StringHashMap(void).init(allocator),
         };
         return .{
             .allocator = allocator,

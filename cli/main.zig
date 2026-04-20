@@ -94,7 +94,7 @@ fn handlePay(allocator: std.mem.Allocator, args: []const []const u8) !void {
     ctx.vaults.ops.policy = .{
         .daily_limit = 10_000_000_000_000_000_000, // 10 ETH
         .per_tx_limit = 5_000_000_000_000_000_000,  // 5 ETH
-        .blacklist = std.AutoHashMap(core.types.Pubkey, void).init(allocator),
+        .blacklist = std.StringHashMap(void).init(allocator),
     };
 
     var router = core.pay.PaymentRouter.init(allocator, &ctx.sol_client, &ctx.evm_client, &ctx.vaults);

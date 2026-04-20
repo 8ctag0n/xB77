@@ -105,6 +105,7 @@ pub const EvmClient = struct {
 pub fn addressToHex(allocator: std.mem.Allocator, addr: types.EthAddress) ![]u8 {
     const crypto = @import("crypto.zig");
     const hex_encoded = try crypto.bytesToHex(allocator, &addr);
+    defer allocator.free(hex_encoded);
     return try std.fmt.allocPrint(allocator, "0x{s}", .{hex_encoded});
 }
 

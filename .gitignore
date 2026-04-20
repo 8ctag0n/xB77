@@ -1,6 +1,8 @@
 round2
 zig-out/
 .zig-cache/
+*.key
+*_vault.csv
 loght_forensics/
 *.txt
 cache
