@@ -6,6 +6,8 @@ const bridge = if (builtin.target.os.tag != .wasi) @import("znode_bridge.zig") e
     pub fn startBridge(_: anytype) !void {}
 };
 
+const yellowstone = @import("yellowstone.zig");
+
 pub const Engine = struct {
     allocator: std.mem.Allocator,
     ctx: *core.context.AgentContext,
@@ -45,11 +47,23 @@ pub const Engine = struct {
     }
 
     /// Método reactivo llamado por el Z-Node Bridge en tiempo real
-    pub fn onNetworkEvent(self: *Engine) void {
+    pub fn onNetworkEvent(self: *Engine, event: yellowstone.NetworkEvent) void {
         _ = self;
-        std.debug.print("[Engine] PULSE: Reaccionando a evento de red en microsegundos...\n", .{});
-        // Aquí es donde el agente decide si actuar inmediatamente
+        switch (event.type) {
+            .slot => {
+                // std.debug.print("[Engine] 🟢 Network Pulse: Slot {d}\n", .{event.slot});
+            },
+            .transaction => {
+                const tx = event.tx.?;
+                std.debug.print("\n[Engine] ⚡️ REFLEX: Pago detectado en tiempo real!\n", .{});
+                std.debug.print("         De: {x}\n", .{tx.sender});
+                std.debug.print("         Monto: {d} lamports (1.0 SOL)\n", .{tx.amount});
+                
+                // Aquí el agente dispararía la lógica de respuesta (ej: enviar un producto, actualizar estado)
+            }
+        }
     }
+
     pub fn stop(self: *Engine) void {
         self.is_running = false;
     }

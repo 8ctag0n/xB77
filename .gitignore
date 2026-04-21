@@ -3,6 +3,7 @@ zig-out/
 .zig-cache/
 *.key
 *_vault.csv
+MEGAPLAN_PRIVATE.md
 loght_forensics/
 *.txt
 cache

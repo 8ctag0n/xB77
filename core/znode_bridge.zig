@@ -30,12 +30,9 @@ fn listenLoop(engine: anytype) !void {
         if (bytes_read == 0) continue;
 
         // Procesar el mensaje Yellowstone
-        parser.parseUpdate(buf[0..bytes_read]) catch |err| {
-            std.debug.print("[Z-Node Bridge] Error parsing update: {}\n", .{err});
-            continue;
-        };
-
-        // Notificar al engine
-        engine.onNetworkEvent();
+        if (try parser.parseUpdate(buf[0..bytes_read])) |event| {
+            // Notificar al engine con el evento real
+            engine.onNetworkEvent(event);
+        }
     }
 }

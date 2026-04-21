@@ -38,9 +38,6 @@ pub const PaymentRouter = struct {
     vaults: *vault_mod.VaultSet,
     risk_scorer: audit_mod.RiskScorer,
 
-    // Dirección de Tesorería para recolectar el Infra Overhead
-    pub const TREASURY_SOL = "Dk6vYdPu3EAb2WT1amGdgYS5puTZRiRzvehBmYhzffJo"; // Agente xB77 Admin
-    pub const TREASURY_EVM = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // Mock treasury
     pub const INFRA_TAX_BPS = 11; // 0.11% (11 Basis Points)
 
     pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, evm_client: *evm_mod.EvmClient, vaults: *vault_mod.VaultSet) PaymentRouter {
@@ -89,6 +86,7 @@ pub const PaymentRouter = struct {
 
     fn paySolana(self: *PaymentRouter, request: PaymentRequest, strategy: PaymentStrategy) !PaymentResult {
         const v = &self.vaults.ops;
+        const reserve = &self.vaults.reserve;
 
         // 1. Calcular Tax (Infra Tax)
         const tax_amount = self.calculateInfraOverhead(request.amount);
@@ -98,25 +96,32 @@ pub const PaymentRouter = struct {
         const recipient = vault_mod.Recipient{ .sol = request.recipient.sol };
         if (!try v.canSpend(total_amount, request.asset, recipient)) return error.PolicyViolation;
 
-        // 3. Obtener Blockhash
+        // 3. Obtener Blockhash y Priority Fees
         const blockhash = try self.sol_client.getLatestBlockhash();
+        
+        // Consultar fees para el programa de transferencias (System Program)
+        const addresses = [_][]const u8{"11111111111111111111111111111111"};
+        const priority_fee = self.sol_client.getRecentPrioritizationFees(&addresses) catch 0;
+        std.debug.print("[PaymentRouter] ⚡️ HFT: Aplicando Priority Fee de {d} micro-lamports\n", .{priority_fee});
 
         // 4. Preparar Transferencias
-        const treasury_pubkey = try crypto.stringToPubkey(self.allocator, TREASURY_SOL);
-        
         var transfers = std.ArrayListUnmanaged(tx_mod.Transfer){};
         defer transfers.deinit(self.allocator);
         
         try transfers.append(self.allocator, .{ .to = request.recipient.sol, .lamports = request.amount });
-        try transfers.append(self.allocator, .{ .to = treasury_pubkey, .lamports = tax_amount });
+        
+        // El Tax vuela a la Reserve Vault
+        try transfers.append(self.allocator, .{ .to = reserve.sol_kp.public, .lamports = tax_amount });
 
-        // 5. Construir Transacción Mult-Instrucción
+        // 5. Construir Transacción Mult-Instrucción con Priority Fee
         const tx_bytes = try tx_mod.buildMultiTransferTx(
             self.allocator,
             v.sol_kp.public,
             transfers.items,
             blockhash,
+            priority_fee,
         );
+
         defer self.allocator.free(tx_bytes);
 
         // 6. Firmar
@@ -145,7 +150,9 @@ pub const PaymentRouter = struct {
 
     fn payEVM(self: *PaymentRouter, request: PaymentRequest, strategy: PaymentStrategy) !PaymentResult {
         const v = &self.vaults.ops;
+        const reserve = &self.vaults.reserve;
         const eth_kp = v.eth_kp orelse return error.EthKeypairNotInitialized;
+        const reserve_eth_kp = reserve.eth_kp orelse return error.EthKeypairNotInitialized;
 
         // 1. Calcular Tax (Infra Tax)
         const tax_amount = self.calculateInfraOverhead(request.amount);
@@ -159,7 +166,11 @@ pub const PaymentRouter = struct {
         const nonce = try self.evm_client.getNonce(eth_kp.address);
         const gas_price = try self.evm_client.getGasPrice();
 
-        // 4. Construir y Firmar Transacción (EIP-1559)
+        // Para EVM, el tax se envía en una transacción separada o se usa un Smart Contract.
+        // Por simplicidad en la demo, lo enviamos en la misma transacción si es posible (multicall no soportado aquí),
+        // o simplemente lo registramos como que "volará" después.
+        // TODO: Implementar Batch de transacciones en EVM.
+        
         const tx = tx_mod.EthEip1559Tx{
             .chain_id = 84532, // Base Sepolia
             .nonce = nonce,
@@ -185,6 +196,9 @@ pub const PaymentRouter = struct {
         
         const tx_hash_str = try std.fmt.allocPrint(self.allocator, "0x{s}", .{hash_hex});
 
+        // Simular el envío del tax a la Reserve Vault en EVM (mock)
+        std.debug.print("[PaymentRouter] 💸 Tax EVM de {d} wei volando a {x}\n", .{tax_amount, reserve_eth_kp.address});
+
         // 8. Registrar Gasto
         try v.recordSpend(total_amount, request.asset);
 
@@ -195,4 +209,5 @@ pub const PaymentRouter = struct {
             .fee_paid = (21000 * gas_price) + tax_amount,
         };
     }
+
 };

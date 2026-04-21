@@ -126,24 +126,24 @@ pub const Transfer = struct {
     lamports: u64,
 };
 
-/// Construye una transacción con múltiples transferencias (System Program).
+/// Construye una transacción con múltiples transferencias (System Program)
+/// y opcionalmente una Priority Fee (Compute Budget).
 pub fn buildMultiTransferTx(
     allocator: std.mem.Allocator,
     from: types.Pubkey,
     transfers: []const Transfer,
     recent_blockhash: types.Hash,
+    priority_fee: ?u64,
 ) ![]u8 {
     var buf = std.ArrayListUnmanaged(u8){};
     errdefer buf.deinit(allocator);
     const writer = buf.writer(allocator);
 
     // 1. Recolectar llaves únicas
-    // Las llaves siempre son: [0] From, [1..N] Recipients, [Last] System Program
     var keys = std.ArrayListUnmanaged(types.Pubkey){};
     defer keys.deinit(allocator);
     try keys.append(allocator, from);
     for (transfers) |t| {
-        // Evitar duplicados si enviamos a varias cuentas o a nosotros mismos (raro pero posible)
         var found = false;
         for (keys.items) |k| {
             if (std.mem.eql(u8, &k, &t.to)) {
@@ -153,9 +153,18 @@ pub fn buildMultiTransferTx(
         }
         if (!found) try keys.append(allocator, t.to);
     }
+    
     const system_program_idx = @as(u8, @intCast(keys.items.len));
     const system_program = [_]u8{0} ** 32;
     try keys.append(allocator, system_program);
+
+    var compute_budget_idx: ?u8 = null;
+    if (priority_fee != null) {
+        compute_budget_idx = @as(u8, @intCast(keys.items.len));
+        // Compute Budget Program ID
+        const cb_program = try crypto.stringToPubkey(allocator, "ComputeBudget111111111111111111111111111111");
+        try keys.append(allocator, cb_program);
+    }
 
     // --- SERIALIZACIÓN ---
     
@@ -163,10 +172,12 @@ pub fn buildMultiTransferTx(
     try writeCompactU16(writer, 1);
     try buf.appendNTimes(allocator, 0, 64);
 
-    // Header: num_required_sigs=1, num_readonly_signed=0, num_readonly_unsigned=1 (System Program)
+    // Header: num_required_sigs=1, num_readonly_signed=0, num_readonly_unsigned=X
+    // El System Program y Compute Budget son readonly unsigned.
+    const num_readonly_unsigned = 1 + (if (priority_fee != null) @as(u8, 1) else 0);
     try writer.writeByte(1);
     try writer.writeByte(0);
-    try writer.writeByte(1);
+    try writer.writeByte(num_readonly_unsigned);
 
     // Account Keys
     try writeCompactU16(writer, @intCast(keys.items.len));
@@ -176,9 +187,22 @@ pub fn buildMultiTransferTx(
     try buf.appendSlice(allocator, &recent_blockhash);
 
     // Instructions
-    try writeCompactU16(writer, @intCast(transfers.len));
+    const num_instructions = transfers.len + (if (priority_fee != null) @as(usize, 1) else 0);
+    try writeCompactU16(writer, @intCast(num_instructions));
+
+    // 1. Priority Fee Instruction (si existe)
+    if (priority_fee) |fee| {
+        try writer.writeByte(compute_budget_idx.?);
+        try writeCompactU16(writer, 0); // 0 accounts
+        
+        // Data: u8 instruction_type=3 (SetComputeUnitPrice), u64 micro_lamports
+        try writeCompactU16(writer, 9);
+        try writer.writeByte(3);
+        try writer.writeInt(u64, fee, .little);
+    }
+
+    // 2. Transfer Instructions
     for (transfers) |t| {
-        // Encontrar índice del recipient
         var recipient_idx: u8 = 0;
         for (keys.items, 0..) |k, i| {
             if (std.mem.eql(u8, &k, &t.to)) {
@@ -187,12 +211,11 @@ pub fn buildMultiTransferTx(
             }
         }
 
-        try writer.writeByte(system_program_idx); // Program ID Index
-        try writeCompactU16(writer, 2); // 2 accounts: from, to
-        try writer.writeByte(0); // From (siempre es el 0)
+        try writer.writeByte(system_program_idx);
+        try writeCompactU16(writer, 2);
+        try writer.writeByte(0); // From
         try writer.writeByte(recipient_idx);
 
-        // Data (12 bytes: u32 instruction_type=2, u64 lamports)
         try writeCompactU16(writer, 12);
         try writer.writeInt(u32, 2, .little);
         try writer.writeInt(u64, t.lamports, .little);
@@ -210,5 +233,6 @@ pub fn buildTransferTx(
     recent_blockhash: types.Hash,
 ) ![]u8 {
     const transfers = [_]Transfer{.{ .to = to, .lamports = lamports }};
-    return buildMultiTransferTx(allocator, from, &transfers, recent_blockhash);
+    return buildMultiTransferTx(allocator, from, &transfers, recent_blockhash, null);
 }
+

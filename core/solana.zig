@@ -84,6 +84,44 @@ pub const SolanaClient = struct {
         return try self.allocator.dupe(u8, result.string);
     }
 
+    pub fn getRecentPrioritizationFees(self: *SolanaClient, addresses: []const []const u8) !u64 {
+        var params_buf = std.ArrayListUnmanaged(u8){};
+        defer params_buf.deinit(self.allocator);
+        const writer = params_buf.writer(self.allocator);
+
+        try writer.writeAll("[");
+        for (addresses, 0..) |addr, i| {
+            try writer.print("\"{s}\"", .{addr});
+            if (i < addresses.len - 1) try writer.writeAll(",");
+        }
+        try writer.writeAll("]");
+
+        const payload = try std.fmt.allocPrint(self.allocator,
+            \\{{"jsonrpc":"2.0","id":1,"method":"getRecentPrioritizationFees","params":[{s}]}}
+        , .{params_buf.items});
+        defer self.allocator.free(payload);
+
+        const response = try self.rpcRequest(payload);
+        defer self.allocator.free(response);
+
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response, .{});
+        defer parsed.deinit();
+
+        const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
+        const array = result.array;
+
+        if (array.items.len == 0) return 0;
+
+        // Calcular el promedio o simplemente el máximo de los últimos slots
+        var max_fee: u64 = 0;
+        for (array.items) |item| {
+            const fee = item.object.get("prioritizationFee").?.integer;
+            if (fee > max_fee) max_fee = @intCast(fee);
+        }
+
+        return max_fee;
+    }
+
     pub fn getSignaturesForAddress(self: *SolanaClient, address: []const u8, limit: usize) ![]SignatureInfo {
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"getSignaturesForAddress","params":["{s}", {{"limit":{d}}}]}}

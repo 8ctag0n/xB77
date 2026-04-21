@@ -31,7 +31,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
         if (std.mem.eql(u8, method_name, "initialize")) {
             try sendResponse(&stdout, "{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"serverInfo\":{\"name\":\"xB77-Agent\",\"version\":\"0.1.0\"}}");
         } else if (std.mem.eql(u8, method_name, "tools/list")) {
-            try sendResponse(&stdout, "{\"tools\":[{\"name\":\"agent_status\",\"description\":\"Get balance and identity\"}]}");
+            try sendResponse(&stdout, "{\"tools\":[{\"name\":\"agent_status\",\"description\":\"Get balance and identity\"}, {\"name\":\"update_constitution\",\"description\":\"Update agent dynamic rules: emergency (bool), slippage (number, bps), block_contract (string)\"}]}");
         } else if (std.mem.eql(u8, method_name, "tools/call")) {
             const params = parsed.value.object.get("params").?.object;
             const name = params.get("name").?.string;
@@ -45,6 +45,20 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Solana: {s}\\nEVM: {s}\"}}]}}", .{sol_addr, eth_addr});
                 defer allocator.free(res);
                 try sendResponse(&stdout, res);
+            } else if (std.mem.eql(u8, name, "update_constitution")) {
+                const args = params.get("arguments").?.object;
+                
+                if (args.get("emergency")) |emerg| {
+                    if (args.get("slippage")) |slip| {
+                        ctx.constitution.update(emerg.bool, @intCast(slip.integer));
+                    }
+                }
+                
+                if (args.get("block_contract")) |bc| {
+                    try ctx.constitution.blockContract(bc.string);
+                }
+
+                try sendResponse(&stdout, "{\"content\":[{\"type\":\"text\",\"text\":\"Constitution updated successfully\"}]}");
             }
         }
     }
