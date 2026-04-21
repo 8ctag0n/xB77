@@ -24,7 +24,20 @@ pub const Engine = struct {
     /// Inicia el loop de vida del agente.
     pub fn start(self: *Engine) !void {
         self.is_running = true;
-        std.debug.print("\n[Engine] Agente xB77 operando 24/7...\n", .{});
+        
+        const sol_addr = try self.ctx.vaults.ops.address(.solana, self.allocator);
+        defer self.allocator.free(sol_addr);
+        const eth_addr = try self.ctx.vaults.ops.address(.base, self.allocator);
+        defer self.allocator.free(eth_addr);
+
+        std.debug.print("\n[Engine] xB77 Sovereign Agent - Iniciando v0.1.0\n", .{});
+        std.debug.print("         ----------------------------------------\n", .{});
+        std.debug.print("         ID Solana: {s}\n", .{sol_addr});
+        std.debug.print("         ID EVM:    {s}\n", .{eth_addr});
+        if (self.ctx.cdp_client != null) {
+            std.debug.print("         Bridge:    Coinbase AgentKit (Active)\n", .{});
+        }
+        std.debug.print("         ----------------------------------------\n", .{});
 
         // Carga condicional del bridge de sockets
         if (comptime builtin.target.os.tag != .wasi) {
@@ -51,11 +64,11 @@ pub const Engine = struct {
         _ = self;
         switch (event.type) {
             .slot => {
-                // std.debug.print("[Engine] 🟢 Network Pulse: Slot {d}\n", .{event.slot});
+                // std.debug.print("[Engine] Network Pulse: Slot {d}\n", .{event.slot});
             },
             .transaction => {
                 const tx = event.tx.?;
-                std.debug.print("\n[Engine] ⚡️ REFLEX: Pago detectado en tiempo real!\n", .{});
+                std.debug.print("\n[Engine] REFLEX: Pago detectado en tiempo real!\n", .{});
                 std.debug.print("         De: {x}\n", .{tx.sender});
                 std.debug.print("         Monto: {d} lamports (1.0 SOL)\n", .{tx.amount});
                 

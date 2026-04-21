@@ -1,4 +1,4 @@
 # xB77 Agent Configuration
-rpc_solana = "http://127.0.0.1:8899"
-rpc_base = "http://127.0.0.1:8545"
+rpc_solana = "https://api.devnet.solana.com"
+rpc_base = "https://sepolia.base.org"
 vault_path = "./.xb77"

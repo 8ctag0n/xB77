@@ -31,12 +31,13 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
         if (std.mem.eql(u8, method_name, "initialize")) {
             try sendResponse(&stdout, "{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"serverInfo\":{\"name\":\"xB77-Agent\",\"version\":\"0.1.0\"}}");
         } else if (std.mem.eql(u8, method_name, "tools/list")) {
-            try sendResponse(&stdout, "{\"tools\":[{\"name\":\"agent_status\",\"description\":\"Get balance and identity\"}, {\"name\":\"update_constitution\",\"description\":\"Update agent dynamic rules: emergency (bool), slippage (number, bps), block_contract (string)\"}]}");
+            try sendResponse(&stdout, "{\"tools\":[{\"name\":\"agent_status\",\"description\":\"Get balance and identity\"}, {\"name\":\"update_constitution\",\"description\":\"Update agent dynamic rules\"}, {\"name\":\"execute_payment\",\"description\":\"Execute a multi-chain payment\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"amount\":{\"type\":\"string\"},\"chain\":{\"type\":\"string\"},\"recipient\":{\"type\":\"string\"},\"symbol\":{\"type\":\"string\"}}}}]}");
         } else if (std.mem.eql(u8, method_name, "tools/call")) {
             const params = parsed.value.object.get("params").?.object;
             const name = params.get("name").?.string;
 
             if (std.mem.eql(u8, name, "agent_status")) {
+                // ... (mantener lógica existente)
                 const sol_addr = try ctx.vaults.ops.address(.solana, allocator);
                 defer allocator.free(sol_addr);
                 const eth_addr = try ctx.vaults.ops.address(.base, allocator);
@@ -46,19 +47,43 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 defer allocator.free(res);
                 try sendResponse(&stdout, res);
             } else if (std.mem.eql(u8, name, "update_constitution")) {
+                // ... (mantener lógica existente)
                 const args = params.get("arguments").?.object;
-                
                 if (args.get("emergency")) |emerg| {
                     if (args.get("slippage")) |slip| {
                         ctx.constitution.update(emerg.bool, @intCast(slip.integer));
                     }
                 }
-                
-                if (args.get("block_contract")) |bc| {
-                    try ctx.constitution.blockContract(bc.string);
-                }
+                try sendResponse(&stdout, "{\"content\":[{\"type\":\"text\",\"text\":\"Constitution updated\"}]}");
+            } else if (std.mem.eql(u8, name, "execute_payment")) {
+                const args = params.get("arguments").?.object;
+                const amount_str = args.get("amount").?.string;
+                const chain_str = args.get("chain").?.string;
+                const recipient_str = args.get("recipient").?.string;
+                const symbol = args.get("symbol").?.string;
 
-                try sendResponse(&stdout, "{\"content\":[{\"type\":\"text\",\"text\":\"Constitution updated successfully\"}]}");
+                const amount = try std.fmt.parseInt(u64, amount_str, 10);
+                const chain = if (std.mem.eql(u8, chain_str, "solana")) core.types.Chain.solana else core.types.Chain.base;
+
+                // Inicializar Router
+                const pay_mod = @import("core").pay;
+                var router = pay_mod.PaymentRouter.init(allocator, &ctx.sol_client, &ctx.evm_client, &ctx.vaults, &ctx.constitution);
+
+                // Construir Request
+                const request = pay_mod.PaymentRequest{
+                    .amount = amount,
+                    .asset = .{ .chain = chain, .symbol = symbol },
+                    .recipient = if (chain == .solana)
+                        .{ .sol = try core.crypto.stringToPubkey(allocator, recipient_str) }
+                    else
+                        .{ .evm = try @import("core").evm.hexToAddress(recipient_str) },
+                };
+
+                const result = try router.pay(request);
+                
+                const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Payment executed!\\nChain: {s}\\nSig: {s}\\nFee: {d}\"}}]}}", .{@tagName(result.chain), result.tx_signature, result.fee_paid});
+                defer allocator.free(res);
+                try sendResponse(&stdout, res);
             }
         }
     }

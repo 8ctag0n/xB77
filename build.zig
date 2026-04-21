@@ -76,6 +76,17 @@ pub fn build(b: *std.Build) void {
 
     const run_crypto_unit_tests = b.addRunArtifact(crypto_unit_tests);
 
+    const tx_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/tx_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    tx_unit_tests.root_module.addImport("core", core_module);
+    const run_tx_unit_tests = b.addRunArtifact(tx_unit_tests);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);
+    test_step.dependOn(&run_tx_unit_tests.step);
 }

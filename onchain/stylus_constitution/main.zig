@@ -1,29 +1,44 @@
 const std = @import("std");
 
-/// Arbitrum Stylus Zig Module: Constitutional Guard
-/// Este contrato vive en Arbitrum y valida que xB77 esté operando bajo su ley.
+/// Arbitrum Stylus Module: xB77 Global Constitution
+/// Proporciona una capa de seguridad on-chain para agentes soberanos.
 
-// Definiciones básicas de Stylus (WASM)
-const ALLOCATOR = std.heap.page_allocator;
+// Tipos de retorno estándar para Stylus
+const SUCCESS = 1;
+const REJECTED = 0;
 
-/// Exportamos la función para que Stylus la vea.
-/// Verifica si un slippage dado rompe la Constitución (max 1%).
-export fn check_slippage(slippage_bps: u16) i32 {
-    const MAX_SLIPPAGE = 100; // 1.00%
-    
-    if (slippage_bps > MAX_SLIPPAGE) {
-        return 0; // Rechazado: Deshonestidad o error detectado
-    }
-    
-    return 1; // Aprobado
+/// Verifica si el agente está en modo de emergencia.
+/// En una implementación real, esto leería del Storage de Arbitrum.
+export fn is_emergency_active() i32 {
+    // Mock: En un hackathon, esto demostraría la capacidad de bloqueo global.
+    return 0; // Emergency inactive
 }
 
-/// Función de entrada obligatoria para Stylus (WASM)
-export fn user_entrypoint(len: usize) i32 {
+/// Valida una transacción basada en el slippage y la dirección de destino.
+export fn validate_policy(slippage_bps: u16, target_address: [20]u8) i32 {
+    // 1. Verificar Slippage (Max 1% default)
+    if (slippage_bps > 100) return REJECTED;
+
+    // 2. Simulación de Blacklist on-chain
+    // En el hackathon podemos mostrar cómo bloqueamos direcciones maliciosas conocidas.
+    const bad_contract = [_]u8{0xde, 0xad} ++ ([_]u8{0} ** 18);
+    if (std.mem.eql(u8, &target_address, &bad_contract)) {
+        return REJECTED;
+    }
+
+    return SUCCESS;
+}
+
+/// Punto de entrada para auditoría ZK
+/// Verifica un compromiso de factura (commitment) generado por el agente.
+export fn verify_zk_commitment(commitment: [32]u8) i32 {
+    // Aquí iría la lógica de verificación de la raíz del estado
+    _ = commitment;
+    return SUCCESS;
+}
+
+/// Entrada requerida por el runtime de Stylus
+export fn main(len: usize) i32 {
     _ = len;
-    // Aquí iría el router de llamadas real (ABIs, etc.)
     return 0;
 }
-
-/// xB77 Signature: Proof of Sovereignty
-pub const AGENT_ID = "xB77-ALPHA-01";
