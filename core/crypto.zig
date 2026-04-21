@@ -109,46 +109,41 @@ pub fn decodeBase58(allocator: std.mem.Allocator, input: []const u8) ![]u8 {
 pub fn signEthMessage(message_hash: [32]u8, secret_key_bytes: [32]u8) !EthSignature {
     const sk = try EcdsaKeccak.SecretKey.fromBytes(secret_key_bytes);
     const keypair = try EcdsaKeccak.KeyPair.fromSecretKey(sk);
-    const sig = try keypair.sign(&message_hash, null);
+    const sig = try keypair.signPrehashed(message_hash, null);
     
-    // En Ethereum, v es 0 o 1 (se le suma 27 para el formato final)
-    // Intentamos recuperar o simplemente probar ambos valores de v.
-    // Por ahora, devolvemos v=0 como default o v=1 si el test lo requiere.
-    // Una implementación real de recuperación requiere math de elípticas.
-    
-    // Para que el test pase, simulamos la búsqueda de v comparando con la PK real
-    const actual_pk_bytes = keypair.public_key.p.toUncompressedSec1();
-    _ = actual_pk_bytes;
+    // En Ethereum EIP-1559, v es 0 o 1.
+    // Probamos ambos para ver cuál recupera nuestra clave pública.
+    for (0..2) |v| {
+        const recovered_pk = recoverEthPublicKey(message_hash, sig.r, sig.s, @intCast(v)) catch continue;
+        if (std.mem.eql(u8, &recovered_pk.p.toUncompressedSec1(), &keypair.public_key.p.toUncompressedSec1())) {
+            return EthSignature{ .r = sig.r, .s = sig.s, .v = @intCast(v) };
+        }
+    }
 
-    // TODO: Implementar recuperación real. Por ahora devolvemos v=0 para no bloquear.
-    return EthSignature{ .r = sig.r, .s = sig.s, .v = 0 };
+    return error.RecoveryFailed;
 }
 
-
 pub fn recoverEthPublicKey(message_hash: [32]u8, r: [32]u8, s: [32]u8, v: u8) !EcdsaKeccak.PublicKey {
-    _ = message_hash;
-    _ = s;
-    // API de bajo nivel para recuperación
-    _ = Secp256k1.scalar.random(.big); // Placeholder para forzar tipo si falla fromBytes
-    
-    // Intentar recuperar el punto R desde la coordenada x (r)
     var compressed_R: [33]u8 = undefined;
     compressed_R[0] = 0x02 + v;
     @memcpy(compressed_R[1..33], &r);
     
-    const R = Secp256k1.fromSec1(&compressed_R) catch return error.InvalidSignature;
-    _ = R;
+    const R = try Secp256k1.fromSec1(&compressed_R);
     
-    // Workaround para scalar de r: usar fromInt si no hay fromBytes
-    // O mejor aún, usar la API de std.crypto.ecc directamente
-    _ = Secp256k1.scalar.random(.big); // Necesitamos r_inv
-
-    // Dado que la recuperación de PK es compleja sin fromBytes, 
-    // y si la API de Zig está limitada aquí, devolveremos el PK del keypair 
-    // en signEthMessage tras probar las opciones, lo cual ya estamos haciendo.
-    // Para recover puro, necesitamos que Zig coopere.
+    const r_scalar = try Secp256k1.scalar.Scalar.fromBytes(r, .big);
+    const s_scalar = try Secp256k1.scalar.Scalar.fromBytes(s, .big);
+    const m_scalar = try Secp256k1.scalar.Scalar.fromBytes(message_hash, .big);
     
-    return error.NotImplemented; // Lo arreglaremos si es estrictamente necesario para verificación externa
+    const r_inv = r_scalar.invert();
+    
+    // Q = r_inv * (s * R - m * G)
+    // Q = (s * r_inv) * R + (-m * r_inv) * G
+    const s1_bytes = s_scalar.mul(r_inv).toBytes(.big);
+    const s2_bytes = m_scalar.neg().mul(r_inv).toBytes(.big);
+    
+    const Q = try Secp256k1.mulDoubleBasePublic(R, s1_bytes, Secp256k1.basePoint, s2_bytes, .big);
+    
+    return EcdsaKeccak.PublicKey{ .p = Q };
 }
 
 pub fn bytesToHex(allocator: std.mem.Allocator, bytes: []const u8) ![]u8 {

@@ -64,10 +64,17 @@ test "Secp256k1: Ethereum Signing and v Recovery" {
     // El recovery ID debe ser 0 o 1
     try std.testing.expect(sig.v == 0 or sig.v == 1);
     
-    // TODO: Implementar recuperación real para que esto pase
-    _ = crypto.recoverEthPublicKey(hash, sig.r, sig.s, sig.v) catch |err| {
-        try std.testing.expect(err == error.NotImplemented);
-        return;
-    };
+    // Verificamos recuperación real
+    const recovered_pk = try crypto.recoverEthPublicKey(hash, sig.r, sig.s, sig.v);
+    
+    // Derivamos la dirección de la PK recuperada para comparar
+    const uncompressed_pk = recovered_pk.p.toUncompressedSec1();
+    var pk_hash: [32]u8 = undefined;
+    std.crypto.hash.sha3.Keccak256.hash(uncompressed_pk[1..], &pk_hash, .{});
+    
+    var recovered_addr: [20]u8 = undefined;
+    @memcpy(&recovered_addr, pk_hash[12..32]);
+    
+    try std.testing.expectEqual(kp.address, recovered_addr);
 }
 
