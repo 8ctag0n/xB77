@@ -141,17 +141,36 @@ pub const Vault = struct {
         };
     }
 
-    pub fn canSpend(self: *Vault, amount: u64, asset: types.Asset, recipient: ?Recipient) !bool {
+    pub fn canSpend(self: *Vault, constitution: *const @import("constitution.zig").Constitution, amount: u64, asset: types.Asset, recipient: ?Recipient) !bool {
+        // 1. Verificación de la Constitución (Global)
+        var target_addr: ?[]u8 = null;
         if (recipient) |r| {
-            const addr_str = switch (r) {
+            target_addr = switch (r) {
                 .sol => |pk| try crypto.pubkeyToString(self.allocator, &pk),
                 .evm => |addr| try @import("evm.zig").addressToHex(self.allocator, addr),
             };
-            defer self.allocator.free(addr_str);
-            if (self.policy.blacklist.contains(addr_str)) return false;
+        }
+        defer if (target_addr) |addr| self.allocator.free(addr);
+
+        // Si la constitución bloquea la acción o el target, denegar inmediatamente
+        const const_ptr = @constCast(constitution); // Necesario para el mutex interno si no es thread-safe-read
+        if (!const_ptr.isActionAllowed(target_addr)) {
+            std.debug.print("[Vault] Action blocked by Constitution\n", .{});
+            return false;
         }
 
-        if (amount > self.policy.per_tx_limit) return false;
+        // 2. Verificación de la Política del Vault (Local)
+        if (target_addr) |addr| {
+            if (self.policy.blacklist.contains(addr)) {
+                std.debug.print("[Vault] Address blacklisted in vault policy\n", .{});
+                return false;
+            }
+        }
+
+        if (amount > self.policy.per_tx_limit) {
+            std.debug.print("[Vault] Amount exceeds per-transaction limit\n", .{});
+            return false;
+        }
 
         const now = std.time.milliTimestamp();
         const one_day_ms = 24 * 60 * 60 * 1000;
@@ -165,7 +184,11 @@ pub const Vault = struct {
             }
         }
 
-        if (spent_today + amount > self.policy.daily_limit) return false;
+        if (spent_today + amount > self.policy.daily_limit) {
+            std.debug.print("[Vault] Amount exceeds daily spending limit\n", .{});
+            return false;
+        }
+
         return true;
     }
 

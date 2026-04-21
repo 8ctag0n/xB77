@@ -6,6 +6,7 @@ const solana = @import("solana.zig");
 const evm = @import("evm.zig");
 const config_mod = @import("config.zig");
 const const_mod = @import("constitution.zig");
+const cdp = @import("cdp.zig");
 
 pub const AgentContext = struct {
     allocator: std.mem.Allocator,
@@ -13,17 +14,24 @@ pub const AgentContext = struct {
     vaults: vault.VaultSet,
     sol_client: solana.SolanaClient,
     evm_client: evm.EvmClient,
+    cdp_client: ?cdp.CdpClient,
     constitution: const_mod.Constitution,
 
     pub fn init(allocator: std.mem.Allocator, config_path: []const u8) !AgentContext {
         const config = try config_mod.Config.load(allocator, config_path);
         
+        var cdp_client: ?cdp.CdpClient = null;
+        if (config.cdp.key_name != null and config.cdp.key_secret != null) {
+            cdp_client = cdp.CdpClient.init(allocator, config.cdp.key_name.?, config.cdp.key_secret.?);
+        }
+
         return AgentContext{
             .allocator = allocator,
             .config = config,
             .vaults = try vault.VaultSet.init(allocator),
             .sol_client = solana.SolanaClient.init(allocator, config.rpc.solana),
             .evm_client = evm.EvmClient.init(allocator, config.rpc.base),
+            .cdp_client = cdp_client,
             .constitution = const_mod.Constitution.init(allocator),
         };
     }

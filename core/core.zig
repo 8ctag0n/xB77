@@ -12,6 +12,7 @@ pub const receipt = @import("receipt.zig");
 pub const evm = @import("evm.zig");
 pub const tx = @import("tx.zig");
 pub const rlp = @import("rlp.zig");
+pub const cdp = @import("cdp.zig");
 
 // Re-exportar funciones comunes
 pub const generateKeypair = crypto.generateKeypair;

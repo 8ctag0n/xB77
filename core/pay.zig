@@ -36,16 +36,18 @@ pub const PaymentRouter = struct {
     sol_client: *solana.SolanaClient,
     evm_client: *evm_mod.EvmClient,
     vaults: *vault_mod.VaultSet,
+    constitution: *const @import("constitution.zig").Constitution,
     risk_scorer: audit_mod.RiskScorer,
 
     pub const INFRA_TAX_BPS = 11; // 0.11% (11 Basis Points)
 
-    pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, evm_client: *evm_mod.EvmClient, vaults: *vault_mod.VaultSet) PaymentRouter {
+    pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, evm_client: *evm_mod.EvmClient, vaults: *vault_mod.VaultSet, constitution: *const @import("constitution.zig").Constitution) PaymentRouter {
         return .{
             .allocator = allocator,
             .sol_client = sol_client,
             .evm_client = evm_client,
             .vaults = vaults,
+            .constitution = constitution,
             .risk_scorer = audit_mod.RiskScorer.init(allocator),
         };
     }
@@ -53,12 +55,11 @@ pub const PaymentRouter = struct {
     /// Calcula el costo de facilitación (0.11%)
     fn calculateInfraOverhead(self: *PaymentRouter, amount: u64) u64 {
         _ = self;
-        // (Amount * 11) / 10,000 = 0.11%
         return (amount * INFRA_TAX_BPS) / 10000;
     }
 
     pub fn pay(self: *PaymentRouter, request: PaymentRequest) !PaymentResult {
-        // 1. Auditoría de Riesgo (Risk Recon) - Multi-Chain
+        // 1. Auditoría de Riesgo (Risk Recon)
         const audit_recipient = switch (request.recipient) {
             .sol => |pk| audit_mod.RiskScorer.Recipient{ .sol = pk },
             .evm => |addr| audit_mod.RiskScorer.Recipient{ .evm = addr },
@@ -66,16 +67,29 @@ pub const PaymentRouter = struct {
         
         const report = try self.risk_scorer.assess(audit_recipient, request.amount);
         if (!report.passed) {
-            std.debug.print("[PaymentRouter] ❌ Riesgo detectado: {s}\n", .{report.flags[0]});
+            std.debug.print("[PaymentRouter] Risk detected: {s}\n", .{report.flags[0]});
             return error.RiskAuditFailed;
         }
 
+        // 2. Selección de estrategia y ruteo multichain
         const strategy = self.selectStrategy(request);
         
-        return switch (request.asset.chain) {
+        // Decidir cadena basada en el asset o disponibilidad
+        const target_chain = self.route(request);
+        
+        return switch (target_chain) {
             .solana => self.paySolana(request, strategy),
             .base, .arbitrum => self.payEVM(request, strategy),
         };
+    }
+
+    /// Lógica de ruteo inteligente
+    fn route(self: *PaymentRouter, request: PaymentRequest) types.Chain {
+        _ = self;
+        // Si el request pide una cadena específica, la respetamos.
+        // Pero si es un activo multichain (ej: USDC), podríamos elegir aquí.
+        // Por ahora, usamos la cadena del activo solicitado.
+        return request.asset.chain;
     }
 
     fn selectStrategy(self: *PaymentRouter, request: PaymentRequest) PaymentStrategy {
@@ -88,32 +102,24 @@ pub const PaymentRouter = struct {
         const v = &self.vaults.ops;
         const reserve = &self.vaults.reserve;
 
-        // 1. Calcular Tax (Infra Tax)
         const tax_amount = self.calculateInfraOverhead(request.amount);
         const total_amount = request.amount + tax_amount;
 
-        // 2. Verificar Policy
         const recipient = vault_mod.Recipient{ .sol = request.recipient.sol };
-        if (!try v.canSpend(total_amount, request.asset, recipient)) return error.PolicyViolation;
+        if (!try v.canSpend(self.constitution, total_amount, request.asset, recipient)) return error.PolicyViolation;
 
-        // 3. Obtener Blockhash y Priority Fees
         const blockhash = try self.sol_client.getLatestBlockhash();
         
-        // Consultar fees para el programa de transferencias (System Program)
         const addresses = [_][]const u8{"11111111111111111111111111111111"};
         const priority_fee = self.sol_client.getRecentPrioritizationFees(&addresses) catch 0;
-        std.debug.print("[PaymentRouter] ⚡️ HFT: Aplicando Priority Fee de {d} micro-lamports\n", .{priority_fee});
+        std.debug.print("[PaymentRouter] HFT: Applying Priority Fee of {d} micro-lamports\n", .{priority_fee});
 
-        // 4. Preparar Transferencias
         var transfers = std.ArrayListUnmanaged(tx_mod.Transfer){};
         defer transfers.deinit(self.allocator);
         
         try transfers.append(self.allocator, .{ .to = request.recipient.sol, .lamports = request.amount });
-        
-        // El Tax vuela a la Reserve Vault
         try transfers.append(self.allocator, .{ .to = reserve.sol_kp.public, .lamports = tax_amount });
 
-        // 5. Construir Transacción Mult-Instrucción con Priority Fee
         const tx_bytes = try tx_mod.buildMultiTransferTx(
             self.allocator,
             v.sol_kp.public,
@@ -121,23 +127,17 @@ pub const PaymentRouter = struct {
             blockhash,
             priority_fee,
         );
-
         defer self.allocator.free(tx_bytes);
 
-        // 6. Firmar
         const message = tx_bytes[65..];
         const signature = crypto.sign(message, &v.sol_kp);
         @memcpy(tx_bytes[1..65], &signature);
 
-        // --- NUEVO: GENERAR ZK RECEIPT ---
         const receipt = try receipt_mod.ZkReceipt.generate(request.amount, tax_amount, request.recipient.sol);
         try receipt.writeProverToml("circuits/zk_receipt/Prover.toml");
-        std.debug.print("[PaymentRouter] 🧾 ZK-Receipt Prover.toml generado en circuits/zk_receipt/\n", .{});
+        std.debug.print("[PaymentRouter] ZK-Receipt Prover.toml generated\n", .{});
 
-        // 7. Enviar
         const sig_str = try self.sol_client.sendTransaction(tx_bytes);
-
-        // 8. Registrar Gasto
         try v.recordSpend(total_amount, request.asset);
 
         return PaymentResult{
@@ -154,27 +154,19 @@ pub const PaymentRouter = struct {
         const eth_kp = v.eth_kp orelse return error.EthKeypairNotInitialized;
         const reserve_eth_kp = reserve.eth_kp orelse return error.EthKeypairNotInitialized;
 
-        // 1. Calcular Tax (Infra Tax)
         const tax_amount = self.calculateInfraOverhead(request.amount);
         const total_amount = request.amount + tax_amount;
 
-        // 2. Verificar Policy
         const recipient = vault_mod.Recipient{ .evm = request.recipient.evm };
-        if (!try v.canSpend(total_amount, request.asset, recipient)) return error.PolicyViolation;
+        if (!try v.canSpend(self.constitution, total_amount, request.asset, recipient)) return error.PolicyViolation;
 
-        // 3. Obtener Nonce y Gas
         const nonce = try self.evm_client.getNonce(eth_kp.address);
         const gas_price = try self.evm_client.getGasPrice();
 
-        // Para EVM, el tax se envía en una transacción separada o se usa un Smart Contract.
-        // Por simplicidad en la demo, lo enviamos en la misma transacción si es posible (multicall no soportado aquí),
-        // o simplemente lo registramos como que "volará" después.
-        // TODO: Implementar Batch de transacciones en EVM.
-        
         const tx = tx_mod.EthEip1559Tx{
             .chain_id = 84532, // Base Sepolia
             .nonce = nonce,
-            .max_priority_fee_per_gas = 1_000_000_000, // 1 Gwei
+            .max_priority_fee_per_gas = 1_000_000_000, 
             .max_fee_per_gas = gas_price + 1_000_000_000,
             .gas_limit = 21000,
             .to = request.recipient.evm,
@@ -188,18 +180,13 @@ pub const PaymentRouter = struct {
         const tx_hex = try std.fmt.allocPrint(self.allocator, "0x{s}", .{try crypto.bytesToHex(self.allocator, signed_tx)});
         defer self.allocator.free(tx_hex);
 
-        // 7. Enviar
         const tx_hash = try self.evm_client.sendRawTransaction(tx_hex);
-        
         const hash_hex = try crypto.bytesToHex(self.allocator, &tx_hash);
         defer self.allocator.free(hash_hex);
         
         const tx_hash_str = try std.fmt.allocPrint(self.allocator, "0x{s}", .{hash_hex});
 
-        // Simular el envío del tax a la Reserve Vault en EVM (mock)
-        std.debug.print("[PaymentRouter] 💸 Tax EVM de {d} wei volando a {x}\n", .{tax_amount, reserve_eth_kp.address});
-
-        // 8. Registrar Gasto
+        std.debug.print("[PaymentRouter] EVM Tax of {d} wei flying to {x}\n", .{tax_amount, reserve_eth_kp.address});
         try v.recordSpend(total_amount, request.asset);
 
         return PaymentResult{

@@ -8,6 +8,10 @@ pub const Config = struct {
     vaults: struct {
         path: []const u8,
     },
+    cdp: struct {
+        key_name: ?[]const u8 = null,
+        key_secret: ?[]const u8 = null,
+    },
 
     pub fn load(allocator: std.mem.Allocator, path: []const u8) !Config {
         const file = std.fs.cwd().openFile(path, .{}) catch |err| {
@@ -20,6 +24,7 @@ pub const Config = struct {
                     .vaults = .{
                         .path = try allocator.dupe(u8, "./.xb77"),
                     },
+                    .cdp = .{ .key_name = null, .key_secret = null },
                 };
             }
             return err;
@@ -37,6 +42,7 @@ pub const Config = struct {
             .vaults = .{
                 .path = try allocator.dupe(u8, "./.xb77"),
             },
+            .cdp = .{ .key_name = null, .key_secret = null },
         };
 
         var lines = std.mem.splitScalar(u8, content, '\n');
@@ -61,6 +67,12 @@ pub const Config = struct {
                 allocator.free(config.vaults.path);
                 config.vaults.path = try allocator.dupe(u8, val);
             }
+            if (std.mem.eql(u8, key, "cdp_key_name")) {
+                config.cdp.key_name = try allocator.dupe(u8, val);
+            }
+            if (std.mem.eql(u8, key, "cdp_key_secret")) {
+                config.cdp.key_secret = try allocator.dupe(u8, val);
+            }
         }
 
         return config;
@@ -70,5 +82,7 @@ pub const Config = struct {
         allocator.free(self.rpc.solana);
         allocator.free(self.rpc.base);
         allocator.free(self.vaults.path);
+        if (self.cdp.key_name) |k| allocator.free(k);
+        if (self.cdp.key_secret) |k| allocator.free(k);
     }
 };
