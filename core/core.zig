@@ -13,6 +13,8 @@ pub const evm = @import("evm.zig");
 pub const tx = @import("tx.zig");
 pub const rlp = @import("rlp.zig");
 pub const cdp = @import("cdp.zig");
+pub const compliance = @import("compliance.zig");
+pub const risk = @import("risk.zig");
 
 // Re-exportar funciones comunes
 pub const generateKeypair = crypto.generateKeypair;

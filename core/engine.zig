@@ -7,6 +7,7 @@ const bridge = if (builtin.target.os.tag != .wasi) @import("znode_bridge.zig") e
 };
 
 const yellowstone = @import("yellowstone.zig");
+const risk = @import("risk.zig");
 
 pub const Engine = struct {
     allocator: std.mem.Allocator,
@@ -56,7 +57,6 @@ pub const Engine = struct {
     fn tick(self: *Engine) !void {
         _ = self;
         // El tick es para tareas de mantenimiento (ej: cada 10s)
-        std.debug.print("[Engine] Heartbeat: Mantenimiento...\n", .{});
     }
 
     /// Método reactivo llamado por el Z-Node Bridge en tiempo real
@@ -68,33 +68,30 @@ pub const Engine = struct {
             .transaction => {
                 const tx = event.tx orelse return;
                 
-                std.debug.print("\n[Engine] ⚡ Z-NODE REFLEX: Transacción Detectada!\n", .{});
+                std.debug.print("\n[DETECT] ⚡ {s} Event -> {s}...", .{@tagName(event.chain), tx.signature[0..8]});
                 
                 var sender_hex: [64]u8 = undefined;
                 _ = std.fmt.bufPrint(&sender_hex, "{x}", .{tx.sender}) catch return;
 
-                std.debug.print("         De: {s}\n", .{sender_hex});
-                std.debug.print("         Monto: {d} lamports\n", .{tx.amount});
-
-                // 1. Verificación Constitucional Primaria
-                // ¿Este actor está en la blacklist global?
-                if (!self.ctx.constitution.isActionAllowed(&sender_hex)) {
-                    std.debug.print("         ❌ ACCIÓN BLOQUEADA: Remitente sancionado por la Constitución.\n", .{});
+                // 1. Verificación de Cumplimiento (Compliance)
+                if (!self.ctx.compliance.check(tx)) {
+                    std.debug.print("\n[JUDGE ] ❌ FAILED Compliance: Policy mismatch.", .{});
                     return;
                 }
 
-                std.debug.print("         ✅ CONSTITUCIÓN: Actor verificado.\n", .{});
+                // 2. Evaluación de Riesgo (Risk)
+                const risk_score = risk.RiskEngine.assess(tx);
+                const risk_label = if (risk_score < 0.3) "LOW" else if (risk_score < 0.6) "MID" else "HIGH";
 
-                // 2. Aquí es donde entraría el Skill Engine (WASM-ready)
-                // Ejemplo conceptual del flujo:
-                // for (self.ctx.skills.items) |skill| {
-                //     if (skill.canHandle(tx)) {
-                //         skill.execute(self.ctx, tx);
-                //         break;
-                //     }
-                // }
-                
-                std.debug.print("         🧠 Evaluando Skills para respuesta automática...\n", .{});
+                // 3. Verificación Constitucional Primaria
+                if (!self.ctx.constitution.isActionAllowed(&sender_hex)) {
+                    std.debug.print("\n[JUDGE ] ❌ FAILED Constitution: Actor Blacklisted.", .{});
+                    return;
+                }
+
+                std.debug.print("\n[JUDGE ] ✅ PASSED: Compliance OK | Risk: {s} ({d:.2})", .{risk_label, risk_score});
+                std.debug.print("\n[PULSE ] 🧠 Veredicto: Transacción Soberana Aceptada.", .{});
+                std.debug.print("\n         ----------------------------------------", .{});
             }
         }
     }

@@ -130,6 +130,17 @@ fn handleMcp(allocator: std.mem.Allocator) !void {
 fn handleServe(allocator: std.mem.Allocator) !void {
     var ctx = try core.context.AgentContext.init(allocator, "agent.toml");
     defer ctx.deinit();
+
+    std.debug.print(
+        \\
+        \\  xB77 SENSORY NODE — Situational Awareness: ACTIVE
+        \\  ═══════════════════════════════════════════════
+        \\  Mode:      Autonomous (Sentinel)
+        \\  Vigilance: Real-Time Stream (Yellowstone)
+        \\  Status:    Awaiting Network Pulse...
+        \\
+    , .{});
+
     var agent_engine = core.engine.Engine.init(allocator, &ctx);
     try agent_engine.start();
 }
