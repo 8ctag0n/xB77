@@ -29,6 +29,8 @@ fn listenLoop(engine: anytype) !void {
         const bytes_read = conn.stream.read(&buf) catch continue;
         if (bytes_read == 0) continue;
 
+        std.debug.print("[Z-Node Bridge] 📥 Recibidos {d} bytes del Sentinel.\n", .{bytes_read});
+
         // Procesar el mensaje Yellowstone
         if (try parser.parseUpdate(buf[0..bytes_read])) |event| {
             // Notificar al engine con el evento real

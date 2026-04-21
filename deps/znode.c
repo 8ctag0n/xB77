@@ -3,27 +3,55 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
-// Contexto interno del cliente
 typedef struct {
     znode_config_t config;
     znode_on_event_cb callback;
     void* user_data;
     CURL* curl;
+    int socket_fd;
 } znode_client_t;
 
 static znode_client_t* global_client = NULL;
 
-// Esta función se llama cada vez que llega un "chorro" de bytes de QuickNode
+static int connect_to_bridge() {
+    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) return -1;
+
+    struct sockaddr_un addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, "/tmp/xb77_znode.sock", sizeof(addr.sun_path) - 1);
+
+    if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        close(fd);
+        return -1;
+    }
+    return fd;
+}
+
 static size_t write_callback(char* ptr, size_t size, size_t nmemb, void* userdata) {
     znode_client_t* client = (znode_client_t*)userdata;
     size_t total_size = size * nmemb;
 
-    // TODO: Aquí integraremos nanopb para decodificar el mensaje gRPC (Length-Prefixed)
-    // Por ahora, solo notificamos que llegó data para testear la conexión
+    // Intentar reconectar si el socket se cerró
+    if (client->socket_fd < 0) {
+        client->socket_fd = connect_to_bridge();
+    }
+
+    // MANDAR DATA CRUDA AL BRIDGE EN ZIG
+    if (client->socket_fd >= 0) {
+        if (send(client->socket_fd, ptr, total_size, MSG_NOSIGNAL) < 0) {
+            close(client->socket_fd);
+            client->socket_fd = -1;
+        }
+    }
+
     if (client->callback) {
-        // Simulamos un evento de SLOT para validar que el cable funciona
-        client->callback(ZNODE_EVENT_SLOT, NULL, client->user_data);
+        client->callback(ZNODE_EVENT_TRANSACTION, ptr, client->user_data);
     }
 
     return total_size;
@@ -36,6 +64,7 @@ bool znode_connect(znode_config_t config, znode_on_event_cb callback, void* user
     global_client->config = config;
     global_client->callback = callback;
     global_client->user_data = user_data;
+    global_client->socket_fd = -1;
 
     curl_global_init(CURL_GLOBAL_ALL);
     global_client->curl = curl_easy_init();
@@ -44,7 +73,6 @@ bool znode_connect(znode_config_t config, znode_on_event_cb callback, void* user
         struct curl_slist* headers = NULL;
         headers = curl_slist_append(headers, "Content-Type: application/grpc");
         
-        // El secreto de QuickNode: x-token
         char token_header[256];
         snprintf(token_header, sizeof(token_header), "x-token: %s", config.token);
         headers = curl_slist_append(headers, token_header);
@@ -52,16 +80,10 @@ bool znode_connect(znode_config_t config, znode_on_event_cb callback, void* user
         curl_easy_setopt(global_client->curl, CURLOPT_URL, config.endpoint);
         curl_easy_setopt(global_client->curl, CURLOPT_HTTPHEADER, headers);
         curl_easy_setopt(global_client->curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
-        
-        // IMPORTANTE: gRPC usa POST para subscripciones
         curl_easy_setopt(global_client->curl, CURLOPT_POST, 1L);
-        
-        // No queremos que curl guarde la data en un archivo, queremos procesarla en vivo
         curl_easy_setopt(global_client->curl, CURLOPT_WRITEFUNCTION, write_callback);
         curl_easy_setopt(global_client->curl, CURLOPT_WRITEDATA, global_client);
 
-        // Esto dispara el stream en un hilo separado o bloquea según cómo lo llamemos
-        // Para la demo, lo dejaremos listo para integrarse al event loop de Zig
         return true;
     }
 
@@ -70,15 +92,10 @@ bool znode_connect(znode_config_t config, znode_on_event_cb callback, void* user
 
 void znode_disconnect() {
     if (global_client) {
+        if (global_client->socket_fd >= 0) close(global_client->socket_fd);
         if (global_client->curl) curl_easy_cleanup(global_client->curl);
         free(global_client);
         global_client = NULL;
         curl_global_cleanup();
     }
-}
-
-bool znode_subscribe_vault(const uint8_t* pubkey) {
-    // TODO: Construir el mensaje Protobuf SubscribeRequest y mandarlo por el stream
-    (void)pubkey;
-    return true;
 }

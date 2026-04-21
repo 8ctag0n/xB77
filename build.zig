@@ -31,6 +31,34 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(exe);
 
+    // --- Z-Node Server (C + Zig Bridge) ---
+    const znode_exe = b.addExecutable(.{
+        .name = "znode-server",
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    znode_exe.addCSourceFile(.{ .file = b.path("znode/main.c"), .flags = &.{"-std=c11"} });
+    znode_exe.addCSourceFile(.{ .file = b.path("deps/znode.c"), .flags = &.{"-std=c11"} });
+    znode_exe.addIncludePath(b.path("deps"));
+    znode_exe.linkLibC();
+    znode_exe.linkSystemLibrary("curl");
+
+    b.installArtifact(znode_exe);
+
+    // --- Z-Node E2E Lab ---
+    const e2e_exe = b.addExecutable(.{
+        .name = "znode-e2e",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/znode_e2e.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    e2e_exe.root_module.addImport("core", core_module);
+    b.installArtifact(e2e_exe);
+
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {

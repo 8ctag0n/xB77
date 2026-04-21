@@ -61,18 +61,40 @@ pub const Engine = struct {
 
     /// Método reactivo llamado por el Z-Node Bridge en tiempo real
     pub fn onNetworkEvent(self: *Engine, event: yellowstone.NetworkEvent) void {
-        _ = self;
         switch (event.type) {
             .slot => {
-                // std.debug.print("[Engine] Network Pulse: Slot {d}\n", .{event.slot});
+                // Heartbeat silencioso del parser
             },
             .transaction => {
-                const tx = event.tx.?;
-                std.debug.print("\n[Engine] REFLEX: Pago detectado en tiempo real!\n", .{});
-                std.debug.print("         De: {x}\n", .{tx.sender});
-                std.debug.print("         Monto: {d} lamports (1.0 SOL)\n", .{tx.amount});
+                const tx = event.tx orelse return;
                 
-                // Aquí el agente dispararía la lógica de respuesta (ej: enviar un producto, actualizar estado)
+                std.debug.print("\n[Engine] ⚡ Z-NODE REFLEX: Transacción Detectada!\n", .{});
+                
+                var sender_hex: [64]u8 = undefined;
+                _ = std.fmt.bufPrint(&sender_hex, "{x}", .{tx.sender}) catch return;
+
+                std.debug.print("         De: {s}\n", .{sender_hex});
+                std.debug.print("         Monto: {d} lamports\n", .{tx.amount});
+
+                // 1. Verificación Constitucional Primaria
+                // ¿Este actor está en la blacklist global?
+                if (!self.ctx.constitution.isActionAllowed(&sender_hex)) {
+                    std.debug.print("         ❌ ACCIÓN BLOQUEADA: Remitente sancionado por la Constitución.\n", .{});
+                    return;
+                }
+
+                std.debug.print("         ✅ CONSTITUCIÓN: Actor verificado.\n", .{});
+
+                // 2. Aquí es donde entraría el Skill Engine (WASM-ready)
+                // Ejemplo conceptual del flujo:
+                // for (self.ctx.skills.items) |skill| {
+                //     if (skill.canHandle(tx)) {
+                //         skill.execute(self.ctx, tx);
+                //         break;
+                //     }
+                // }
+                
+                std.debug.print("         🧠 Evaluando Skills para respuesta automática...\n", .{});
             }
         }
     }
