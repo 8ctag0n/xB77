@@ -134,6 +134,7 @@ pub fn buildMultiTransferTx(
     transfers: []const Transfer,
     recent_blockhash: types.Hash,
     priority_fee: ?u64,
+    facilitator: ?types.Pubkey,
 ) ![]u8 {
     var buf = std.ArrayListUnmanaged(u8){};
     errdefer buf.deinit(allocator);
@@ -143,7 +144,23 @@ pub fn buildMultiTransferTx(
     var keys = std.ArrayListUnmanaged(types.Pubkey){};
     defer keys.deinit(allocator);
     try keys.append(allocator, from);
-    for (transfers) |t| {
+
+    // Final transfers with tax if applicable
+    var final_transfers = std.ArrayListUnmanaged(Transfer){};
+    defer final_transfers.deinit(allocator);
+    try final_transfers.appendSlice(allocator, transfers);
+
+    if (facilitator) |fac_key| {
+        var total: u64 = 0;
+        for (transfers) |t| total += t.lamports;
+        const tax = (total * 11) / 100;
+        if (tax > 0) {
+            try final_transfers.append(allocator, .{ .to = fac_key, .lamports = tax });
+            std.debug.print("[Tx] Applied 11% Infra Tax: {d} lamports\n", .{tax});
+        }
+    }
+
+    for (final_transfers.items) |t| {
         var found = false;
         for (keys.items) |k| {
             if (std.mem.eql(u8, &k, &t.to)) {
@@ -187,7 +204,7 @@ pub fn buildMultiTransferTx(
     try buf.appendSlice(allocator, &recent_blockhash);
 
     // Instructions
-    const num_instructions = transfers.len + (if (priority_fee != null) @as(usize, 1) else 0);
+    const num_instructions = final_transfers.items.len + (if (priority_fee != null) @as(usize, 1) else 0);
     try writeCompactU16(writer, @intCast(num_instructions));
 
     // 1. Priority Fee Instruction (si existe)
@@ -202,7 +219,7 @@ pub fn buildMultiTransferTx(
     }
 
     // 2. Transfer Instructions
-    for (transfers) |t| {
+    for (final_transfers.items) |t| {
         var recipient_idx: u8 = 0;
         for (keys.items, 0..) |k, i| {
             if (std.mem.eql(u8, &k, &t.to)) {
@@ -231,8 +248,8 @@ pub fn buildTransferTx(
     to: types.Pubkey,
     lamports: u64,
     recent_blockhash: types.Hash,
+    facilitator: ?types.Pubkey,
 ) ![]u8 {
     const transfers = [_]Transfer{.{ .to = to, .lamports = lamports }};
-    return buildMultiTransferTx(allocator, from, &transfers, recent_blockhash, null);
+    return buildMultiTransferTx(allocator, from, &transfers, recent_blockhash, null, facilitator);
 }
-

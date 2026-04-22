@@ -171,12 +171,8 @@ pub fn stringToPubkey(allocator: std.mem.Allocator, str: []const u8) !types.Pubk
     var pk: types.Pubkey = undefined;
     const decoded = try decodeBase58(allocator, str);
     defer allocator.free(decoded);
-    if (decoded.len > 32) {
-        @memcpy(&pk, decoded[decoded.len-32..32]);
-    } else {
-        @memset(&pk, 0);
-        @memcpy(pk[32-decoded.len..], decoded);
-    }
+    if (decoded.len != 32) return error.InvalidAddressLength;
+    @memcpy(&pk, decoded);
     return pk;
 }
 

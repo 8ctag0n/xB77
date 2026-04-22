@@ -2,3 +2,8 @@
 rpc_solana = "https://api.devnet.solana.com"
 rpc_base = "https://sepolia.base.org"
 vault_path = "./.xb77"
+
+# 11% Infra Tax Facilitator (xB77 Sovereign Treasury)
+# Solana: Base58 Address
+# Base: 0x Hex Address
+facilitator = "11111111111111111111111111111111"

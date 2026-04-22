@@ -97,7 +97,7 @@ fn handlePay(allocator: std.mem.Allocator, args: []const []const u8) !void {
         .blacklist = std.StringHashMap(void).init(allocator),
     };
 
-    var router = core.pay.PaymentRouter.init(allocator, &ctx.sol_client, &ctx.evm_client, &ctx.vaults, &ctx.constitution);
+    var router = core.pay.PaymentRouter.init(allocator, &ctx.sol_client, &ctx.evm_client, &ctx.vaults, &ctx.constitution, ctx.config.facilitator);
 
     if (std.mem.eql(u8, chain_name, "solana")) {
         const dest_pubkey = try core.crypto.stringToPubkey(allocator, dest_str);

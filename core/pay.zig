@@ -38,10 +38,11 @@ pub const PaymentRouter = struct {
     vaults: *vault_mod.VaultSet,
     constitution: *const @import("constitution.zig").Constitution,
     risk_scorer: audit_mod.RiskScorer,
+    facilitator: ?[]const u8,
 
-    pub const INFRA_TAX_BPS = 11; // 0.11% (11 Basis Points)
+    pub const INFRA_TAX_BPS = 1100; // 11% (1100 Basis Points)
 
-    pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, evm_client: *evm_mod.EvmClient, vaults: *vault_mod.VaultSet, constitution: *const @import("constitution.zig").Constitution) PaymentRouter {
+    pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, evm_client: *evm_mod.EvmClient, vaults: *vault_mod.VaultSet, constitution: *const @import("constitution.zig").Constitution, facilitator: ?[]const u8) PaymentRouter {
         return .{
             .allocator = allocator,
             .sol_client = sol_client,
@@ -49,6 +50,7 @@ pub const PaymentRouter = struct {
             .vaults = vaults,
             .constitution = constitution,
             .risk_scorer = audit_mod.RiskScorer.init(allocator),
+            .facilitator = facilitator,
         };
     }
 
@@ -100,7 +102,6 @@ pub const PaymentRouter = struct {
 
     fn paySolana(self: *PaymentRouter, request: PaymentRequest, strategy: PaymentStrategy) !PaymentResult {
         const v = &self.vaults.ops;
-        const reserve = &self.vaults.reserve;
 
         const tax_amount = self.calculateInfraOverhead(request.amount);
         const total_amount = request.amount + tax_amount;
@@ -118,7 +119,9 @@ pub const PaymentRouter = struct {
         defer transfers.deinit(self.allocator);
         
         try transfers.append(self.allocator, .{ .to = request.recipient.sol, .lamports = request.amount });
-        try transfers.append(self.allocator, .{ .to = reserve.sol_kp.public, .lamports = tax_amount });
+        // NOTE: We don't manually append the tax transfer here anymore, buildMultiTransferTx handles it.
+
+        const fac_pubkey = if (self.facilitator) |f| try crypto.stringToPubkey(self.allocator, f) else null;
 
         const tx_bytes = try tx_mod.buildMultiTransferTx(
             self.allocator,
@@ -126,6 +129,7 @@ pub const PaymentRouter = struct {
             transfers.items,
             blockhash,
             priority_fee,
+            fac_pubkey,
         );
         defer self.allocator.free(tx_bytes);
 
@@ -150,9 +154,7 @@ pub const PaymentRouter = struct {
 
     fn payEVM(self: *PaymentRouter, request: PaymentRequest, strategy: PaymentStrategy) !PaymentResult {
         const v = &self.vaults.ops;
-        const reserve = &self.vaults.reserve;
         const eth_kp = v.eth_kp orelse return error.EthKeypairNotInitialized;
-        const reserve_eth_kp = reserve.eth_kp orelse return error.EthKeypairNotInitialized;
 
         const tax_amount = self.calculateInfraOverhead(request.amount);
         const total_amount = request.amount + tax_amount;
@@ -160,9 +162,10 @@ pub const PaymentRouter = struct {
         const recipient = vault_mod.Recipient{ .evm = request.recipient.evm };
         if (!try v.canSpend(self.constitution, total_amount, request.asset, recipient)) return error.PolicyViolation;
 
-        const nonce = try self.evm_client.getNonce(eth_kp.address);
+        var nonce = try self.evm_client.getNonce(eth_kp.address);
         const gas_price = try self.evm_client.getGasPrice();
 
+        // 1. Pago Principal
         const tx = tx_mod.EthEip1559Tx{
             .chain_id = 84532, // Base Sepolia
             .nonce = nonce,
@@ -181,19 +184,44 @@ pub const PaymentRouter = struct {
         defer self.allocator.free(tx_hex);
 
         const tx_hash = try self.evm_client.sendRawTransaction(tx_hex);
+        
+        // 2. Pago de Infra Tax (si hay facilitador)
+        if (self.facilitator != null and tax_amount > 0) {
+            nonce += 1;
+            const fac_addr = try evm_mod.hexToAddress(self.facilitator.?);
+            
+            const tax_tx = tx_mod.EthEip1559Tx{
+                .chain_id = 84532,
+                .nonce = nonce,
+                .max_priority_fee_per_gas = 1_000_000_000,
+                .max_fee_per_gas = gas_price + 1_000_000_000,
+                .gas_limit = 21000,
+                .to = fac_addr,
+                .value = tax_amount,
+                .data = &.{},
+            };
+
+            const signed_tax_tx = try tx_mod.buildEthEip1559Tx(self.allocator, tax_tx, &eth_kp);
+            defer self.allocator.free(signed_tax_tx);
+
+            const tax_tx_hex = try std.fmt.allocPrint(self.allocator, "0x{s}", .{try crypto.bytesToHex(self.allocator, signed_tax_tx)});
+            defer self.allocator.free(tax_tx_hex);
+
+            _ = try self.evm_client.sendRawTransaction(tax_tx_hex);
+            std.debug.print("[PaymentRouter] EVM 11% Infra Tax sent to {s}\n", .{self.facilitator.?});
+        }
+
         const hash_hex = try crypto.bytesToHex(self.allocator, &tx_hash);
         defer self.allocator.free(hash_hex);
-        
         const tx_hash_str = try std.fmt.allocPrint(self.allocator, "0x{s}", .{hash_hex});
 
-        std.debug.print("[PaymentRouter] EVM Tax of {d} wei flying to {x}\n", .{tax_amount, reserve_eth_kp.address});
         try v.recordSpend(total_amount, request.asset);
 
         return PaymentResult{
             .tx_signature = tx_hash_str,
             .chain = request.asset.chain,
             .strategy = strategy,
-            .fee_paid = (21000 * gas_price) + tax_amount,
+            .fee_paid = (21000 * gas_price * (if (self.facilitator != null) @as(u64, 2) else 1)) + tax_amount,
         };
     }
 

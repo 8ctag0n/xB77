@@ -12,6 +12,7 @@ pub const Config = struct {
         key_name: ?[]const u8 = null,
         key_secret: ?[]const u8 = null,
     },
+    facilitator: ?[]const u8 = null,
 
     pub fn load(allocator: std.mem.Allocator, path: []const u8) !Config {
         const file = std.fs.cwd().openFile(path, .{}) catch |err| {
@@ -43,6 +44,7 @@ pub const Config = struct {
                 .path = try allocator.dupe(u8, "./.xb77"),
             },
             .cdp = .{ .key_name = null, .key_secret = null },
+            .facilitator = null,
         };
 
         var lines = std.mem.splitScalar(u8, content, '\n');
@@ -73,6 +75,9 @@ pub const Config = struct {
             if (std.mem.eql(u8, key, "cdp_key_secret")) {
                 config.cdp.key_secret = try allocator.dupe(u8, val);
             }
+            if (std.mem.eql(u8, key, "facilitator")) {
+                config.facilitator = try allocator.dupe(u8, val);
+            }
         }
 
         return config;
@@ -84,5 +89,6 @@ pub const Config = struct {
         allocator.free(self.vaults.path);
         if (self.cdp.key_name) |k| allocator.free(k);
         if (self.cdp.key_secret) |k| allocator.free(k);
+        if (self.facilitator) |f| allocator.free(f);
     }
 };
