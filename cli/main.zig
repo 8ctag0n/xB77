@@ -23,6 +23,8 @@ pub fn main() !void {
         try handleStatus(allocator);
     } else if (std.mem.eql(u8, command, "pay")) {
         try handlePay(allocator, args[2..]);
+    } else if (std.mem.eql(u8, command, "batch")) {
+        try handleBatch(allocator, args[2..]);
     } else if (std.mem.eql(u8, command, "mcp")) {
         try handleMcp(allocator);
     } else if (std.mem.eql(u8, command, "serve")) {
@@ -43,6 +45,7 @@ fn printUsage() void {
         \\  init             Inicializa el agente y genera su identidad
         \\  status           Muestra el estado y balances del agente
         \\  pay <to> <amt>   Realiza un pago (Solana por defecto)
+        \\  batch <file>     Ejecuta múltiples pagos desde un archivo JSONL
         \\  mcp              Inicia el servidor de orquestación IA
         \\  serve            Inicia la operación autónoma 24/7
         \\
@@ -69,12 +72,47 @@ fn handleStatus(allocator: std.mem.Allocator) !void {
     const eth_addr = try ctx.vaults.ops.address(.base, allocator);
     defer allocator.free(eth_addr);
 
-    std.debug.print("--- ESTADO DEL AGENTE (Identidad Soberana) ---\n", .{});
-    std.debug.print("Vault (Ops) Solana: {s}\n", .{sol_addr});
-    std.debug.print("Vault (Ops) EVM:    {s}\n", .{eth_addr});
-    std.debug.print("RPC Solana:         {s}\n", .{ctx.config.rpc.solana});
-    std.debug.print("RPC EVM:            {s}\n", .{ctx.config.rpc.base});
-    std.debug.print("--------------------------------------------\n", .{});
+    // Análisis de Ledger (Sovereign Memory)
+    const entries = ctx.store.getEntries(allocator) catch |err| blk: {
+        if (err == error.FileNotFound) break :blk @as([]core.store.LedgerEntry, &[_]core.store.LedgerEntry{});
+        return err;
+    };
+    defer {
+        for (entries) |e| {
+            allocator.free(e.description);
+            allocator.free(e.tx_hash);
+        }
+        allocator.free(entries);
+    }
+
+    var total_tax: u64 = 0;
+    var accepted_count: usize = 0;
+    var blocked_count: usize = 0;
+
+    for (entries) |e| {
+        if (e.entry_type == .audit) {
+            accepted_count += 1;
+            total_tax += (e.amount * 211) / 10000;
+        } else if (e.entry_type == .risk_blocked or e.entry_type == .compliance_fail) {
+            blocked_count += 1;
+        }
+    }
+
+    std.debug.print("\n  xB77 SOVEREIGN STATUS — Audit Report", .{});
+    std.debug.print("\n  ══════════════════════════════════════", .{});
+    std.debug.print("\n  Identities:", .{});
+    std.debug.print("\n    - Solana:  {s}", .{sol_addr});
+    std.debug.print("\n    - EVM:     {s}", .{eth_addr});
+    std.debug.print("\n", .{});
+    std.debug.print("\n  Economic Performance:", .{});
+    std.debug.print("\n    - Accepted Transactions: {d}", .{accepted_count});
+    std.debug.print("\n    - Blocked Threats:       {d}", .{blocked_count});
+    std.debug.print("\n    - Total Infra Tax Accrued: {d}.{d} SOL/ETH (2.011%)", .{ total_tax / 1_000_000_000, (total_tax % 1_000_000_000) / 1_000_000 });
+    std.debug.print("\n", .{});
+    std.debug.print("\n  Connectivity:", .{});
+    std.debug.print("\n    - Solana RPC:  {s}", .{ctx.config.rpc.solana});
+    std.debug.print("\n    - EVM RPC:     {s}", .{ctx.config.rpc.base});
+    std.debug.print("\n  ══════════════════════════════════════\n", .{});
 }
 
 fn handlePay(allocator: std.mem.Allocator, args: []const []const u8) !void {
@@ -121,6 +159,21 @@ fn handlePay(allocator: std.mem.Allocator, args: []const []const u8) !void {
         std.debug.print("Chain no soportada: {s}\n", .{chain_name});
     }
 }
+
+fn handleBatch(allocator: std.mem.Allocator, args: []const []const u8) !void {
+    if (args.len < 1) {
+        std.debug.print("Uso: xb77 batch <archivo.jsonl>\n", .{});
+        return;
+    }
+
+    const file_path = args[0];
+    var ctx = try core.context.AgentContext.init(allocator, "agent.toml");
+    defer ctx.deinit();
+
+    var router = core.pay.PaymentRouter.init(allocator, &ctx.sol_client, &ctx.evm_client, &ctx.vaults, &ctx.constitution, ctx.config.facilitator);
+    try router.processBatch(file_path);
+}
+
 fn handleMcp(allocator: std.mem.Allocator) !void {
     var ctx = try core.context.AgentContext.init(allocator, "agent.toml");
     defer ctx.deinit();

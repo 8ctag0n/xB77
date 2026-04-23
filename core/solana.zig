@@ -64,11 +64,8 @@ pub const SolanaClient = struct {
     }
 
     pub fn sendTransaction(self: *SolanaClient, tx_bytes: []const u8) ![]u8 {
-        const base64_encoder = std.base64.standard.Encoder;
-        const encoded_len = base64_encoder.calcSize(tx_bytes.len);
-        const encoded_buf = try self.allocator.alloc(u8, encoded_len);
+        const encoded_buf = try self.encodeBase64(tx_bytes);
         defer self.allocator.free(encoded_buf);
-        _ = base64_encoder.encode(encoded_buf, tx_bytes);
 
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"sendTransaction","params":["{s}", {{"encoding":"base64"}}]}}
@@ -83,6 +80,44 @@ pub const SolanaClient = struct {
 
         const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
         return try self.allocator.dupe(u8, result.string);
+    }
+
+    pub fn simulateTransaction(self: *SolanaClient, tx_bytes: []const u8) !void {
+        const encoded_buf = try self.encodeBase64(tx_bytes);
+        defer self.allocator.free(encoded_buf);
+
+        const payload = try std.fmt.allocPrint(self.allocator,
+            \\{{"jsonrpc":"2.0","id":1,"method":"simulateTransaction","params":["{s}", {{"encoding":"base64"}}]}}
+        , .{encoded_buf});
+        defer self.allocator.free(payload);
+
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
+
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{ .ignore_unknown_fields = true });
+        defer parsed.deinit();
+
+        const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
+        const value = result.object.get("value") orelse return error.InvalidResponse;
+        
+        if (value.object.get("err")) |err| {
+            std.debug.print("[Solana] Simulation FAILED: {any}\n", .{err});
+            return error.SimulationFailed;
+        }
+
+        const logs = value.object.get("logs");
+        if (logs) |l| {
+            std.debug.print("[Solana] Simulation success. CU consumed: {any}\n", .{value.object.get("unitsConsumed")});
+            _ = l;
+        }
+    }
+
+    fn encodeBase64(self: *SolanaClient, bytes: []const u8) ![]u8 {
+        const base64_encoder = std.base64.standard.Encoder;
+        const encoded_len = base64_encoder.calcSize(bytes.len);
+        const encoded_buf = try self.allocator.alloc(u8, encoded_len);
+        _ = base64_encoder.encode(encoded_buf, bytes);
+        return encoded_buf;
     }
 
     pub fn getRecentPrioritizationFees(self: *SolanaClient, addresses: []const []const u8) !u64 {
@@ -120,6 +155,28 @@ pub const SolanaClient = struct {
         }
 
         return max_fee;
+    }
+
+    /// Implementa la API específica de QuickNode para estimación de Priority Fees.
+    /// Esto es mucho más preciso que el método estándar de Solana.
+    pub fn getQuickNodePriorityFee(self: *SolanaClient, account: []const u8) !u64 {
+        const payload = try std.fmt.allocPrint(self.allocator,
+            \\{{"jsonrpc":"2.0","id":1,"method":"qn_estimatePriorityFees","params":{{"last_n_blocks":20,"account":"{s}","api_version":2}}}}
+        , .{account});
+        defer self.allocator.free(payload);
+
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
+
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{ .ignore_unknown_fields = true });
+        defer parsed.deinit();
+
+        const result = parsed.value.object.get("result") orelse return 0;
+        const per_addr = result.object.get("per_account_estimate") orelse return 0;
+        const extreme = per_addr.object.get("extreme") orelse return 0;
+        
+        // Retornamos el fee 'extreme' para asegurar que el Agente siempre gane la subasta de bloques
+        return @intCast(extreme.integer);
     }
 
     pub fn getSignaturesForAddress(self: *SolanaClient, address: []const u8, limit: usize) ![]SignatureInfo {

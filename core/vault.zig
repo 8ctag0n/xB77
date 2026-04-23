@@ -138,6 +138,7 @@ pub const Vault = struct {
                 @import("evm.zig").addressToHex(allocator, kp.address)
             else 
                 error.EthKeypairNotInitialized,
+            .bitcoin => error.BitcoinNotYetImplemented,
         };
     }
 

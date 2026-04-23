@@ -41,6 +41,28 @@ pub const EvmClient = struct {
         return try std.fmt.parseInt(u64, clean_hex, 16);
     }
 
+    pub fn getBalance(self: *EvmClient, address: types.EthAddress) !u256 {
+        const addr_hex = try addressToHex(self.allocator, address);
+        defer self.allocator.free(addr_hex);
+
+        const payload = try std.fmt.allocPrint(self.allocator,
+            \\{{"jsonrpc":"2.0","id":1,"method":"eth_getBalance","params":["{s}", "latest"]}}
+        , .{addr_hex});
+        defer self.allocator.free(payload);
+
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
+
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{});
+        defer parsed.deinit();
+
+        const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
+        const result_str = result.string;
+        
+        const clean_hex = if (std.mem.startsWith(u8, result_str, "0x")) result_str[2..] else result_str;
+        return try std.fmt.parseInt(u256, clean_hex, 16);
+    }
+
     pub fn getGasPrice(self: *EvmClient) !u64 {
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"eth_gasPrice","params":[]}}

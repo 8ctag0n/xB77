@@ -4,7 +4,20 @@ const types = @import("types.zig");
 pub const Ed25519 = std.crypto.sign.Ed25519;
 pub const Secp256k1 = std.crypto.ecc.Secp256k1;
 pub const Keccak256 = std.crypto.hash.sha3.Keccak256;
+pub const Sha256 = std.crypto.hash.sha2.Sha256;
 pub const EcdsaKeccak = std.crypto.sign.ecdsa.Ecdsa(Secp256k1, Keccak256);
+
+pub fn hash256(input: []const u8, out: *[32]u8) void {
+    var h = Sha256.init(.{});
+    h.update(input);
+    h.final(out);
+}
+
+pub fn doubleSha256(input: []const u8, out: *[32]u8) void {
+    var temp: [32]u8 = undefined;
+    hash256(input, &temp);
+    hash256(&temp, out);
+}
 
 /// Genera un nuevo par de llaves Ed25519 (Solana).
 pub fn generateKeypair() types.Keypair {

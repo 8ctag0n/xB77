@@ -8,25 +8,31 @@ pub const ZkReceipt = struct {
     recipient_hash: [32]u8,
     
     // Datos privados
-    recipient_pubkey: types.Pubkey,
+    recipient_bytes: [32]u8, // Pad with zeroes for EVM
     secret_salt: [32]u8,
 
     pub fn generate(
         amount: u64,
         tax_paid: u64,
-        recipient: types.Pubkey,
+        recipient: union(enum) { sol: types.Pubkey, evm: types.EthAddress },
     ) !ZkReceipt {
         var salt: [32]u8 = undefined;
         std.crypto.random.bytes(&salt);
 
-        var hash: [32]u8 = [_]u8{0} ** 32;
-        @memcpy(hash[0..16], recipient[0..16]);
+        var rb: [32]u8 = [_]u8{0} ** 32;
+        switch (recipient) {
+            .sol => |pk| @memcpy(&rb, &pk),
+            .evm => |addr| @memcpy(rb[0..20], &addr),
+        }
+
+        // Para el prototipo, el hash es simplemente los bytes recibidos (padding incluido)
+        const hash: [32]u8 = rb;
 
         return ZkReceipt{
             .amount = amount,
             .tax_paid = tax_paid,
             .recipient_hash = hash,
-            .recipient_pubkey = recipient,
+            .recipient_bytes = rb,
             .secret_salt = salt,
         };
     }
@@ -35,13 +41,13 @@ pub const ZkReceipt = struct {
         const file = try std.fs.cwd().createFile(path, .{});
         defer file.close();
         
-        var buf: [4096]u8 = undefined;
+        var buf: [8192]u8 = undefined;
         var fba = std.heap.FixedBufferAllocator.init(&buf);
         const allocator = fba.allocator();
 
         const h_str = try crypto.bytesToHex(allocator, &self.recipient_hash);
-        const p_str = try crypto.bytesToHex(allocator, self.recipient_pubkey[0..16]);
-        const s_str = try crypto.bytesToHex(allocator, self.secret_salt[0..16]);
+        const p_str = try crypto.bytesToHex(allocator, &self.recipient_bytes);
+        const s_str = try crypto.bytesToHex(allocator, &self.secret_salt);
 
         const content = try std.fmt.allocPrint(allocator,
             \\amount = {d}

@@ -80,6 +80,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("cli/main.zig"),
             .target = wasm_target,
             .optimize = .ReleaseSmall,
+            .strip = true,
         }),
     });
     wasm_exe.root_module.addImport("core", core_module);
@@ -114,7 +115,40 @@ pub fn build(b: *std.Build) void {
     tx_unit_tests.root_module.addImport("core", core_module);
     const run_tx_unit_tests = b.addRunArtifact(tx_unit_tests);
 
+    const store_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/store_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    store_unit_tests.root_module.addImport("core", core_module);
+    const run_store_unit_tests = b.addRunArtifact(store_unit_tests);
+
+    const zk_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/zk_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    zk_unit_tests.root_module.addImport("core", core_module);
+    const run_zk_unit_tests = b.addRunArtifact(zk_unit_tests);
+
+    const awp_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/awp_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    awp_unit_tests.root_module.addImport("core", core_module);
+    const run_awp_unit_tests = b.addRunArtifact(awp_unit_tests);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);
     test_step.dependOn(&run_tx_unit_tests.step);
+    test_step.dependOn(&run_store_unit_tests.step);
+    test_step.dependOn(&run_zk_unit_tests.step);
+    test_step.dependOn(&run_awp_unit_tests.step);
 }

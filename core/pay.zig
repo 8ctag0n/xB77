@@ -28,6 +28,13 @@ pub const PaymentResult = struct {
     fee_paid: u64,
 };
 
+pub const BatchInstruction = struct {
+    to: []const u8,
+    amount: u64,
+    chain: types.Chain = .solana,
+    symbol: []const u8 = "SOL",
+};
+
 const audit_mod = @import("audit.zig");
 const receipt_mod = @import("receipt.zig");
 
@@ -82,15 +89,74 @@ pub const PaymentRouter = struct {
         return switch (target_chain) {
             .solana => self.paySolana(request, strategy),
             .base, .arbitrum => self.payEVM(request, strategy),
+            else => error.UnsupportedChain,
         };
     }
 
-    /// Lógica de ruteo inteligente
+    pub fn processBatch(self: *PaymentRouter, file_path: []const u8) !void {
+        const file = try std.fs.cwd().openFile(file_path, .{});
+        defer file.close();
+
+        const content = try file.readToEndAlloc(self.allocator, 10 * 1024 * 1024); // 10MB limit
+        defer self.allocator.free(content);
+
+        var lines = std.mem.splitScalar(u8, content, '\n');
+
+        std.debug.print("\n🚀 Starting Deluxe Batch Processing: {s}\n", .{file_path});
+        var count: usize = 0;
+        var success_count: usize = 0;
+
+        while (lines.next()) |line| {
+            if (line.len == 0) continue;
+            count += 1;
+
+            const instr_parsed = std.json.parseFromSlice(BatchInstruction, self.allocator, line, .{ .ignore_unknown_fields = true }) catch |err| {
+                std.debug.print("❌ Line {d}: Parse error: {}\n", .{count, err});
+                continue;
+            };
+            defer instr_parsed.deinit();
+            const instr = instr_parsed.value;
+
+            std.debug.print("📦 [{d}] Processing {d} {s} to {s}...", .{count, instr.amount, instr.symbol, instr.to[0..8]});
+
+            // Convertir instrucción a PaymentRequest
+            const req = if (instr.chain == .solana) blk: {
+                const pk = crypto.stringToPubkey(self.allocator, instr.to) catch {
+                    std.debug.print(" Invalid Address\n", .{});
+                    continue;
+                };
+                break :blk PaymentRequest{
+                    .amount = instr.amount,
+                    .asset = .{ .chain = .solana, .symbol = instr.symbol },
+                    .recipient = .{ .sol = pk },
+                };
+            } else blk: {
+                const addr = evm_mod.hexToAddress(instr.to) catch {
+                    std.debug.print(" Invalid Address\n", .{});
+                    continue;
+                };
+                break :blk PaymentRequest{
+                    .amount = instr.amount,
+                    .asset = .{ .chain = .base, .symbol = instr.symbol },
+                    .recipient = .{ .evm = addr },
+                };
+            };
+
+            const result = self.pay(req) catch |err| {
+                std.debug.print(" FAILED: {}\n", .{err});
+                continue;
+            };
+
+            const sig_short = if (result.tx_signature.len > 12) result.tx_signature[0..12] else result.tx_signature;
+            std.debug.print(" OK! {s}\n", .{sig_short});
+            success_count += 1;
+        }
+
+        std.debug.print("\n✨ Batch Finished: {d}/{d} transactions successful.\n", .{success_count, count});
+    }
+
     fn route(self: *PaymentRouter, request: PaymentRequest) types.Chain {
         _ = self;
-        // Si el request pide una cadena específica, la respetamos.
-        // Pero si es un activo multichain (ej: USDC), podríamos elegir aquí.
-        // Por ahora, usamos la cadena del activo solicitado.
         return request.asset.chain;
     }
 
@@ -113,13 +179,10 @@ pub const PaymentRouter = struct {
         
         const addresses = [_][]const u8{"11111111111111111111111111111111"};
         const priority_fee = self.sol_client.getRecentPrioritizationFees(&addresses) catch 0;
-        std.debug.print("[PaymentRouter] HFT: Applying Priority Fee of {d} micro-lamports\n", .{priority_fee});
 
         var transfers = std.ArrayListUnmanaged(tx_mod.Transfer){};
         defer transfers.deinit(self.allocator);
-        
         try transfers.append(self.allocator, .{ .to = request.recipient.sol, .lamports = request.amount });
-        // NOTE: We don't manually append the tax transfer here anymore, buildMultiTransferTx handles it.
 
         const fac_pubkey = if (self.facilitator) |f| try crypto.stringToPubkey(self.allocator, f) else null;
 
@@ -137,9 +200,11 @@ pub const PaymentRouter = struct {
         const signature = crypto.sign(message, &v.sol_kp);
         @memcpy(tx_bytes[1..65], &signature);
 
-        const receipt = try receipt_mod.ZkReceipt.generate(request.amount, tax_amount, request.recipient.sol);
+        // DELUXE: Simulación pre-flight
+        try self.sol_client.simulateTransaction(tx_bytes);
+
+        const receipt = try receipt_mod.ZkReceipt.generate(request.amount, tax_amount, .{ .sol = request.recipient.sol });
         try receipt.writeProverToml("circuits/zk_receipt/Prover.toml");
-        std.debug.print("[PaymentRouter] ZK-Receipt Prover.toml generated\n", .{});
 
         const sig_str = try self.sol_client.sendTransaction(tx_bytes);
         try v.recordSpend(total_amount, request.asset);
@@ -165,7 +230,6 @@ pub const PaymentRouter = struct {
         var nonce = try self.evm_client.getNonce(eth_kp.address);
         const gas_price = try self.evm_client.getGasPrice();
 
-        // 1. Pago Principal
         const tx = tx_mod.EthEip1559Tx{
             .chain_id = 84532, // Base Sepolia
             .nonce = nonce,
@@ -185,7 +249,9 @@ pub const PaymentRouter = struct {
 
         const tx_hash = try self.evm_client.sendRawTransaction(tx_hex);
         
-        // 2. Pago de Infra Tax (si hay facilitador)
+        const receipt = try receipt_mod.ZkReceipt.generate(request.amount, tax_amount, .{ .evm = request.recipient.evm });
+        try receipt.writeProverToml("circuits/zk_receipt/Prover.toml");
+
         if (self.facilitator != null and tax_amount > 0) {
             nonce += 1;
             const fac_addr = try evm_mod.hexToAddress(self.facilitator.?);
@@ -208,7 +274,6 @@ pub const PaymentRouter = struct {
             defer self.allocator.free(tax_tx_hex);
 
             _ = try self.evm_client.sendRawTransaction(tax_tx_hex);
-            std.debug.print("[PaymentRouter] EVM 11% Infra Tax sent to {s}\n", .{self.facilitator.?});
         }
 
         const hash_hex = try crypto.bytesToHex(self.allocator, &tx_hash);
@@ -224,5 +289,4 @@ pub const PaymentRouter = struct {
             .fee_paid = (21000 * gas_price * (if (self.facilitator != null) @as(u64, 2) else 1)) + tax_amount,
         };
     }
-
 };
