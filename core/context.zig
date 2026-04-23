@@ -8,6 +8,7 @@ const config_mod = @import("config.zig");
 const const_mod = @import("constitution.zig");
 const cdp = @import("cdp.zig");
 const compliance = @import("compliance.zig");
+const store = @import("store.zig");
 
 pub const AgentContext = struct {
     allocator: std.mem.Allocator,
@@ -18,6 +19,7 @@ pub const AgentContext = struct {
     cdp_client: ?cdp.CdpClient,
     constitution: const_mod.Constitution,
     compliance: compliance.ComplianceEngine,
+    store: store.Store,
 
     pub fn init(allocator: std.mem.Allocator, config_path: []const u8) !AgentContext {
         const config = try config_mod.Config.load(allocator, config_path);
@@ -35,12 +37,14 @@ pub const AgentContext = struct {
             .evm_client = evm.EvmClient.init(allocator, config.rpc.base),
             .cdp_client = cdp_client,
             .constitution = const_mod.Constitution.init(allocator),
-            .compliance = compliance.ComplianceEngine.init(allocator),
+            .compliance = compliance.ComplianceEngine.init(allocator, [_]u8{0} ** 32),
+            .store = try store.Store.init(allocator, config.vaults.path),
         };
     }
 
 
     pub fn deinit(self: *AgentContext) void {
+        self.store.deinit();
         self.constitution.deinit();
         self.vaults.deinit();
         self.sol_client.deinit();

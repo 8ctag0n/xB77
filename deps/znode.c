@@ -1,4 +1,5 @@
 #include "znode.h"
+#include "awp.h"
 #include <curl/curl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,12 +8,16 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#define ZNODE_BUFFER_SIZE 65536
+
 typedef struct {
     znode_config_t config;
     znode_on_event_cb callback;
     void* user_data;
     CURL* curl;
     int socket_fd;
+    uint8_t buffer[ZNODE_BUFFER_SIZE];
+    size_t buffer_len;
 } znode_client_t;
 
 static znode_client_t* global_client = NULL;
@@ -33,25 +38,90 @@ static int connect_to_bridge() {
     return fd;
 }
 
+// Parser ultra-rápido de Yellowstone -> AWP
+static void process_yellowstone_frame(znode_client_t* client, const uint8_t* data, size_t len) {
+    const uint8_t* ptr = data;
+    const uint8_t* end = data + len;
+
+    uint64_t tag;
+    while (awp_read_varint(&ptr, end, &tag)) {
+        uint32_t field = tag >> 3;
+        if (field == 4) { // Transaction
+            uint64_t msg_len;
+            if (!awp_read_varint(&ptr, end, &msg_len)) break;
+            
+            // Simulación de extracción de datos (MVP AWP Transition)
+            // En una implementación completa, aquí usaríamos nanopb o recursión.
+            // Por ahora, si detectamos una transacción, mandamos un AWP Transfer.
+            
+            awp_transfer_msg_t msg = {
+                .chain = AWP_CHAIN_SOLANA,
+                .amount = 777, // Placeholder o extraído de la transacción
+            };
+            memset(msg.recipient, 0, 32); // Destino placeholder
+
+            uint8_t awp_buf[128];
+            size_t awp_len = awp_encode_transfer(awp_buf, &msg);
+
+            if (client->socket_fd >= 0) {
+                if (send(client->socket_fd, awp_buf, awp_len, MSG_NOSIGNAL) < 0) {
+                    close(client->socket_fd);
+                    client->socket_fd = -1;
+                }
+            }
+            
+            if (client->callback) {
+                client->callback(ZNODE_EVENT_TRANSACTION, (void*)data, client->user_data);
+            }
+            break; 
+        } else {
+            // Skip other fields
+            uint32_t wire = tag & 0x07;
+            if (wire == 0) { uint64_t tmp; awp_read_varint(&ptr, end, &tmp); }
+            else if (wire == 2) { uint64_t l; awp_read_varint(&ptr, end, &l); ptr += l; }
+            else if (wire == 1) ptr += 8;
+            else if (wire == 5) ptr += 4;
+            else break;
+        }
+    }
+}
+
 static size_t write_callback(char* ptr, size_t size, size_t nmemb, void* userdata) {
     znode_client_t* client = (znode_client_t*)userdata;
     size_t total_size = size * nmemb;
 
-    // Intentar reconectar si el socket se cerró
     if (client->socket_fd < 0) {
         client->socket_fd = connect_to_bridge();
     }
 
-    // MANDAR DATA CRUDA AL BRIDGE EN ZIG
-    if (client->socket_fd >= 0) {
-        if (send(client->socket_fd, ptr, total_size, MSG_NOSIGNAL) < 0) {
-            close(client->socket_fd);
-            client->socket_fd = -1;
-        }
-    }
+    // Manejo de buffer para frames gRPC
+    if (client->buffer_len + total_size <= ZNODE_BUFFER_SIZE) {
+        memcpy(client->buffer + client->buffer_len, ptr, total_size);
+        client->buffer_len += total_size;
 
-    if (client->callback) {
-        client->callback(ZNODE_EVENT_TRANSACTION, ptr, client->user_data);
+        size_t pos = 0;
+        while (pos + 5 <= client->buffer_len) {
+            // gRPC header: 1 byte flags, 4 bytes length (BE)
+            uint32_t frame_len = (client->buffer[pos + 1] << 24) |
+                                 (client->buffer[pos + 2] << 16) |
+                                 (client->buffer[pos + 3] << 8) |
+                                 (client->buffer[pos + 4]);
+            
+            if (pos + 5 + frame_len <= client->buffer_len) {
+                process_yellowstone_frame(client, client->buffer + pos + 5, frame_len);
+                pos += 5 + frame_len;
+            } else {
+                break;
+            }
+        }
+
+        if (pos > 0) {
+            memmove(client->buffer, client->buffer + pos, client->buffer_len - pos);
+            client->buffer_len -= pos;
+        }
+    } else {
+        // Buffer overflow, resetear (en prod loguearíamos esto)
+        client->buffer_len = 0;
     }
 
     return total_size;

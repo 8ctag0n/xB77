@@ -9,6 +9,8 @@ pub fn startBridge(engine_ptr: anytype) !void {
     thread.detach();
 }
 
+const awp = @import("awp.zig");
+
 fn listenLoop(engine: anytype) !void {
     const socket_path = "/tmp/xb77_znode.sock";
     std.fs.cwd().deleteFile(socket_path) catch {};
@@ -17,9 +19,7 @@ fn listenLoop(engine: anytype) !void {
     var listener = try server.listen(.{ .reuse_address = true });
     defer listener.deinit();
 
-    var parser = yellowstone.YellowstoneParser.init(engine.allocator);
-
-    std.debug.print("[Z-Node Bridge] Situational Awareness activo.\n", .{});
+    std.debug.print("[Z-Node Bridge] AWP Sovereignty activo.\n", .{});
 
     while (engine.is_running) {
         const conn = try listener.accept();
@@ -29,12 +29,47 @@ fn listenLoop(engine: anytype) !void {
         const bytes_read = conn.stream.read(&buf) catch continue;
         if (bytes_read == 0) continue;
 
-        std.debug.print("[Z-Node Bridge] 📥 Recibidos {d} bytes del Sentinel.\n", .{bytes_read});
+        // --- PROTOCOLO BINARIO AWP ---
+        // Máxima soberanía, cero JSON.
+        var decoder = awp.AwpDecoder.init(buf[0..bytes_read]);
+        const opcode = buf[0];
 
-        // Procesar el mensaje Yellowstone
-        if (try parser.parseUpdate(buf[0..bytes_read])) |event| {
-            // Notificar al engine con el evento real
-            engine.onNetworkEvent(event);
+        switch (opcode) {
+            @intFromEnum(awp.MessageType.signal) => {
+                const signal = try decoder.decodeSignal();
+                std.debug.print("[AWP] ⚡ Signal: {s} {s} ({d}% confidence)\n", .{ 
+                    @tagName(signal.asset.chain), 
+                    signal.asset.symbol,
+                    signal.confidence 
+                });
+            },
+            @intFromEnum(awp.MessageType.transfer) => {
+                const transfer = try decoder.decodeTransfer();
+                std.debug.print("[AWP] 💸 Transfer: {d} to {any}\n", .{ transfer.amount, transfer.recipient });
+                
+                // Mapeo directo a eventos del Engine
+                var event = yellowstone.NetworkEvent{
+                    .type = .transaction,
+                    .chain = transfer.chain,
+                    .tx = .{
+                        .signature = [_]u8{0} ** 64,
+                        .sender = [_]u8{0} ** 32,
+                        .recipient = [_]u8{0} ** 32,
+                        .amount = transfer.amount,
+                        .is_xb77 = true,
+                    },
+                };
+                
+                switch (transfer.recipient) {
+                    .sol => |pk| @memcpy(&event.tx.?.recipient, &pk),
+                    .evm => |addr| @memcpy(event.tx.?.recipient[0..20], &addr),
+                }
+                
+                engine.onNetworkEvent(event);
+            },
+            else => {
+                std.debug.print("[AWP] ⚠️ Unknown OpCode: 0x{X:0>2}. Ignoring legacy/invalid packet.\n", .{opcode});
+            },
         }
     }
 }
