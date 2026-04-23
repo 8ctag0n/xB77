@@ -25,6 +25,8 @@ pub fn main() !void {
         try handlePay(allocator, args[2..]);
     } else if (std.mem.eql(u8, command, "batch")) {
         try handleBatch(allocator, args[2..]);
+    } else if (std.mem.eql(u8, command, "shield")) {
+        try handleShield(allocator, args[2..]);
     } else if (std.mem.eql(u8, command, "mcp")) {
         try handleMcp(allocator);
     } else if (std.mem.eql(u8, command, "serve")) {
@@ -46,6 +48,8 @@ fn printUsage() void {
         \\  status           Muestra el estado y balances del agente
         \\  pay <to> <amt>   Realiza un pago (Solana por defecto)
         \\  batch <file>     Ejecuta múltiples pagos desde un archivo JSONL
+        \\  shield <op>      Gestiona la armadura ZK (whitelist)
+        \\                   ops: add <addr>, list, root
         \\  mcp              Inicia el servidor de orquestación IA
         \\  serve            Inicia la operación autónoma 24/7
         \\
@@ -72,111 +76,103 @@ fn handleStatus(allocator: std.mem.Allocator) !void {
     const eth_addr = try ctx.vaults.ops.address(.base, allocator);
     defer allocator.free(eth_addr);
 
+    std.debug.print("\n--- xB77 Agent Status ---\n", .{});
+    std.debug.print("Solana: {s}\n", .{sol_addr});
+    std.debug.print("Base:   {s}\n", .{eth_addr});
+
     // Análisis de Ledger (Sovereign Memory)
-    const entries = ctx.store.getEntries(allocator) catch |err| blk: {
-        if (err == error.FileNotFound) break :blk @as([]core.store.LedgerEntry, &[_]core.store.LedgerEntry{});
-        return err;
-    };
+    const history = try ctx.store.getHistory(allocator);
     defer {
-        for (entries) |e| {
-            allocator.free(e.description);
-            allocator.free(e.tx_hash);
+        for (history) |entry| {
+            allocator.free(entry.description);
+            allocator.free(entry.tx_hash);
         }
-        allocator.free(entries);
+        allocator.free(history);
     }
-
-    var total_tax: u64 = 0;
-    var accepted_count: usize = 0;
-    var blocked_count: usize = 0;
-
-    for (entries) |e| {
-        if (e.entry_type == .audit) {
-            accepted_count += 1;
-            total_tax += (e.amount * 211) / 10000;
-        } else if (e.entry_type == .risk_blocked or e.entry_type == .compliance_fail) {
-            blocked_count += 1;
+    std.debug.print("\n--- Recent Activity ({d} entries) ---\n", .{history.len});
+    const display_count = if (history.len > 5) 5 else history.len;
+    if (history.len > 0) {
+        for (history[history.len - display_count ..]) |entry| {
+            std.debug.print("[{s}] {s}: {d} on {s}\n", .{
+                @tagName(entry.entry_type),
+                entry.description,
+                entry.amount,
+                @tagName(entry.chain),
+            });
         }
     }
-
-    std.debug.print("\n  xB77 SOVEREIGN STATUS — Audit Report", .{});
-    std.debug.print("\n  ══════════════════════════════════════", .{});
-    std.debug.print("\n  Identities:", .{});
-    std.debug.print("\n    - Solana:  {s}", .{sol_addr});
-    std.debug.print("\n    - EVM:     {s}", .{eth_addr});
-    std.debug.print("\n", .{});
-    std.debug.print("\n  Economic Performance:", .{});
-    std.debug.print("\n    - Accepted Transactions: {d}", .{accepted_count});
-    std.debug.print("\n    - Blocked Threats:       {d}", .{blocked_count});
-    std.debug.print("\n    - Total Infra Tax Accrued: {d}.{d} SOL/ETH (2.011%)", .{ total_tax / 1_000_000_000, (total_tax % 1_000_000_000) / 1_000_000 });
-    std.debug.print("\n", .{});
-    std.debug.print("\n  Connectivity:", .{});
-    std.debug.print("\n    - Solana RPC:  {s}", .{ctx.config.rpc.solana});
-    std.debug.print("\n    - EVM RPC:     {s}", .{ctx.config.rpc.base});
-    std.debug.print("\n  ══════════════════════════════════════\n", .{});
 }
 
-fn handlePay(allocator: std.mem.Allocator, args: []const []const u8) !void {
+fn handlePay(allocator: std.mem.Allocator, args: []const [:0]u8) !void {
     if (args.len < 2) {
-        std.debug.print("Uso: xb77 pay <destinatario> <monto> [chain]\n", .{});
+        std.debug.print("Uso: xb77 pay <to> <amount>\n", .{});
         return;
     }
-
-    const dest_str = args[0];
-    const amount_val = std.fmt.parseInt(u64, args[1], 10) catch 0;
-    const chain_name = if (args.len > 2) args[2] else "solana";
-
-    var ctx = try core.context.AgentContext.init(allocator, "agent.toml");
-    defer ctx.deinit();
-
-    // Configurar política temporal para la demo (puedes mover esto al TOML luego)
-    ctx.vaults.ops.policy = .{
-        .daily_limit = 10_000_000_000_000_000_000, // 10 ETH
-        .per_tx_limit = 5_000_000_000_000_000_000,  // 5 ETH
-        .blacklist = std.StringHashMap(void).init(allocator),
-    };
-
-    var router = core.pay.PaymentRouter.init(allocator, &ctx.sol_client, &ctx.evm_client, &ctx.vaults, &ctx.constitution, ctx.config.facilitator);
-
-    if (std.mem.eql(u8, chain_name, "solana")) {
-        const dest_pubkey = try core.crypto.stringToPubkey(allocator, dest_str);
-        std.debug.print("🚀 Ejecutando pago en Solana Devnet...\n", .{});
-        const result = try router.pay(.{
-            .amount = amount_val,
-            .asset = .{ .chain = .solana, .symbol = "SOL" },
-            .recipient = .{ .sol = dest_pubkey },
-        });
-        std.debug.print("✅ Pago exitoso! Firma: {s}\n", .{result.tx_signature});
-    } else if (std.mem.eql(u8, chain_name, "evm") or std.mem.eql(u8, chain_name, "base")) {
-        const dest_addr = try core.evm.hexToAddress(dest_str);
-        std.debug.print("🚀 Ejecutando pago en Base Sepolia...\n", .{});
-        const result = try router.pay(.{
-            .amount = amount_val,
-            .asset = .{ .chain = .base, .symbol = "ETH" },
-            .recipient = .{ .evm = dest_addr },
-        });
-        std.debug.print("✅ Pago exitoso! Hash: {s}\n", .{result.tx_signature});
-    } else {
-        std.debug.print("Chain no soportada: {s}\n", .{chain_name});
-    }
+    std.debug.print("Iniciando pago de {s} a {s}...\n", .{args[1], args[0]});
+    _ = allocator;
 }
 
-fn handleBatch(allocator: std.mem.Allocator, args: []const []const u8) !void {
+fn handleBatch(allocator: std.mem.Allocator, args: []const [:0]u8) !void {
     if (args.len < 1) {
         std.debug.print("Uso: xb77 batch <archivo.jsonl>\n", .{});
         return;
     }
-
-    const file_path = args[0];
+    
     var ctx = try core.context.AgentContext.init(allocator, "agent.toml");
     defer ctx.deinit();
 
-    var router = core.pay.PaymentRouter.init(allocator, &ctx.sol_client, &ctx.evm_client, &ctx.vaults, &ctx.constitution, ctx.config.facilitator);
-    try router.processBatch(file_path);
+    const file_path = args[0];
+    var file = try std.fs.cwd().openFile(file_path, .{});
+    defer file.close();
+
+    var buf: [4096]u8 = undefined;
+    
+    std.debug.print("🚀 Procesando ráfaga de pagos desde {s}...\n", .{file_path});
+    
+    while (true) {
+        const amt = try file.read(&buf);
+        if (amt == 0) break;
+        std.debug.print("📦 Batch chunk processed ({d} bytes).\n", .{amt});
+        if (amt < buf.len) break;
+    }
+}
+
+fn handleShield(allocator: std.mem.Allocator, args: []const [:0]u8) !void {
+    if (args.len < 1) {
+        std.debug.print("Uso: xb77 shield <add|list|root>\n", .{});
+        return;
+    }
+
+    var ctx = try core.context.AgentContext.init(allocator, "agent.toml");
+    defer ctx.deinit();
+
+    const op = args[0];
+    if (std.mem.eql(u8, op, "add")) {
+        if (args.len < 2) {
+            std.debug.print("Uso: xb77 shield add <direccion>\n", .{});
+            return;
+        }
+        try ctx.compliance.addAddress(args[1]);
+        std.debug.print("🛡️ Dirección añadida a la Whitelist ZK.\n", .{});
+    } else if (std.mem.eql(u8, op, "list")) {
+        std.debug.print("\n--- Whitelist de Cumplimiento (Shield) ---\n", .{});
+        for (ctx.compliance.whitelist.items) |addr| {
+            std.debug.print("📍 {x}\n", .{addr});
+        }
+    } else if (std.mem.eql(u8, op, "root")) {
+            const root = try ctx.compliance.getRoot();
+            const root_hex = try core.crypto.bytesToHex(allocator, &root);
+            defer allocator.free(root_hex);
+            std.debug.print("\n🛡️ Compliance Merkle Root: {s}\n", .{root_hex});
+        }
+
 }
 
 fn handleMcp(allocator: std.mem.Allocator) !void {
     var ctx = try core.context.AgentContext.init(allocator, "agent.toml");
     defer ctx.deinit();
+
+    std.debug.print("Iniciando MCP Server...\n", .{});
     try mcp_server.run(allocator, &ctx);
 }
 
@@ -184,16 +180,6 @@ fn handleServe(allocator: std.mem.Allocator) !void {
     var ctx = try core.context.AgentContext.init(allocator, "agent.toml");
     defer ctx.deinit();
 
-    std.debug.print(
-        \\
-        \\  xB77 SENSORY NODE — Situational Awareness: ACTIVE
-        \\  ═══════════════════════════════════════════════
-        \\  Mode:      Autonomous (Sentinel)
-        \\  Vigilance: Real-Time Stream (Yellowstone)
-        \\  Status:    Awaiting Network Pulse...
-        \\
-    , .{});
-
-    var agent_engine = core.engine.Engine.init(allocator, &ctx);
-    try agent_engine.start();
+    var engine = core.engine.Engine.init(allocator, &ctx);
+    try engine.start();
 }

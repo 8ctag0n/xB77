@@ -56,6 +56,10 @@ pub const Store = struct {
 
     /// Lee todas las entradas para auditoría (memoria intensivo, usar con cuidado)
     pub fn getEntries(self: *Store, allocator: std.mem.Allocator) ![]LedgerEntry {
+        return self.getHistory(allocator);
+    }
+
+    pub fn getHistory(self: *Store, allocator: std.mem.Allocator) ![]LedgerEntry {
         const file = try std.fs.cwd().openFile(self.file_path, .{ .mode = .read_only });
         defer file.close();
 

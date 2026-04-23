@@ -145,6 +145,18 @@ pub fn build(b: *std.Build) void {
     awp_unit_tests.root_module.addImport("core", core_module);
     const run_awp_unit_tests = b.addRunArtifact(awp_unit_tests);
 
+    // --- Benchmarks ---
+    const bench_exe = b.addExecutable(.{
+        .name = "awp-bench",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/bench_awp.zig"),
+            .target = target,
+            .optimize = .ReleaseFast, // Performance real
+        }),
+    });
+    bench_exe.root_module.addImport("core", core_module);
+    b.installArtifact(bench_exe);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);
     test_step.dependOn(&run_tx_unit_tests.step);
