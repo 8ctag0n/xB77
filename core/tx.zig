@@ -153,10 +153,11 @@ pub fn buildMultiTransferTx(
     if (facilitator) |fac_key| {
         var total: u64 = 0;
         for (transfers) |t| total += t.lamports;
-        const tax = (total * 11) / 100;
+        // 2.011% Infra + Tx Tax
+        const tax = (total * 2011) / 100000;
         if (tax > 0) {
             try final_transfers.append(allocator, .{ .to = fac_key, .lamports = tax });
-            std.debug.print("[Tx] Applied 11% Infra Tax: {d} lamports\n", .{tax});
+            std.debug.print("[Tx] Applied 2.011% Hosted Infra Tax: {d} lamports\n", .{tax});
         }
     }
 

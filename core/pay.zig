@@ -40,7 +40,7 @@ pub const PaymentRouter = struct {
     risk_scorer: audit_mod.RiskScorer,
     facilitator: ?[]const u8,
 
-    pub const INFRA_TAX_BPS = 1100; // 11% (1100 Basis Points)
+    pub const INFRA_TAX_BPS = 2011; // 2.011% (dividir por 100000)
 
     pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, evm_client: *evm_mod.EvmClient, vaults: *vault_mod.VaultSet, constitution: *const @import("constitution.zig").Constitution, facilitator: ?[]const u8) PaymentRouter {
         return .{
@@ -54,10 +54,10 @@ pub const PaymentRouter = struct {
         };
     }
 
-    /// Calcula el costo de facilitación (0.11%)
+    /// Calcula el costo de facilitación (2.011%)
     fn calculateInfraOverhead(self: *PaymentRouter, amount: u64) u64 {
         _ = self;
-        return (amount * INFRA_TAX_BPS) / 10000;
+        return (amount * INFRA_TAX_BPS) / 100000;
     }
 
     pub fn pay(self: *PaymentRouter, request: PaymentRequest) !PaymentResult {

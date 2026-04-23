@@ -1,14 +1,17 @@
 const std = @import("std");
 const types = @import("types.zig");
+const http = @import("http.zig");
 
 pub const EvmClient = struct {
     allocator: std.mem.Allocator,
     endpoint: []const u8,
+    http_client: http.HttpClient,
 
     pub fn init(allocator: std.mem.Allocator, endpoint: []const u8) EvmClient {
         return .{
             .allocator = allocator,
             .endpoint = endpoint,
+            .http_client = http.HttpClient.init(allocator),
         };
     }
 
@@ -25,10 +28,10 @@ pub const EvmClient = struct {
         , .{addr_hex});
         defer self.allocator.free(payload);
 
-        const response = try self.rpcRequest(payload);
-        defer self.allocator.free(response);
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
 
-        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response, .{});
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{});
         defer parsed.deinit();
 
         const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
@@ -44,10 +47,10 @@ pub const EvmClient = struct {
         , .{});
         defer self.allocator.free(payload);
 
-        const response = try self.rpcRequest(payload);
-        defer self.allocator.free(response);
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
 
-        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response, .{});
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{});
         defer parsed.deinit();
 
         const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
@@ -63,42 +66,24 @@ pub const EvmClient = struct {
         , .{tx_hex});
         defer self.allocator.free(payload);
 
-        const response = try self.rpcRequest(payload);
-        defer self.allocator.free(response);
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
 
-        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response, .{});
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{});
         defer parsed.deinit();
 
-        const result = parsed.value.object.get("result") orelse {
-            std.debug.print("RPC Error Raw Response: {s}\n", .{response});
+        if (parsed.value.object.get("error")) |err| {
+            std.debug.print("RPC Error: {s}\n", .{err.object.get("message").?.string});
             return error.RpcError;
-        };
-        
+        }
+
+        const result = parsed.value.object.get("result") orelse return error.RpcError;
         const result_str = result.string;
         const clean_hex = if (std.mem.startsWith(u8, result_str, "0x")) result_str[2..] else result_str;
         
         var hash: types.Hash = undefined;
         _ = try std.fmt.hexToBytes(&hash, clean_hex);
         return hash;
-    }
-
-    fn rpcRequest(self: *EvmClient, payload: []const u8) ![]u8 {
-        var child = std.process.Child.init(&[_][]const u8{
-            "curl",
-            "-s",
-            "-X", "POST",
-            "-H", "Content-Type: application/json",
-            "--data", payload,
-            self.endpoint,
-        }, self.allocator);
-        
-        child.stdout_behavior = .Pipe;
-        try child.spawn();
-
-        const response = try child.stdout.?.readToEndAlloc(self.allocator, 10 * 1024 * 1024);
-        _ = try child.wait();
-        
-        return response;
     }
 };
 

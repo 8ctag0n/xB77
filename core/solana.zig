@@ -1,6 +1,7 @@
 const std = @import("std");
 const crypto = @import("crypto.zig");
 const types = @import("types.zig");
+const http = @import("http.zig");
 
 pub const SignatureInfo = struct {
     signature: []const u8,
@@ -11,18 +12,18 @@ pub const SignatureInfo = struct {
 pub const SolanaClient = struct {
     allocator: std.mem.Allocator,
     endpoint: []const u8,
-    http_client: std.http.Client,
+    http_client: http.HttpClient,
 
     pub fn init(allocator: std.mem.Allocator, endpoint: []const u8) SolanaClient {
         return .{
             .allocator = allocator,
             .endpoint = endpoint,
-            .http_client = std.http.Client{ .allocator = allocator },
+            .http_client = http.HttpClient.init(allocator),
         };
     }
 
     pub fn deinit(self: *SolanaClient) void {
-        self.http_client.deinit();
+        _ = self;
     }
 
     pub fn getBalance(self: *SolanaClient, address: []const u8) !u64 {
@@ -31,10 +32,10 @@ pub const SolanaClient = struct {
         , .{address});
         defer self.allocator.free(payload);
 
-        const response = try self.rpcRequest(payload);
-        defer self.allocator.free(response);
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
 
-        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response, .{});
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{});
         defer parsed.deinit();
 
         const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
@@ -49,10 +50,10 @@ pub const SolanaClient = struct {
         , .{});
         defer self.allocator.free(payload);
 
-        const response = try self.rpcRequest(payload);
-        defer self.allocator.free(response);
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
 
-        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response, .{});
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{});
         defer parsed.deinit();
 
         const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
@@ -74,10 +75,10 @@ pub const SolanaClient = struct {
         , .{encoded_buf});
         defer self.allocator.free(payload);
 
-        const response = try self.rpcRequest(payload);
-        defer self.allocator.free(response);
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
 
-        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response, .{});
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{});
         defer parsed.deinit();
 
         const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
@@ -101,10 +102,10 @@ pub const SolanaClient = struct {
         , .{params_buf.items});
         defer self.allocator.free(payload);
 
-        const response = try self.rpcRequest(payload);
-        defer self.allocator.free(response);
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
 
-        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response, .{});
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{});
         defer parsed.deinit();
 
         const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
@@ -112,7 +113,6 @@ pub const SolanaClient = struct {
 
         if (array.items.len == 0) return 0;
 
-        // Calcular el promedio o simplemente el máximo de los últimos slots
         var max_fee: u64 = 0;
         for (array.items) |item| {
             const fee = item.object.get("prioritizationFee").?.integer;
@@ -128,10 +128,10 @@ pub const SolanaClient = struct {
         , .{ address, limit });
         defer self.allocator.free(payload);
 
-        const response = try self.rpcRequest(payload);
-        defer self.allocator.free(response);
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
 
-        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response, .{ .ignore_unknown_fields = true });
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{ .ignore_unknown_fields = true });
         defer parsed.deinit();
 
         const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
@@ -148,31 +148,5 @@ pub const SolanaClient = struct {
         }
 
         return signatures;
-    }
-
-    fn rpcRequest(self: *SolanaClient, payload: []const u8) ![]u8 {
-        const uri = try std.Uri.parse(self.endpoint);
-        
-        var req = try self.http_client.request(.POST, uri, .{});
-        defer req.deinit();
-
-        req.accept_encoding = [_]bool{false} ** @typeInfo(std.http.ContentEncoding).@"enum".fields.len;
-        req.accept_encoding[@intFromEnum(std.http.ContentEncoding.identity)] = true;
-        req.headers.accept_encoding = .{ .override = "identity" };
-        req.transfer_encoding = .{ .content_length = payload.len };
-        req.headers.content_type = .{ .override = "application/json" };
-        
-        try req.sendBodyComplete(@constCast(payload));
-        var redirect_buffer: [1024]u8 = undefined;
-        var res = try req.receiveHead(&redirect_buffer);
-
-        if (res.head.status != .ok) {
-            return error.RpcError;
-        }
-
-        var transfer_buffer: [4096]u8 = undefined;
-        const body_reader = res.reader(&transfer_buffer);
-        const body = try body_reader.allocRemaining(self.allocator, .unlimited);
-        return body;
     }
 };
