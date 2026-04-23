@@ -8,17 +8,20 @@ const bridge = if (builtin.target.os.tag != .wasi) @import("znode_bridge.zig") e
 
 const yellowstone = @import("yellowstone.zig");
 const risk = @import("risk.zig");
+const awpool = @import("awpool.zig");
 
 pub const Engine = struct {
     allocator: std.mem.Allocator,
     ctx: *core.context.AgentContext,
     is_running: bool,
+    awpool: awpool.AWPool,
 
     pub fn init(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) Engine {
         return .{
             .allocator = allocator,
             .ctx = ctx,
             .is_running = false,
+            .awpool = awpool.AWPool.init(allocator),
         };
     }
 

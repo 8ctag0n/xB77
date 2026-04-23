@@ -23,24 +23,27 @@ pub fn main() !void {
     var encoder = awp.AwpEncoder.init(allocator);
     defer encoder.deinit();
 
-    // 1. Enviar una Señal de Mercado
-    const signal_bytes = try encoder.encodeSignal(.{
-        .asset = .{ .chain = .solana, .symbol = "SOL" },
-        .signal = .buy,
-        .confidence = 95,
+    // 1. Enviar una Orden de Compra
+    _ = try encoder.encodeOrder(.{
+        .side = .buy,
+        .asset = .{ .chain = .solana, .symbol = "USDC" },
+        .amount = 1000000,
+        .price = 100,
+        .nonce = 1,
     });
-    try stream.writeAll(signal_bytes);
-    std.debug.print("🚀 AWP Signal: BUY SOL (95%) sent.\n", .{});
+    std.debug.print("🛒 AWP Order: BUY USDC queued.\n", .{});
 
-    // Limpiar para el siguiente mensaje
-    encoder.buf.clearRetainingCapacity();
-
-    // 2. Enviar una Intención de Transferencia
-    const transfer_bytes = try encoder.encodeTransfer(.{
-        .chain = .solana,
-        .amount = 1337000000,
-        .recipient = .{ .sol = [_]u8{0xAB} ** 32 },
+    // 2. Enviar una Orden de Venta (Que hace MATCH!)
+    _ = try encoder.encodeOrder(.{
+        .side = .sell,
+        .asset = .{ .chain = .solana, .symbol = "USDC" },
+        .amount = 1000000,
+        .price = 100,
+        .nonce = 2,
     });
-    try stream.writeAll(transfer_bytes);
-    std.debug.print("💸 AWP Transfer: 1.337 SOL to AB...AB sent.\n", .{});
+    std.debug.print("💸 AWP Order: SELL USDC queued (EXPECT MATCH!).\n", .{});
+    
+    // Disparar toda la ráfaga junta
+    try stream.writeAll(encoder.buf.items);
+    std.debug.print("🚀 Ráfaga atómica enviada al Z-Node Bridge.\n", .{});
 }

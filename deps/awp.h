@@ -11,8 +11,14 @@ typedef enum {
     AWP_MSG_HANDSHAKE = 0x01,
     AWP_MSG_SIGNAL = 0x02,
     AWP_MSG_TRANSFER = 0x03,
-    AWP_MSG_AUDIT_REPORT = 0x04
+    AWP_MSG_AUDIT_REPORT = 0x04,
+    AWP_MSG_ORDER = 0x06
 } awp_msg_type_t;
+
+typedef enum {
+    AWP_SIDE_BUY = 0x01,
+    AWP_SIDE_SELL = 0x02
+} awp_side_t;
 
 typedef enum {
     AWP_CHAIN_SOLANA = 0,
@@ -20,6 +26,15 @@ typedef enum {
     AWP_CHAIN_ARBITRUM = 2,
     AWP_CHAIN_BITCOIN = 3
 } awp_chain_t;
+
+typedef struct {
+    awp_side_t side;
+    awp_chain_t chain;
+    const char* symbol;
+    uint64_t amount;
+    uint64_t price;
+    uint64_t nonce;
+} awp_order_msg_t;
 
 typedef enum {
     AWP_SIGNAL_BUY = 0x01,
@@ -97,6 +112,22 @@ static inline size_t awp_encode_signal(uint8_t* buf, const awp_signal_msg_t* msg
     ptr += symbol_len;
     *ptr++ = (uint8_t)msg->signal;
     *ptr++ = msg->confidence;
+    return ptr - buf;
+}
+
+// Codifica un mensaje de orden. Retorna el tamaño escrito.
+static inline size_t awp_encode_order(uint8_t* buf, const awp_order_msg_t* msg) {
+    uint8_t* ptr = buf;
+    *ptr++ = AWP_MSG_ORDER;
+    *ptr++ = (uint8_t)msg->side;
+    *ptr++ = (uint8_t)msg->chain;
+    size_t symbol_len = strlen(msg->symbol);
+    ptr += awp_write_varint(ptr, (uint64_t)symbol_len);
+    memcpy(ptr, msg->symbol, symbol_len);
+    ptr += symbol_len;
+    ptr += awp_write_varint(ptr, msg->amount);
+    ptr += awp_write_varint(ptr, msg->price);
+    ptr += awp_write_varint(ptr, msg->nonce);
     return ptr - buf;
 }
 

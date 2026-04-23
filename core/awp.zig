@@ -12,6 +12,20 @@ pub const MessageType = enum(u8) {
     transfer = 0x03,       // Movimiento de fondos
     audit_report = 0x04,   // Reporte de riesgo/cumplimiento
     encrypted_blob = 0x05, // Datos privados cifrados
+    order = 0x06,          // Orden de AWPool (Matching)
+};
+
+pub const Side = enum(u8) {
+    buy = 0x01,
+    sell = 0x02,
+};
+
+pub const OrderMsg = struct {
+    side: Side,
+    asset: types.Asset,
+    amount: u64,
+    price: u64, // Precio en escala fija (ej: USDC de 6 decimales)
+    nonce: u64,
 };
 
 pub const HandshakeMsg = struct {
@@ -112,6 +126,18 @@ pub const AwpEncoder = struct {
         }
         return self.buf.items;
     }
+
+    pub fn encodeOrder(self: *AwpEncoder, msg: OrderMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.order));
+        try self.writeByte(@intFromEnum(msg.side));
+        try self.writeByte(@intFromEnum(msg.asset.chain));
+        try self.writeVarint(msg.asset.symbol.len);
+        try self.buf.appendSlice(self.allocator, msg.asset.symbol);
+        try self.writeVarint(msg.amount);
+        try self.writeVarint(msg.price);
+        try self.writeVarint(msg.nonce);
+        return self.buf.items;
+    }
 };
 
 pub const AwpDecoder = struct {
@@ -194,5 +220,27 @@ pub const AwpDecoder = struct {
             recipient = .{ .evm = addr };
         }
         return TransferMsg{ .chain = @enumFromInt(chain_id), .amount = amount, .recipient = recipient };
+    }
+
+    pub fn decodeOrder(self: *AwpDecoder) !OrderMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.order)) return error.InvalidMessageType;
+
+        const side = try self.readByte();
+        const chain_id = try self.readByte();
+        const symbol_len = try self.readVarint();
+        const symbol = self.data[self.pos .. self.pos + symbol_len];
+        self.pos += symbol_len;
+        const amount = try self.readVarint();
+        const price = try self.readVarint();
+        const nonce = try self.readVarint();
+
+        return OrderMsg{
+            .side = @enumFromInt(side),
+            .asset = .{ .chain = @enumFromInt(chain_id), .symbol = symbol },
+            .amount = amount,
+            .price = price,
+            .nonce = nonce,
+        };
     }
 };
