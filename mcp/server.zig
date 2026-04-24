@@ -31,19 +31,37 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
         if (std.mem.eql(u8, method_name, "initialize")) {
             try sendResponse(&stdout, "{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"serverInfo\":{\"name\":\"xB77-Agent\",\"version\":\"0.1.0\"}}");
         } else if (std.mem.eql(u8, method_name, "tools/list")) {
-            try sendResponse(&stdout, "{\"tools\":[{\"name\":\"agent_status\",\"description\":\"Get balance and identity\"}, {\"name\":\"update_constitution\",\"description\":\"Update agent dynamic rules\"}, {\"name\":\"execute_payment\",\"description\":\"Execute a multi-chain payment\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"amount\":{\"type\":\"string\"},\"chain\":{\"type\":\"string\"},\"recipient\":{\"type\":\"string\"},\"symbol\":{\"type\":\"string\"}}}}]}");
+            try sendResponse(&stdout, "{\"tools\":[{\"name\":\"agent_status\",\"description\":\"Get balance and identity\"}, {\"name\":\"spawn_agent\",\"description\":\"Create a new sovereign agent profile\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}}, {\"name\":\"update_constitution\",\"description\":\"Update agent dynamic rules\"}, {\"name\":\"execute_payment\",\"description\":\"Execute a multi-chain payment\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"amount\":{\"type\":\"string\"},\"chain\":{\"type\":\"string\"},\"recipient\":{\"type\":\"string\"},\"symbol\":{\"type\":\"string\"}}}}]}");
         } else if (std.mem.eql(u8, method_name, "tools/call")) {
             const params = parsed.value.object.get("params").?.object;
             const name = params.get("name").?.string;
 
             if (std.mem.eql(u8, name, "agent_status")) {
-                // ... (mantener lógica existente)
+                // ...
                 const sol_addr = try ctx.vaults.ops.address(.solana, allocator);
                 defer allocator.free(sol_addr);
                 const eth_addr = try ctx.vaults.ops.address(.base, allocator);
                 defer allocator.free(eth_addr);
 
-                const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Solana: {s}\\nEVM: {s}\"}}]}}", .{sol_addr, eth_addr});
+                const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Agent Active!\\nSolana: {s}\\nEVM: {s}\"}}]}}", .{sol_addr, eth_addr});
+                defer allocator.free(res);
+                try sendResponse(&stdout, res);
+            } else if (std.mem.eql(u8, name, "spawn_agent")) {
+                const args = params.get("arguments").?.object;
+                const agent_name = args.get("name").?.string;
+                
+                // Simulación de Spawn (creación de config)
+                try std.fs.cwd().makePath("profiles");
+                var config_buf: [512]u8 = undefined;
+                const path = try std.fmt.bufPrint(&config_buf, "profiles/{s}.toml", .{agent_name});
+                const file = try std.fs.cwd().createFile(path, .{});
+                defer file.close();
+                
+                const config_text = try std.fmt.allocPrint(allocator, "# xB77 Profile: {s}\n[vaults]\npath = \".xb77/{s}\"\n[rpc]\nsolana = \"https://api.devnet.solana.com\"\nbase = \"https://sepolia.base.org\"\n", .{agent_name, agent_name});
+                defer allocator.free(config_text);
+                try file.writeAll(config_text);
+
+                const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Sovereign Agent '{s}' spawned successfully. \\nConfiguration: {s}\"}}]}}", .{agent_name, path});
                 defer allocator.free(res);
                 try sendResponse(&stdout, res);
             } else if (std.mem.eql(u8, name, "update_constitution")) {

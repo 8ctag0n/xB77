@@ -32,7 +32,7 @@ pub const AgentContext = struct {
         return AgentContext{
             .allocator = allocator,
             .config = config,
-            .vaults = try vault.VaultSet.init(allocator),
+            .vaults = try vault.VaultSet.init(allocator, config.vaults.path),
             .sol_client = solana.SolanaClient.init(allocator, config.rpc.solana),
             .evm_client = evm.EvmClient.init(allocator, config.rpc.base),
             .cdp_client = cdp_client,

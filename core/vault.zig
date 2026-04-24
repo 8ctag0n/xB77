@@ -217,17 +217,28 @@ pub const VaultSet = struct {
     yield: Vault,
     allocator: std.mem.Allocator,
 
-    pub fn init(allocator: std.mem.Allocator) !VaultSet {
+    pub fn init(allocator: std.mem.Allocator, base_path: []const u8) !VaultSet {
+        // Aseguramos que la carpeta base exista y termine en separador
+        try std.fs.cwd().makePath(base_path);
+
         const default_policy = SpendPolicy{
             .daily_limit = 1_000_000_000,
             .per_tx_limit = 500_000_000,
             .blacklist = std.StringHashMap(void).init(allocator),
         };
+
+        const ops_path = try std.fs.path.join(allocator, &[_][]const u8{ base_path, "ops" });
+        defer allocator.free(ops_path);
+        const reserve_path = try std.fs.path.join(allocator, &[_][]const u8{ base_path, "reserve" });
+        defer allocator.free(reserve_path);
+        const yield_path = try std.fs.path.join(allocator, &[_][]const u8{ base_path, "yield" });
+        defer allocator.free(yield_path);
+
         return .{
             .allocator = allocator,
-            .ops = try Vault.init(allocator, .ops, default_policy, "ops_vault.csv"),
-            .reserve = try Vault.init(allocator, .reserve, default_policy, "reserve_vault.csv"),
-            .yield = try Vault.init(allocator, .yield, default_policy, "yield_vault.csv"),
+            .ops = try Vault.init(allocator, .ops, default_policy, ops_path),
+            .reserve = try Vault.init(allocator, .reserve, default_policy, reserve_path),
+            .yield = try Vault.init(allocator, .yield, default_policy, yield_path),
         };
     }
 
