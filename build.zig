@@ -157,6 +157,19 @@ pub fn build(b: *std.Build) void {
     bench_exe.root_module.addImport("core", core_module);
     b.installArtifact(bench_exe);
 
+    // --- xB77 SDK (Shared Lib for TS/Python/C Wrappers) ---
+    const sdk_lib = b.addLibrary(.{
+        .name = "xb77_sdk",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("sdk/xb77_sdk.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+        .linkage = .dynamic,
+    });
+    sdk_lib.root_module.addImport("core", core_module);
+    b.installArtifact(sdk_lib);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);
     test_step.dependOn(&run_tx_unit_tests.step);
