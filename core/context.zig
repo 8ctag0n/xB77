@@ -10,6 +10,7 @@ const cdp = @import("cdp.zig");
 const compliance = @import("compliance.zig");
 const store = @import("store.zig");
 const pay = @import("pay.zig");
+const mesh = @import("mesh.zig");
 
 pub const AgentContext = struct {
     allocator: std.mem.Allocator,
@@ -22,6 +23,7 @@ pub const AgentContext = struct {
     compliance: compliance.ComplianceEngine,
     store: store.Store,
     router: pay.PaymentRouter,
+    mesh_manager: mesh.MeshManager,
 
     pub fn init(allocator: std.mem.Allocator, config_path: []const u8) !AgentContext {
         const config = try config_mod.Config.load(allocator, config_path);
@@ -31,18 +33,30 @@ pub const AgentContext = struct {
             cdp_client = cdp.CdpClient.init(allocator, config.cdp.key_name.?, config.cdp.key_secret.?);
         }
 
+        var vaults = try vault.VaultSet.init(allocator, config.vaults.path);
+        const sol_addr = try vaults.ops.address(.solana, allocator);
+        defer allocator.free(sol_addr);
+        
+        var agent_id: [32]u8 = [_]u8{0} ** 32;
+        @memcpy(agent_id[0..@min(sol_addr.len, 32)], sol_addr[0..@min(sol_addr.len, 32)]);
+
+        const s = try store.Store.init(allocator, config.vaults.path);
+
         var ctx = AgentContext{
             .allocator = allocator,
             .config = config,
-            .vaults = try vault.VaultSet.init(allocator, config.vaults.path),
+            .vaults = vaults,
             .sol_client = solana.SolanaClient.init(allocator, config.rpc.solana),
             .evm_client = evm.EvmClient.init(allocator, config.rpc.base),
             .cdp_client = cdp_client,
             .constitution = const_mod.Constitution.init(allocator),
             .compliance = compliance.ComplianceEngine.init(allocator, [_]u8{0} ** 32),
-            .store = try store.Store.init(allocator, config.vaults.path),
+            .store = s,
             .router = undefined, 
+            .mesh_manager = try mesh.MeshManager.init(allocator, undefined, agent_id),
         };
+        
+        ctx.mesh_manager.store = &ctx.store;
 
         // El router se inicializa con los punteros de 'ctx'. 
         // En Zig, si devolvemos 'ctx' por valor, debemos tener cuidado.
@@ -64,6 +78,7 @@ pub const AgentContext = struct {
 
 
     pub fn deinit(self: *AgentContext) void {
+        self.mesh_manager.deinit();
         self.store.deinit();
         self.constitution.deinit();
         self.vaults.deinit();

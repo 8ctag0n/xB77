@@ -179,7 +179,7 @@ pub const ConcurrentMerkleTree = struct {
         const log = self.change_logs.items[log_index];
         
         // Manejar la inconsistencia de la API de Writer en Zig 0.15.2
-        const w = if (comptime @hasField(@TypeOf(writer_param.*), "interface")) writer_param.interface else writer_param;
+        var w = if (comptime @hasField(@TypeOf(writer_param.*), "interface")) writer_param.interface else writer_param;
 
         try w.print("root = [\n", .{});
         for (root, 0..) |b, i| {

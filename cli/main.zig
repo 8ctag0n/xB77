@@ -50,6 +50,8 @@ pub fn main() !void {
         try handleBatch(allocator, config_path, cmd_args);
     } else if (std.mem.eql(u8, command, "shield")) {
         try handleShield(allocator, config_path, cmd_args);
+    } else if (std.mem.eql(u8, command, "mesh")) {
+        try handleMesh(allocator, config_path);
     } else if (std.mem.eql(u8, command, "mcp")) {
         try handleMcp(allocator, config_path);
     } else if (std.mem.eql(u8, command, "serve")) {
@@ -77,6 +79,7 @@ fn printUsage() void {
         \\  state            Muestra la raíz Merkle del estado soberano
         \\  pay <to> <amt>   Realiza un pago
         \\  shield <op>      Gestiona la armadura ZK
+        \\  mesh             Muestra los pares en la red soberana
         \\  spawn <name>     Crea un nuevo agente (Factory)
         \\  mcp              Inicia el servidor de orquestación IA
         \\  serve            Inicia la operación autónoma 24/7
@@ -198,4 +201,29 @@ fn handleServe(allocator: std.mem.Allocator, config_path: []const u8) !void {
 
     var engine = core.engine.Engine.init(allocator, &ctx);
     try engine.start();
+}
+
+fn handleMesh(allocator: std.mem.Allocator, config_path: []const u8) !void {
+    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    defer ctx.deinit();
+
+    // Simular el seed peer que el Engine agregaría al arrancar
+    try ctx.mesh_manager.addPeer([_]u8{0x12} ** 32, "127.0.0.1", 7777);
+
+    std.debug.print("\n--- xB77 Sovereign Mesh ({s}) ---\n", .{config_path});
+    std.debug.print("Known Peers: {d}\n\n", .{ctx.mesh_manager.peers.items.len});
+    std.debug.print("AGENT ID                                 ADDRESS          STATUS\n", .{});
+    std.debug.print("---------------------------------------  ---------------  ----------\n", .{});
+
+    for (ctx.mesh_manager.peers.items) |peer| {
+        for (peer.id[0..16]) |b| {
+            std.debug.print("{x:0>2}", .{b});
+        }
+        std.debug.print("  {s}:{d:<5}  {s}\n", .{
+            peer.address,
+            peer.port,
+            @tagName(peer.status),
+        });
+    }
+    std.debug.print("\nMesh Health: {s}\n", .{if (ctx.mesh_manager.peers.items.len > 0) "Synchronizing" else "Isolated"});
 }

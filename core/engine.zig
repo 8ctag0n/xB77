@@ -50,6 +50,9 @@ pub const Engine = struct {
         }
         std.debug.print("         ----------------------------------------\n", .{});
 
+        // Simular descubrimiento de un seed peer
+        try self.ctx.mesh_manager.addPeer([_]u8{0x12} ** 32, "127.0.0.1", 7777);
+
         // Carga condicional del bridge de sockets
         if (comptime builtin.target.os.tag != .wasi) {
             try bridge.startBridge(self);
@@ -70,7 +73,12 @@ pub const Engine = struct {
             std.debug.print("\n[Engine] ❌ Anchor Service Error: {}", .{err});
         };
 
-        // 2. Tareas autónomas de mantenimiento
+        // 2. Tareas de red (Mesh Gossip)
+        self.ctx.mesh_manager.tick() catch |err| {
+            std.debug.print("\n[Engine] ❌ Mesh Error: {}", .{err});
+        };
+
+        // 3. Tareas autónomas de mantenimiento
         if (self.ctx.cdp_client) |*cdp_client| {
             const eth_kp = self.ctx.vaults.ops.eth_kp orelse return;
             const balance = self.ctx.evm_client.getBalance(eth_kp.address) catch |err| {

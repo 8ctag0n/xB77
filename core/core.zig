@@ -19,6 +19,7 @@ pub const store = @import("store.zig");
 pub const awp = @import("awp.zig");
 pub const cmt = @import("cmt.zig");
 pub const anchor = @import("anchor.zig");
+pub const mesh = @import("mesh.zig");
 
 // Re-exportar funciones comunes
 pub const generateKeypair = crypto.generateKeypair;
