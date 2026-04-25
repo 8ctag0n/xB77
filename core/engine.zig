@@ -17,11 +17,15 @@ pub const Engine = struct {
     awpool: awpool.AWPool,
 
     pub fn init(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) Engine {
+        var pool = awpool.AWPool.init(allocator);
+        pool.router = &ctx.router;
+        pool.store = &ctx.store;
+        
         return .{
             .allocator = allocator,
             .ctx = ctx,
             .is_running = false,
-            .awpool = awpool.AWPool.init(allocator),
+            .awpool = pool,
         };
     }
 

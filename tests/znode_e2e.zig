@@ -23,6 +23,8 @@ pub fn main() !void {
     var encoder = awp.AwpEncoder.init(allocator);
     defer encoder.deinit();
 
+    const test_owner = [_]u8{0x77} ** 32;
+
     // 1. Enviar una Orden de Compra
     _ = try encoder.encodeOrder(.{
         .side = .buy,
@@ -30,6 +32,7 @@ pub fn main() !void {
         .amount = 1000000,
         .price = 100,
         .nonce = 1,
+        .owner = test_owner,
     });
     std.debug.print("🛒 AWP Order: BUY USDC queued.\n", .{});
 
@@ -40,6 +43,7 @@ pub fn main() !void {
         .amount = 1000000,
         .price = 100,
         .nonce = 2,
+        .owner = test_owner,
     });
     std.debug.print("💸 AWP Order: SELL USDC queued (EXPECT MATCH!).\n", .{});
     

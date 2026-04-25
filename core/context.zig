@@ -9,6 +9,7 @@ const const_mod = @import("constitution.zig");
 const cdp = @import("cdp.zig");
 const compliance = @import("compliance.zig");
 const store = @import("store.zig");
+const pay = @import("pay.zig");
 
 pub const AgentContext = struct {
     allocator: std.mem.Allocator,
@@ -20,6 +21,7 @@ pub const AgentContext = struct {
     constitution: const_mod.Constitution,
     compliance: compliance.ComplianceEngine,
     store: store.Store,
+    router: pay.PaymentRouter,
 
     pub fn init(allocator: std.mem.Allocator, config_path: []const u8) !AgentContext {
         const config = try config_mod.Config.load(allocator, config_path);
@@ -29,7 +31,7 @@ pub const AgentContext = struct {
             cdp_client = cdp.CdpClient.init(allocator, config.cdp.key_name.?, config.cdp.key_secret.?);
         }
 
-        return AgentContext{
+        var ctx = AgentContext{
             .allocator = allocator,
             .config = config,
             .vaults = try vault.VaultSet.init(allocator, config.vaults.path),
@@ -39,7 +41,25 @@ pub const AgentContext = struct {
             .constitution = const_mod.Constitution.init(allocator),
             .compliance = compliance.ComplianceEngine.init(allocator, [_]u8{0} ** 32),
             .store = try store.Store.init(allocator, config.vaults.path),
+            .router = undefined, 
         };
+
+        // El router se inicializa con los punteros de 'ctx'. 
+        // En Zig, si devolvemos 'ctx' por valor, debemos tener cuidado.
+        // Pero como el router es parte de la misma estructura, sus punteros internos
+        // a sol_client, evm_client, etc, se mantendrán válidos si apuntan a campos de 'ctx'
+        // y el llamador mantiene a 'ctx' en una posición estable.
+        
+        ctx.router = pay.PaymentRouter.init(
+            allocator,
+            &ctx.sol_client,
+            &ctx.evm_client,
+            &ctx.vaults,
+            &ctx.constitution,
+            null,
+        );
+
+        return ctx;
     }
 
 

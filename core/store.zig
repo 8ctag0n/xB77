@@ -7,6 +7,7 @@ pub const EntryType = enum {
     tax,
     risk_blocked,
     compliance_fail,
+    match,
 };
 
 pub const LedgerEntry = struct {

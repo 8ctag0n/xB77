@@ -1,0 +1,40 @@
+# xB77 Sovereign Agent - Production Capsule
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+# Instalar dependencias de runtime (libcurl para el Z-Node)
+RUN apt-get update && apt-get install -y \
+    libcurl4 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar los binarios compilados desde el host (optimizados en Zig/C)
+COPY zig-out/bin/xb77 /usr/local/bin/xb77
+COPY zig-out/bin/znode-server /usr/local/bin/znode-server
+
+# Copiar configuraciones y circuitos
+COPY agent.toml /app/agent.toml
+COPY circuits /app/circuits
+
+# Exponer el Unix Socket como volumen si fuera necesario
+# EXPOSE ...
+
+# Script de arranque unificado (The Horizon Orchestrator)
+RUN echo '#!/bin/bash\n\
+echo "--------------------------------------------------"\n\
+echo "   xB77 SOVEREIGN AGENT - STARTING HORIZON        "\n\
+echo "--------------------------------------------------"\n\
+\n\
+# 1. Iniciar Z-Node en el fondo (Sentinel)\n\
+# Asumimos que el endpoint está en una variable de entorno\n\
+znode-server ${YELLOWSTONE_ENDPOINT} ${YELLOWSTONE_TOKEN} &\n\
+\n\
+# 2. Esperar a que el socket esté listo\n\
+sleep 2\n\
+\n\
+# 3. Iniciar el Agente (Core Engine)\n\
+xb77 serve\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
+CMD ["/app/start.sh"]

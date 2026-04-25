@@ -166,6 +166,17 @@ fn handleMcp(allocator: std.mem.Allocator, config_path: []const u8) !void {
 fn handleServe(allocator: std.mem.Allocator, config_path: []const u8) !void {
     var ctx = try core.context.AgentContext.init(allocator, config_path);
     defer ctx.deinit();
+
+    // Re-vincular el router a la dirección de memoria estable de 'ctx'
+    ctx.router = core.pay.PaymentRouter.init(
+        allocator,
+        &ctx.sol_client,
+        &ctx.evm_client,
+        &ctx.vaults,
+        &ctx.constitution,
+        null,
+    );
+
     var engine = core.engine.Engine.init(allocator, &ctx);
     try engine.start();
 }

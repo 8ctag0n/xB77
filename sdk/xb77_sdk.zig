@@ -54,6 +54,7 @@ export fn xb77_submit_order_c(
         .amount = amount,
         .price = price,
         .nonce = 12345, // Simulado para el C-export
+        .owner = [_]u8{0} ** 32,
     };
 
     client.submitOrder(order) catch return false;

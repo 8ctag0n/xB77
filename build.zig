@@ -4,9 +4,17 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // --- AWP Universal Module ---
+    const awp_module = b.addModule("awp", .{
+        .root_source_file = b.path("deps/awp/src/root.zig"),
+    });
+
     // --- Core Module ---
     const core_module = b.addModule("core", .{
         .root_source_file = b.path("core/core.zig"),
+        .imports = &.{
+            .{ .name = "awp", .module = awp_module },
+        },
     });
 
     // --- MCP Module ---
@@ -144,6 +152,30 @@ pub fn build(b: *std.Build) void {
     });
     awp_unit_tests.root_module.addImport("core", core_module);
     const run_awp_unit_tests = b.addRunArtifact(awp_unit_tests);
+
+    // --- Mesh P2P Ping ---
+    const mesh_ping_exe = b.addExecutable(.{
+        .name = "mesh-ping",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/mesh_ping.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    mesh_ping_exe.root_module.addImport("core", core_module);
+    b.installArtifact(mesh_ping_exe);
+
+    // --- Mesh Waterfall Test ---
+    const mesh_waterfall_exe = b.addExecutable(.{
+        .name = "mesh-waterfall",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/mesh_waterfall.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    mesh_waterfall_exe.root_module.addImport("core", core_module);
+    b.installArtifact(mesh_waterfall_exe);
 
     // --- Benchmarks ---
     const bench_exe = b.addExecutable(.{
