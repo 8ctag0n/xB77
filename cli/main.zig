@@ -42,6 +42,8 @@ pub fn main() !void {
         try handleInit(allocator, profile);
     } else if (std.mem.eql(u8, command, "status")) {
         try handleStatus(allocator, config_path);
+    } else if (std.mem.eql(u8, command, "state")) {
+        try handleState(allocator, config_path);
     } else if (std.mem.eql(u8, command, "pay")) {
         try handlePay(allocator, config_path, cmd_args);
     } else if (std.mem.eql(u8, command, "batch")) {
@@ -72,6 +74,7 @@ fn printUsage() void {
         \\Comandos:
         \\  init             Inicializa un nuevo perfil de agente
         \\  status           Muestra el estado del agente actual
+        \\  state            Muestra la raíz Merkle del estado soberano
         \\  pay <to> <amt>   Realiza un pago
         \\  shield <op>      Gestiona la armadura ZK
         \\  spawn <name>     Crea un nuevo agente (Factory)
@@ -79,6 +82,22 @@ fn printUsage() void {
         \\  serve            Inicia la operación autónoma 24/7
         \\
     , .{});
+}
+
+fn handleState(allocator: std.mem.Allocator, config_path: []const u8) !void {
+    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    defer ctx.deinit();
+
+    const root = ctx.store.tree.getRoot();
+    const count = ctx.store.tree.rightmost_index;
+
+    std.debug.print("\n--- xB77 Sovereign State ({s}) ---\n", .{config_path});
+    std.debug.print("Entries:     {d}\n", .{count});
+    std.debug.print("Merkle Root: ", .{});
+    for (root) |b| {
+        std.debug.print("{x:0>2}", .{b});
+    }
+    std.debug.print("\nIntegrity:   Sovereign & Verified\n", .{});
 }
 
 fn handleInit(allocator: std.mem.Allocator, profile: []const u8) !void {

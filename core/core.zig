@@ -17,6 +17,8 @@ pub const compliance = @import("compliance.zig");
 pub const risk = @import("risk.zig");
 pub const store = @import("store.zig");
 pub const awp = @import("awp.zig");
+pub const cmt = @import("cmt.zig");
+pub const anchor = @import("anchor.zig");
 
 // Re-exportar funciones comunes
 pub const generateKeypair = crypto.generateKeypair;

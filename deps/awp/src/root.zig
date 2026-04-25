@@ -10,6 +10,11 @@ pub const MessageType = enum(u8) {
     audit_report = 0x04,
     encrypted_blob = 0x05,
     order = 0x06,
+    state_query = 0x07,
+    state_response = 0x08,
+    swap_request = 0x09,
+    swap_lock = 0x0A,
+    swap_reveal = 0x0B,
 };
 
 pub const Chain = enum(u8) {
@@ -43,6 +48,27 @@ pub const HandshakeMsg = struct {
     agent_id: [32]u8,
     timestamp: i64,
     signature: [64]u8,
+    state_root: [32]u8,
+    state_proof: ?[]const u8 = null,
+};
+
+pub const SwapRequestMsg = struct {
+    offered_asset: Asset,
+    offered_amount: u64,
+    wanted_asset: Asset,
+    wanted_amount: u64,
+    lock_hash: [32]u8,
+    timeout: u64,
+};
+
+pub const SwapLockMsg = struct {
+    swap_id: [32]u8,
+    lock_tx_hash: [32]u8,
+};
+
+pub const SwapRevealMsg = struct {
+    swap_id: [32]u8,
+    secret: [32]u8,
 };
 
 pub const SignalType = enum(u8) {
@@ -120,6 +146,13 @@ pub const AwpEncoder = struct {
         std.mem.writeInt(i64, &ts_buf, msg.timestamp, .little);
         try self.buf.appendSlice(self.allocator, &ts_buf);
         try self.buf.appendSlice(self.allocator, &msg.signature);
+        try self.buf.appendSlice(self.allocator, &msg.state_root);
+        if (msg.state_proof) |proof| {
+            try self.writeVarint(proof.len);
+            try self.buf.appendSlice(self.allocator, proof);
+        } else {
+            try self.writeVarint(0);
+        }
         return self.buf.items;
     }
 
@@ -141,6 +174,53 @@ pub const AwpEncoder = struct {
             .sol => |pk| try self.buf.appendSlice(self.allocator, &pk),
             .evm => |addr| try self.buf.appendSlice(self.allocator, &addr),
         }
+        return self.buf.items;
+    }
+
+    pub fn encodeStateQuery(self: *AwpEncoder, index: u64) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.state_query));
+        try self.writeVarint(index);
+        return self.buf.items;
+    }
+
+    pub fn encodeStateResponse(self: *AwpEncoder, index: u64, leaf: [32]u8, root: [32]u8, proof: [][32]u8) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.state_response));
+        try self.writeVarint(index);
+        try self.buf.appendSlice(self.allocator, &leaf);
+        try self.buf.appendSlice(self.allocator, &root);
+        try self.writeVarint(proof.len);
+        for (proof) |p| {
+            try self.buf.appendSlice(self.allocator, &p);
+        }
+        return self.buf.items;
+    }
+
+    pub fn encodeSwapRequest(self: *AwpEncoder, msg: SwapRequestMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.swap_request));
+        try self.writeByte(@intFromEnum(msg.offered_asset.chain));
+        try self.writeVarint(msg.offered_asset.symbol.len);
+        try self.buf.appendSlice(self.allocator, msg.offered_asset.symbol);
+        try self.writeVarint(msg.offered_amount);
+        try self.writeByte(@intFromEnum(msg.wanted_asset.chain));
+        try self.writeVarint(msg.wanted_asset.symbol.len);
+        try self.buf.appendSlice(self.allocator, msg.wanted_asset.symbol);
+        try self.writeVarint(msg.wanted_amount);
+        try self.buf.appendSlice(self.allocator, &msg.lock_hash);
+        try self.writeVarint(msg.timeout);
+        return self.buf.items;
+    }
+
+    pub fn encodeSwapLock(self: *AwpEncoder, msg: SwapLockMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.swap_lock));
+        try self.buf.appendSlice(self.allocator, &msg.swap_id);
+        try self.buf.appendSlice(self.allocator, &msg.lock_tx_hash);
+        return self.buf.items;
+    }
+
+    pub fn encodeSwapReveal(self: *AwpEncoder, msg: SwapRevealMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.swap_reveal));
+        try self.buf.appendSlice(self.allocator, &msg.swap_id);
+        try self.buf.appendSlice(self.allocator, &msg.secret);
         return self.buf.items;
     }
 };
@@ -186,6 +266,15 @@ pub const AwpDecoder = struct {
         self.pos += 8;
         @memcpy(&msg.signature, self.data[self.pos..][0..64]);
         self.pos += 64;
+        @memcpy(&msg.state_root, self.data[self.pos..][0..32]);
+        self.pos += 32;
+        const proof_len = try self.readVarint();
+        if (proof_len > 0) {
+            msg.state_proof = self.data[self.pos .. self.pos + proof_len];
+            self.pos += proof_len;
+        } else {
+            msg.state_proof = null;
+        }
         return msg;
     }
 
@@ -239,11 +328,9 @@ pub const AwpDecoder = struct {
         const amount = try self.readVarint();
         const price = try self.readVarint();
         const nonce = try self.readVarint();
-
         var owner: [32]u8 = undefined;
         @memcpy(&owner, self.data[self.pos..][0..32]);
         self.pos += 32;
-
         return OrderMsg{
             .side = @enumFromInt(side),
             .asset = .{ .chain = @enumFromInt(chain_id), .symbol = symbol },
@@ -252,6 +339,56 @@ pub const AwpDecoder = struct {
             .nonce = nonce,
             .owner = owner,
         };
+    }
 
+    pub fn decodeSwapRequest(self: *AwpDecoder) !SwapRequestMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.swap_request)) return error.InvalidMessageType;
+        const off_chain = try self.readByte();
+        const off_sym_len = try self.readVarint();
+        const off_sym = self.data[self.pos .. self.pos + off_sym_len];
+        self.pos += off_sym_len;
+        const off_amount = try self.readVarint();
+        const want_chain = try self.readByte();
+        const want_sym_len = try self.readVarint();
+        const want_sym = self.data[self.pos .. self.pos + want_sym_len];
+        self.pos += want_sym_len;
+        const want_amount = try self.readVarint();
+        var lock_hash: [32]u8 = undefined;
+        @memcpy(&lock_hash, self.data[self.pos..][0..32]);
+        self.pos += 32;
+        const timeout = try self.readVarint();
+        return SwapRequestMsg{
+            .offered_asset = .{ .chain = @enumFromInt(off_chain), .symbol = off_sym },
+            .offered_amount = off_amount,
+            .wanted_asset = .{ .chain = @enumFromInt(want_chain), .symbol = want_sym },
+            .wanted_amount = want_amount,
+            .lock_hash = lock_hash,
+            .timeout = timeout,
+        };
+    }
+
+    pub fn decodeSwapLock(self: *AwpDecoder) !SwapLockMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.swap_lock)) return error.InvalidMessageType;
+        var swap_id: [32]u8 = undefined;
+        @memcpy(&swap_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+        var lock_tx_hash: [32]u8 = undefined;
+        @memcpy(&lock_tx_hash, self.data[self.pos..][0..32]);
+        self.pos += 32;
+        return SwapLockMsg{ .swap_id = swap_id, .lock_tx_hash = lock_tx_hash };
+    }
+
+    pub fn decodeSwapReveal(self: *AwpDecoder) !SwapRevealMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.swap_reveal)) return error.InvalidMessageType;
+        var swap_id: [32]u8 = undefined;
+        @memcpy(&swap_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+        var secret: [32]u8 = undefined;
+        @memcpy(&secret, self.data[self.pos..][0..32]);
+        self.pos += 32;
+        return SwapRevealMsg{ .swap_id = swap_id, .secret = secret };
     }
 };

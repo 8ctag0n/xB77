@@ -9,12 +9,14 @@ const bridge = if (builtin.target.os.tag != .wasi) @import("znode_bridge.zig") e
 const yellowstone = @import("yellowstone.zig");
 const risk = @import("risk.zig");
 const awpool = @import("awpool.zig");
+const anchor = @import("anchor.zig");
 
 pub const Engine = struct {
     allocator: std.mem.Allocator,
     ctx: *core.context.AgentContext,
     is_running: bool,
     awpool: awpool.AWPool,
+    anchor_service: anchor.AnchorService,
 
     pub fn init(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) Engine {
         var pool = awpool.AWPool.init(allocator);
@@ -26,6 +28,7 @@ pub const Engine = struct {
             .ctx = ctx,
             .is_running = false,
             .awpool = pool,
+            .anchor_service = anchor.AnchorService.init(allocator, &ctx.store),
         };
     }
 
@@ -62,7 +65,12 @@ pub const Engine = struct {
     }
 
     fn tick(self: *Engine) !void {
-        // Tareas autónomas de mantenimiento
+        // 1. Tareas de anclaje (Anchor Service)
+        self.anchor_service.checkAndAnchor() catch |err| {
+            std.debug.print("\n[Engine] ❌ Anchor Service Error: {}", .{err});
+        };
+
+        // 2. Tareas autónomas de mantenimiento
         if (self.ctx.cdp_client) |*cdp_client| {
             const eth_kp = self.ctx.vaults.ops.eth_kp orelse return;
             const balance = self.ctx.evm_client.getBalance(eth_kp.address) catch |err| {

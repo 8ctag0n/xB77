@@ -143,6 +143,26 @@ pub fn build(b: *std.Build) void {
     zk_unit_tests.root_module.addImport("core", core_module);
     const run_zk_unit_tests = b.addRunArtifact(zk_unit_tests);
 
+    const cmt_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/cmt_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    cmt_unit_tests.root_module.addImport("core", core_module);
+    const run_cmt_unit_tests = b.addRunArtifact(cmt_unit_tests);
+
+    const ghost_proof_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/ghost_proof_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    ghost_proof_unit_tests.root_module.addImport("core", core_module);
+    const run_ghost_proof_unit_tests = b.addRunArtifact(ghost_proof_unit_tests);
+
     const awp_unit_tests = b.addTest(.{
         .root_module = b.createModule(.{
             .root_source_file = b.path("tests/awp_test.zig"),
@@ -207,5 +227,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_tx_unit_tests.step);
     test_step.dependOn(&run_store_unit_tests.step);
     test_step.dependOn(&run_zk_unit_tests.step);
+    test_step.dependOn(&run_cmt_unit_tests.step);
+    test_step.dependOn(&run_ghost_proof_unit_tests.step);
     test_step.dependOn(&run_awp_unit_tests.step);
 }

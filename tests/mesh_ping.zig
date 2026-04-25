@@ -29,6 +29,7 @@ pub fn main() !void {
         .agent_id = [_]u8{0xAA} ** 32, // ID del Agente Remoto
         .timestamp = std.time.timestamp(),
         .signature = [_]u8{0xBB} ** 64,
+        .state_root = [_]u8{0xCC} ** 32,
     };
     _ = try encoder.encodeHandshake(handshake);
     std.debug.print("🤝 Handshake encoded (Agent ID: AA...).\n", .{});

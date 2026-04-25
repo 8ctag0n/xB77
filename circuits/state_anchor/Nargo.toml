@@ -1,0 +1,7 @@
+[package]
+name = "state_anchor"
+type = "bin"
+authors = ["xB77"]
+
+[dependencies]
+# Usaremos la stdlib de Noir para SHA256
