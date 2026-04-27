@@ -15,6 +15,20 @@ pub const MessageType = enum(u8) {
     swap_request = 0x09,
     swap_lock = 0x0A,
     swap_reveal = 0x0B,
+    mission_directive = 0x0C,
+    account_gossip = 0x0D,
+    delta_sync = 0x0E,
+};
+
+pub const DeltaSyncMsg = struct {
+    index: u64,
+    leaf: [32]u8,
+    siblings: [][32]u8,
+};
+
+pub const AccountGossipMsg = struct {
+    pubkey: [32]u8,
+    cmt_index: u64,
 };
 
 pub const Chain = enum(u8) {
@@ -50,6 +64,7 @@ pub const HandshakeMsg = struct {
     signature: [64]u8,
     state_root: [32]u8,
     state_proof: ?[]const u8 = null,
+    federation_badge: ?[]const u8 = null,
 };
 
 pub const SwapRequestMsg = struct {
@@ -71,6 +86,16 @@ pub const SwapRevealMsg = struct {
     secret: [32]u8,
 };
 
+pub const MissionDirectiveMsg = struct {
+    id: [32]u8,
+    owner_root: [32]u8,
+    nullifier: [32]u8,
+    max_budget: u64,
+    slippage_bps: u16,
+    logic_hash: [32]u8,
+    zk_proof: []const u8,
+};
+
 pub const SignalType = enum(u8) {
     buy = 0x01,
     sell = 0x02,
@@ -82,6 +107,17 @@ pub const SignalMsg = struct {
     asset: Asset,
     signal: SignalType,
     confidence: u8,
+};
+
+pub const StateQueryMsg = struct {
+    index: u64,
+};
+
+pub const StateResponseMsg = struct {
+    index: u64,
+    leaf: [32]u8,
+    root: [32]u8,
+    proof_len: usize,
 };
 
 pub const TransferMsg = struct {
@@ -150,6 +186,12 @@ pub const AwpEncoder = struct {
         if (msg.state_proof) |proof| {
             try self.writeVarint(proof.len);
             try self.buf.appendSlice(self.allocator, proof);
+        } else {
+            try self.writeVarint(0);
+        }
+        if (msg.federation_badge) |badge| {
+            try self.writeVarint(badge.len);
+            try self.buf.appendSlice(self.allocator, badge);
         } else {
             try self.writeVarint(0);
         }
@@ -223,6 +265,37 @@ pub const AwpEncoder = struct {
         try self.buf.appendSlice(self.allocator, &msg.secret);
         return self.buf.items;
     }
+
+    pub fn encodeMissionDirective(self: *AwpEncoder, msg: MissionDirectiveMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.mission_directive));
+        try self.buf.appendSlice(self.allocator, &msg.id);
+        try self.buf.appendSlice(self.allocator, &msg.owner_root);
+        try self.buf.appendSlice(self.allocator, &msg.nullifier);
+        try self.writeVarint(msg.max_budget);
+        try self.writeVarint(msg.slippage_bps);
+        try self.buf.appendSlice(self.allocator, &msg.logic_hash);
+        try self.writeVarint(msg.zk_proof.len);
+        try self.buf.appendSlice(self.allocator, msg.zk_proof);
+        return self.buf.items;
+    }
+
+    pub fn encodeAccountGossip(self: *AwpEncoder, msg: AccountGossipMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.account_gossip));
+        try self.buf.appendSlice(self.allocator, &msg.pubkey);
+        try self.writeVarint(msg.cmt_index);
+        return self.buf.items;
+    }
+
+    pub fn encodeDeltaSync(self: *AwpEncoder, msg: DeltaSyncMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.delta_sync));
+        try self.writeVarint(msg.index);
+        try self.buf.appendSlice(self.allocator, &msg.leaf);
+        try self.writeVarint(msg.siblings.len);
+        for (msg.siblings) |s| {
+            try self.buf.appendSlice(self.allocator, &s);
+        }
+        return self.buf.items;
+    }
 };
 
 pub const AwpDecoder = struct {
@@ -274,6 +347,13 @@ pub const AwpDecoder = struct {
             self.pos += proof_len;
         } else {
             msg.state_proof = null;
+        }
+        const badge_len = try self.readVarint();
+        if (badge_len > 0) {
+            msg.federation_badge = self.data[self.pos .. self.pos + badge_len];
+            self.pos += badge_len;
+        } else {
+            msg.federation_badge = null;
         }
         return msg;
     }
@@ -390,5 +470,86 @@ pub const AwpDecoder = struct {
         @memcpy(&secret, self.data[self.pos..][0..32]);
         self.pos += 32;
         return SwapRevealMsg{ .swap_id = swap_id, .secret = secret };
+    }
+
+    pub fn decodeStateQuery(self: *AwpDecoder) !StateQueryMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.state_query)) return error.InvalidMessageType;
+        const index = try self.readVarint();
+        return StateQueryMsg{ .index = index };
+    }
+
+    pub fn decodeStateResponse(self: *AwpDecoder) !StateResponseMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.state_response)) return error.InvalidMessageType;
+        const index = try self.readVarint();
+        var leaf: [32]u8 = undefined;
+        @memcpy(&leaf, self.data[self.pos..][0..32]);
+        self.pos += 32;
+        var root: [32]u8 = undefined;
+        @memcpy(&root, self.data[self.pos..][0..32]);
+        self.pos += 32;
+        const proof_len = try self.readVarint();
+        // Skip reading actual proof points for now, we just want the struct
+        self.pos += proof_len * 32;
+        return StateResponseMsg{ .index = index, .leaf = leaf, .root = root, .proof_len = @intCast(proof_len) };
+    }
+
+    pub fn decodeMissionDirective(self: *AwpDecoder) !MissionDirectiveMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.mission_directive)) return error.InvalidMessageType;
+
+        var msg: MissionDirectiveMsg = undefined;
+        @memcpy(&msg.id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+        @memcpy(&msg.owner_root, self.data[self.pos..][0..32]);
+        self.pos += 32;
+        @memcpy(&msg.nullifier, self.data[self.pos..][0..32]);
+        self.pos += 32;
+        
+        msg.max_budget = try self.readVarint();
+        msg.slippage_bps = @intCast(try self.readVarint());
+        @memcpy(&msg.logic_hash, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        const proof_len = try self.readVarint();
+        msg.zk_proof = self.data[self.pos .. self.pos + proof_len];
+        self.pos += proof_len;
+
+        return msg;
+    }
+
+    pub fn decodeAccountGossip(self: *AwpDecoder) !AccountGossipMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.account_gossip)) return error.InvalidMessageType;
+
+        var msg: AccountGossipMsg = undefined;
+        @memcpy(&msg.pubkey, self.data[self.pos..][0..32]);
+        self.pos += 32;
+        msg.cmt_index = try self.readVarint();
+        return msg;
+    }
+
+    pub fn decodeDeltaSync(self: *AwpDecoder, allocator: std.mem.Allocator) !DeltaSyncMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.delta_sync)) return error.InvalidMessageType;
+
+        const index = try self.readVarint();
+        var leaf: [32]u8 = undefined;
+        @memcpy(&leaf, self.data[self.pos..][0..32]);
+        self.pos += 32;
+        
+        const siblings_len = try self.readVarint();
+        const siblings = try allocator.alloc([32]u8, siblings_len);
+        for (0..siblings_len) |i| {
+            @memcpy(&siblings[i], self.data[self.pos..][0..32]);
+            self.pos += 32;
+        }
+
+        return DeltaSyncMsg{
+            .index = index,
+            .leaf = leaf,
+            .siblings = siblings,
+        };
     }
 };

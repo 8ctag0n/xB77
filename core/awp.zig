@@ -13,6 +13,12 @@ pub const HandshakeMsg = awp.HandshakeMsg;
 pub const SignalType = awp.SignalType;
 pub const SignalMsg = awp.SignalMsg;
 pub const TransferMsg = awp.TransferMsg;
+pub const SwapRequestMsg = awp.SwapRequestMsg;
+pub const SwapLockMsg = awp.SwapLockMsg;
+pub const SwapRevealMsg = awp.SwapRevealMsg;
+pub const MissionDirectiveMsg = awp.MissionDirectiveMsg;
+pub const AccountGossipMsg = awp.AccountGossipMsg;
+pub const DeltaSyncMsg = awp.DeltaSyncMsg;
 
 pub const AwpEncoder = awp.AwpEncoder;
 pub const AwpDecoder = awp.AwpDecoder;

@@ -44,6 +44,28 @@ pub const SolanaClient = struct {
         return @intCast(value.integer);
     }
 
+    /// Anclaje de Estado Soberano (L1 Anchoring)
+    /// Envía el Root del CMT y la Prueba ZK al programa xB77 en Solana.
+    pub fn anchorMeshState(self: *SolanaClient, root: [32]u8, proof: []const u8, signer: *const types.Keypair) ![]u8 {
+        // En una implementación real, aquí construiríamos la instrucción para el programa 'xb77_core'
+        // Por ahora, simulamos el empaquetado del anclaje.
+        std.debug.print("\n[SOLANA] ⚓ Anchoring Mesh State to L1...", .{});
+        std.debug.print("\n[SOLANA] 🌳 Root: 0x{s}", .{std.fmt.fmtSliceHexLower(&root)});
+        std.debug.print("\n[SOLANA] 📜 Proof size: {d} bytes", .{proof.len});
+
+        // 1. Obtener blockhash fresco
+        const blockhash = try self.getLatestBlockhash();
+        
+        // 2. Simulación de construcción de TX (Placeholder para la serialización real)
+        var tx_buf: [1024]u8 = undefined;
+        _ = blockhash;
+        _ = signer;
+        // @todo: Implementar la serialización de la instrucción 'anchor_root' de Anchor
+        
+        std.debug.print("\n[SOLANA] ✅ State Anchor transaction simulated.", .{});
+        return try self.allocator.dupe(u8, "SIMULATED_TX_SIG_0x7777");
+    }
+
     pub fn getLatestBlockhash(self: *SolanaClient) !types.Hash {
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"getLatestBlockhash","params":[]}}
@@ -205,5 +227,31 @@ pub const SolanaClient = struct {
         }
 
         return signatures;
+    }
+
+    /// Obtiene el saldo comprimido (ZK-Compression) de una dirección.
+    /// Requiere un RPC compatible con Light Protocol / Photon.
+    pub fn getCompressedBalanceByOwner(self: *SolanaClient, address: []const u8) !u64 {
+        const payload = try std.fmt.allocPrint(self.allocator,
+            \\{{"jsonrpc":"2.0","id":1,"method":"getCompressedBalanceByOwner","params":["{s}"]}}
+        , .{address});
+        defer self.allocator.free(payload);
+
+        var response = self.http_client.post(self.endpoint, payload) catch |err| {
+            std.debug.print("[Solana] ⚠️ Error fetching compressed balance: {any}. Falling back to 0.\n", .{err});
+            return 0;
+        };
+        defer response.deinit();
+
+        const parsed = std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{}) catch |err| {
+             std.debug.print("[Solana] ⚠️ JSON Parse error on compressed balance: {any}\n", .{err});
+             return 0;
+        };
+        defer parsed.deinit();
+
+        const result = parsed.value.object.get("result") orelse return 0;
+        const value = result.object.get("value") orelse return 0;
+
+        return @intCast(value.integer);
     }
 };

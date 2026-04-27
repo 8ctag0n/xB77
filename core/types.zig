@@ -28,3 +28,21 @@ pub const EthKeypair = struct {
     address: EthAddress,
     secret: [32]u8,
 };
+
+pub const MissionDirective = struct {
+    id: [32]u8,
+    owner_root: [32]u8,        // Merkle Root del grupo de mando
+    zk_proof: []const u8,      // Prueba Noir de autoridad
+    nullifier: [32]u8,         // Prevenir replay attacks
+    max_budget: u64,           // En lamports/wei
+    slippage_bps: u16,         // Puntos básicos (100 = 1%)
+    logic_hash: [32]u8,        // Hash del código de la estrategia
+};
+
+pub const MissionStatus = enum {
+    pending,
+    active,
+    completed,
+    aborted,
+    failed,
+};

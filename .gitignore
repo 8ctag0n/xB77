@@ -16,7 +16,8 @@ contracts/target/
 onchain/target/
 target/
 test-ledger/
-private/
+.xb77
+*private/
 node_modules
 *.sw?
 # Onchain builds

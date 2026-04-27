@@ -142,25 +142,8 @@ pub const Vault = struct {
         };
     }
 
-    pub fn canSpend(self: *Vault, constitution: *const @import("constitution.zig").Constitution, amount: u64, asset: types.Asset, recipient: ?Recipient) !bool {
-        // 1. Verificación de la Constitución (Global)
-        var target_addr: ?[]u8 = null;
-        if (recipient) |r| {
-            target_addr = switch (r) {
-                .sol => |pk| try crypto.pubkeyToString(self.allocator, &pk),
-                .evm => |addr| try @import("evm.zig").addressToHex(self.allocator, addr),
-            };
-        }
-        defer if (target_addr) |addr| self.allocator.free(addr);
-
-        // Si la constitución bloquea la acción o el target, denegar inmediatamente
-        const const_ptr = @constCast(constitution); // Necesario para el mutex interno si no es thread-safe-read
-        if (!const_ptr.isActionAllowed(target_addr)) {
-            std.debug.print("[Vault] Action blocked by Constitution\n", .{});
-            return false;
-        }
-
-        // 2. Verificación de la Política del Vault (Local)
+    pub fn canSpend(self: *Vault, amount: u64, asset: types.Asset, target_addr: ?[]const u8) !bool {
+        // 1. Verificación de la Política del Vault (Local)
         if (target_addr) |addr| {
             if (self.policy.blacklist.contains(addr)) {
                 std.debug.print("[Vault] Address blacklisted in vault policy\n", .{});

@@ -10,6 +10,9 @@ const yellowstone = @import("yellowstone.zig");
 const risk = @import("risk.zig");
 const awpool = @import("awpool.zig");
 const anchor = @import("anchor.zig");
+const mesh = @import("mesh.zig");
+
+const strategist = @import("strategist.zig");
 
 pub const Engine = struct {
     allocator: std.mem.Allocator,
@@ -17,6 +20,7 @@ pub const Engine = struct {
     is_running: bool,
     awpool: awpool.AWPool,
     anchor_service: anchor.AnchorService,
+    strategist: strategist.Strategist,
 
     pub fn init(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) Engine {
         var pool = awpool.AWPool.init(allocator);
@@ -29,8 +33,11 @@ pub const Engine = struct {
             .is_running = false,
             .awpool = pool,
             .anchor_service = anchor.AnchorService.init(allocator, &ctx.store),
+            .strategist = strategist.Strategist.init(allocator, &ctx.store),
         };
     }
+
+    var tick_count: u64 = 0;
 
     /// Inicia el loop de vida del agente.
     pub fn start(self: *Engine) !void {
@@ -50,8 +57,28 @@ pub const Engine = struct {
         }
         std.debug.print("         ----------------------------------------\n", .{});
 
-        // Simular descubrimiento de un seed peer
-        try self.ctx.mesh_manager.addPeer([_]u8{0x12} ** 32, "127.0.0.1", 7777);
+        // --- DISCOVERY SERVICE ---
+        const discovery_thread = try std.Thread.spawn(.{}, struct {
+            fn run(m: *mesh.MeshManager) void {
+                m.listenForPeers() catch |err| {
+                    std.debug.print("[Engine] ❌ Discovery Listener Error: {}\n", .{err});
+                };
+            }
+        }.run, .{&self.ctx.mesh_manager});
+        discovery_thread.detach();
+        // -------------------------
+
+        // --- SOVEREIGN PORTAL (HTTP Gateway) ---
+        const portal_thread = try std.Thread.spawn(.{}, struct {
+            fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) void {
+                var p = core.portal.SovereignPortal.init(allocator, &ctx.store, &ctx.vaults, &ctx.mesh_manager, 8081);
+                p.start() catch |err| {
+                    std.debug.print("[Engine] ❌ Portal Error: {}\n", .{err});
+                };
+            }
+        }.run, .{ self.allocator, self.ctx });
+        portal_thread.detach();
+        // ---------------------------------------
 
         // Carga condicional del bridge de sockets
         if (comptime builtin.target.os.tag != .wasi) {
@@ -61,10 +88,64 @@ pub const Engine = struct {
         }
 
         while (self.is_running) {
+            std.debug.print("\n[Engine] --- TICK START ({d}) ---", .{tick_count});
+            
+            // Anunciar nuestra presencia (UDP Heartbeat)
+            try self.ctx.mesh_manager.broadcastPresence(self.ctx.config.mesh_port);
+
+            // Ejecutar el Estratega
+            if (tick_count == 0 or tick_count % 6 == 0) {
+                try self.runStrategist();
+            }
+
+            std.debug.print("\n[Engine] Running tick tasks...", .{});
             try self.tick();
+            
+            tick_count += 1;
+            std.debug.print("\n[Engine] --- TICK END ---", .{});
+
             // Latido cada 10 segundos para la demo
             std.Thread.sleep(10 * std.time.ns_per_s);
         }
+    }
+
+    fn runStrategist(self: *Engine) !void {
+        std.debug.print("\n[STRAT ] 🧠 Strategist Loop: Analyzing swarm intelligence...", .{});
+        
+        const analysis = try self.strategist.analyze(self.ctx.active_agents.count());
+        const m = analysis.metrics;
+
+        std.debug.print("\n[STRAT ] 📊 Metrics -> Health: {d:.2} | Volume: {d} | Events: {d}", .{
+            m.health, m.volume, m.event_count,
+        });
+
+        // Actuar según la decisión del Strategist
+        switch (analysis.decision) {
+            .harden_policies => {
+                std.debug.print("\n[STRAT ] ⚠️ LOW HEALTH DETECTED. Recommendation: Harden Compliance Policies.", .{});
+            },
+            .compress_state => {
+                std.debug.print("\n[STRAT ] 💰 HIGH VOLUME. Recommendation: Trigger State Compression (L2).", .{});
+            },
+            .shrink => {
+                std.debug.print("\n[STRAT ] 💀 OVERPOPULATION. Taking Action: Killing redundant agent...", .{});
+                var it = self.ctx.active_agents.iterator();
+                if (it.next()) |kv| {
+                    try self.ctx.killAgent(kv.key_ptr.*);
+                }
+            },
+            .expand => {
+                std.debug.print("\n[STRAT ] 🚀 EXPANSION READY. Spawning specialized worker...", .{});
+                var name_buf: [32]u8 = undefined;
+                const name = try std.fmt.bufPrint(&name_buf, "worker-{d}", .{@mod(std.time.milliTimestamp(), 1000)});
+                try self.ctx.spawnAgent(name);
+            },
+            .none => {
+                // Mantener el statu quo
+            },
+        }
+        
+        std.debug.print("\n         ----------------------------------------", .{});
     }
 
     fn tick(self: *Engine) !void {

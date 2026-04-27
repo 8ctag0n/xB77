@@ -43,13 +43,13 @@ pub const PaymentRouter = struct {
     sol_client: *solana.SolanaClient,
     evm_client: *evm_mod.EvmClient,
     vaults: *vault_mod.VaultSet,
-    constitution: *const @import("constitution.zig").Constitution,
+    constitution: *@import("constitution.zig").Constitution,
     risk_scorer: audit_mod.RiskScorer,
     facilitator: ?[]const u8,
 
     pub const INFRA_TAX_BPS = 2011; // 2.011% (dividir por 100000)
 
-    pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, evm_client: *evm_mod.EvmClient, vaults: *vault_mod.VaultSet, constitution: *const @import("constitution.zig").Constitution, facilitator: ?[]const u8) PaymentRouter {
+    pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, evm_client: *evm_mod.EvmClient, vaults: *vault_mod.VaultSet, constitution: *@import("constitution.zig").Constitution, facilitator: ?[]const u8) PaymentRouter {
         return .{
             .allocator = allocator,
             .sol_client = sol_client,
@@ -172,8 +172,18 @@ pub const PaymentRouter = struct {
         const tax_amount = self.calculateInfraOverhead(request.amount);
         const total_amount = request.amount + tax_amount;
 
-        const recipient = vault_mod.Recipient{ .sol = request.recipient.sol };
-        if (!try v.canSpend(self.constitution, total_amount, request.asset, recipient)) return error.PolicyViolation;
+        // --- JUICIO CONSTITUCIONAL (Router as Judge) ---
+        const addr_str = try crypto.pubkeyToString(self.allocator, &request.recipient.sol);
+        defer self.allocator.free(addr_str);
+
+        if (!self.constitution.isActionAllowed(addr_str)) {
+            std.debug.print("[PaymentRouter] Blocked by Constitution: {s}\n", .{addr_str});
+            return error.ConstitutionalViolation;
+        }
+
+        // --- LÍMITES FÍSICOS (Vault as Keeper) ---
+        if (!try v.canSpend(total_amount, request.asset, addr_str)) return error.PolicyViolation;
+        // -----------------------------------------------
 
         const blockhash = try self.sol_client.getLatestBlockhash();
         
@@ -224,8 +234,18 @@ pub const PaymentRouter = struct {
         const tax_amount = self.calculateInfraOverhead(request.amount);
         const total_amount = request.amount + tax_amount;
 
-        const recipient = vault_mod.Recipient{ .evm = request.recipient.evm };
-        if (!try v.canSpend(self.constitution, total_amount, request.asset, recipient)) return error.PolicyViolation;
+        // --- JUICIO CONSTITUCIONAL (Router as Judge) ---
+        const addr_str = try evm_mod.addressToHex(self.allocator, request.recipient.evm);
+        defer self.allocator.free(addr_str);
+
+        if (!self.constitution.isActionAllowed(addr_str)) {
+            std.debug.print("[PaymentRouter] Blocked by Constitution: {s}\n", .{addr_str});
+            return error.ConstitutionalViolation;
+        }
+
+        // --- LÍMITES FÍSICOS (Vault as Keeper) ---
+        if (!try v.canSpend(total_amount, request.asset, addr_str)) return error.PolicyViolation;
+        // -----------------------------------------------
 
         var nonce = try self.evm_client.getNonce(eth_kp.address);
         const gas_price = try self.evm_client.getGasPrice();

@@ -19,13 +19,27 @@ pub fn main() !void {
     var profile: []const u8 = "default";
     var command_idx: usize = 1;
 
-    if (std.mem.eql(u8, args[1], "--profile") or std.mem.eql(u8, args[1], "-p")) {
-        if (args.len < 4) {
-            std.debug.print("Error: falta el nombre del perfil.\n", .{});
-            return;
+    var i: usize = 1;
+    while (i < args.len) {
+        if (std.mem.eql(u8, args[i], "--profile") or std.mem.eql(u8, args[i], "-p")) {
+            if (i + 1 < args.len) {
+                profile = args[i + 1];
+                i += 2;
+                if (command_idx < i) command_idx = i;
+            } else i += 1;
+        } else if (std.mem.eql(u8, args[i], "--role") or std.mem.eql(u8, args[i], "--name")) {
+            // Ignorar flags de metadatos del spawn por ahora, 
+            // pero permitir que no rompan el parser.
+            i += 2;
+            if (command_idx < i) command_idx = i;
+        } else {
+            break;
         }
-        profile = args[2];
-        command_idx = 3;
+    }
+
+    if (command_idx >= args.len) {
+        printUsage();
+        return;
     }
 
     const command = args[command_idx];
@@ -128,9 +142,13 @@ fn handleStatus(allocator: std.mem.Allocator, config_path: []const u8) !void {
 
     const sol_addr = try ctx.vaults.ops.address(.solana, allocator);
     defer allocator.free(sol_addr);
+    const eth_addr = try ctx.vaults.ops.address(.base, allocator);
+    defer allocator.free(eth_addr);
 
     std.debug.print("\n--- xB77 Agent Status ({s}) ---\n", .{config_path});
     std.debug.print("Solana: {s}\n", .{sol_addr});
+    std.debug.print("EVM:    {s}\n", .{eth_addr});
+    std.debug.print("Status: Sovereign & Active\n", .{});
 }
 
 fn handleSpawn(allocator: std.mem.Allocator, args: []const [:0]u8) !void {
@@ -211,19 +229,21 @@ fn handleMesh(allocator: std.mem.Allocator, config_path: []const u8) !void {
     try ctx.mesh_manager.addPeer([_]u8{0x12} ** 32, "127.0.0.1", 7777);
 
     std.debug.print("\n--- xB77 Sovereign Mesh ({s}) ---\n", .{config_path});
-    std.debug.print("Known Peers: {d}\n\n", .{ctx.mesh_manager.peers.items.len});
+    std.debug.print("Known Peers: {d}\n\n", .{ctx.mesh_manager.countPeers()});
     std.debug.print("AGENT ID                                 ADDRESS          STATUS\n", .{});
     std.debug.print("---------------------------------------  ---------------  ----------\n", .{});
 
-    for (ctx.mesh_manager.peers.items) |peer| {
-        for (peer.id[0..16]) |b| {
-            std.debug.print("{x:0>2}", .{b});
+    for (0..256) |i| {
+        for (ctx.mesh_manager.buckets[i].items) |peer| {
+            for (peer.id[0..16]) |b| {
+                std.debug.print("{x:0>2}", .{b});
+            }
+            std.debug.print("  {s}:{d:<5}  {s}\n", .{
+                peer.address,
+                peer.port,
+                @tagName(peer.status),
+            });
         }
-        std.debug.print("  {s}:{d:<5}  {s}\n", .{
-            peer.address,
-            peer.port,
-            @tagName(peer.status),
-        });
     }
-    std.debug.print("\nMesh Health: {s}\n", .{if (ctx.mesh_manager.peers.items.len > 0) "Synchronizing" else "Isolated"});
+    std.debug.print("\nMesh Health: {s}\n", .{if (ctx.mesh_manager.countPeers() > 0) "Synchronizing" else "Isolated"});
 }

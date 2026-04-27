@@ -11,6 +11,7 @@ const compliance = @import("compliance.zig");
 const store = @import("store.zig");
 const pay = @import("pay.zig");
 const mesh = @import("mesh.zig");
+const swap = @import("swap.zig");
 
 pub const AgentContext = struct {
     allocator: std.mem.Allocator,
@@ -24,6 +25,60 @@ pub const AgentContext = struct {
     store: store.Store,
     router: pay.PaymentRouter,
     mesh_manager: mesh.MeshManager,
+    swap_manager: swap.SwapManager,
+    ipfs_client: @import("ipfs.zig").IpfsClient,
+    active_agents: std.StringHashMapUnmanaged(*std.process.Child),
+
+    pub fn spawnAgent(self: *AgentContext, name: []const u8) !void {
+        const allocator = self.allocator;
+        
+        // 1. Crear perfil para el nuevo agente
+        try std.fs.cwd().makePath("profiles");
+        var config_buf: [256]u8 = undefined;
+        const config_path = try std.fmt.bufPrint(&config_buf, "profiles/{s}.toml", .{name});
+        
+        {
+            const file = try std.fs.cwd().createFile(config_path, .{});
+            defer file.close();
+            
+            const content = try std.fmt.allocPrint(allocator, 
+                \\# xB77 Sovereign Agent Configuration
+                \\[vaults]
+                \\path = ".xb77/{s}"
+                \\
+                \\[rpc]
+                \\solana = "{s}"
+                \\base = "{s}"
+                \\
+            , .{ name, self.config.rpc.solana, self.config.rpc.base });
+            defer allocator.free(content);
+            try file.writeAll(content);
+        }
+
+        // 2. Lanzar el proceso
+        var child = try allocator.create(std.process.Child);
+        child.* = std.process.Child.init(&[_][]const u8{ 
+            "./zig-out/bin/xb77", 
+            "-p", name,
+            "serve" 
+        }, allocator);
+        
+        try child.spawn();
+        
+        const name_dupe = try allocator.dupe(u8, name);
+        try self.active_agents.put(allocator, name_dupe, child);
+        
+        std.debug.print("\n[SPAWN ] 🚀 Agent '{s}' deployed. PID: {d}", .{ name, child.id });
+    }
+
+    pub fn killAgent(self: *AgentContext, name: []const u8) !void {
+        const kv = self.active_agents.fetchRemove(name) orelse return error.AgentNotFound;
+        defer self.allocator.free(kv.key);
+        defer self.allocator.destroy(kv.value);
+
+        _ = try kv.value.kill();
+        std.debug.print("\n[KILL  ] 💀 Agent '{s}' terminated.", .{name});
+    }
 
     pub fn init(allocator: std.mem.Allocator, config_path: []const u8) !AgentContext {
         const config = try config_mod.Config.load(allocator, config_path);
@@ -54,6 +109,9 @@ pub const AgentContext = struct {
             .store = s,
             .router = undefined, 
             .mesh_manager = try mesh.MeshManager.init(allocator, undefined, agent_id),
+            .swap_manager = swap.SwapManager.init(allocator),
+            .ipfs_client = @import("ipfs.zig").IpfsClient.init(allocator, config.ipfs.endpoint, config.ipfs.api_key),
+            .active_agents = .{},
         };
         
         ctx.mesh_manager.store = &ctx.store;
@@ -78,6 +136,15 @@ pub const AgentContext = struct {
 
 
     pub fn deinit(self: *AgentContext) void {
+        var it = self.active_agents.iterator();
+        while (it.next()) |kv| {
+            _ = kv.value_ptr.*.kill() catch {};
+            self.allocator.free(kv.key_ptr.*);
+            self.allocator.destroy(kv.value_ptr.*);
+        }
+        self.active_agents.deinit(self.allocator);
+
+        self.swap_manager.deinit();
         self.mesh_manager.deinit();
         self.store.deinit();
         self.constitution.deinit();

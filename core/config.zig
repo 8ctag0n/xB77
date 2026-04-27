@@ -8,9 +8,14 @@ pub const Config = struct {
     vaults: struct {
         path: []const u8,
     },
+    mesh_port: u16 = 7777,
     cdp: struct {
         key_name: ?[]const u8 = null,
         key_secret: ?[]const u8 = null,
+    },
+    ipfs: struct {
+        endpoint: []const u8,
+        api_key: []const u8,
     },
     facilitator: ?[]const u8 = null,
 
@@ -24,6 +29,10 @@ pub const Config = struct {
                     },
                     .vaults = .{
                         .path = try allocator.dupe(u8, "./.xb77"),
+                    },
+                    .ipfs = .{
+                        .endpoint = try allocator.dupe(u8, "https://api.quicknode.com/ipfs/v1/"),
+                        .api_key = try allocator.dupe(u8, ""),
                     },
                     .cdp = .{ .key_name = null, .key_secret = null },
                 };
@@ -42,6 +51,10 @@ pub const Config = struct {
             },
             .vaults = .{
                 .path = try allocator.dupe(u8, "./.xb77"),
+            },
+            .ipfs = .{
+                .endpoint = try allocator.dupe(u8, "https://api.quicknode.com/ipfs/v1/"),
+                .api_key = try allocator.dupe(u8, ""),
             },
             .cdp = .{ .key_name = null, .key_secret = null },
             .facilitator = null,
@@ -69,11 +82,22 @@ pub const Config = struct {
                 allocator.free(config.vaults.path);
                 config.vaults.path = try allocator.dupe(u8, val);
             }
+            if (std.mem.eql(u8, key, "mesh_port")) {
+                config.mesh_port = std.fmt.parseInt(u16, val, 10) catch 7777;
+            }
             if (std.mem.eql(u8, key, "cdp_key_name")) {
                 config.cdp.key_name = try allocator.dupe(u8, val);
             }
             if (std.mem.eql(u8, key, "cdp_key_secret")) {
                 config.cdp.key_secret = try allocator.dupe(u8, val);
+            }
+            if (std.mem.eql(u8, key, "ipfs_endpoint")) {
+                allocator.free(config.ipfs.endpoint);
+                config.ipfs.endpoint = try allocator.dupe(u8, val);
+            }
+            if (std.mem.eql(u8, key, "ipfs_api_key")) {
+                allocator.free(config.ipfs.api_key);
+                config.ipfs.api_key = try allocator.dupe(u8, val);
             }
             if (std.mem.eql(u8, key, "facilitator")) {
                 config.facilitator = try allocator.dupe(u8, val);
@@ -87,6 +111,8 @@ pub const Config = struct {
         allocator.free(self.rpc.solana);
         allocator.free(self.rpc.base);
         allocator.free(self.vaults.path);
+        allocator.free(self.ipfs.endpoint);
+        allocator.free(self.ipfs.api_key);
         if (self.cdp.key_name) |k| allocator.free(k);
         if (self.cdp.key_secret) |k| allocator.free(k);
         if (self.facilitator) |f| allocator.free(f);

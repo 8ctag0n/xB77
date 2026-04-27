@@ -18,7 +18,7 @@
 
 ## 🚀 Vision Milestones (Pre-Bitcoin)
 
-- **Dual Identity**: El agente muestra su dirección de Solana y Ethereum en el comando `status`.
+- **Dual Identity**: ✅ El agente muestra su dirección de Solana y Ethereum en el comando `status`.
 - **EVM Direct Pay**: Primer pago exitoso en Base Devnet desde el CLI de Zig.
 - **ZK-Verification**: Validar la primera ZK-Factura generada en una transacción de Base.
 

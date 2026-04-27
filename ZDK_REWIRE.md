@@ -20,6 +20,7 @@ Este documento centraliza la visión técnica y estratégica del rewrite en Zig,
 ### Bloque 2: El Cerebro Constitucional (EN CURSO 🚧)
 - **Vault Policies**: Lógica de "Spend Limits" que impide que la IA vacíe los fondos.
 - **Multi-Chain Router**: Selección automática entre SOL/USDC-SOL/USDC-Base.
+- **Swarm Sync (Account Index)**: ✅ Propagación P2P del índice de cuentas comprimidas (Photon Killer Distributed).
 - **ZK-Ready Receipts**: Recibos firmados para auditoría selectiva.
 
 ### Bloque 3: Los Ojos (Z-Node + Streams)

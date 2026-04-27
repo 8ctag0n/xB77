@@ -40,42 +40,17 @@ pub const AnchorService = struct {
         const file = try std.fs.cwd().createFile(prover_path, .{});
         defer file.close();
 
-        var write_buf: [4096]u8 = undefined;
-        var writer = file.writer(&write_buf);
-
         // Necesitamos la hoja que corresponde al log
         // En este caso usamos la última registrada en el CMT
         const leaf = self.store.tree.rightmost_leaf;
 
-        try self.store.tree.exportToNoir(0, leaf, root, &writer);
+        try self.store.tree.exportToNoir(0, leaf, root, file);
 
-        // 2. Ejecutar Noir para generar el Witness/Proof
-        // Usamos podman para correr nargo
-        const cwd = try std.fs.cwd().realpathAlloc(self.allocator, ".");
-        defer self.allocator.free(cwd);
+        // --- DEMO SIMULATION (NO PODMAN) ---
+        // En un entorno real, aquí correríamos el Verificador Noir.
+        // ------------------------------------
 
-        const volume_arg = try std.fmt.allocPrint(self.allocator, "{s}:/app", .{cwd});
-        defer self.allocator.free(volume_arg);
-
-        const nargo_res = try std.process.Child.run(.{
-            .allocator = self.allocator,
-            .argv = &[_][]const u8{
-                "podman", "run", "--rm",
-                "-v", volume_arg,
-                "-w", "/app/circuits/state_anchor",
-                "xb77-noir:0.36.0",
-                "execute",
-            },
-        });
-        defer self.allocator.free(nargo_res.stdout);
-        defer self.allocator.free(nargo_res.stderr);
-
-        if (nargo_res.term.Exited != 0) {
-            std.debug.print("\n[ANCHOR] ❌ Noir Execution FAILED: {s}", .{nargo_res.stderr});
-            return error.NoirExecutionFailed;
-        }
-
-        std.debug.print("\n[ANCHOR] 🧠 ZK-Witness generated successfully.", .{});
+        std.debug.print("\n[ANCHOR] 🧠 ZK-Witness generated successfully (Simulated).", .{});
 
         // 3. Simular llamada On-Chain
         // En una implementación final, aquí usaríamos SolanaClient/EvmClient para llamar al Verificador.

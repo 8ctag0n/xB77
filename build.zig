@@ -36,6 +36,9 @@ pub fn build(b: *std.Build) void {
     });
     exe.root_module.addImport("core", core_module);
     exe.root_module.addImport("mcp", mcp_module);
+    exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    exe.addIncludePath(b.path("deps"));
+    exe.linkLibC();
 
     b.installArtifact(exe);
 
@@ -49,6 +52,7 @@ pub fn build(b: *std.Build) void {
     });
     znode_exe.addCSourceFile(.{ .file = b.path("znode/main.c"), .flags = &.{"-std=c11"} });
     znode_exe.addCSourceFile(.{ .file = b.path("deps/znode.c"), .flags = &.{"-std=c11"} });
+    znode_exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
     znode_exe.addIncludePath(b.path("deps"));
     znode_exe.linkLibC();
     znode_exe.linkSystemLibrary("curl");
@@ -65,6 +69,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     e2e_exe.root_module.addImport("core", core_module);
+    e2e_exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    e2e_exe.addIncludePath(b.path("deps"));
+    e2e_exe.linkLibC();
     b.installArtifact(e2e_exe);
 
     const run_cmd = b.addRunArtifact(exe);
@@ -131,6 +138,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     store_unit_tests.root_module.addImport("core", core_module);
+    store_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    store_unit_tests.addIncludePath(b.path("deps"));
+    store_unit_tests.linkLibC();
     const run_store_unit_tests = b.addRunArtifact(store_unit_tests);
 
     const zk_unit_tests = b.addTest(.{
@@ -141,6 +151,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     zk_unit_tests.root_module.addImport("core", core_module);
+    zk_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    zk_unit_tests.addIncludePath(b.path("deps"));
+    zk_unit_tests.linkLibC();
     const run_zk_unit_tests = b.addRunArtifact(zk_unit_tests);
 
     const cmt_unit_tests = b.addTest(.{
@@ -151,6 +164,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     cmt_unit_tests.root_module.addImport("core", core_module);
+    cmt_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    cmt_unit_tests.addIncludePath(b.path("deps"));
+    cmt_unit_tests.linkLibC();
     const run_cmt_unit_tests = b.addRunArtifact(cmt_unit_tests);
 
     const ghost_proof_unit_tests = b.addTest(.{
@@ -161,6 +177,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     ghost_proof_unit_tests.root_module.addImport("core", core_module);
+    ghost_proof_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    ghost_proof_unit_tests.addIncludePath(b.path("deps"));
+    ghost_proof_unit_tests.linkLibC();
     const run_ghost_proof_unit_tests = b.addRunArtifact(ghost_proof_unit_tests);
 
     const awp_unit_tests = b.addTest(.{
@@ -172,6 +191,19 @@ pub fn build(b: *std.Build) void {
     });
     awp_unit_tests.root_module.addImport("core", core_module);
     const run_awp_unit_tests = b.addRunArtifact(awp_unit_tests);
+
+    const compression_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/compression_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    compression_unit_tests.root_module.addImport("core", core_module);
+    compression_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    compression_unit_tests.addIncludePath(b.path("deps"));
+    compression_unit_tests.linkLibC();
+    const run_compression_unit_tests = b.addRunArtifact(compression_unit_tests);
 
     // --- Mesh P2P Ping ---
     const mesh_ping_exe = b.addExecutable(.{
@@ -230,4 +262,5 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_cmt_unit_tests.step);
     test_step.dependOn(&run_ghost_proof_unit_tests.step);
     test_step.dependOn(&run_awp_unit_tests.step);
+    test_step.dependOn(&run_compression_unit_tests.step);
 }

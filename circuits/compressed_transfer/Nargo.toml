@@ -1,0 +1,8 @@
+[package]
+name = "compressed_transfer"
+type = "bin"
+authors = ["xB77 Sovereign Agent"]
+compiler_version = ">=0.36.0"
+
+[dependencies]
+std = { git = "https://github.com/noir-lang/noir", tag = "v0.36.0", directory = "crates/std" }
