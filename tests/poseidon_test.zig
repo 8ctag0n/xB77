@@ -1,5 +1,5 @@
 const std = @import("std");
-const poseidon = @import("../core/poseidon.zig");
+const poseidon = @import("../core/crypto/poseidon.zig");
 
 test "poseidon hash2 matches reference" {
     const res = poseidon.Poseidon.hash2(1, 2);

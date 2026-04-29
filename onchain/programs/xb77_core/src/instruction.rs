@@ -32,19 +32,28 @@ pub struct RequestPaymentPayload {
     pub proof: Vec<u8>,
     pub address_tree_info: Vec<u8>,
     pub output_state_tree_index: u8,
-}
+    }
 
-#[derive(Debug, SchemaRead, SchemaWrite)]
-pub enum CoreInstruction {
+    #[derive(Debug, SchemaRead, SchemaWrite)]
+    pub struct AnchorStateZkPayload {
+    pub root: [u8; 32],
+    pub proof: Vec<u8>,
+    }
+
+    #[derive(Debug, SchemaRead, SchemaWrite)]
+    pub enum CoreInstruction {
     /// Initialize the global config
     InitCore(InitCorePayload),
-    
+
     /// Create a new credit line for an agent
     RegisterAgent(RegisterAgentPayload),
-    
+
     /// Called by Gateway (CPI) to update credit after verification
     VerifyAndCredit(VerifyAndCreditPayload),
-    
+
     /// Agent requests a payment (checking credit balance)
     RequestPayment(RequestPaymentPayload),
-}
+
+    /// Anchor the sovereign Merkle root with a ZK proof
+    AnchorStateZk(AnchorStateZkPayload),
+    }

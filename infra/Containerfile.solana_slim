@@ -1,0 +1,23 @@
+FROM debian:bookworm-slim
+
+# Instalamos dependencias mínimas
+RUN apt-get update && apt-get install -y \
+    curl bzip2 ca-certificates libssl-dev pkg-config build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Instalamos Agave (Solana) v2.0.15 - El nuevo estándar de Anza
+RUN sh -c "$(curl -sSfL https://release.anza.xyz/v2.0.15/install)"
+
+# Instalamos Rust para poder buildear los contratos
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:/root/.local/share/solana/install/active_release/bin:${PATH}"
+
+# Seteamos el directorio de trabajo
+WORKDIR /root
+
+# Exponemos solo lo necesario
+# 8899: RPC, 8900: WebSocket, 9900: Gossip
+EXPOSE 8899 8900 9900
+
+# El comando clave: default de solana-test-validator, confiando en --network host
+CMD ["solana-test-validator", "--ledger", "/root/ledger", "--log"]

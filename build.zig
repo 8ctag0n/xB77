@@ -205,6 +205,34 @@ pub fn build(b: *std.Build) void {
     compression_unit_tests.linkLibC();
     const run_compression_unit_tests = b.addRunArtifact(compression_unit_tests);
 
+    // --- RPC Check Utility ---
+    const rpc_check = b.addExecutable(.{
+        .name = "rpc-check",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/check_rpc.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    rpc_check.root_module.addImport("core", core_module);
+    rpc_check.linkLibC();
+    b.installArtifact(rpc_check);
+
+    // --- E2E Sovereign Anchor Test ---
+    const e2e_anchor = b.addExecutable(.{
+        .name = "e2e-anchor",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/e2e_solana_anchor.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    e2e_anchor.root_module.addImport("core", core_module);
+    e2e_anchor.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    e2e_anchor.addIncludePath(b.path("deps"));
+    e2e_anchor.linkLibC();
+    b.installArtifact(e2e_anchor);
+
     // --- Mesh P2P Ping ---
     const mesh_ping_exe = b.addExecutable(.{
         .name = "mesh-ping",

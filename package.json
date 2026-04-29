@@ -10,6 +10,7 @@
     "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "circomlibjs": "^0.1.7",
     "@solana/web3.js": "^1.98.4",
     "@playwright/test": "^1.56.1",
     "vitepress": "^1.6.4",

@@ -1,31 +1,91 @@
 const std = @import("std");
 
-pub const types = @import("types.zig");
-pub const crypto = @import("crypto.zig");
-pub const solana = @import("solana.zig");
-pub const vault = @import("vault.zig");
-pub const context = @import("context.zig");
-pub const engine = @import("engine.zig");
-pub const parser = @import("parser.zig");
-pub const pay = @import("pay.zig");
-pub const receipt = @import("receipt.zig");
-pub const evm = @import("evm.zig");
-pub const tx = @import("tx.zig");
-pub const rlp = @import("rlp.zig");
-pub const cdp = @import("cdp.zig");
-pub const compliance = @import("compliance.zig");
-pub const risk = @import("risk.zig");
-pub const store = @import("store.zig");
-pub const awp = @import("awp.zig");
-pub const cmt = @import("cmt.zig");
-pub const anchor = @import("anchor.zig");
-pub const mesh = @import("mesh.zig");
-pub const strategist = @import("strategist.zig");
-pub const compression = @import("compression.zig");
-pub const ipfs = @import("ipfs.zig");
-pub const portal = @import("portal.zig");
+// Sub-modules
+pub const crypto = struct {
+    pub usingnamespace @import("crypto/crypto.zig");
+    pub const bn254 = @import("crypto/bn254.zig");
+    pub const poseidon = @import("crypto/poseidon.zig");
+    pub const poseidon_constants = @import("crypto/poseidon_constants.zig");
+};
 
-// Re-exportar funciones comunes
+pub const state = struct {
+    pub const cmt = @import("state/cmt.zig");
+    pub const store = @import("state/store.zig");
+    pub const vault = @import("state/vault.zig");
+    pub const compression = @import("state/compression.zig");
+};
+
+pub const net = struct {
+    pub const http = @import("net/http.zig");
+    pub const mesh = @import("net/mesh.zig");
+    pub const znode_bridge = @import("net/znode_bridge.zig");
+    pub const yellowstone = @import("net/yellowstone.zig");
+    pub const ipfs = @import("net/ipfs.zig");
+};
+
+pub const chain = struct {
+    pub usingnamespace @import("chain/chain.zig");
+    pub const solana = @import("chain/solana.zig");
+    pub const evm = @import("chain/evm.zig");
+    pub const anchor = @import("chain/anchor.zig");
+};
+
+pub const protocol = struct {
+    pub const awp = @import("protocol/awp.zig");
+    pub const awpool = @import("protocol/awpool.zig");
+    pub const tx = @import("protocol/tx.zig");
+    pub const types = @import("protocol/types.zig");
+    pub const parser = @import("protocol/parser.zig");
+    pub const rlp = @import("protocol/rlp.zig");
+};
+
+pub const engine = struct {
+    pub usingnamespace @import("engine/engine.zig");
+    pub const context = @import("engine/context.zig");
+    pub const config = @import("engine/config.zig");
+    pub const strategist = @import("engine/strategist.zig");
+    pub const prover = @import("engine/prover.zig");
+};
+
+pub const business = struct {
+    pub const merchant = @import("business/merchant.zig");
+    pub const pay = @import("business/pay.zig");
+    pub const receipt = @import("business/receipt.zig");
+    pub const swap = @import("business/swap.zig");
+    pub const cdp = @import("business/cdp.zig");
+    pub const audit = @import("business/audit.zig");
+    pub const compliance = @import("business/compliance.zig");
+    pub const risk = @import("business/risk.zig");
+    pub const portal = @import("business/portal.zig");
+    pub const constitution = @import("business/constitution.zig");
+};
+
+// Flattened exports for convenience (backwards compatibility)
+pub const types = protocol.types;
+pub const solana = chain.solana;
+pub const vault = state.vault;
+pub const context = engine.context;
+pub const core_engine = engine;
+pub const parser = protocol.parser;
+pub const pay = business.pay;
+pub const receipt = business.receipt;
+pub const evm = chain.evm;
+pub const tx = protocol.tx;
+pub const rlp = protocol.rlp;
+pub const cdp = business.cdp;
+pub const compliance = business.compliance;
+pub const risk = business.risk;
+pub const store = state.store;
+pub const awp = protocol.awp;
+pub const cmt = state.cmt;
+pub const anchor = chain.anchor;
+pub const mesh = net.mesh;
+pub const strategist = engine.strategist;
+pub const compression = state.compression;
+pub const ipfs = net.ipfs;
+pub const portal = business.portal;
+
+// Re-export common functions from crypto
 pub const generateKeypair = crypto.generateKeypair;
 pub const pubkeyToString = crypto.pubkeyToString;
 pub const encodeBase58 = crypto.encodeBase58;
