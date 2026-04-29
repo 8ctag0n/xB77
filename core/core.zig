@@ -2,10 +2,21 @@ const std = @import("std");
 
 // Sub-modules
 pub const crypto = struct {
-    pub usingnamespace @import("crypto/crypto.zig");
+    pub const c = @import("crypto/crypto.zig");
     pub const bn254 = @import("crypto/bn254.zig");
     pub const poseidon = @import("crypto/poseidon.zig");
     pub const poseidon_constants = @import("crypto/poseidon_constants.zig");
+    
+    // Re-export common functions
+    pub const generateKeypair = c.generateKeypair;
+    pub const pubkeyToString = c.pubkeyToString;
+    pub const encodeBase58 = c.encodeBase58;
+    pub const decodeBase58 = c.decodeBase58;
+    pub const sign = c.sign;
+    pub const verify = c.verify;
+    pub const generateEthKeypair = c.generateEthKeypair;
+    pub const signEthMessage = c.signEthMessage;
+    pub const recoverEthPublicKey = c.recoverEthPublicKey;
 };
 
 pub const state = struct {
@@ -24,13 +35,14 @@ pub const net = struct {
 };
 
 pub const chain = struct {
-    pub usingnamespace @import("chain/chain.zig");
+    pub const c = @import("chain/chain.zig");
     pub const solana = @import("chain/solana.zig");
     pub const evm = @import("chain/evm.zig");
     pub const anchor = @import("chain/anchor.zig");
 };
 
 pub const protocol = struct {
+    pub const p = @import("protocol/protocol.zig");
     pub const awp = @import("protocol/awp.zig");
     pub const awpool = @import("protocol/awpool.zig");
     pub const tx = @import("protocol/tx.zig");
@@ -40,7 +52,7 @@ pub const protocol = struct {
 };
 
 pub const engine = struct {
-    pub usingnamespace @import("engine/engine.zig");
+    pub const e = @import("engine/engine.zig");
     pub const context = @import("engine/context.zig");
     pub const config = @import("engine/config.zig");
     pub const strategist = @import("engine/strategist.zig");
@@ -58,6 +70,7 @@ pub const business = struct {
     pub const risk = @import("business/risk.zig");
     pub const portal = @import("business/portal.zig");
     pub const constitution = @import("business/constitution.zig");
+    pub const identity = @import("business/identity.zig");
 };
 
 // Flattened exports for convenience (backwards compatibility)

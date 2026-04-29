@@ -1,30 +1,23 @@
 use dep::std;
 
 fn main(
-    root: pub [u8; 32],
+    root: pub Field,
     index: pub u64,
-    leaf: [u8; 32],
-    siblings: [[u8; 32]; 14]
+    leaf: Field,
+    siblings: [Field; 14]
 ) {
     let mut current = leaf;
 
     for i in 0..14 {
         let bit = (index >> (i as u8)) & 1;
         
-        let mut input = [0; 64];
+        // Poseidon hash_2: recibe [Field; 2] y devuelve un Field
+        // Es exactamente lo que hace nuestro Poseidon.hash2(a, b) en Zig
         if bit == 1 {
-            for j in 0..32 {
-                input[j] = siblings[i][j];
-                input[j + 32] = current[j];
-            }
+            current = std::hash::poseidon::bn254::hash_2([siblings[i], current]);
         } else {
-            for j in 0..32 {
-                input[j] = current[j];
-                input[j + 32] = siblings[i][j];
-            }
+            current = std::hash::poseidon::bn254::hash_2([current, siblings[i]]);
         }
-        
-        current = std::hash::keccak256(input, 64);
     }
 
     assert(current == root);

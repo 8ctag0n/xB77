@@ -1,5 +1,5 @@
 const std = @import("std");
-const core = @import("core");
+const core = @import("../core/core.zig");
 const cmt = core.cmt;
 const store = core.store;
 const types = core.types;
