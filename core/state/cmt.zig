@@ -1,19 +1,19 @@
 const std = @import("std");
-const crypto = @import("../crypto/crypto.zig");
+const bn254 = @import("../crypto/bn254.zig");
+const poseidon = @import("../crypto/poseidon.zig");
+const Fr = bn254.Fr;
+const Poseidon = poseidon.Poseidon;
 
-/// Concurrent Merkle Tree (CMT) - xB77 Sovereign Implementation
+/// Concurrent Merkle Tree (CMT) - xB77 Sovereign Implementation (ZK-Native)
 /// Basado en "Compressing Digital Assets with Concurrent Merkle Trees" (Xiao et al.)
-/// Permite compresión ZK y actualizaciones concurrentes en la Mesh P2P.
+/// Utiliza Poseidon (BN254) para compatibilidad nativa con Noir y Solana ZK.
 
-// --- C Interface (Mission 2: Zig + C) ---
+// --- C Interface (Legacy for Proof Extraction, logic now in Zig) ---
 pub const cmt_hash_t = extern struct {
     hash: [32]u8,
 };
 
-pub extern fn cmt_verify_proof(root: *const cmt_hash_t, leaf: *const cmt_hash_t, index: u64, proof: [*]const cmt_hash_t, depth: u8) i32;
 pub extern fn cmt_get_proof(tree_nodes: [*]const cmt_hash_t, index: u64, depth: u8, out_siblings: [*]cmt_hash_t) void;
-pub extern fn cmt_update_node(tree_nodes: [*]cmt_hash_t, index: u64, depth: u8, new_leaf: cmt_hash_t) void;
-pub extern fn cmt_keccak256(data: [*]const u8, len: usize, out: [*]u8) void;
 
 // ----------------------------------------
 
@@ -59,7 +59,7 @@ pub const ConcurrentMerkleTree = struct {
             .rightmost_leaf = [_]u8{0} ** 32,
         };
 
-        // Inicializar el árbol vacío (todos ceros)
+        // Inicializar el árbol vacío (nodos base de Poseidon)
         const empty_root = try tree.computeEmptyRoot(depth);
         try tree.root_buffer.append(allocator, empty_root);
         
@@ -84,15 +84,11 @@ pub const ConcurrentMerkleTree = struct {
     fn computeEmptyNode(self: *const ConcurrentMerkleTree, level: u8) ![32]u8 {
         if (level == 0) return [_]u8{0} ** 32;
         const child = try self.computeEmptyNode(level - 1);
-        var out: [32]u8 = undefined;
         
-        // H(child, child) - Usando el Core C para consistencia total
-        var buf: [64]u8 = undefined;
-        @memcpy(buf[0..32], &child);
-        @memcpy(buf[32..64], &child);
-        cmt_keccak256(&buf, 64, &out);
-        
-        return out;
+        // H(child, child) usando Poseidon nativo
+        const child_u256 = @as(u256, @bitCast(child));
+        const hash_val = Poseidon.hash2(child_u256, child_u256);
+        return @bitCast(hash_val);
     }
 
     fn computeEmptyRoot(self: *const ConcurrentMerkleTree, depth: u8) ![32]u8 {
@@ -150,9 +146,9 @@ pub const ConcurrentMerkleTree = struct {
         self.rightmost_index += 1;
         self.rightmost_leaf = leaf;
 
-        // Si tenemos el buffer binario mapeado, actualizamos el árbol completo en C
+        // Si tenemos el buffer binario mapeado, actualizamos el árbol completo en Zig
         if (self.nodes_buffer) |buffer| {
-            cmt_update_node(buffer, index, self.depth, .{ .hash = leaf });
+            self.updateNodeInVault(buffer, index, node);
         }
     }
 
@@ -161,27 +157,24 @@ pub const ConcurrentMerkleTree = struct {
         if (index >= self.rightmost_index) return CMTError.IndexOutOfBounds;
         const buffer = self.nodes_buffer orelse return error.NoBinaryVault;
         
-        // Convertimos el slice de salida a un puntero compatible con C
+        // Seguimos usando la lógica de navegación de C para la estructura del buffer
         const c_out: [*]cmt_hash_t = @ptrCast(out.ptr);
         cmt_get_proof(buffer, index, self.depth, c_out);
     }
 
     fn hashNodes(_: *const ConcurrentMerkleTree, node: [32]u8, sibling: [32]u8, node_is_right: bool) [32]u8 {
-        var out: [32]u8 = undefined;
-        var buf: [64]u8 = undefined;
-        if (node_is_right) {
-            @memcpy(buf[0..32], &sibling);
-            @memcpy(buf[32..64], &node);
-        } else {
-            @memcpy(buf[0..32], &node);
-            @memcpy(buf[32..64], &sibling);
-        }
-        cmt_keccak256(&buf, 64, &out);
-        return out;
+        const n_u256 = @as(u256, @bitCast(node));
+        const s_u256 = @as(u256, @bitCast(sibling));
+        
+        const hash_val = if (node_is_right) 
+            Poseidon.hash2(s_u256, n_u256) 
+        else 
+            Poseidon.hash2(n_u256, s_u256);
+            
+        return @bitCast(hash_val);
     }
 
     pub fn getRoot(self: *const ConcurrentMerkleTree) [32]u8 {
-        // Si tenemos un buffer binario, él es la fuente de verdad absoluta.
         if (self.nodes_buffer) |buf| {
             return buf[0].hash;
         }
@@ -192,8 +185,25 @@ pub const ConcurrentMerkleTree = struct {
         return self.root_buffer.items[0];
     }
 
+    /// Actualiza el nodo en el vault físico usando Poseidon (Zig implementation)
+    fn updateNodeInVault(self: *ConcurrentMerkleTree, buffer: [*]cmt_hash_t, leaf_index: u64, new_leaf: [32]u8) void {
+        var current_idx = ((@as(u64, 1) << @intCast(self.depth)) - 1) + leaf_index;
+        buffer[current_idx].hash = new_leaf;
+        
+        while (current_idx > 0) {
+            const parent_idx = (current_idx - 1) / 2;
+            const is_right = current_idx % 2 == 0;
+            const sibling_idx = if (is_right) current_idx - 1 else current_idx + 1;
+            
+            const node = buffer[current_idx].hash;
+            const sibling = buffer[sibling_idx].hash;
+            
+            buffer[parent_idx].hash = self.hashNodes(node, sibling, is_right);
+            current_idx = parent_idx;
+        }
+    }
+
     /// Inicializa el buffer binario con los hashes de nodos vacíos correctos para cada nivel.
-    /// Esto evita que el core en C use ceros como hermanos en lugar de H(0,0), H(H(0,0),H(0,0)), etc.
     pub fn initializeEmptyVault(self: *ConcurrentMerkleTree) !void {
         const buffer = self.nodes_buffer orelse return;
         const total_nodes = (@as(u64, 1) << @as(u6, @intCast(self.depth + 1))) - 1;
@@ -218,16 +228,15 @@ pub const ConcurrentMerkleTree = struct {
         buffer[0].hash = try self.computeEmptyRoot(self.depth);
     }
 
-    /// Reconstruye la rama derecha desde el buffer binario para permitir appends correctos tras un reinicio.
+    /// Reconstruye la rama derecha desde el buffer binario.
     pub fn reconstructRightmostPath(self: *ConcurrentMerkleTree) !void {
         const buffer = self.nodes_buffer orelse return;
         if (self.rightmost_index == 0) return;
 
-        std.debug.print("\n[CMT   ] 🔄 Reconstructing from Index: {d}, Vault Root: {x}...", .{
+        std.debug.print("\n[CMT   ] 🔄 Reconstructing with Poseidon from Index: {d}, Vault Root: {x}...", .{
             self.rightmost_index, buffer[0].hash[0..4]
         });
 
-        // La prueba del "rightmost path" se obtiene sacando la prueba del último índice insertado
         const last_index = self.rightmost_index - 1;
         const proof_slice = try self.allocator.alloc([32]u8, self.depth);
         defer self.allocator.free(proof_slice);
@@ -238,23 +247,29 @@ pub const ConcurrentMerkleTree = struct {
             self.rightmost_proof.items[i] = p;
         }
 
-        // También necesitamos la última hoja
         const leaf_offset = ((@as(u64, 1) << @as(u6, @intCast(self.depth))) - 1) + last_index;
         @memcpy(&self.rightmost_leaf, &buffer[leaf_offset].hash);
         
-        // Y la raíz actual
         try self.root_buffer.insert(self.allocator, 0, buffer[0].hash);
     }
 
-    /// Verifica una prueba de inclusión (Optimizado via C)
+    /// Verifica una prueba de inclusión (100% Zig + Poseidon)
     pub fn verifyProof(root: [32]u8, leaf: [32]u8, index: u64, proof: [][32]u8) bool {
-        const c_root: cmt_hash_t = .{ .hash = root };
-        const c_leaf: cmt_hash_t = .{ .hash = leaf };
-        
-        // Convertir el slice de Zig a un puntero compatible con C
-        const c_proof: [*]const cmt_hash_t = @ptrCast(proof.ptr);
-        
-        return cmt_verify_proof(&c_root, &c_leaf, index, c_proof, @intCast(proof.len)) == 1;
+        var current = leaf;
+        for (proof, 0..) |sibling, i| {
+            const node_is_right = (index >> @intCast(i)) & 1 == 1;
+            
+            const n_u256 = @as(u256, @bitCast(current));
+            const s_u256 = @as(u256, @bitCast(sibling));
+            
+            const hash_val = if (node_is_right) 
+                Poseidon.hash2(s_u256, n_u256) 
+            else 
+                Poseidon.hash2(n_u256, s_u256);
+                
+            current = @bitCast(hash_val);
+        }
+        return std.mem.eql(u8, &current, &root);
     }
 
     /// Exporta los datos de una prueba al formato Prover.toml de Noir
@@ -289,7 +304,6 @@ pub const ConcurrentMerkleTree = struct {
         }
         try w.print("]\n", .{});
 
-        // Escribir todo el buffer al archivo de un solo golpe
         try file_writer.writeAll(list.items);
     }
 
