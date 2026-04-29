@@ -109,6 +109,47 @@ pub fn writeCompactU16(writer: anytype, value: u16) !void {
     }
 }
 
+/// Borsh Serialization Helpers (Solana/Rust compatibility)
+pub const borsh = struct {
+    pub fn writeU64(writer: anytype, val: u64) !void {
+        try writer.writeInt(u64, val, .little);
+    }
+
+    pub fn writeVecU8(writer: anytype, data: []const u8) !void {
+        try writer.writeInt(u32, @intCast(data.len), .little);
+        try writer.writeAll(data);
+    }
+
+    pub fn writePubkey(writer: anytype, pk: types.Pubkey) !void {
+        try writer.writeAll(&pk);
+    }
+};
+
+/// Construye la data de la instrucción 'AnchorStateZk' para el programa xB77.
+/// Formato: [Discriminador (1)] + [Root (32)] + [Proof (Vec<u8>)]
+/// El discriminador es 4 para 'AnchorStateZk' en el enum CoreInstruction.
+pub fn buildAnchorStateZkInstruction(
+    allocator: std.mem.Allocator,
+    root: [32]u8,
+    proof: []const u8,
+) ![]u8 {
+    var buf = std.ArrayListUnmanaged(u8){};
+    errdefer buf.deinit(allocator);
+    const writer = buf.writer(allocator);
+
+    // 1. Discriminador del Enum CoreInstruction::AnchorStateZk
+    // En el enum Rust, InitCore=0, RegisterAgent=1, ..., AnchorStateZk=4
+    try writer.writeByte(4);
+
+    // 2. Payload: root [u8; 32]
+    try writer.writeAll(&root);
+
+    // 3. Payload: proof Vec<u8>
+    try borsh.writeVecU8(writer, proof);
+
+    return buf.toOwnedSlice(allocator);
+}
+
 pub const AccountMeta = struct {
     pubkey: types.Pubkey,
     is_signer: bool,
