@@ -60,6 +60,7 @@ pub const engine = struct {
     pub const config = @import("engine/config.zig");
     pub const strategist = @import("engine/strategist.zig");
     pub const prover = @import("engine/prover.zig");
+    pub const telemetry = @import("engine/telemetry.zig");
 };
 
 pub const business = struct {
@@ -74,6 +75,7 @@ pub const business = struct {
     pub const portal = @import("business/portal.zig");
     pub const constitution = @import("business/constitution.zig");
     pub const identity = @import("business/identity.zig");
+    pub const billing = @import("business/billing.zig");
 };
 
 // Flattened exports for convenience (backwards compatibility)

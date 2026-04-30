@@ -62,9 +62,22 @@ pub const HttpClient = struct {
     }
 
     fn postWasm(self: *HttpClient, url: []const u8, payload: []const u8) !HttpResponse {
-        _ = self;
-        _ = url;
-        _ = payload;
-        return error.WasmFetchNotImplemented;
+        // En WASM (Cloudflare Workers), delegamos el fetch a JS
+        const result_ptr = js_fetch(url.ptr, url.len, payload.ptr, payload.len);
+        if (@intFromPtr(result_ptr) == 0) return error.FetchFailed;
+
+        // El resultado viene como un buffer serializado: [status: u16][body_len: u32][body...]
+        const status = std.mem.readInt(u16, result_ptr[0..2], .little);
+        const body_len = std.mem.readInt(u32, result_ptr[2..6], .little);
+        const body = try self.allocator.dupe(u8, result_ptr[6 .. 6 + body_len]);
+        
+        // Liberar el buffer asignado por JS (si es necesario, por ahora asumimos que es temporal o gestionado)
+        return HttpResponse{
+            .status = status,
+            .body = body,
+            .allocator = self.allocator,
+        };
     }
 };
+
+extern fn js_fetch(url_ptr: [*]const u8, url_len: usize, body_ptr: [*]const u8, body_len: usize) [*]const u8;

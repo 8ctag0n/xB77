@@ -83,29 +83,28 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    // --- WASM Target ---
+    // --- WASM Target (Cloudflare Workers) ---
     const wasm_target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
         .os_tag = .wasi,
     });
 
-    const wasm_exe = b.addExecutable(.{
-        .name = "xb77",
+    const wasm_gateway = b.addExecutable(.{
+        .name = "gateway",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("cli/main.zig"),
+            .root_source_file = b.path("gateway/main.zig"),
             .target = wasm_target,
             .optimize = .ReleaseSmall,
             .strip = true,
         }),
     });
-    wasm_exe.root_module.addImport("core", core_module);
-    wasm_exe.root_module.addImport("mcp", mcp_module);
+    wasm_gateway.root_module.addImport("core", core_module);
 
-    const install_wasm = b.addInstallArtifact(wasm_exe, .{
+    const install_wasm = b.addInstallArtifact(wasm_gateway, .{
         .dest_dir = .{ .override = .{ .custom = "bin" } },
     });
     
-    const wasm_step = b.step("wasm", "Build the WASM binary for Cloudflare Workers");
+    const wasm_step = b.step("wasm", "Build the Gateway WASM binary for Cloudflare Workers");
     wasm_step.dependOn(&install_wasm.step);
 
     // --- Tests ---

@@ -33,10 +33,22 @@ Integrated real-time screening via Range Protocol to ensure all autonomous trans
 
 ### Technical Architecture / Arquitectura Técnica
 
-*   ZK Framework: Noir (Identity Attestation & Selective Disclosure).
-*   Settlement Layer: Solana (Anchor Protocol).
-*   Execution Environment: TypeScript / Bun (Agentic Financial OS).
-*   Data Observability: Helius RPC & Webhooks.
+*   **Execution Core:** Zig / WASM (High-performance, edge-optimized Sovereign Gateway).
+*   **ZK Framework:** Noir (Identity Attestation & Selective Disclosure).
+*   **Settlement Layer:** Solana (Anchor Protocol).
+*   **Privacy Layer:** ZK-Compression (Light Protocol) & xB77 Sovereign Vaults.
+*   **Data Observability:** Helius RPC & Yellowstone Geyser.
+
+---
+
+### xB77 Sovereign Gateway (The SaaS Layer)
+
+The xB77 Gateway is the first infrastructure that allows you to deploy financial agents as easily as a web app, without ever losing control of your keys.
+
+- **Only-Zig Foundation:** The entire Gateway logic is written in Zig and compiled to WASM, running at the Edge for maximum performance and security.
+- **Sovereign Exportability (`xb77 export`):** Users can take their agent (keys, state, config) from our infrastructure to their own server at any time. Zero Vendor Lock-in.
+- **Tokenized Deposit Flow:** Automatic on-chain detection of SOL deposits to credit Sovereign Credits (SC) for infrastructure costs.
+- **Telemetry Hub:** Resource monitoring (CPU, RPCs, AI tokens) is performed internally by the Zig engine for transparent and auditable billing.
 
 ---
 
