@@ -40,49 +40,25 @@ static int connect_to_bridge() {
 
 // Parser ultra-rápido de Yellowstone -> AWP
 static void process_yellowstone_frame(znode_client_t* client, const uint8_t* data, size_t len) {
-    const uint8_t* ptr = data;
-    const uint8_t* end = data + len;
+    if (len == 0) return;
 
-    uint64_t tag;
-    while (awp_read_varint(&ptr, end, &tag)) {
-        uint32_t field = tag >> 3;
-        if (field == 4) { // Transaction
-            uint64_t msg_len;
-            if (!awp_read_varint(&ptr, end, &msg_len)) break;
-            
-            // Simulación de extracción de datos (MVP AWP Transition)
-            // En una implementación completa, aquí usaríamos nanopb o recursión.
-            // Por ahora, si detectamos una transacción, mandamos un AWP Transfer.
-            
-            awp_transfer_msg_t msg = {
-                .chain = AWP_CHAIN_SOLANA,
-                .amount = 777, // Placeholder o extraído de la transacción
-            };
-            memset(msg.recipient, 0, 32); // Destino placeholder
+    // Allocate a buffer large enough for the AWP header (type + varint length) + payload
+    uint8_t* awp_buf = malloc(len + 16);
+    if (!awp_buf) return;
 
-            uint8_t awp_buf[128];
-            size_t awp_len = awp_encode_transfer(awp_buf, &msg);
+    size_t awp_len = awp_encode_raw_yellowstone(awp_buf, data, len);
 
-            if (client->socket_fd >= 0) {
-                if (send(client->socket_fd, awp_buf, awp_len, MSG_NOSIGNAL) < 0) {
-                    close(client->socket_fd);
-                    client->socket_fd = -1;
-                }
-            }
-            
-            if (client->callback) {
-                client->callback(ZNODE_EVENT_TRANSACTION, (void*)data, client->user_data);
-            }
-            break; 
-        } else {
-            // Skip other fields
-            uint32_t wire = tag & 0x07;
-            if (wire == 0) { uint64_t tmp; awp_read_varint(&ptr, end, &tmp); }
-            else if (wire == 2) { uint64_t l; awp_read_varint(&ptr, end, &l); ptr += l; }
-            else if (wire == 1) ptr += 8;
-            else if (wire == 5) ptr += 4;
-            else break;
+    if (client->socket_fd >= 0) {
+        if (send(client->socket_fd, awp_buf, awp_len, MSG_NOSIGNAL) < 0) {
+            close(client->socket_fd);
+            client->socket_fd = -1;
         }
+    }
+    
+    free(awp_buf);
+
+    if (client->callback) {
+        client->callback(ZNODE_EVENT_TRANSACTION, (void*)data, client->user_data);
     }
 }
 

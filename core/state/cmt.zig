@@ -14,6 +14,7 @@ pub const cmt_hash_t = extern struct {
 };
 
 pub extern fn cmt_get_proof(tree_nodes: [*]const cmt_hash_t, index: u64, depth: u8, out_siblings: [*]cmt_hash_t) void;
+pub extern fn cmt_keccak256(data: [*]const u8, len: usize, out: [*]u8) void;
 
 // ----------------------------------------
 

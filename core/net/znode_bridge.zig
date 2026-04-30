@@ -89,6 +89,7 @@ const ProtocolHandler = struct {
     awpool: *awpool.AWPool,
     swap_manager: *swap.SwapManager,
     stream: std.net.Stream,
+    engine_ptr: *engine_mod.Engine,
 
     pub fn init(engine: anytype, stream: std.net.Stream) ProtocolHandler {
         return .{
@@ -98,11 +99,19 @@ const ProtocolHandler = struct {
             .awpool = &engine.awpool,
             .swap_manager = &engine.ctx.swap_manager,
             .stream = stream,
+            .engine_ptr = @ptrCast(@alignCast(engine)),
         };
     }
 
     pub fn handle(self: *ProtocolHandler, opcode: u8, decoder: *awp.AwpDecoder) !void {
         switch (opcode) {
+            @intFromEnum(awp.MessageType.raw_yellowstone) => {
+                const raw_msg = try decoder.decodeRawYellowstone();
+                var parser = yellowstone.YellowstoneParser.init(self.allocator);
+                if (parser.parseUpdate(raw_msg.data) catch null) |event| {
+                    self.engine_ptr.onNetworkEvent(event);
+                }
+            },
             @intFromEnum(awp.MessageType.handshake) => {
                 const handshake = try decoder.decodeHandshake();
                 std.debug.print("[AWP] 🤝 Handshake from Agent: {x} (v{d})\n", .{ 
@@ -118,6 +127,24 @@ const ProtocolHandler = struct {
                         std.debug.print(" ❌ BADGE INVALID. Untrusted peer.\n", .{});
                     }
                 }
+            },
+            @intFromEnum(awp.MessageType.transfer) => {
+                const transfer = try decoder.decodeTransfer();
+                std.debug.print("\n[AWP] 💸 Transfer received from mesh child: {d} {s}", .{ 
+                    transfer.amount, 
+                    @tagName(transfer.chain) 
+                });
+                
+                // 1. Registrar en el Store (esto lo mete en el CMT automáticamente)
+                try self.store.record(.{
+                    .timestamp = std.time.milliTimestamp(),
+                    .chain = awp.fromAwpChain(transfer.chain),
+                    .entry_type = .audit,
+                    .description = "Batching transfer from mesh child",
+                    .amount = transfer.amount,
+                });
+                
+                std.debug.print("\n[BATCH ] 📥 Transaction added to current batch. Total leaves: {d}", .{self.store.tree.rightmost_index});
             },
             @intFromEnum(awp.MessageType.order) => {
                 const order = try decoder.decodeOrder();

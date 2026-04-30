@@ -18,6 +18,17 @@ pub const MessageType = enum(u8) {
     mission_directive = 0x0C,
     account_gossip = 0x0D,
     delta_sync = 0x0E,
+    raw_yellowstone = 0x0F,
+    // --- APP (Agent Payments Protocol) Extensions ---
+    app_quote = 0x10,
+    app_hire = 0x11,
+    app_escrow_lock = 0x12,
+    app_escrow_release = 0x13,
+    app_dispute_open = 0x14,
+};
+
+pub const RawYellowstoneMsg = struct {
+    data: []const u8,
 };
 
 pub const DeltaSyncMsg = struct {
@@ -296,6 +307,13 @@ pub const AwpEncoder = struct {
         }
         return self.buf.items;
     }
+
+    pub fn encodeRawYellowstone(self: *AwpEncoder, msg: RawYellowstoneMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.raw_yellowstone));
+        try self.writeVarint(msg.data.len);
+        try self.buf.appendSlice(self.allocator, msg.data);
+        return self.buf.items;
+    }
 };
 
 pub const AwpDecoder = struct {
@@ -551,5 +569,18 @@ pub const AwpDecoder = struct {
             .leaf = leaf,
             .siblings = siblings,
         };
+    }
+
+    pub fn decodeRawYellowstone(self: *AwpDecoder) !RawYellowstoneMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.raw_yellowstone)) return error.InvalidMessageType;
+
+        const data_len = try self.readVarint();
+        if (self.pos + data_len > self.data.len) return error.UnexpectedEndOfStream;
+
+        const msg_data = self.data[self.pos .. self.pos + data_len];
+        self.pos += data_len;
+
+        return RawYellowstoneMsg{ .data = msg_data };
     }
 };

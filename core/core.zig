@@ -10,10 +10,12 @@ pub const crypto = struct {
     // Re-export common functions
     pub const generateKeypair = c.generateKeypair;
     pub const pubkeyToString = c.pubkeyToString;
+    pub const stringToPubkey = c.stringToPubkey;
     pub const encodeBase58 = c.encodeBase58;
     pub const decodeBase58 = c.decodeBase58;
     pub const sign = c.sign;
     pub const verify = c.verify;
+    pub const bytesToHex = c.bytesToHex;
     pub const generateEthKeypair = c.generateEthKeypair;
     pub const signEthMessage = c.signEthMessage;
     pub const recoverEthPublicKey = c.recoverEthPublicKey;
@@ -53,6 +55,7 @@ pub const protocol = struct {
 
 pub const engine = struct {
     pub const e = @import("engine/engine.zig");
+    pub const Engine = e.Engine;
     pub const context = @import("engine/context.zig");
     pub const config = @import("engine/config.zig");
     pub const strategist = @import("engine/strategist.zig");
@@ -101,10 +104,12 @@ pub const portal = business.portal;
 // Re-export common functions from crypto
 pub const generateKeypair = crypto.generateKeypair;
 pub const pubkeyToString = crypto.pubkeyToString;
+pub const stringToPubkey = crypto.stringToPubkey;
 pub const encodeBase58 = crypto.encodeBase58;
 pub const decodeBase58 = crypto.decodeBase58;
 pub const sign = crypto.sign;
 pub const verify = crypto.verify;
+pub const bytesToHex = crypto.bytesToHex;
 pub const generateEthKeypair = crypto.generateEthKeypair;
 pub const signEthMessage = crypto.signEthMessage;
 pub const recoverEthPublicKey = crypto.recoverEthPublicKey;

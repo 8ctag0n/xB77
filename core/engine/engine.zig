@@ -14,12 +14,15 @@ const mesh = @import("../net/mesh.zig");
 
 const strategist = @import("../engine/strategist.zig");
 
+const prover_mod = @import("../engine/prover.zig");
+
 pub const Engine = struct {
     allocator: std.mem.Allocator,
     ctx: *core.context.AgentContext,
     is_running: bool,
     awpool: awpool.AWPool,
     anchor_service: anchor.AnchorService,
+    prover: prover_mod.SovereignProver,
     strategist: strategist.Strategist,
 
     pub fn init(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) Engine {
@@ -33,6 +36,7 @@ pub const Engine = struct {
             .is_running = false,
             .awpool = pool,
             .anchor_service = anchor.AnchorService.init(allocator, &ctx.store),
+            .prover = prover_mod.SovereignProver.init(allocator, &ctx.store.tree, &ctx.sol_client),
             .strategist = strategist.Strategist.init(allocator, &ctx.store),
         };
     }
@@ -149,9 +153,10 @@ pub const Engine = struct {
     }
 
     fn tick(self: *Engine) !void {
-        // 1. Tareas de anclaje (Anchor Service)
-        self.anchor_service.checkAndAnchor() catch |err| {
-            std.debug.print("\n[Engine] ❌ Anchor Service Error: {}", .{err});
+        // 1. Tareas de anclaje (Sovereign Prover - Autonomous ZK-Sequencer)
+        const ops_kp = &self.ctx.vaults.ops.sol_kp;
+        self.prover.checkAndAnchor(ops_kp) catch |err| {
+            std.debug.print("\n[Engine] ❌ Prover Error: {}", .{err});
         };
 
         // 2. Tareas de red (Mesh Gossip)
@@ -185,6 +190,15 @@ pub const Engine = struct {
             },
             .transaction => {
                 const tx = event.tx orelse return;
+
+                // --- YELLOWSTONE DELUXE: Front-Running & HFT Awareness ---
+                if (tx.amount > 5_000_000_000) { // Si vemos transacciones "ballena" (>5 SOL)
+                    std.debug.print("\n[HFT   ] 🐋 Whale transaction detected ({d} lamports) at slot {d}!", .{tx.amount, event.slot});
+                    std.debug.print("\n[HFT   ] ⚡ Front-running network congestion: Triggering preemptive state anchor.", .{});
+                    
+                    const ops_kp = &self.ctx.vaults.ops.sol_kp;
+                    self.prover.checkAndAnchor(ops_kp) catch {};
+                }
                 
                 std.debug.print("\n[DETECT] ⚡ {s} Event -> {s}...", .{@tagName(event.chain), tx.signature[0..8]});
                 

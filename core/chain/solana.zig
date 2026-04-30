@@ -89,9 +89,6 @@ pub const SolanaClient = struct {
 
         // 3. Definir el Programa (xB77 Core) y Cuentas
         const program_id = try crypto.stringToPubkey(self.allocator, "FpWZN1FB9yMfip3vYQhsZhgT4fCB3US9BqAv5kh5uDxv");
-        const accounts = [_]tx_mod.AccountMeta{
-            .{ .pubkey = signer_pubkey, .is_signer = true, .is_writable = true },
-        };
 
         // 4. Construir la Transacción (Genérica con Priority Fee)
         // Usaremos un constructor genérico o adaptaremos el multi-transfer

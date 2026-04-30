@@ -12,7 +12,8 @@ typedef enum {
     AWP_MSG_SIGNAL = 0x02,
     AWP_MSG_TRANSFER = 0x03,
     AWP_MSG_AUDIT_REPORT = 0x04,
-    AWP_MSG_ORDER = 0x06
+    AWP_MSG_ORDER = 0x06,
+    AWP_MSG_RAW_YELLOWSTONE = 0x0F
 } awp_msg_type_t;
 
 typedef enum {
@@ -128,6 +129,16 @@ static inline size_t awp_encode_order(uint8_t* buf, const awp_order_msg_t* msg) 
     ptr += awp_write_varint(ptr, msg->amount);
     ptr += awp_write_varint(ptr, msg->price);
     ptr += awp_write_varint(ptr, msg->nonce);
+    return ptr - buf;
+}
+
+// Codifica un mensaje de Yellowstone crudo. Retorna el tamaño escrito.
+static inline size_t awp_encode_raw_yellowstone(uint8_t* buf, const uint8_t* data, size_t len) {
+    uint8_t* ptr = buf;
+    *ptr++ = AWP_MSG_RAW_YELLOWSTONE;
+    ptr += awp_write_varint(ptr, len);
+    memcpy(ptr, data, len);
+    ptr += len;
     return ptr - buf;
 }
 
