@@ -73,11 +73,11 @@ fn save_credit_status(allocator: std.mem.Allocator, status: core.business.billin
     const hex = std.fmt.bytesToHex(status.agent_id, .lower);
     @memcpy(&agent_id_hex_buf, &hex);
     
-    var list = std.ArrayList(u8).init(allocator);
-    defer list.deinit();
-    try std.json.stringify(status, .{}, list.writer());
+    var list = std.ArrayListUnmanaged(u8){};
+    defer list.deinit(allocator);
+    try list.writer(allocator).print("{f}", .{std.json.fmt(status, .{})});
     
-    js_kv_put(agent_id_hex_buf.ptr, 64, list.items.ptr, list.items.len);
+    js_kv_put(&agent_id_hex_buf, 64, list.items.ptr, list.items.len);
 }
 
 // --- Master Router ---
@@ -190,7 +190,20 @@ fn route_deploy(allocator: std.mem.Allocator, body: []const u8) *Response {
     defer allocator.free(config_key);
     js_kv_put(config_key.ptr, config_key.len, m.config_toml.ptr, m.config_toml.len);
 
-    return build_response(200, "Deployed Successfully");
+    // 5. Generate ZK-Receipt for the Deploy Fee
+    const zk_receipt = core.business.receipt.ZkReceipt.generate(
+        core.business.billing.BillingManager.DEPLOY_FEE_SC,
+        0, // No tax on internal SC fees for now
+        .{ .sol = m.agent_id },
+    ) catch return build_response(500, "ZK Error");
+    
+    const commitment_hex = core.crypto.bytesToHex(allocator, &zk_receipt.commitment) catch "err";
+    defer if (!std.mem.eql(u8, commitment_hex, "err")) allocator.free(commitment_hex);
+
+    const resp_msg = std.fmt.allocPrint(allocator, "Deployed Successfully. ZK-Commitment: {s}", .{commitment_hex}) catch "Deployed Successfully";
+    defer if (!std.mem.eql(u8, resp_msg, "Deployed Successfully")) allocator.free(resp_msg);
+
+    return build_response(200, resp_msg);
 }
 
 fn route_balance(allocator: std.mem.Allocator, agent_id_hex: []const u8) *Response {
@@ -221,9 +234,9 @@ fn route_export(allocator: std.mem.Allocator, body: []const u8) *Response {
         .yield_history = "",
     };
 
-    var list = std.ArrayList(u8).init(allocator);
-    defer list.deinit();
-    std.json.stringify(mock_resp, .{}, list.writer()) catch return build_response(500, "Error");
+    var list = std.ArrayListUnmanaged(u8){};
+    defer list.deinit(allocator);
+    list.writer(allocator).print("{f}", .{std.json.fmt(mock_resp, .{})}) catch return build_response(500, "Error");
 
     return build_response(200, list.items);
 }
@@ -276,7 +289,48 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
         defer allocator.free(response);
         js_telegram_send(msg.chat.id, response.ptr, response.len);
     } else if (std.mem.startsWith(u8, text, "/pay")) {
-        js_telegram_send(msg.chat.id, "💸 Payment routing coming soon to the God Protocol.", 51);
+        const chat_id_str = std.fmt.allocPrint(allocator, "{d}", .{msg.chat.id}) catch "0";
+        defer allocator.free(chat_id_str);
+        const tg_key = std.fmt.allocPrint(allocator, "tg_{s}", .{chat_id_str}) catch "tg_0";
+        defer allocator.free(tg_key);
+
+        if (get_kv_data(allocator, tg_key)) |agent_id_hex| {
+            var status = get_credit_status(allocator, agent_id_hex) catch {
+                js_telegram_send(msg.chat.id, "⚠️ Error reading credit status.", 27);
+                return build_response(200, "OK");
+            };
+
+            const pay_amount = 50; // Mock payment for now
+            if (status.balance < pay_amount) {
+                js_telegram_send(msg.chat.id, "❌ Insufficient credits for this operation.", 41);
+                return build_response(200, "OK");
+            }
+
+            status.balance -= pay_amount;
+            save_credit_status(allocator, status) catch {
+                js_telegram_send(msg.chat.id, "❌ Internal error processing payment.", 36);
+                return build_response(200, "OK");
+            };
+
+            // Generate ZK-Receipt
+            const zk_receipt = core.business.receipt.ZkReceipt.generate(
+                pay_amount,
+                5, // 10% tax mock
+                .{ .sol = status.agent_id },
+            ) catch {
+                js_telegram_send(msg.chat.id, "❌ Error generating ZK receipt.", 31);
+                return build_response(200, "OK");
+            };
+
+            const comm_hex = core.crypto.bytesToHex(allocator, &zk_receipt.commitment) catch "err";
+            defer if (!std.mem.eql(u8, comm_hex, "err")) allocator.free(comm_hex);
+
+            const response = std.fmt.allocPrint(allocator, "💸 *Payment Successful*\nAmount: {d} SC\nRemaining: {d} SC\n\n🛡️ *ZK-Receipt Commitment:*\n`{s}`", .{pay_amount, status.balance, comm_hex}) catch "Error";
+            defer if (!std.mem.eql(u8, response, "Error")) allocator.free(response);
+            js_telegram_send(msg.chat.id, response.ptr, response.len);
+        } else |_| {
+            js_telegram_send(msg.chat.id, "🤖 Please link your agent first with /start.", 43);
+        }
     } else {
         const response = "🤖 Sovereign Engine Active. Type /status to check.";
         js_telegram_send(msg.chat.id, response.ptr, response.len);
