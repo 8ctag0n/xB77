@@ -7,6 +7,7 @@ pub const Constitution = struct {
     max_slippage_bps: u16,
     emergency_stop: bool,
     blocked_contracts: std.StringHashMap(void),
+    rules: std.ArrayListUnmanaged([]const u8),
     
     mutex: std.Thread.Mutex,
 
@@ -16,6 +17,7 @@ pub const Constitution = struct {
             .max_slippage_bps = 100, // 1% default
             .emergency_stop = false,
             .blocked_contracts = std.StringHashMap(void).init(allocator),
+            .rules = .{},
             .mutex = std.Thread.Mutex{},
         };
     }
@@ -26,6 +28,61 @@ pub const Constitution = struct {
             self.allocator.free(key.*);
         }
         self.blocked_contracts.deinit();
+
+        for (self.rules.items) |rule| {
+            self.allocator.free(rule);
+        }
+        self.rules.deinit(self.allocator);
+    }
+
+    pub fn addRule(self: *Constitution, rule: []const u8) !void {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        const copy = try self.allocator.dupe(u8, rule);
+        try self.rules.append(self.allocator, copy);
+    }
+
+    /// RAG-Lite: Returns rules that match keywords in the query.
+    pub fn getPolicyRoot(self: *Constitution) [32]u8 {
+        var hasher = std.crypto.hash.sha2.Sha256.init(.{});
+        for (self.rules.items) |rule| {
+            hasher.update(rule);
+        }
+        return hasher.finalResult();
+    }
+    /// RAG-Lite: Returns rules that match keywords in the query.
+    pub fn queryRules(self: *Constitution, query: []const u8) ![][]const u8 {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+
+        var matches = std.ArrayListUnmanaged([]const u8){};
+        defer matches.deinit(self.allocator);
+
+        const query_lower = try self.allocator.alloc(u8, query.len);
+        defer self.allocator.free(query_lower);
+        for (query, 0..) |c, i| query_lower[i] = std.ascii.toLower(c);
+
+        for (self.rules.items) |rule| {
+            const rule_lower = try self.allocator.alloc(u8, rule.len);
+            defer self.allocator.free(rule_lower);
+            for (rule, 0..) |c, i| rule_lower[i] = std.ascii.toLower(c);
+
+            // Tokenize query and check for overlap with rule
+            var it = std.mem.tokenizeAny(u8, query_lower, " :;,\r\n\t");
+            var found = false;
+            while (it.next()) |token| {
+                if (token.len < 4) continue; // Skip short words
+                if (std.mem.indexOf(u8, rule_lower, token) != null) {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (found or std.mem.indexOf(u8, query_lower, rule_lower) != null) {
+                try matches.append(self.allocator, try self.allocator.dupe(u8, rule));
+            }
+        }
+        return try self.allocator.dupe([]const u8, matches.items);
     }
 
     pub fn update(self: *Constitution, emergency: bool, slippage: u16) void {

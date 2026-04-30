@@ -8,6 +8,7 @@ pub const Config = struct {
     vaults: struct {
         path: []const u8,
     },
+    mnemonic: ?[]const u8 = null,
     mesh_port: u16 = 7777,
     cdp: struct {
         key_name: ?[]const u8 = null,
@@ -30,6 +31,7 @@ pub const Config = struct {
                     .vaults = .{
                         .path = try allocator.dupe(u8, "./.xb77"),
                     },
+                    .mnemonic = null,
                     .ipfs = .{
                         .endpoint = try allocator.dupe(u8, "https://api.quicknode.com/ipfs/v1/"),
                         .api_key = try allocator.dupe(u8, ""),
@@ -52,6 +54,7 @@ pub const Config = struct {
             .vaults = .{
                 .path = try allocator.dupe(u8, "./.xb77"),
             },
+            .mnemonic = null,
             .ipfs = .{
                 .endpoint = try allocator.dupe(u8, "https://api.quicknode.com/ipfs/v1/"),
                 .api_key = try allocator.dupe(u8, ""),
@@ -81,6 +84,9 @@ pub const Config = struct {
             if (std.mem.eql(u8, key, "vault_path")) {
                 allocator.free(config.vaults.path);
                 config.vaults.path = try allocator.dupe(u8, val);
+            }
+            if (std.mem.eql(u8, key, "mnemonic")) {
+                config.mnemonic = try allocator.dupe(u8, val);
             }
             if (std.mem.eql(u8, key, "mesh_port")) {
                 config.mesh_port = std.fmt.parseInt(u16, val, 10) catch 7777;
@@ -113,6 +119,7 @@ pub const Config = struct {
         allocator.free(self.vaults.path);
         allocator.free(self.ipfs.endpoint);
         allocator.free(self.ipfs.api_key);
+        if (self.mnemonic) |m| allocator.free(m);
         if (self.cdp.key_name) |k| allocator.free(k);
         if (self.cdp.key_secret) |k| allocator.free(k);
         if (self.facilitator) |f| allocator.free(f);

@@ -27,6 +27,7 @@ pub const AgentContext = struct {
     mesh_manager: mesh.MeshManager,
     swap_manager: swap.SwapManager,
     ipfs_client: @import("../net/ipfs.zig").IpfsClient,
+    brain: @import("brain.zig").Brain,
     active_agents: std.StringHashMapUnmanaged(*std.process.Child),
 
     pub fn spawnAgent(self: *AgentContext, name: []const u8) !void {
@@ -111,9 +112,11 @@ pub const AgentContext = struct {
             .mesh_manager = try mesh.MeshManager.init(allocator, undefined, agent_id),
             .swap_manager = swap.SwapManager.init(allocator),
             .ipfs_client = @import("../net/ipfs.zig").IpfsClient.init(allocator, config.ipfs.endpoint, config.ipfs.api_key),
+            .brain = undefined,
             .active_agents = .{},
         };
         
+        ctx.brain = @import("brain.zig").Brain.init(allocator, &ctx.constitution);
         ctx.mesh_manager.store = &ctx.store;
 
         // El router se inicializa con los punteros de 'ctx'. 
@@ -144,6 +147,7 @@ pub const AgentContext = struct {
         }
         self.active_agents.deinit(self.allocator);
 
+        self.brain.deinit();
         self.swap_manager.deinit();
         self.mesh_manager.deinit();
         self.store.deinit();

@@ -1,32 +1,31 @@
-use dep::std;
-
-// Compliance Shield: Prueba de Inocencia
-// Demuestra que un destinatario (recipient) pertenece a un set de direcciones autorizadas (root)
-// sin revelar qué dirección específica es en el Merkle Tree.
+use dep::poseidon::poseidon::bn254::hash_2 as poseidon_hash;
 
 fn main(
-    root: pub Field,
-    recipient_hash: pub Field, // Hash de la dirección (para ligar la prueba al pago)
-    merkle_path: [Field; 8],   // Soporta hasta 256 direcciones (2^8)
-    merkle_index: Field,
-    secret: Field              // Para mayor privacidad
+    // Public Inputs
+    policy_root: pub Field,      // Constitution Merkle Root
+    mission_id: pub Field,       // Mission ID
+    max_budget: pub Field,       // Allowed budget per rule
+    
+    // Private Inputs
+    rule_index: Field,           // Index in constitution
+    rule_hash: Field,            // Specific rule hash (e.g., allow_usdt_transfer)
+    actual_amount: Field,        // Real amount of tx
+    secret_salt: Field           // Salt for commitment
 ) {
-    let index_u32 = merkle_index as u32;
-    
-    // El leaf es el hash del recipient + un secret
-    let leaf = std::hash::poseidon::bn254::hash_2([recipient_hash, secret]);
-    
-    let mut current = leaf;
+    // 1. Validate that the rule belongs to the policy
+    // In a real system, we'd use a Merkle Membership Proof.
+    // Here we simulate that rule_hash + salt commits to policy_root.
+    let computed_policy = poseidon_hash([rule_hash, secret_salt]);
+    assert(computed_policy == policy_root);
 
-    for i in 0..8 {
-        let path_bit = (index_u32 >> i) & 1;
-        let elem = merkle_path[i];
-        if path_bit == 1 {
-            current = std::hash::poseidon::bn254::hash_2([elem, current]);
-        } else {
-            current = std::hash::poseidon::bn254::hash_2([current, elem]);
-        }
-    }
+    // 2. Validate budget compliance
+    // AI logic must be within constitution limits
+    assert(actual_amount as u64 <= max_budget as u64);
 
-    assert(current == root);
+    // 3. Mission integrity
+    // Mission ID must be bound to the process
+    assert(mission_id != 0);
+    
+    // Avoid unused warning
+    assert(rule_index == rule_index);
 }

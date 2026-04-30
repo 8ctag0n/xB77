@@ -100,11 +100,13 @@ pub const SwapRevealMsg = struct {
 pub const MissionDirectiveMsg = struct {
     id: [32]u8,
     owner_root: [32]u8,
+    policy_root: [32]u8,       // Deluxe: Root de la política constitucional
     nullifier: [32]u8,
     max_budget: u64,
     slippage_bps: u16,
     logic_hash: [32]u8,
-    zk_proof: []const u8,
+    zk_proof: []const u8,      // Prueba de autoridad
+    compliance_proof: ?[]const u8 = null, // Deluxe: Prueba de cumplimiento
 };
 
 pub const SignalType = enum(u8) {
@@ -281,12 +283,20 @@ pub const AwpEncoder = struct {
         try self.writeByte(@intFromEnum(MessageType.mission_directive));
         try self.buf.appendSlice(self.allocator, &msg.id);
         try self.buf.appendSlice(self.allocator, &msg.owner_root);
+        try self.buf.appendSlice(self.allocator, &msg.policy_root);
         try self.buf.appendSlice(self.allocator, &msg.nullifier);
         try self.writeVarint(msg.max_budget);
         try self.writeVarint(msg.slippage_bps);
         try self.buf.appendSlice(self.allocator, &msg.logic_hash);
         try self.writeVarint(msg.zk_proof.len);
         try self.buf.appendSlice(self.allocator, msg.zk_proof);
+        
+        if (msg.compliance_proof) |cp| {
+            try self.writeVarint(cp.len);
+            try self.buf.appendSlice(self.allocator, cp);
+        } else {
+            try self.writeVarint(0);
+        }
         return self.buf.items;
     }
 
@@ -522,6 +532,8 @@ pub const AwpDecoder = struct {
         self.pos += 32;
         @memcpy(&msg.owner_root, self.data[self.pos..][0..32]);
         self.pos += 32;
+        @memcpy(&msg.policy_root, self.data[self.pos..][0..32]);
+        self.pos += 32;
         @memcpy(&msg.nullifier, self.data[self.pos..][0..32]);
         self.pos += 32;
         
@@ -533,6 +545,14 @@ pub const AwpDecoder = struct {
         const proof_len = try self.readVarint();
         msg.zk_proof = self.data[self.pos .. self.pos + proof_len];
         self.pos += proof_len;
+
+        const comp_proof_len = try self.readVarint();
+        if (comp_proof_len > 0) {
+            msg.compliance_proof = self.data[self.pos .. self.pos + comp_proof_len];
+            self.pos += comp_proof_len;
+        } else {
+            msg.compliance_proof = null;
+        }
 
         return msg;
     }

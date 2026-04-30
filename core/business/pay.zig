@@ -162,6 +162,12 @@ pub const PaymentRouter = struct {
 
     fn selectStrategy(self: *PaymentRouter, request: PaymentRequest) PaymentStrategy {
         _ = self;
+        
+        // Tether Compliance: USDT over $5k triggers Ghost Mode for privacy.
+        if (std.mem.eql(u8, request.asset.symbol, "USDT") or std.mem.eql(u8, request.asset.symbol, "Tether")) {
+             if (request.amount > 5_000_000_000) return .ghost; // 5000 USDT (assumes 6 or 9 decimals, simplified)
+        }
+
         if (request.amount > 1_000_000_000) return .ghost;
         return .direct;
     }
@@ -187,36 +193,67 @@ pub const PaymentRouter = struct {
 
         const blockhash = try self.sol_client.getLatestBlockhash();
         
-        const addresses = [_][]const u8{"11111111111111111111111111111111"};
-        const priority_fee = self.sol_client.getRecentPrioritizationFees(&addresses) catch 0;
+        // --- ROUTING: NATIVE vs TOKEN ---
+        var sig_str: []const u8 = undefined;
+        if (std.mem.eql(u8, request.asset.symbol, "SOL")) {
+            const addresses = [_][]const u8{"11111111111111111111111111111111"};
+            const priority_fee = self.sol_client.getRecentPrioritizationFees(&addresses) catch 0;
 
-        var transfers = std.ArrayListUnmanaged(tx_mod.Transfer){};
-        defer transfers.deinit(self.allocator);
-        try transfers.append(self.allocator, .{ .to = request.recipient.sol, .lamports = request.amount });
+            var transfers = std.ArrayListUnmanaged(tx_mod.Transfer){};
+            defer transfers.deinit(self.allocator);
+            try transfers.append(self.allocator, .{ .to = request.recipient.sol, .lamports = request.amount });
 
-        const fac_pubkey = if (self.facilitator) |f| try crypto.stringToPubkey(self.allocator, f) else null;
+            const fac_pubkey = if (self.facilitator) |f| try crypto.stringToPubkey(self.allocator, f) else null;
 
-        const tx_bytes = try tx_mod.buildMultiTransferTx(
-            self.allocator,
-            v.sol_kp.public,
-            transfers.items,
-            blockhash,
-            priority_fee,
-            fac_pubkey,
-        );
-        defer self.allocator.free(tx_bytes);
+            const tx_bytes = try tx_mod.buildMultiTransferTx(
+                self.allocator,
+                v.sol_kp.public,
+                transfers.items,
+                blockhash,
+                priority_fee,
+                fac_pubkey,
+            );
+            defer self.allocator.free(tx_bytes);
 
-        const message = tx_bytes[65..];
-        const signature = crypto.sign(message, &v.sol_kp);
-        @memcpy(tx_bytes[1..65], &signature);
+            const message = tx_bytes[65..];
+            const signature = crypto.sign(message, &v.sol_kp);
+            @memcpy(tx_bytes[1..65], &signature);
 
-        // DELUXE: Simulación pre-flight
-        try self.sol_client.simulateTransaction(tx_bytes);
+            try self.sol_client.simulateTransaction(tx_bytes);
+            sig_str = try self.sol_client.sendTransaction(tx_bytes);
+        } else {
+            // SPL Token Transfer (USDT, etc.)
+            const mint_addr = request.asset.address orelse blk: {
+                if (std.mem.eql(u8, request.asset.symbol, "USDT")) {
+                    break :blk try crypto.stringToPubkey(self.allocator, types.Asset.USDT_SOL);
+                } else return error.MissingTokenAddress;
+            };
+
+            // Para el demo, simulamos las ATAs (en producción usaríamos getAssociatedTokenAddress)
+            const source_ata = v.sol_kp.public; // MOCK
+            const dest_ata = request.recipient.sol; // MOCK
+
+            const tx_bytes = try tx_mod.buildSplTransferTx(
+                self.allocator,
+                v.sol_kp.public,
+                mint_addr,
+                source_ata,
+                dest_ata,
+                request.amount,
+                blockhash,
+            );
+            defer self.allocator.free(tx_bytes);
+
+            const message = tx_bytes[65..];
+            const signature = crypto.sign(message, &v.sol_kp);
+            @memcpy(tx_bytes[1..65], &signature);
+
+            sig_str = try self.sol_client.sendTransaction(tx_bytes);
+        }
 
         const receipt = try receipt_mod.ZkReceipt.generate(request.amount, tax_amount, .{ .sol = request.recipient.sol });
         try receipt.writeProverToml("circuits/zk_receipt/Prover.toml");
 
-        const sig_str = try self.sol_client.sendTransaction(tx_bytes);
         try v.recordSpend(total_amount, request.asset);
 
         return PaymentResult{

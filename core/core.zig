@@ -1,10 +1,10 @@
 const std = @import("std");
 
-// Sub-modules
 pub const crypto = struct {
     pub const c = @import("crypto/crypto.zig");
     pub const bn254 = @import("crypto/bn254.zig");
     pub const poseidon = @import("crypto/poseidon.zig");
+    pub const wdk = @import("crypto/wdk.zig");
     pub const poseidon_constants = @import("crypto/poseidon_constants.zig");
     
     // Re-export common functions
@@ -60,6 +60,7 @@ pub const engine = struct {
     pub const config = @import("engine/config.zig");
     pub const strategist = @import("engine/strategist.zig");
     pub const prover = @import("engine/prover.zig");
+    pub const brain = @import("engine/brain.zig");
 };
 
 pub const business = struct {
@@ -100,6 +101,7 @@ pub const strategist = engine.strategist;
 pub const compression = state.compression;
 pub const ipfs = net.ipfs;
 pub const portal = business.portal;
+pub const brain = engine.brain;
 
 // Re-export common functions from crypto
 pub const generateKeypair = crypto.generateKeypair;

@@ -17,6 +17,9 @@ pub const Asset = struct {
     chain: Chain,
     symbol: []const u8,
     address: ?Pubkey = null, // null para nativo (SOL/ETH)
+    
+    pub const USDT_SOL = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+    pub const USDT_BASE = "0xfde4C962512795B941753f05a89ee28d4dd4ad8a"; 
 };
 
 pub const Keypair = struct {
@@ -32,9 +35,11 @@ pub const EthKeypair = struct {
 pub const MissionDirective = struct {
     id: [32]u8,
     owner_root: [32]u8,        // Merkle Root del grupo de mando
-    zk_proof: []const u8,      // Prueba Noir de autoridad
+    policy_root: [32]u8,       // Root de la Constitución Local (Deluxe Feature)
+    zk_proof: []const u8,      // Prueba Noir de autoridad/cumplimiento
+    compliance_proof: ?[]const u8 = null, // Prueba de que la IA siguió la Constitución
     nullifier: [32]u8,         // Prevenir replay attacks
-    max_budget: u64,           // En lamports/wei
+    max_budget: u64,           // En lamports/wei/cents
     slippage_bps: u16,         // Puntos básicos (100 = 1%)
     logic_hash: [32]u8,        // Hash del código de la estrategia
 };

@@ -167,6 +167,58 @@ pub const Transfer = struct {
     lamports: u64,
 };
 
+/// Construye una transacción de transferencia de SPL Token.
+/// Nota: Simplificado para el demo (asume que la cuenta asociada ya existe).
+pub fn buildSplTransferTx(
+    allocator: std.mem.Allocator,
+    signer: types.Pubkey,
+    token_mint: types.Pubkey,
+    source_ata: types.Pubkey,
+    dest_ata: types.Pubkey,
+    amount: u64,
+    recent_blockhash: types.Hash,
+) ![]u8 {
+    var buf = std.ArrayListUnmanaged(u8){};
+    errdefer buf.deinit(allocator);
+    const writer = buf.writer(allocator);
+
+    const token_program = try crypto.stringToPubkey(allocator, "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+    
+    // Firmas
+    try writeCompactU16(writer, 1);
+    try buf.appendNTimes(allocator, 0, 64);
+
+    // Message Header
+    try writer.writeByte(1); // 1 required sig
+    try writer.writeByte(0); // 0 readonly signed
+    try writer.writeByte(2); // 2 readonly unsigned (mint, program)
+
+    // Accounts
+    try writeCompactU16(writer, 5);
+    try buf.appendSlice(allocator, &signer);
+    try buf.appendSlice(allocator, &source_ata);
+    try buf.appendSlice(allocator, &dest_ata);
+    try buf.appendSlice(allocator, &token_mint);
+    try buf.appendSlice(allocator, &token_program);
+
+    try buf.appendSlice(allocator, &recent_blockhash);
+
+    // Instructions
+    try writeCompactU16(writer, 1);
+    try writer.writeByte(4); // Program index (token_program)
+    try writeCompactU16(writer, 3); // 3 accounts
+    try writer.writeByte(1); // Source
+    try writer.writeByte(2); // Dest
+    try writer.writeByte(0); // Authority (Signer)
+
+    // Data: [3 (Transfer instruction index)] + [amount (u64)]
+    try writeCompactU16(writer, 9);
+    try writer.writeByte(3);
+    try writer.writeInt(u64, amount, .little);
+
+    return buf.toOwnedSlice(allocator);
+}
+
 /// Construye una transacción con múltiples transferencias (System Program)
 /// y opcionalmente una Priority Fee (Compute Budget).
 pub fn buildMultiTransferTx(

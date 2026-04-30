@@ -192,6 +192,16 @@ pub fn build(b: *std.Build) void {
     awp_unit_tests.root_module.addImport("core", core_module);
     const run_awp_unit_tests = b.addRunArtifact(awp_unit_tests);
 
+    const brain_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/brain_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    brain_unit_tests.root_module.addImport("core", core_module);
+    const run_brain_unit_tests = b.addRunArtifact(brain_unit_tests);
+
     const compression_unit_tests = b.addTest(.{
         .root_module = b.createModule(.{
             .root_source_file = b.path("tests/compression_test.zig"),
@@ -290,5 +300,6 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_cmt_unit_tests.step);
     test_step.dependOn(&run_ghost_proof_unit_tests.step);
     test_step.dependOn(&run_awp_unit_tests.step);
+    test_step.dependOn(&run_brain_unit_tests.step);
     test_step.dependOn(&run_compression_unit_tests.step);
 }

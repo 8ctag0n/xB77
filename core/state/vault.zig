@@ -37,7 +37,7 @@ pub const Vault = struct {
     history: std.ArrayListUnmanaged(SpendRecord),
     storage_path: []const u8,
     
-    pub fn init(allocator: std.mem.Allocator, role: VaultRole, policy: SpendPolicy, storage_path: []const u8) !Vault {
+    pub fn init(allocator: std.mem.Allocator, role: VaultRole, policy: SpendPolicy, storage_path: []const u8, mnemonic: ?[]const u8) !Vault {
         var v = Vault{
             .allocator = allocator,
             .role = role,
@@ -48,12 +48,12 @@ pub const Vault = struct {
             .storage_path = try allocator.dupe(u8, storage_path),
         };
         
-        try v.ensureKeys();
+        try v.ensureKeys(mnemonic);
         try v.loadHistory();
         return v;
     }
 
-    fn ensureKeys(self: *Vault) !void {
+    fn ensureKeys(self: *Vault, mnemonic: ?[]const u8) !void {
         const key_path = try std.fmt.allocPrint(self.allocator, "{s}.key", .{self.storage_path});
         defer self.allocator.free(key_path);
 
@@ -89,9 +89,17 @@ pub const Vault = struct {
             }
         } else |_| {}
 
-        // Generar nuevas si no existen o están corruptas
-        self.sol_kp = crypto.generateKeypair();
-        self.eth_kp = try crypto.generateEthKeypair();
+        if (mnemonic) |m| {
+            const wdk = @import("../crypto/wdk.zig");
+            var provider = try wdk.WdkProvider.init(self.allocator, m);
+            defer provider.deinit();
+
+            self.sol_kp = provider.deriveSolanaKeypair();
+            self.eth_kp = try provider.deriveEvmKeypair();
+        } else {
+            self.sol_kp = crypto.generateKeypair();
+            self.eth_kp = try crypto.generateEthKeypair();
+        }
 
         const file = try std.fs.cwd().createFile(key_path, .{});
         defer file.close();

@@ -32,7 +32,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
         if (std.mem.eql(u8, method_name, "initialize")) {
             try sendResponse(&stdout, "{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"serverInfo\":{\"name\":\"xB77-Agent\",\"version\":\"0.1.0\"}}");
         } else if (std.mem.eql(u8, method_name, "tools/list")) {
-            try sendResponse(&stdout, "{\"tools\":[{\"name\":\"agent_status\",\"description\":\"Get balance and identity\"}, {\"name\":\"spawn_agent\",\"description\":\"Create a new sovereign agent profile\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"budget\":{\"type\":\"string\"},\"strategy\":{\"type\":\"string\"}}}}, {\"name\":\"list_active_swarm\",\"description\":\"List all active agents in the swarm\"}, {\"name\":\"terminate_agent\",\"description\":\"Terminate an active agent\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}}, {\"name\":\"get_agent_history\",\"description\":\"Get the ledger history of a specific agent\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}}, {\"name\":\"get_swarm_history\",\"description\":\"Get the combined ledger history of the entire swarm\"}, {\"name\":\"get_swarm_topology\",\"description\":\"Show the P2P connection map of all active agents\"}, {\"name\":\"issue_mission\",\"description\":\"Issue a ZK-verified command to all agents\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"budget\":{\"type\":\"string\"},\"slippage\":{\"type\":\"integer\"}}}}, {\"name\":\"snapshot_swarm\",\"description\":\"Capture current swarm state and upload to QuickNode IPFS\"}, {\"name\":\"update_constitution\",\"description\":\"Update agent dynamic rules\"}, {\"name\":\"execute_payment\",\"description\":\"Execute a multi-chain payment\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"amount\":{\"type\":\"string\"},\"chain\":{\"type\":\"string\"},\"recipient\":{\"type\":\"string\"},\"symbol\":{\"type\":\"string\"}}}}]}");
+            try sendResponse(&stdout, "{\"tools\":[{\"name\":\"agent_status\",\"description\":\"Get balance and identity\"}, {\"name\":\"spawn_agent\",\"description\":\"Create a new sovereign agent profile\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"budget\":{\"type\":\"string\"},\"strategy\":{\"type\":\"string\"}}}}, {\"name\":\"list_active_swarm\",\"description\":\"List all active agents in the swarm\"}, {\"name\":\"terminate_agent\",\"description\":\"Terminate an active agent\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}}, {\"name\":\"get_agent_history\",\"description\":\"Get the ledger history of a specific agent\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}}, {\"name\":\"get_swarm_history\",\"description\":\"Get the combined ledger history of the entire swarm\"}, {\"name\":\"get_swarm_topology\",\"description\":\"Show the P2P connection map of all active agents\"}, {\"name\":\"issue_mission\",\"description\":\"Issue a ZK-verified command to all agents\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"budget\":{\"type\":\"string\"},\"slippage\":{\"type\":\"integer\"}}}}, {\"name\":\"issue_directive\",\"description\":\"QVAC Local: Interpret NL and broadcast to swarm\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"}}}}, {\"name\":\"parse_directive\",\"description\":\"QVAC Local: Interpret natural language directive into binary intent\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"}}}}, {\"name\":\"snapshot_swarm\",\"description\":\"Capture current swarm state and upload to QuickNode IPFS\"}, {\"name\":\"update_constitution\",\"description\":\"Update agent dynamic rules\"}, {\"name\":\"execute_payment\",\"description\":\"Execute a multi-chain payment\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"amount\":{\"type\":\"string\"},\"chain\":{\"type\":\"string\"},\"recipient\":{\"type\":\"string\"},\"symbol\":{\"type\":\"string\"}}}}]}");
         } else if (std.mem.eql(u8, method_name, "tools/call")) {
             const params = parsed.value.object.get("params").?.object;
             const name = params.get("name").?.string;
@@ -153,6 +153,60 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 _ = try stream.write(bin_msg);
 
                 const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Sovereign Mission Issued! \\nBudget: {d} | Slippage: {d} bps. \\nStatus: Broadcasting to swarm...\"}}]}}", .{budget, slippage});
+                defer allocator.free(res);
+                try sendResponse(&stdout, res);
+            } else if (std.mem.eql(u8, name, "issue_directive")) {
+                const args = params.get("arguments").?.object;
+                const text = args.get("text").?.string;
+                
+                const mission = try ctx.brain.interpret(text);
+                
+                var encoder = awp.AwpEncoder.init(allocator);
+                defer encoder.deinit();
+                const bin_msg = try encoder.encodeMissionDirective(mission);
+
+                // Enviar al socket local para que el bridge lo propague
+                const address = try std.net.Address.initUnix("/tmp/xb77_znode.sock");
+                const stream = std.net.tcpConnectToAddress(address) catch |err| {
+                    const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Error connecting to Z-Node Bridge: {any}. Ensure 'xb77 serve' is running.\"}}]}}", .{err});
+                    defer allocator.free(res);
+                    try sendResponse(&stdout, res);
+                    return;
+                };
+                defer stream.close();
+                _ = try stream.write(bin_msg);
+
+                const res = try std.fmt.allocPrint(allocator, 
+                    \\{{"content":[{"type":"text","text":"QVAC Directive Interpreted & Issued!\n- Mission ID: {x}\n- Budget: {d} lamports\n- Slippage: {d} bps\n- Status: Broadcasting to swarm..."}]}}
+                , .{ 
+                    std.fmt.fmtSliceHexLower(&mission.id), 
+                    mission.max_budget, 
+                    mission.slippage_bps
+                });
+                defer allocator.free(res);
+                try sendResponse(&stdout, res);
+            } else if (std.mem.eql(u8, name, "parse_directive")) {
+                const args = params.get("arguments").?.object;
+                const text = args.get("text").?.string;
+                
+                const mission = try ctx.brain.interpret(text);
+                
+                var encoder = awp.AwpEncoder.init(allocator);
+                defer encoder.deinit();
+                const bin_msg = try encoder.encodeMissionDirective(mission);
+
+                // Opcional: Propagar automáticamente si el usuario lo desea, 
+                // pero por ahora solo devolvemos la interpretación.
+                
+                const res = try std.fmt.allocPrint(allocator, 
+                    \\{{"content":[{"type":"text","text":"QVAC Local Interpretation:\n- Mission ID: {x}\n- Budget: {d} lamports\n- Slippage: {d} bps\n- Logic Hash: {x}\n- ZK Proof: {s}"}]}}
+                , .{ 
+                    std.fmt.fmtSliceHexLower(&mission.id), 
+                    mission.max_budget, 
+                    mission.slippage_bps, 
+                    std.fmt.fmtSliceHexLower(&mission.logic_hash),
+                    mission.zk_proof
+                });
                 defer allocator.free(res);
                 try sendResponse(&stdout, res);
             } else if (std.mem.eql(u8, name, "snapshot_swarm")) {
