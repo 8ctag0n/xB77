@@ -68,6 +68,8 @@ pub fn main() !void {
         try handleMesh(allocator, config_path);
     } else if (std.mem.eql(u8, command, "mcp")) {
         try handleMcp(allocator, config_path);
+    } else if (std.mem.eql(u8, command, "export")) {
+        try handleExport(allocator, config_path);
     } else if (std.mem.eql(u8, command, "serve")) {
         try handleServe(allocator, config_path);
     } else if (std.mem.eql(u8, command, "spawn")) {
@@ -96,9 +98,44 @@ fn printUsage() void {
         \\  mesh             Muestra los pares en la red soberana
         \\  spawn <name>     Crea un nuevo agente (Factory)
         \\  mcp              Inicia el servidor de orquestación IA
+        \\  export           Sovereign Export (Panic Button): Empaqueta estado y llaves
         \\  serve            Inicia la operación autónoma 24/7
         \\
     , .{});
+}
+
+fn handleExport(allocator: std.mem.Allocator, config_path: []const u8) !void {
+    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    defer ctx.deinit();
+
+    std.debug.print("\n--- xB77 Sovereign Export ({s}) ---\n", .{config_path});
+    std.debug.print("Empaquetando estado y llaves desde: {s}\n", .{ctx.config.vaults.path});
+
+    // 1. Crear el nombre del archivo de exportación con timestamp
+    const ts = std.time.timestamp();
+    var out_name_buf: [128]u8 = undefined;
+    const out_name = try std.fmt.bufPrint(&out_name_buf, "xb77_sovereign_backup_{d}.tar.gz", .{ts});
+
+    // 2. Usar 'tar' del sistema para el Sprint Final (simplicidad y confiabilidad)
+    const argv = [_][]const u8{
+        "tar",
+        "-czf",
+        out_name,
+        ctx.config.vaults.path,
+        config_path, 
+    };
+
+    var child = std.process.Child.init(&argv, allocator);
+    try child.spawn();
+    const term = try child.wait();
+
+    if (term == .Exited and term.Exited == 0) {
+        std.debug.print("✅ Sovereign Export COMPLETADO: {s}\n", .{out_name});
+        std.debug.print("Este blob contiene su Merkle Tree y sus llaves privadas WDK.\n", .{});
+        std.debug.print("GUÁRDELO EN UN LUGAR SEGURO. ES SU SOBERANÍA.\n", .{});
+    } else {
+        std.debug.print("❌ Exportación FALLIDA. (error de tar)\n", .{});
+    }
 }
 
 fn handleState(allocator: std.mem.Allocator, config_path: []const u8) !void {

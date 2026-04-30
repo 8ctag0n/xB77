@@ -117,4 +117,11 @@ pub const Constitution = struct {
 
         return true;
     }
+
+    pub fn validateToll(self: *const Constitution, amount: u64, memo: []const u8) bool {
+        _ = self;
+        _ = memo;
+        // Regla constitucional: No pagar más de 1000 créditos por una sola operación de infraestructura
+        return amount <= 1000;
+    }
 };

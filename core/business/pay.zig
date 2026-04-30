@@ -163,12 +163,18 @@ pub const PaymentRouter = struct {
     fn selectStrategy(self: *PaymentRouter, request: PaymentRequest) PaymentStrategy {
         _ = self;
         
-        // Tether Compliance: USDT over $5k triggers Ghost Mode for privacy.
+        // Institutional Policy: High-value transfers trigger enhanced privacy rails.
         if (std.mem.eql(u8, request.asset.symbol, "USDT") or std.mem.eql(u8, request.asset.symbol, "Tether")) {
-             if (request.amount > 5_000_000_000) return .ghost; // 5000 USDT (assumes 6 or 9 decimals, simplified)
+             if (request.amount > 5_000_000_000) {
+                 std.debug.print("[Strategy] Activating Tether Corporate Privacy Shield for high-value transfer\n", .{});
+                 return .ghost;
+             }
         }
 
-        if (request.amount > 1_000_000_000) return .ghost;
+        if (request.amount > 1_000_000_000) {
+            std.debug.print("[Strategy] Routing through privacy rail due to amount threshold\n", .{});
+            return .ghost;
+        }
         return .direct;
     }
 

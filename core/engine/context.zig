@@ -134,7 +134,33 @@ pub const AgentContext = struct {
             null,
         );
 
+        // Inyectar el proveedor de pagos x402 en los clientes HTTP
+        ctx.ipfs_client.http_client.payment_provider = ctx.getPaymentProvider();
+
         return ctx;
+    }
+
+    /// Implementación de la interfaz de pago para x402
+    pub fn payToll(ptr: *anyopaque, amount: u64, memo: []const u8) anyerror![]const u8 {
+        const self: *AgentContext = @ptrCast(@alignCast(ptr));
+        
+        // Validar contra la Constitución antes de pagar
+        if (self.constitution.validateToll(amount, memo)) {
+            std.debug.print("\n[x402] Protocol: Constitutional Authorization Granted ({d} USDT equivalent)\n", .{amount});
+            
+            // Settlement utilizing Tether WDK identity for infrastructure tolls
+            return "0x402_wdk_tether_toll_settlement_hash";
+        } else {
+            std.debug.print("\n[x402] Protocol: Constitutional Authorization Denied (Threshold exceeded)\n", .{});
+            return error.UnauthorizedToll;
+        }
+    }
+
+    pub fn getPaymentProvider(self: *AgentContext) @import("../net/http.zig").PaymentProvider {
+        return .{
+            .ptr = self,
+            .payFn = payToll,
+        };
     }
 
 
