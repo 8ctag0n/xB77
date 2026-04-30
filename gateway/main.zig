@@ -197,6 +197,8 @@ fn route_deploy(allocator: std.mem.Allocator, body: []const u8) *Response {
         .{ .sol = m.agent_id },
     ) catch return build_response(500, "ZK Error");
     
+    save_receipt_commitment(allocator, m.agent_id, zk_receipt.commitment) catch {};
+
     const commitment_hex = core.crypto.bytesToHex(allocator, &zk_receipt.commitment) catch "err";
     defer if (!std.mem.eql(u8, commitment_hex, "err")) allocator.free(commitment_hex);
 
@@ -218,27 +220,75 @@ fn route_export(allocator: std.mem.Allocator, body: []const u8) *Response {
     defer parsed.deinit();
     const req = parsed.value;
 
-    // Verificar firma del timestamp
+    // 1. Verificar firma del timestamp
     var ts_buf: [8]u8 = undefined;
     std.mem.writeInt(i64, &ts_buf, req.timestamp, .little);
     if (!core.crypto.verify(&ts_buf, &req.signature, &req.agent_id)) return build_response(401, "Unauthorized");
 
-    // TODO: Recuperar estado real de KV y construir ExportResponse
-    // Por ahora devolvemos un mock pero con estructura real
-    const mock_resp = core.protocol.types.ExportResponse{
-        .config_toml = "# Restored Config",
-        .ledger_jsonl = "{}",
-        .state_vault_b64 = "eEI3NwAAAAAAAAAA", // "xB77" empty vault
-        .ops_history = "",
-        .reserve_history = "",
-        .yield_history = "",
+    // 2. Recuperar datos reales de KV (vía cache)
+    var agent_id_hex_buf: [64]u8 = undefined;
+    const hex = std.fmt.bytesToHex(req.agent_id, .lower);
+    @memcpy(&agent_id_hex_buf, &hex);
+    const agent_id_hex = agent_id_hex_buf[0..64];
+
+    const cfg_key = std.fmt.allocPrint(allocator, "cfg_{s}", .{agent_id_hex}) catch "cfg";
+    const lgr_key = std.fmt.allocPrint(allocator, "ledger_{s}", .{agent_id_hex}) catch "lgr";
+    const vlt_key = std.fmt.allocPrint(allocator, "vault_{s}", .{agent_id_hex}) catch "vlt";
+    const hops_key = std.fmt.allocPrint(allocator, "hist_ops_{s}", .{agent_id_hex}) catch "hops";
+    const hres_key = std.fmt.allocPrint(allocator, "hist_res_{s}", .{agent_id_hex}) catch "hres";
+    const hyld_key = std.fmt.allocPrint(allocator, "hist_yld_{s}", .{agent_id_hex}) catch "hyld";
+
+    defer if (!std.mem.eql(u8, cfg_key, "cfg")) allocator.free(cfg_key);
+    defer if (!std.mem.eql(u8, lgr_key, "lgr")) allocator.free(lgr_key);
+    defer if (!std.mem.eql(u8, vlt_key, "vlt")) allocator.free(vlt_key);
+    defer if (!std.mem.eql(u8, hops_key, "hops")) allocator.free(hops_key);
+    defer if (!std.mem.eql(u8, hres_key, "hres")) allocator.free(hres_key);
+    defer if (!std.mem.eql(u8, hyld_key, "hyld")) allocator.free(hyld_key);
+
+    const config = get_kv_data(allocator, cfg_key) catch "# No Config Found";
+    const ledger = get_kv_data(allocator, lgr_key) catch "[]";
+    const vault_bin = get_kv_data(allocator, vlt_key) catch "";
+    const hist_ops = get_kv_data(allocator, hops_key) catch "";
+    const hist_res = get_kv_data(allocator, hres_key) catch "";
+    const hist_yld = get_kv_data(allocator, hyld_key) catch "";
+
+    // Codificar Vault a Base64 para el JSON
+    const vault_b64 = if (vault_bin.len > 0) blk: {
+        const out = allocator.alloc(u8, std.base64.standard.Encoder.calcSize(vault_bin.len)) catch return build_response(500, "B64 Error");
+        _ = std.base64.standard.Encoder.encode(out, vault_bin);
+        break :blk out;
+    } else "eEI3NwAAAAAAAAAA";
+
+    const export_resp = core.protocol.types.ExportResponse{
+        .config_toml = config,
+        .ledger_jsonl = ledger,
+        .state_vault_b64 = vault_b64,
+        .ops_history = hist_ops,
+        .reserve_history = hist_res,
+        .yield_history = hist_yld,
     };
 
     var list = std.ArrayListUnmanaged(u8){};
     defer list.deinit(allocator);
-    list.writer(allocator).print("{f}", .{std.json.fmt(mock_resp, .{})}) catch return build_response(500, "Error");
+    list.writer(allocator).print("{f}", .{std.json.fmt(export_resp, .{})}) catch return build_response(500, "Error");
 
     return build_response(200, list.items);
+}
+
+fn save_receipt_commitment(allocator: std.mem.Allocator, agent_id: core.types.Pubkey, commitment: [32]u8) !void {
+    var agent_id_hex_buf: [64]u8 = undefined;
+    const hex = std.fmt.bytesToHex(agent_id, .lower);
+    @memcpy(&agent_id_hex_buf, &hex);
+    const agent_id_hex = agent_id_hex_buf[0..64];
+
+    const key = try std.fmt.allocPrint(allocator, "receipts_{s}", .{agent_id_hex});
+    defer allocator.free(key);
+
+    const comm_hex = try core.crypto.bytesToHex(allocator, &commitment);
+    defer allocator.free(comm_hex);
+
+    // En un sistema real, haríamos append al log. Aquí por ahora guardamos el último o simulamos el log.
+    js_kv_put(key.ptr, key.len, comm_hex.ptr, comm_hex.len);
 }
 
 fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
@@ -321,6 +371,8 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
                 js_telegram_send(msg.chat.id, "❌ Error generating ZK receipt.", 31);
                 return build_response(200, "OK");
             };
+
+            save_receipt_commitment(allocator, status.agent_id, zk_receipt.commitment) catch {};
 
             const comm_hex = core.crypto.bytesToHex(allocator, &zk_receipt.commitment) catch "err";
             defer if (!std.mem.eql(u8, comm_hex, "err")) allocator.free(comm_hex);

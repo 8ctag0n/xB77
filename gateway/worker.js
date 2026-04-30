@@ -48,6 +48,16 @@ export default {
         if (json.agent_id && Array.isArray(json.agent_id)) {
           const agent_id_hex = Array.from(json.agent_id).map(b => b.toString(16).padStart(2, '0')).join('');
           prefetch_keys.push(agent_id_hex);
+          
+          if (url.pathname === "/export") {
+            // Pre-cargar TODO el estado para el Sovereign Export
+            prefetch_keys.push(`cfg_${agent_id_hex}`);
+            prefetch_keys.push(`ledger_${agent_id_hex}`);
+            prefetch_keys.push(`vault_${agent_id_hex}`);
+            prefetch_keys.push(`hist_ops_${agent_id_hex}`);
+            prefetch_keys.push(`hist_res_${agent_id_hex}`);
+            prefetch_keys.push(`hist_yld_${agent_id_hex}`);
+          }
         }
       } catch (e) {}
     } else if (url.pathname === "/webhook/telegram" && method === "POST") {
