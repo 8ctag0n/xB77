@@ -55,17 +55,18 @@ pub const HttpClient = struct {
         var client = std.http.Client{ .allocator = self.allocator };
         defer client.deinit();
 
+        const Header = struct { name: []const u8, value: []const u8 };
         const uri = try std.Uri.parse(url);
         
-        var headers = std.ArrayList(std.http.Header).init(self.allocator);
-        defer headers.deinit();
-        try headers.append(.{ .name = "Content-Type", .value = "application/json" });
+        var headers = std.ArrayListUnmanaged(Header){};
+        defer headers.deinit(self.allocator);
+        try headers.append(self.allocator, .{ .name = "Content-Type", .value = "application/json" });
         if (payment_hash) |hash| {
-            try headers.append(.{ .name = "X-xB77-Payment-Hash", .value = hash });
+            try headers.append(self.allocator, .{ .name = "X-xB77-Payment-Hash", .value = hash });
         }
 
         var req = try client.request(.POST, uri, .{ 
-            .extra_headers = headers.items 
+            .extra_headers = @ptrCast(headers.items) 
         });
         defer req.deinit();
 

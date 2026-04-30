@@ -137,6 +137,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 const mission = awp.MissionDirectiveMsg{
                     .id = [_]u8{0x4D} ** 32, // 'M' de Misión
                     .owner_root = [_]u8{0} ** 32,
+                    .policy_root = [_]u8{0} ** 32,
                     .nullifier = [_]u8{0} ** 32,
                     .max_budget = budget,
                     .slippage_bps = slippage,
@@ -163,7 +164,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 
                 var encoder = awp.AwpEncoder.init(allocator);
                 defer encoder.deinit();
-                const bin_msg = try encoder.encodeMissionDirective(mission);
+                const bin_msg = try encoder.encodeMissionDirective(mission.directive);
 
                 // Enviar al socket local para que el bridge lo propague
                 const address = try std.net.Address.initUnix("/tmp/xb77_znode.sock");
@@ -177,11 +178,11 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 _ = try stream.write(bin_msg);
 
                 const res = try std.fmt.allocPrint(allocator, 
-                    \\{{"content":[{"type":"text","text":"QVAC Directive Interpreted & Issued!\n- Mission ID: {x}\n- Budget: {d} lamports\n- Slippage: {d} bps\n- Status: Broadcasting to swarm..."}]}}
+                    \\{{"content":[ {{"type":"text","text":"QVAC Directive Interpreted & Issued!\n- Mission ID: {s}\n- Budget: {d} lamports\n- Slippage: {d} bps\n- Status: Broadcasting to swarm..."}} ]}}
                 , .{ 
-                    std.fmt.fmtSliceHexLower(&mission.id), 
-                    mission.max_budget, 
-                    mission.slippage_bps
+                    &std.fmt.bytesToHex(mission.directive.id, .lower), 
+                    mission.directive.max_budget, 
+                    mission.directive.slippage_bps
                 });
                 defer allocator.free(res);
                 try sendResponse(&stdout, res);
@@ -193,19 +194,20 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 
                 var encoder = awp.AwpEncoder.init(allocator);
                 defer encoder.deinit();
-                const bin_msg = try encoder.encodeMissionDirective(mission);
+                const bin_msg = try encoder.encodeMissionDirective(mission.directive);
+                _ = bin_msg;
 
                 // Opcional: Propagar automáticamente si el usuario lo desea, 
                 // pero por ahora solo devolvemos la interpretación.
                 
                 const res = try std.fmt.allocPrint(allocator, 
-                    \\{{"content":[{"type":"text","text":"QVAC Local Interpretation:\n- Mission ID: {x}\n- Budget: {d} lamports\n- Slippage: {d} bps\n- Logic Hash: {x}\n- ZK Proof: {s}"}]}}
+                    \\{{"content":[ {{"type":"text","text":"QVAC Local Interpretation:\n- Mission ID: {s}\n- Budget: {d} lamports\n- Slippage: {d} bps\n- Logic Hash: {s}\n- ZK Proof: {s}"}} ]}}
                 , .{ 
-                    std.fmt.fmtSliceHexLower(&mission.id), 
-                    mission.max_budget, 
-                    mission.slippage_bps, 
-                    std.fmt.fmtSliceHexLower(&mission.logic_hash),
-                    mission.zk_proof
+                    &std.fmt.bytesToHex(mission.directive.id, .lower), 
+                    mission.directive.max_budget, 
+                    mission.directive.slippage_bps,
+                    &std.fmt.bytesToHex(mission.directive.logic_hash, .lower),
+                    mission.directive.zk_proof
                 });
                 defer allocator.free(res);
                 try sendResponse(&stdout, res);

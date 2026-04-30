@@ -50,9 +50,8 @@ pub const BrainInsight = struct {
         }
 
         try writer.print("\n[EXEC] Mission Identifier Hash:\n", .{});
-        var id_hex: [64]u8 = undefined;
-        _ = try std.fmt.bufPrint(&id_hex, "{x}", .{std.fmt.fmtSliceHexLower(&self.directive.id)});
-        try writer.print("   0x{s}\n", .{id_hex});
+        const id_hex = std.fmt.bytesToHex(self.directive.id, .lower);
+        try writer.print("   0x{s}\n", .{&id_hex});
 
         return list.toOwnedSlice();
     }

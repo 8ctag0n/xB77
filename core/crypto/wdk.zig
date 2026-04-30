@@ -41,7 +41,7 @@ pub const WdkProvider = struct {
         hmac.final(&full_hash);
         @memcpy(&kp_seed, full_hash[0..32]);
 
-        const kp = std.crypto.sign.Ed25519.KeyPair.create(kp_seed) catch unreachable;
+        const kp = std.crypto.sign.Ed25519.KeyPair.generateDeterministic(kp_seed) catch unreachable;
         return .{
             .public = kp.public_key.toBytes(),
             .secret = kp.secret_key.toBytes(),

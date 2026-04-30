@@ -68,8 +68,8 @@ pub fn main() !void {
         try handleMesh(allocator, config_path);
     } else if (std.mem.eql(u8, command, "mcp")) {
         try handleMcp(allocator, config_path);
-    } else if (std.mem.eql(u8, command, "export")) {
-        try handleExport(allocator, config_path);
+    } else if (std.mem.eql(u8, command, "package")) {
+        try handleLocalExport(allocator, config_path);
     } else if (std.mem.eql(u8, command, "serve")) {
         try handleServe(allocator, config_path);
     } else if (std.mem.eql(u8, command, "spawn")) {
@@ -79,7 +79,7 @@ pub fn main() !void {
     } else if (std.mem.eql(u8, command, "link")) {
         try handleLink(allocator, config_path, cmd_args);
     } else if (std.mem.eql(u8, command, "export")) {
-        try handleExport(allocator, config_path);
+        try handleRemoteExport(allocator, config_path);
     } else if (std.mem.eql(u8, command, "credits")) {
         try handleCredits(allocator, config_path);
     } else {
@@ -106,7 +106,7 @@ fn printUsage() void {
         \\  mesh             Muestra los pares en la red soberana
         \\  spawn <name>     Crea un nuevo agente (Factory)
         \\  mcp              Inicia el servidor de orquestación IA
-        \\  export           Sovereign Export (Panic Button): Empaqueta estado y llaves
+        \\  package          Sovereign Export (Panic Button): Empaqueta estado y llaves
         \\  serve            Inicia la operación autónoma 24/7
         \\  deploy           Sube la configuración al Sovereign Gateway (Cloudflare)
         \\  link <code>      Vincula este agente con tu cuenta de Telegram
@@ -116,7 +116,7 @@ fn printUsage() void {
     , .{});
 }
 
-fn handleExport(allocator: std.mem.Allocator, config_path: []const u8) !void {
+fn handleLocalExport(allocator: std.mem.Allocator, config_path: []const u8) !void {
     var ctx = try core.context.AgentContext.init(allocator, config_path);
     defer ctx.deinit();
 
@@ -432,7 +432,7 @@ fn handleCredits(allocator: std.mem.Allocator, config_path: []const u8) !void {
     }
 }
 
-fn handleExport(allocator: std.mem.Allocator, config_path: []const u8) !void {
+fn handleRemoteExport(allocator: std.mem.Allocator, config_path: []const u8) !void {
     var ctx = try core.context.AgentContext.init(allocator, config_path);
     defer ctx.deinit();
 

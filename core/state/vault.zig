@@ -227,9 +227,9 @@ pub const VaultSet = struct {
 
         return .{
             .allocator = allocator,
-            .ops = try Vault.init(allocator, .ops, default_policy, ops_path),
-            .reserve = try Vault.init(allocator, .reserve, default_policy, reserve_path),
-            .yield = try Vault.init(allocator, .yield, default_policy, yield_path),
+            .ops = try Vault.init(allocator, .ops, default_policy, ops_path, null),
+            .reserve = try Vault.init(allocator, .reserve, default_policy, reserve_path, null),
+            .yield = try Vault.init(allocator, .yield, default_policy, yield_path, null),
         };
     }
 
