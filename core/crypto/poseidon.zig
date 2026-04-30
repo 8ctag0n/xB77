@@ -1,5 +1,5 @@
 const std = @import("std");
-const bn254 = @import("../crypto/bn254.zig");
+pub const bn254 = @import("../crypto/bn254.zig");
 const Fr = bn254.Fr;
 const constants = @import("../crypto/poseidon_constants.zig");
 

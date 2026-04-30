@@ -67,3 +67,58 @@ pub const VaultHeader = extern struct {
     pub const MAGIC = "xB77".*;
     pub const HEADER_SIZE = 1024; // Page-aligned offset for the CMT nodes
 };
+
+pub const DeploymentManifest = struct {
+    agent_id: Pubkey,
+    config_toml: []const u8,
+    timestamp: i64,
+    signature: Signature,
+    is_custodial: bool = true,
+};
+
+pub const LinkPayload = struct {
+    agent_id: Pubkey,
+    link_code: []const u8,
+    signature: Signature,
+};
+
+pub const ExportRequest = struct {
+    agent_id: Pubkey,
+    timestamp: i64,
+    signature: Signature,
+};
+
+pub const ExportResponse = struct {
+    config_toml: []const u8,
+    ledger_jsonl: []const u8,
+    state_vault_b64: []const u8, // Merkle Tree base64
+    ops_history: []const u8,
+    reserve_history: []const u8,
+    yield_history: []const u8,
+};
+
+// --- Telegram API Types ---
+
+pub const TelegramUser = struct {
+    id: i64,
+    is_bot: bool,
+    first_name: []const u8,
+    username: ?[]const u8 = null,
+};
+
+pub const TelegramChat = struct {
+    id: i64,
+    type: []const u8,
+};
+
+pub const TelegramMessage = struct {
+    message_id: i64,
+    from: ?TelegramUser = null,
+    chat: TelegramChat,
+    text: ?[]const u8 = null,
+};
+
+pub const TelegramUpdate = struct {
+    update_id: i64,
+    message: ?TelegramMessage = null,
+};

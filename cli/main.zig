@@ -74,6 +74,14 @@ pub fn main() !void {
         try handleServe(allocator, config_path);
     } else if (std.mem.eql(u8, command, "spawn")) {
         try handleSpawn(allocator, cmd_args);
+    } else if (std.mem.eql(u8, command, "deploy")) {
+        try handleDeploy(allocator, config_path, cmd_args);
+    } else if (std.mem.eql(u8, command, "link")) {
+        try handleLink(allocator, config_path, cmd_args);
+    } else if (std.mem.eql(u8, command, "export")) {
+        try handleExport(allocator, config_path);
+    } else if (std.mem.eql(u8, command, "credits")) {
+        try handleCredits(allocator, config_path);
     } else {
         std.debug.print("Comando desconocido: {s}\n", .{command});
         printUsage();
@@ -100,6 +108,10 @@ fn printUsage() void {
         \\  mcp              Inicia el servidor de orquestación IA
         \\  export           Sovereign Export (Panic Button): Empaqueta estado y llaves
         \\  serve            Inicia la operación autónoma 24/7
+        \\  deploy           Sube la configuración al Sovereign Gateway (Cloudflare)
+        \\  link <code>      Vincula este agente con tu cuenta de Telegram
+        \\  export           Descarga el estado más reciente desde el Gateway (Sovereign Export)
+        \\  credits          Muestra el balance de créditos de infraestructura
         \\
     , .{});
 }
@@ -284,3 +296,217 @@ fn handleMesh(allocator: std.mem.Allocator, config_path: []const u8) !void {
     }
     std.debug.print("\nMesh Health: {s}\n", .{if (ctx.mesh_manager.countPeers() > 0) "Synchronizing" else "Isolated"});
 }
+
+fn handleDeploy(allocator: std.mem.Allocator, config_path: []const u8, args: []const [:0]u8) !void {
+    _ = args;
+    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    defer ctx.deinit();
+
+    std.debug.print("\n🚀 Preparando despliegue para el Agente Soberano ({s})...\n", .{config_path});
+
+    // 1. Leer agent.toml (o el perfil actual)
+    const file = try std.fs.cwd().openFile(config_path, .{});
+    defer file.close();
+    const config_toml = try file.readToEndAlloc(allocator, 1024 * 64);
+    defer allocator.free(config_toml);
+
+    // 2. Crear Manifest
+    const timestamp = std.time.milliTimestamp();
+    const sol_kp = ctx.vaults.ops.sol_kp;
+    
+    // Firmar: pubkey + timestamp + config_hash
+    var hash: [32]u8 = undefined;
+    var hasher = std.crypto.hash.sha2.Sha256.init(.{});
+    hasher.update(&sol_kp.public);
+    var ts_buf: [8]u8 = undefined;
+    std.mem.writeInt(i64, &ts_buf, timestamp, .little);
+    hasher.update(&ts_buf);
+    hasher.update(config_toml);
+    hasher.final(&hash);
+    
+    const signature = core.crypto.sign(&hash, &sol_kp);
+
+    const manifest = core.protocol.types.DeploymentManifest{
+        .agent_id = sol_kp.public,
+        .config_toml = config_toml,
+        .timestamp = timestamp,
+        .signature = signature,
+        .is_custodial = true,
+    };
+
+    // 3. Serializar a JSON
+    var json_list = std.ArrayListUnmanaged(u8){};
+    defer json_list.deinit(allocator);
+    try json_list.writer(allocator).print("{f}", .{std.json.fmt(manifest, .{})});
+    const json_body = json_list.items;
+
+    // 4. Enviar a Cloudflare (Gateway)
+    var http = core.net.http.HttpClient.init(allocator);
+    // URL del Gateway (ajustar segun despliegue real)
+    const gateway_url = "https://gateway.xb77.com/deploy";
+    
+    std.debug.print("📡 Sincronizando con el Edge en {s}...\n", .{gateway_url});
+    var resp = http.post(gateway_url, json_body) catch |err| {
+        std.debug.print("❌ Error de conexión: {}\n", .{err});
+        return;
+    };
+    defer resp.deinit();
+
+    if (resp.status == 200) {
+        std.debug.print("✅ ¡Despliegue exitoso! Tu agente ya es omnipresente.\n", .{});
+    } else {
+        std.debug.print("❌ Fallo en el despliegue ({d}): {s}\n", .{resp.status, resp.body});
+    }
+}
+
+fn handleLink(allocator: std.mem.Allocator, config_path: []const u8, args: []const [:0]u8) !void {
+    if (args.len < 1) {
+        std.debug.print("Uso: xb77 link <code>\n", .{});
+        return;
+    }
+    const code = args[0];
+
+    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    defer ctx.deinit();
+
+    const sol_kp = ctx.vaults.ops.sol_kp;
+    
+    std.debug.print("\n🔗 Vinculando Agente {s} con Telegram...\n", .{try core.crypto.pubkeyToString(allocator, &sol_kp.public)});
+
+    // Firmar el código para probar posesión de la identidad
+    const signature = core.crypto.sign(code, &sol_kp);
+
+    const payload = core.protocol.types.LinkPayload{
+        .agent_id = sol_kp.public,
+        .link_code = code,
+        .signature = signature,
+    };
+
+    var json_list = std.ArrayListUnmanaged(u8){};
+    defer json_list.deinit(allocator);
+    try json_list.writer(allocator).print("{f}", .{std.json.fmt(payload, .{})});
+    const json_body = json_list.items;
+
+    var http = core.net.http.HttpClient.init(allocator);
+    const link_url = "https://gateway.xb77.com/link";
+    
+    var resp = http.post(link_url, json_body) catch |err| {
+        std.debug.print("❌ Error de conexión: {}\n", .{err});
+        return;
+    };
+    defer resp.deinit();
+
+    if (resp.status == 200) {
+        std.debug.print("✅ ¡Vinculación exitosa! Ya puedes operar vía Telegram.\n", .{});
+    } else {
+        std.debug.print("❌ Fallo en la vinculación ({d}): {s}\n", .{resp.status, resp.body});
+    }
+}
+
+fn handleCredits(allocator: std.mem.Allocator, config_path: []const u8) !void {
+    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    defer ctx.deinit();
+
+    const sol_kp = ctx.vaults.ops.sol_kp;
+    const agent_id_hex = try core.crypto.bytesToHex(allocator, &sol_kp.public);
+    defer allocator.free(agent_id_hex);
+
+    std.debug.print("\n💳 Sovereign Credits Balance ({s})\n", .{agent_id_hex});
+
+    var http = core.net.http.HttpClient.init(allocator);
+    const balance_url = try std.fmt.allocPrint(allocator, "https://gateway.xb77.com/balance/{s}", .{agent_id_hex});
+    defer allocator.free(balance_url);
+    
+    var resp = http.post(balance_url, "") catch |err| {
+        std.debug.print("❌ Error de conexión: {}\n", .{err});
+        return;
+    };
+    defer resp.deinit();
+
+    if (resp.status == 200) {
+        // Asumimos que el Gateway devuelve el balance como texto por ahora
+        std.debug.print("Balance: {s} SC\n", .{resp.body});
+        std.debug.print("Estado: Activo & Financiado\n", .{});
+    } else {
+        std.debug.print("❌ Error al obtener balance: {s}\n", .{resp.body});
+    }
+}
+
+fn handleExport(allocator: std.mem.Allocator, config_path: []const u8) !void {
+    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    defer ctx.deinit();
+
+    const sol_kp = ctx.vaults.ops.sol_kp;
+    const timestamp = std.time.milliTimestamp();
+
+    std.debug.print("\n🛡️ Iniciando Sovereign Export para el Agente {s}...\n", .{try core.crypto.pubkeyToString(allocator, &sol_kp.public)});
+
+    // 1. Firmar el timestamp para autenticación
+    var ts_buf: [8]u8 = undefined;
+    std.mem.writeInt(i64, &ts_buf, timestamp, .little);
+    const signature = core.crypto.sign(&ts_buf, &sol_kp);
+
+    const req = core.protocol.types.ExportRequest{
+        .agent_id = sol_kp.public,
+        .timestamp = timestamp,
+        .signature = signature,
+    };
+
+    var json_list = std.ArrayListUnmanaged(u8){};
+    defer json_list.deinit(allocator);
+    try json_list.writer(allocator).print("{f}", .{std.json.fmt(req, .{})});
+
+    // 2. Solicitar exportación al Gateway
+    var http = core.net.http.HttpClient.init(allocator);
+    const export_url = "https://gateway.xb77.com/export";
+    
+    std.debug.print("📡 Descargando estado desde el Edge...\n", .{});
+    var resp = http.post(export_url, json_list.items) catch |err| {
+        std.debug.print("❌ Error de conexión: {}\n", .{err});
+        return;
+    };
+    defer resp.deinit();
+
+    if (resp.status != 200) {
+        std.debug.print("❌ Error en la exportación ({d}): {s}\n", .{resp.status, resp.body});
+        return;
+    }
+
+    // 3. Parsear respuesta y guardar archivos
+    const parsed = try std.json.parseFromSlice(core.protocol.types.ExportResponse, allocator, resp.body, .{ .ignore_unknown_fields = true });
+    defer parsed.deinit();
+    const data = parsed.value;
+
+    const base_path = ctx.config.vaults.path;
+    try std.fs.cwd().makePath(base_path);
+
+    // Guardar Ledger
+    const ledger_path = try std.fs.path.join(allocator, &[_][]const u8{ base_path, "ledger.jsonl" });
+    defer allocator.free(ledger_path);
+    try std.fs.cwd().writeFile(.{ .sub_path = ledger_path, .data = data.ledger_jsonl });
+
+    // Guardar Historias
+    const history_files = [_][2][]const u8{
+        .{ "ops", data.ops_history },
+        .{ "reserve", data.reserve_history },
+        .{ "yield", data.yield_history },
+    };
+    for (history_files) |h| {
+        const h_path = try std.fs.path.join(allocator, &[_][]const u8{ base_path, h[0] });
+        defer allocator.free(h_path);
+        try std.fs.cwd().writeFile(.{ .sub_path = h_path, .data = h[1] });
+    }
+
+    // Guardar State Vault (decodificar Base64)
+    const vault_path = try std.fs.path.join(allocator, &[_][]const u8{ base_path, "state.vault" });
+    defer allocator.free(vault_path);
+    
+    const vault_bin = try allocator.alloc(u8, try std.base64.standard.Decoder.calcSizeForSlice(data.state_vault_b64));
+    defer allocator.free(vault_bin);
+    try std.base64.standard.Decoder.decode(vault_bin, data.state_vault_b64);
+    
+    try std.fs.cwd().writeFile(.{ .sub_path = vault_path, .data = vault_bin });
+
+    std.debug.print("✅ ¡Exportación completada! El estado local ha sido sincronizado.\n", .{});
+}
+
