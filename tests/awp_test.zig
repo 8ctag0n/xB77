@@ -31,3 +31,28 @@ test "AWP: Encode and Decode TransferMsg" {
     try std.testing.expectEqual(decoded.amount, 42_000_000);
     try std.testing.expectEqualSlices(u8, &decoded.recipient.sol, &msg.recipient.sol);
 }
+
+test "AWP: Encode and Decode AppQuoteMsg" {
+    const allocator = std.testing.allocator;
+
+    var encoder = awp.AwpEncoder.init(allocator);
+    defer encoder.deinit();
+
+    const msg = awp.AppQuoteMsg{
+        .quote_id = [_]u8{0x12} ** 32,
+        .asset = .{ .chain = .solana, .symbol = "USDC" },
+        .price = 100_000_000,
+        .expiry = 1714492800,
+    };
+
+    const encoded = try encoder.encodeAppQuote(msg);
+    
+    var decoder = awp.AwpDecoder.init(encoded);
+    const decoded = try decoder.decodeAppQuote();
+
+    try std.testing.expectEqualSlices(u8, &decoded.quote_id, &msg.quote_id);
+    try std.testing.expectEqual(decoded.asset.chain, .solana);
+    try std.testing.expectEqualStrings(decoded.asset.symbol, "USDC");
+    try std.testing.expectEqual(decoded.price, 100_000_000);
+    try std.testing.expectEqual(decoded.expiry, 1714492800);
+}

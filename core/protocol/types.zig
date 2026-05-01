@@ -97,6 +97,20 @@ pub const ExportResponse = struct {
     yield_history: []const u8,
 };
 
+pub const EscrowStatus = enum {
+    locked,
+    released,
+    disputed,
+};
+
+pub const EscrowAccount = struct {
+    hire_id: [32]u8,
+    amount: u64,
+    asset: Asset,
+    status: EscrowStatus,
+    arbiter: Pubkey,
+};
+
 // --- Telegram API Types ---
 
 pub const TelegramUser = struct {

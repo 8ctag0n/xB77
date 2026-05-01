@@ -25,10 +25,62 @@ pub const MessageType = enum(u8) {
     app_escrow_lock = 0x12,
     app_escrow_release = 0x13,
     app_dispute_open = 0x14,
+    app_dispute_resolve = 0x15,
+    app_plan = 0x16,
+    service_discovery = 0x17,
 };
 
 pub const RawYellowstoneMsg = struct {
     data: []const u8,
+};
+
+// --- APP (Agent Payments Protocol) Messages ---
+
+pub const AppQuoteMsg = struct {
+    quote_id: [32]u8,
+    asset: Asset,
+    price: u64,
+    expiry: u64,
+};
+
+pub const AppHireMsg = struct {
+    hire_id: [32]u8,
+    quote_id: [32]u8,
+    escrow_amount: u64,
+};
+
+pub const AppEscrowLockMsg = struct {
+    hire_id: [32]u8,
+    tx_hash: [32]u8,
+    amount: u64,
+};
+
+pub const AppEscrowReleaseMsg = struct {
+    hire_id: [32]u8,
+    sig: [64]u8,
+};
+
+pub const AppDisputeOpenMsg = struct {
+    hire_id: [32]u8,
+    reason: []const u8,
+};
+
+pub const AppDisputeResolveMsg = struct {
+    hire_id: [32]u8,
+    resolution: enum(u8) { refund_client, payout_provider, split },
+    arbiter_sig: [64]u8,
+};
+
+pub const AppPlanMsg = struct {
+    plan_id: [32]u8,
+    asset: Asset,
+    amount_per_period: u64,
+    period_sec: u64,
+    total_periods: u64,
+};
+
+pub const ServiceDiscoveryMsg = struct {
+    query: []const u8,
 };
 
 pub const DeltaSyncMsg = struct {
@@ -324,6 +376,75 @@ pub const AwpEncoder = struct {
         try self.buf.appendSlice(self.allocator, msg.data);
         return self.buf.items;
     }
+
+    pub fn encodeAppQuote(self: *AwpEncoder, msg: AppQuoteMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.app_quote));
+        try self.buf.appendSlice(self.allocator, &msg.quote_id);
+        try self.writeByte(@intFromEnum(msg.asset.chain));
+        try self.writeVarint(msg.asset.symbol.len);
+        try self.buf.appendSlice(self.allocator, msg.asset.symbol);
+        try self.writeVarint(msg.price);
+        try self.writeVarint(msg.expiry);
+        return self.buf.items;
+    }
+
+    pub fn encodeAppHire(self: *AwpEncoder, msg: AppHireMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.app_hire));
+        try self.buf.appendSlice(self.allocator, &msg.hire_id);
+        try self.buf.appendSlice(self.allocator, &msg.quote_id);
+        try self.writeVarint(msg.escrow_amount);
+        return self.buf.items;
+    }
+
+    pub fn encodeAppEscrowLock(self: *AwpEncoder, msg: AppEscrowLockMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.app_escrow_lock));
+        try self.buf.appendSlice(self.allocator, &msg.hire_id);
+        try self.buf.appendSlice(self.allocator, &msg.tx_hash);
+        try self.writeVarint(msg.amount);
+        return self.buf.items;
+    }
+
+    pub fn encodeAppEscrowRelease(self: *AwpEncoder, msg: AppEscrowReleaseMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.app_escrow_release));
+        try self.buf.appendSlice(self.allocator, &msg.hire_id);
+        try self.buf.appendSlice(self.allocator, &msg.sig);
+        return self.buf.items;
+    }
+
+    pub fn encodeAppDisputeOpen(self: *AwpEncoder, msg: AppDisputeOpenMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.app_dispute_open));
+        try self.buf.appendSlice(self.allocator, &msg.hire_id);
+        try self.writeVarint(msg.reason.len);
+        try self.buf.appendSlice(self.allocator, msg.reason);
+        return self.buf.items;
+    }
+
+    pub fn encodeAppDisputeResolve(self: *AwpEncoder, msg: AppDisputeResolveMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.app_dispute_resolve));
+        try self.buf.appendSlice(self.allocator, &msg.hire_id);
+        try self.writeByte(@intFromEnum(msg.resolution));
+        try self.buf.appendSlice(self.allocator, &msg.arbiter_sig);
+        return self.buf.items;
+    }
+
+    pub fn encodeAppPlan(self: *AwpEncoder, msg: AppPlanMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.app_plan));
+        try self.buf.appendSlice(self.allocator, &msg.plan_id);
+        try self.writeByte(@intFromEnum(msg.asset.chain));
+        try self.writeVarint(msg.asset.symbol.len);
+        try self.buf.appendSlice(self.allocator, msg.asset.symbol);
+        try self.writeVarint(msg.amount_per_period);
+        try self.writeVarint(msg.period_sec);
+        try self.writeVarint(msg.total_periods);
+        return self.buf.items;
+    }
+
+    pub fn encodeServiceDiscovery(self: *AwpEncoder, msg: ServiceDiscoveryMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.service_discovery));
+        try self.writeVarint(msg.query.len);
+        try self.buf.appendSlice(self.allocator, msg.query);
+        return self.buf.items;
+    }
 };
 
 pub const AwpDecoder = struct {
@@ -602,5 +723,165 @@ pub const AwpDecoder = struct {
         self.pos += data_len;
 
         return RawYellowstoneMsg{ .data = msg_data };
+    }
+
+    pub fn decodeAppQuote(self: *AwpDecoder) !AppQuoteMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.app_quote)) return error.InvalidMessageType;
+
+        var quote_id: [32]u8 = undefined;
+        @memcpy(&quote_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        const chain_id = try self.readByte();
+        const symbol_len = try self.readVarint();
+        const symbol = self.data[self.pos .. self.pos + symbol_len];
+        self.pos += symbol_len;
+
+        const price = try self.readVarint();
+        const expiry = try self.readVarint();
+
+        return AppQuoteMsg{
+            .quote_id = quote_id,
+            .asset = .{ .chain = @enumFromInt(chain_id), .symbol = symbol },
+            .price = price,
+            .expiry = expiry,
+        };
+    }
+
+    pub fn decodeAppHire(self: *AwpDecoder) !AppHireMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.app_hire)) return error.InvalidMessageType;
+
+        var hire_id: [32]u8 = undefined;
+        @memcpy(&hire_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        var quote_id: [32]u8 = undefined;
+        @memcpy(&quote_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        const amount = try self.readVarint();
+
+        return AppHireMsg{
+            .hire_id = hire_id,
+            .quote_id = quote_id,
+            .escrow_amount = amount,
+        };
+    }
+
+    pub fn decodeAppEscrowLock(self: *AwpDecoder) !AppEscrowLockMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.app_escrow_lock)) return error.InvalidMessageType;
+
+        var hire_id: [32]u8 = undefined;
+        @memcpy(&hire_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        var tx_hash: [32]u8 = undefined;
+        @memcpy(&tx_hash, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        const amount = try self.readVarint();
+
+        return AppEscrowLockMsg{
+            .hire_id = hire_id,
+            .tx_hash = tx_hash,
+            .amount = amount,
+        };
+    }
+
+    pub fn decodeAppEscrowRelease(self: *AwpDecoder) !AppEscrowReleaseMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.app_escrow_release)) return error.InvalidMessageType;
+
+        var hire_id: [32]u8 = undefined;
+        @memcpy(&hire_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        var sig: [64]u8 = undefined;
+        @memcpy(&sig, self.data[self.pos..][0..64]);
+        self.pos += 64;
+
+        return AppEscrowReleaseMsg{
+            .hire_id = hire_id,
+            .sig = sig,
+        };
+    }
+
+    pub fn decodeAppDisputeOpen(self: *AwpDecoder) !AppDisputeOpenMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.app_dispute_open)) return error.InvalidMessageType;
+
+        var hire_id: [32]u8 = undefined;
+        @memcpy(&hire_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        const reason_len = try self.readVarint();
+        const reason = self.data[self.pos .. self.pos + reason_len];
+        self.pos += reason_len;
+
+        return AppDisputeOpenMsg{
+            .hire_id = hire_id,
+            .reason = reason,
+        };
+    }
+
+    pub fn decodeAppDisputeResolve(self: *AwpDecoder) !AppDisputeResolveMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.app_dispute_resolve)) return error.InvalidMessageType;
+
+        var hire_id: [32]u8 = undefined;
+        @memcpy(&hire_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        const resolution = try self.readByte();
+        
+        var sig: [64]u8 = undefined;
+        @memcpy(&sig, self.data[self.pos..][0..64]);
+        self.pos += 64;
+
+        return AppDisputeResolveMsg{
+            .hire_id = hire_id,
+            .resolution = @enumFromInt(resolution),
+            .arbiter_sig = sig,
+        };
+    }
+
+    pub fn decodeAppPlan(self: *AwpDecoder) !AppPlanMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.app_plan)) return error.InvalidMessageType;
+
+        var plan_id: [32]u8 = undefined;
+        @memcpy(&plan_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        const chain_id = try self.readByte();
+        const symbol_len = try self.readVarint();
+        const symbol = self.data[self.pos .. self.pos + symbol_len];
+        self.pos += symbol_len;
+
+        const amt = try self.readVarint();
+        const period = try self.readVarint();
+        const total = try self.readVarint();
+
+        return AppPlanMsg{
+            .plan_id = plan_id,
+            .asset = .{ .chain = @enumFromInt(chain_id), .symbol = symbol },
+            .amount_per_period = amt,
+            .period_sec = period,
+            .total_periods = total,
+        };
+    }
+
+    pub fn decodeServiceDiscovery(self: *AwpDecoder) !ServiceDiscoveryMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.service_discovery)) return error.InvalidMessageType;
+
+        const query_len = try self.readVarint();
+        const query = self.data[self.pos .. self.pos + query_len];
+        self.pos += query_len;
+
+        return ServiceDiscoveryMsg{ .query = query };
     }
 };
