@@ -105,6 +105,10 @@ pub const SovereignPortal = struct {
         , .{ sol_addr });
     }
 
+    fn getBlinkJson(self: *SovereignPortal) ![]const u8 {
+        return try self.merchant.generateBlink(self.allocator, "http://localhost:8081");
+    }
+
     fn sendJsonResponse(_: *SovereignPortal, stream: std.net.Stream, status: u16, body: []const u8) !void {
         var buf: [4096]u8 = undefined;
         const response = try std.fmt.bufPrint(&buf, 
