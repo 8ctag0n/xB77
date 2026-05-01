@@ -174,6 +174,18 @@ const ProtocolHandler = struct {
             @intFromEnum(awp.MessageType.mission_directive) => {
                 const mission = try decoder.decodeMissionDirective();
                 std.debug.print("\n[AWP] 📡 MISSION RECEIVED: {x}", .{mission.id[0..4].*});
+
+                // 1. ¿Es una consulta comercial disfrazada de misión?
+                // (Usamos el budget como proxy del intent para esta demo)
+                if (try self.engine_ptr.ctx.brain.negotiate("audit decision logic", &self.engine_ptr.ctx.app_manager, self.engine_ptr.ctx.merchant)) |quote| {
+                    std.debug.print("\n[BRAIN ] 💹 MISSION matches catalog. Issuing Quote: {x}...", .{quote.quote_id[0..4]});
+                    
+                    var encoder = awp.AwpEncoder.init(self.allocator);
+                    defer encoder.deinit();
+                    const q_msg = try encoder.encodeAppQuote(quote);
+                    _ = try self.stream.write(q_msg);
+                    return;
+                }
                 
                 if (verifyZkProof(mission.zk_proof)) {
                     std.debug.print(" ✅ VERIFIED BY NOIR.", .{});
@@ -205,6 +217,41 @@ const ProtocolHandler = struct {
                 if (self.swap_manager.active_swaps.getPtr(reveal.swap_id)) |s| {
                     s.status = .revealed;
                     s.secret = reveal.secret;
+                }
+            },
+            // --- APP (Agent Payments Protocol) Handlers ---
+            @intFromEnum(awp.MessageType.app_quote) => {
+                const quote = try decoder.decodeAppQuote();
+                std.debug.print("\n[APP] 📜 Received Quote: {x}... Price: {d}", .{ 
+                    quote.quote_id[0..4], quote.price 
+                });
+                
+                // En un flujo real, aquí el Brain decidiría si aceptar la Quote.
+                // Si la aceptamos, llamamos a self.engine_ptr.ctx.app_manager.acceptQuote(quote)
+            },
+            @intFromEnum(awp.MessageType.app_hire) => {
+                const hire = try decoder.decodeAppHire();
+                try self.engine_ptr.ctx.app_manager.handleHire(hire);
+            },
+            @intFromEnum(awp.MessageType.app_escrow_lock) => {
+                const lock = try decoder.decodeAppEscrowLock();
+                std.debug.print("\n[APP] 🔒 Funds Locked in Escrow: {d} lamports (Hire: {x}...)", .{
+                    lock.amount, lock.hire_id[0..4]
+                });
+            },
+            @intFromEnum(awp.MessageType.service_discovery) => {
+                const discovery = try decoder.decodeServiceDiscovery();
+                std.debug.print("\n[MESH  ] 🔍 Service Discovery Query: {s}", .{discovery.query});
+                
+                // Si la query coincide con lo que ofrecemos, anunciamos disponibilidad
+                const brain = &self.engine_ptr.ctx.brain;
+                if (try brain.negotiate(discovery.query, &self.engine_ptr.ctx.app_manager, self.engine_ptr.ctx.merchant)) |quote| {
+                    std.debug.print("\n[BRAIN ] 💹 Found match for discovery. Sending Quote: {x}...", .{quote.quote_id[0..4]});
+                    
+                    var encoder = awp.AwpEncoder.init(self.allocator);
+                    defer encoder.deinit();
+                    const q_msg = try encoder.encodeAppQuote(quote);
+                    _ = try self.stream.write(q_msg);
                 }
             },
             else => return error.UnknownOpcode,

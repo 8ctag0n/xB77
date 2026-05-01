@@ -75,7 +75,7 @@ pub const Engine = struct {
         // --- SOVEREIGN PORTAL (HTTP Gateway) ---
         const portal_thread = try std.Thread.spawn(.{}, struct {
             fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) void {
-                var p = core.portal.SovereignPortal.init(allocator, &ctx.store, &ctx.vaults, &ctx.mesh_manager, 8081);
+                var p = core.portal.SovereignPortal.init(allocator, &ctx.store, &ctx.vaults, &ctx.mesh_manager, &ctx.merchant, 8081);
                 p.start() catch |err| {
                     std.debug.print("[Engine] ❌ Portal Error: {}\n", .{err});
                 };
@@ -150,6 +150,22 @@ pub const Engine = struct {
         }
         
         std.debug.print("\n         ----------------------------------------", .{});
+    }
+
+    /// Procesa una intención en lenguaje natural y decide si actuar o negociar.
+    pub fn processIntent(self: *Engine, intent: []const u8) !void {
+        // 1. ¿Es una oportunidad comercial?
+        if (try self.ctx.brain.negotiate(intent, &self.ctx.app_manager, self.ctx.merchant)) |quote| {
+            std.debug.print("\n[Engine] 🤝 Negotiation Successful. Issuing Quote: {x}...", .{quote.quote_id[0..4]});
+            
+            // En un flujo real, enviaríamos la Quote de vuelta al originador vía AWP.
+            // Por ahora, lo dejamos en el log como "Autonomous Sales Success".
+            return;
+        }
+
+        // 2. ¿Es una directiva de misión?
+        const insight = try self.ctx.brain.interpret(intent);
+        std.debug.print("\n[Engine] 🧠 Directive Interpreted: {d} lamports", .{insight.directive.max_budget});
     }
 
     fn tick(self: *Engine) !void {

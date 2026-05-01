@@ -170,4 +170,31 @@ pub const Brain = struct {
             .allocator = self.allocator,
         };
     }
+
+    /// Analiza una intención y decide si corresponde emitir un presupuesto (Quote).
+    pub fn negotiate(self: *Brain, intent: []const u8, app_manager: *@import("../business/app.zig").AppManager, catalog: @import("../business/merchant.zig").MerchantConfig) !?awp.AppQuoteMsg {
+        const lower = try self.allocator.alloc(u8, intent.len);
+        defer self.allocator.free(lower);
+        for (intent, 0..) |c, i| lower[i] = std.ascii.toLower(c);
+
+        // Heurística de detección de servicios
+        for (catalog.services) |service| {
+            const s_lower = try self.allocator.alloc(u8, service.name.len);
+            defer self.allocator.free(s_lower);
+            for (service.name, 0..) |c, i| s_lower[i] = std.ascii.toLower(c);
+
+            if (std.mem.indexOf(u8, lower, s_lower) != null) {
+                std.debug.print("\n[BRAIN ] 💹 Commercial Intent Detected: {s}", .{service.name});
+                
+                // Generar presupuesto autónomo (1 hora de validez)
+                return try app_manager.createQuote(
+                    .{ .chain = .solana, .symbol = "SOL" },
+                    service.price_lamports,
+                    3600
+                );
+            }
+        }
+
+        return null;
+    }
 };

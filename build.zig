@@ -201,6 +201,29 @@ pub fn build(b: *std.Build) void {
     brain_unit_tests.root_module.addImport("core", core_module);
     const run_brain_unit_tests = b.addRunArtifact(brain_unit_tests);
 
+    const merchant_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/merchant_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    merchant_unit_tests.root_module.addImport("core", core_module);
+    const run_merchant_unit_tests = b.addRunArtifact(merchant_unit_tests);
+
+    const app_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/app_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    app_unit_tests.root_module.addImport("core", core_module);
+    app_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    app_unit_tests.addIncludePath(b.path("deps"));
+    app_unit_tests.linkLibC();
+    const run_app_unit_tests = b.addRunArtifact(app_unit_tests);
+
     const compression_unit_tests = b.addTest(.{
         .root_module = b.createModule(.{
             .root_source_file = b.path("tests/compression_test.zig"),
@@ -291,6 +314,36 @@ pub fn build(b: *std.Build) void {
     sdk_lib.root_module.addImport("core", core_module);
     b.installArtifact(sdk_lib);
 
+    // --- Merchant SDK (Standalone Package) ---
+    const merchant_sdk = b.addLibrary(.{
+        .name = "xb77_merchant",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("sdk/merchant_sdk.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+        .linkage = .dynamic,
+    });
+    merchant_sdk.root_module.addImport("core", core_module);
+    b.installArtifact(merchant_sdk);
+
+    // --- Merchant SDK WASM (for Browsers/Apps) ---
+    const merchant_wasm = b.addExecutable(.{
+        .name = "xb77_merchant",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("sdk/merchant_sdk.zig"),
+            .target = wasm_target,
+            .optimize = .ReleaseSmall,
+        }),
+    });
+    merchant_wasm.root_module.addImport("core", core_module);
+    
+    const install_merchant_wasm = b.addInstallArtifact(merchant_wasm, .{
+        .dest_dir = .{ .override = .{ .custom = "bin" } },
+    });
+    const merchant_wasm_step = b.step("merchant-wasm", "Build the Merchant SDK as WASM");
+    merchant_wasm_step.dependOn(&install_merchant_wasm.step);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);
     test_step.dependOn(&run_tx_unit_tests.step);
@@ -300,5 +353,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_ghost_proof_unit_tests.step);
     test_step.dependOn(&run_awp_unit_tests.step);
     test_step.dependOn(&run_brain_unit_tests.step);
+    test_step.dependOn(&run_merchant_unit_tests.step);
+    test_step.dependOn(&run_app_unit_tests.step);
     test_step.dependOn(&run_compression_unit_tests.step);
 }
