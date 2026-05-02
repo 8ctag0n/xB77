@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>xB77 | Sovereign Financial OS</title>
+    <style>
+        :root { --neon-green: #00ff41; --dark-bg: #0a0a0a; --panel-bg: #121212; --border-color: #333; }
+        body { background: var(--dark-bg); color: var(--neon-green); font-family: 'JetBrains Mono', 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; }
+        .scanline { width: 100%; height: 100%; position: fixed; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); z-index: 999; pointer-events: none; background-size: 100% 4px, 3px 100%; }
+        .hero { height: 60vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; border-bottom: 1px solid var(--border-color); width: 100%; position: relative; }
+        .hero h1 { font-size: 5rem; margin: 0; letter-spacing: -5px; line-height: 0.8; }
+        .hero p { font-size: 1.2rem; color: #888; max-width: 600px; margin-top: 2rem; }
+        .container { max-width: 1000px; width: 90%; padding: 4rem 0; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2rem; }
+        .card { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 2rem; border-radius: 4px; transition: all 0.3s; }
+        .card:hover { border-color: var(--neon-green); transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,255,65,0.1); }
+        .card h3 { margin-top: 0; font-size: 0.9rem; text-transform: uppercase; color: #666; }
+        .card .value { font-size: 1.5rem; font-weight: bold; margin: 1rem 0; }
+        .btn { display: inline-block; padding: 1rem 2rem; background: var(--neon-green); color: black; text-decoration: none; font-weight: bold; margin-top: 2rem; border-radius: 2px; }
+        .terminal { background: #000; border: 1px solid #333; padding: 1.5rem; font-size: 0.85rem; color: #aaa; margin-top: 4rem; position: relative; }
+        .terminal::before { content: "SYSTEM_LOG_CORE_V0.11"; position: absolute; top: -10px; left: 20px; background: #0a0a0a; padding: 0 10px; font-size: 0.6rem; color: #444; }
+        .cursor { display: inline-block; width: 10px; height: 1.2rem; background: var(--neon-green); vertical-align: middle; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .nav { position: absolute; top: 20px; right: 40px; font-size: 0.8rem; }
+        .nav a { color: #888; text-decoration: none; margin-left: 20px; }
+        .nav a:hover { color: var(--neon-green); }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+    
+    <div class="nav">
+        <a href="#vision">VISION</a>
+        <a href="#stats">NETWORK</a>
+        <a href="https://github.com/8ctag0n/xB77">GITHUB</a>
+    </div>
+
+    <section class="hero">
+        <h1>xB77</h1>
+        <p>Sovereign Financial Infrastructure for Autonomous Agents. High-Performance Zig Engine. ZK-Shielded Commerce.</p>
+        <a href="#get-started" class="btn">INITIALIZE CORE</a>
+    </section>
+
+    <div class="container">
+        <div class="grid">
+            <div class="card">
+                <h3>Throughput</h3>
+                <div class="value">0.12ms</div>
+                <p style="font-size: 0.8rem; color: #555;">Z-Node local stream latency. Sub-millisecond intent parsing.</p>
+            </div>
+            <div class="card">
+                <h3>Identity</h3>
+                <div class="value">SNS Native</div>
+                <p style="font-size: 0.8rem; color: #555;">Fully integrated with Solana Name Service and .xb77 handles.</p>
+            </div>
+            <div class="card">
+                <h3>Trust</h3>
+                <div class="value">Noir ZK</div>
+                <p style="font-size: 0.8rem; color: #555;">Selective disclosure receipts with 2.011% automated tax compliance.</p>
+            </div>
+        </div>
+
+        <div class="terminal">
+            <div>[BOOT] Initializing xB77 Sovereign Node...</div>
+            <div>[MESH] Searching for peers via AWP...</div>
+            <div>[MESH] 12 Peers discovered. Syncing Merkle Tree...</div>
+            <div>[ZK  ] Loading circuits/zk_receipt... OK</div>
+            <div>[CORE] Sentinel active. Monitoring Solana Devnet...</div>
+            <div>[Z-NODE] Binary Pulse established. Chunk 0x8f2a... forwarded.</div>
+            <div style="margin-top: 1rem; color: var(--neon-green);">agent@xb77:~$ <span class="cursor"></span></div>
+        </div>
+    </div>
+
+    <footer style="margin: 4rem 0; font-size: 0.6rem; color: #333; text-align: center;">
+        xB77 PROTOCOL | S8 FRONTIER SUBMISSION | (C) 2026 SOVEREIGN LABS
+    </footer>
+</body>
+</html>

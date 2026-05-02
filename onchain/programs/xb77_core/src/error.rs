@@ -10,6 +10,8 @@ pub enum CoreError {
     CreditLimitExceeded = 5,
     MathOverflow = 6,
     InvalidCPI = 7,
+    InvalidZkProof = 8,
+    ZkRootMismatch = 9,
 }
 
 impl From<CoreError> for ProgramError {
