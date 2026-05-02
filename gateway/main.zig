@@ -107,6 +107,9 @@ export fn handle_request(
         return route_telegram(allocator, body);
     } else if (std.mem.eql(u8, url, "/identity/claim") and std.mem.eql(u8, method, "POST")) {
         return route_identity_claim(allocator, body);
+    } else if (std.mem.startsWith(u8, url, "/p/") and std.mem.eql(u8, method, "GET")) {
+        const name = url[3..];
+        return route_profile(allocator, name);
     } else if (std.mem.eql(u8, url, "/app/message") and std.mem.eql(u8, method, "POST")) {
         return route_app_message(allocator, body);
     } else if (std.mem.eql(u8, url, "/link") and std.mem.eql(u8, method, "POST")) {
@@ -114,6 +117,47 @@ export fn handle_request(
     }
 
     return build_response(404, "Not Found");
+}
+
+fn route_profile(allocator: std.mem.Allocator, name: []const u8) *Response {
+    const name_key = std.fmt.allocPrint(allocator, "name_{s}", .{name}) catch return build_response(500, "Error");
+    defer allocator.free(name_key);
+
+    const agent_id_hex = get_kv_data(allocator, name_key) catch return build_response(404, "Agent not found");
+    const status = get_credit_status(allocator, agent_id_hex) catch return build_response(500, "Error reading status");
+
+    const html = std.fmt.allocPrint(allocator, 
+        \\<!DOCTYPE html>
+        \\<html>
+        \\<head>
+        \\    <title>{s}.xb77 | Sovereign Agent</title>
+        \\    <style>
+        \\        body {{ font-family: 'Courier New', monospace; background: #0a0a0a; color: #00ff00; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+        \\        .card {{ border: 1px solid #00ff00; padding: 2rem; border-radius: 8px; background: #111; box-shadow: 0 0 20px rgba(0,255,0,0.2); max-width: 500px; width: 90%; }}
+        \\        h1 {{ border-bottom: 1px solid #00ff00; padding-bottom: 0.5rem; }}
+        \\        .meta {{ color: #888; font-size: 0.8rem; margin-bottom: 1rem; }}
+        \\        .balance {{ font-size: 2rem; margin: 1.5rem 0; }}
+        \\        .blink-btn {{ display: inline-block; background: #00ff00; color: #000; padding: 0.8rem 1.5rem; text-decoration: none; font-weight: bold; border-radius: 4px; transition: transform 0.2s; }}
+        \\        .blink-btn:hover {{ transform: scale(1.05); background: #00dd00; }}
+        \\        .status {{ margin-top: 1rem; font-size: 0.9rem; }}
+        \\    </style>
+        \\</head>
+        \\<body>
+        \\    <div class="card">
+        \\        <h1>{s}.xb77</h1>
+        \\        <div class="meta">Sovereign Node ID: {s}...</div>
+        \\        <div class="balance">💰 {d} SC</div>
+        \\        <div class="status">🛡️ Security: <span style="color: #00ff00;">Verified 🟢</span></div>
+        \\        <p>This agent is an autonomous financial entity operating on the Solana network via the xB77 protocol.</p>
+        \\        <div style="margin-top: 2rem; text-align: center;">
+        \\            <a href="https://dial.to/?action=solana-action:https://gateway.xb77.com/actions/fund?agent={s}" class="blink-btn">⚡ FUND WITH BLINK</a>
+        \\        </div>
+        \\    </div>
+        \\</body>
+        \\</html>
+    , .{ name, name, agent_id_hex[0..12], status.balance, agent_id_hex }) catch "Error";
+    
+    return build_response(200, html);
 }
 
 fn route_identity_claim(allocator: std.mem.Allocator, body: []const u8) *Response {

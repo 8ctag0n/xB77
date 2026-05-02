@@ -155,6 +155,9 @@ pub const Engine = struct {
             },
             .compress_state => {
                 std.debug.print("\n[STRAT ] 💰 HIGH VOLUME. Recommendation: Trigger State Compression (L2).", .{});
+                // Forzar anclaje inmediato para liberar espacio y consolidar en L1
+                const ops_kp = &self.ctx.vaults.ops.sol_kp;
+                try self.prover.checkAndAnchor(ops_kp);
             },
             .shrink => {
                 std.debug.print("\n[STRAT ] 💀 OVERPOPULATION. Taking Action: Killing redundant agent...", .{});

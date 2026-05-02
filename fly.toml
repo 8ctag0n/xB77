@@ -1,0 +1,29 @@
+# xB77 Sovereign Agent - Fly.io Deployment Configuration
+app = "xb77-agent"
+primary_region = "bos"
+
+[build]
+  dockerfile = "infra/Containerfile.agent"
+
+[env]
+  YELLOWSTONE_ENDPOINT = "https://solana-mainnet.core.quiknode.pro/your-token/"
+  # TETHER_WDK_ID = "..."
+  # TELEGRAM_TOKEN = "..."
+
+[[services]]
+  internal_port = 8081
+  protocol = "tcp"
+
+  [[services.ports]]
+    force_https = true
+    handlers = ["http"]
+    port = 80
+  
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
