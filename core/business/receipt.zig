@@ -60,21 +60,18 @@ pub const ZkReceipt = struct {
         var fba = std.heap.FixedBufferAllocator.init(&buf);
         const allocator = fba.allocator();
 
-        const h_str = try crypto.bytesToHex(allocator, &self.recipient_hash);
         const p_str = try crypto.bytesToHex(allocator, &self.recipient_bytes);
         const s_str = try crypto.bytesToHex(allocator, &self.secret_salt);
 
         const content = try std.fmt.allocPrint(allocator,
             \\amount = {d}
             \\tax_paid = {d}
-            \\recipient_hash = "0x{s}"
             \\recipient_pubkey = "0x{s}"
             \\secret_salt = "0x{s}"
             \\
         , .{
             self.amount,
             self.tax_paid,
-            h_str,
             p_str,
             s_str,
         });
