@@ -64,7 +64,7 @@ fn process_anchor_state_zk(
 
     msg!("[ZK JUDGE] Verifying state transition to root: {:?}", payload.root);
 
-    if (payload.proof.len() < 32) {
+    if payload.proof.len() < 32 {
         msg!("❌ Error: ZK Proof is too short or malformed");
         return Err(CoreError::InvalidZkProof.into());
     }
@@ -108,7 +108,7 @@ fn process_anchor_state_zk(
     };
 
     let mut data = agent_state_account.try_borrow_mut_data()?;
-    wincode::serialize_into(&mut data[..], &state).map_err(|_| ProgramError::AccountDataTooSmall)?;
+    borsh::BorshSerialize::serialize(&state, &mut &mut data[..]).map_err(|_| ProgramError::AccountDataTooSmall)?;
 
     msg!("⚓ Sovereign State Anchored for Agent: {:?}", agent_signer.key);
     Ok(())
@@ -240,7 +240,7 @@ fn process_register_agent(
 }
 
 fn process_verify_and_credit(
-    program_id: &Pubkey,
+    _program_id: &Pubkey,
     accounts: &[AccountInfo],
     payload: VerifyAndCreditPayload,
 ) -> ProgramResult {
@@ -251,7 +251,7 @@ fn process_verify_and_credit(
 
     // Load Config
     let config_data = config_account.try_borrow_data()?;
-    let config: CoreConfig = wincode::deserialize(&config_data).map_err(|_| ProgramError::InvalidAccountData)?;
+    let _config: CoreConfig = wincode::deserialize(&config_data).map_err(|_| ProgramError::InvalidAccountData)?;
 
     if !gateway_signer.is_signer {
         return Err(CoreError::NotAuthorized.into());
@@ -284,7 +284,7 @@ fn process_verify_and_credit(
 }
 
 fn process_request_payment(
-    program_id: &Pubkey,
+    _program_id: &Pubkey,
     accounts: &[AccountInfo],
     payload: RequestPaymentPayload,
 ) -> ProgramResult {
