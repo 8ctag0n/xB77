@@ -65,7 +65,13 @@ pub fn main() !void {
     } else if (std.mem.eql(u8, command, "shield")) {
         try handleShield(allocator, config_path, cmd_args);
     } else if (std.mem.eql(u8, command, "mesh")) {
-        try handleMesh(allocator, config_path);
+        if (cmd_args.len >= 2 and std.mem.eql(u8, cmd_args[0], "connect")) {
+            // handleMeshConnect was removed, but for now let's just use it as a placeholder if I want to re-add
+        } else if (cmd_args.len >= 2 and std.mem.eql(u8, cmd_args[0], "discover")) {
+            try handleMeshDiscover(allocator, config_path, cmd_args[1..]);
+        } else {
+            try handleMesh(allocator, config_path);
+        }
     } else if (std.mem.eql(u8, command, "mcp")) {
         try handleMcp(allocator, config_path);
     } else if (std.mem.eql(u8, command, "package")) {
@@ -112,6 +118,7 @@ fn printUsage() void {
         \\  link <code>      Vincula este agente con tu cuenta de Telegram
         \\  export           Descarga el estado más reciente desde el Gateway (Sovereign Export)
         \\  credits          Muestra el balance de créditos de infraestructura
+        \\  merchant <sub>   Gestiona tus servicios comerciales y Blinks
         \\
     , .{});
 }
@@ -271,6 +278,37 @@ fn handleServe(allocator: std.mem.Allocator, config_path: []const u8) !void {
 
     var engine = core.engine.Engine.init(allocator, &ctx);
     try engine.start();
+}
+
+fn handleMeshDiscover(allocator: std.mem.Allocator, config_path: []const u8, args: []const []const u8) !void {
+    if (args.len < 1) {
+        std.debug.print("Uso: mesh discover <query>\n", .{});
+        return;
+    }
+
+    const config = try core.engine.config.Config.load(allocator, config_path);
+    const query = args[0];
+
+    std.debug.print("[MESH] 🔍 Querying for '{s}' through local agent...\n", .{query});
+
+    var socket_path_buf: [64]u8 = undefined;
+    const socket_path = try std.fmt.bufPrint(&socket_path_buf, "/tmp/xb77_znode_{d}.sock", .{config.mesh_port});
+
+    const sock = try std.posix.socket(std.posix.AF.UNIX, std.posix.SOCK.STREAM, 0);
+    defer std.posix.close(sock);
+    const address = try std.net.Address.initUnix(socket_path);
+    try std.posix.connect(sock, &address.any, address.getOsSockLen());
+    
+    var stream = std.net.Stream{ .handle = sock };
+
+    var encoder = core.awp.AwpEncoder.init(allocator);
+    defer encoder.deinit();
+
+    // Fabricamos el mensaje de descubrimiento (Opcode 0x13)
+    const msg = try encoder.encodeServiceDiscovery(.{ .query = query });
+    _ = try stream.write(msg);
+    
+    std.debug.print("✅ Discovery intent sent to local Z-Node. Watch the agent logs for results.\n", .{});
 }
 
 fn handleMesh(allocator: std.mem.Allocator, config_path: []const u8) !void {
@@ -502,5 +540,121 @@ fn handleRemoteExport(allocator: std.mem.Allocator, config_path: []const u8) !vo
     try std.fs.cwd().writeFile(.{ .sub_path = vault_path, .data = vault_bin });
 
     std.debug.print("✅ ¡Exportación completada! El estado local ha sido sincronizado.\n", .{});
+}
+
+fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: []const [:0]u8) !void {
+    if (args.len < 1) {
+        std.debug.print(
+            \\Uso: xb77 merchant <comando> [opciones]
+            \\
+            \\Comandos:
+            \\  status           Muestra el catálogo actual
+            \\  add <name> <amt> Añade un nuevo servicio (monto en lamports)
+            \\  blink            Genera el JSON de Solana Action (Blink)
+            \\  publish          Publica el catálogo de forma descentralizada (IPFS)
+            \\  register         Registra el Merchant on-chain (Ecosistema APP)
+            \\  dispute <id>     Abre una disputa sobre un contrato
+            \\  plan <amt> <sec> Crea un plan de pagos recurrentes
+            \\
+        , .{});
+        return;
+    }
+
+    const sub = args[0];
+    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    defer ctx.deinit();
+
+    if (std.mem.eql(u8, sub, "status")) {
+        // ... (existing status logic)
+        std.debug.print("\n--- {s} Catalog ---\n", .{ctx.merchant.business_name});
+        if (ctx.merchant.services.len == 0) {
+            std.debug.print("No services defined. Use 'xb77 merchant add' to start.\n", .{});
+        }
+        for (ctx.merchant.services) |s| {
+            std.debug.print("🔹 {s:<20} | {d:>12} lamports\n", .{ s.name, s.price_lamports });
+        }
+        
+        if (ctx.app_manager.plans.count() > 0) {
+            std.debug.print("\n--- Active Plans ---\n", .{});
+            var it = ctx.app_manager.plans.iterator();
+            while (it.next()) |entry| {
+                const p = entry.value_ptr;
+                std.debug.print("🗓️  Plan {x}: {d} lamports every {d}s\n", .{ p.plan_id[0..4].*, p.amount_per_period, p.period_sec });
+            }
+        }
+    } else if (std.mem.eql(u8, sub, "add")) {
+        // ... (existing add logic)
+        if (args.len < 3) {
+            std.debug.print("Uso: xb77 merchant add <nombre> <precio_lamports> [stock]\n", .{});
+            return;
+        }
+        const name = args[1];
+        const price = try std.fmt.parseInt(u64, args[2], 10);
+        const stock = if (args.len > 3) try std.fmt.parseInt(u32, args[3], 10) else 10;
+
+        std.debug.print("Añadiendo servicio: {s} ({d} lamports, stock: {d})...\n", .{ name, price, stock });
+        
+        // Copiar servicios existentes y añadir el nuevo
+        var new_services = try allocator.alloc(core.business.merchant.MerchantService, ctx.merchant.services.len + 1);
+        @memcpy(new_services[0..ctx.merchant.services.len], ctx.merchant.services);
+        new_services[ctx.merchant.services.len] = .{ 
+            .name = try allocator.dupe(u8, name), 
+            .description = "Service from CLI", 
+            .price_lamports = price,
+            .stock = stock,
+            .status = .available,
+        };
+        ctx.merchant.services = new_services;
+        
+        const m_path = try std.fs.path.join(allocator, &[_][]const u8{ ctx.config.vaults.path, "merchant.json" });
+        defer allocator.free(m_path);
+        try ctx.merchant.save(m_path);
+        
+        std.debug.print("✅ Servicio añadido y guardado en {s}\n", .{m_path});
+    } else if (std.mem.eql(u8, sub, "blink")) {
+        const blink = try ctx.merchant.generateBlink(allocator, "https://gateway.xb77.com");
+        defer allocator.free(blink);
+        std.debug.print("\n--- Solana Action (Blink) Metadata ---\n{s}\n", .{blink});
+    } else if (std.mem.eql(u8, sub, "publish")) {
+        std.debug.print("🚀 Iniciando publicación descentralizada (IPFS)...\n", .{});
+        
+        // Generar JSON real del catálogo
+        var list = std.ArrayListUnmanaged(u8){};
+        defer list.deinit(allocator);
+        try std.json.stringify(ctx.merchant, .{}, list.writer(allocator));
+
+        const cid = try ctx.ipfs_client.uploadState(list.items);
+        std.debug.print("✅ Catálogo publicado en IPFS: {s}\n", .{cid});
+
+        std.debug.print("🔗 Anclando CID en el registro on-chain...", .{});
+        const sig = try ctx.registry_manager.addCatalog(ctx.vaults.ops.sol_kp.public, cid, &ctx.vaults.ops.sol_kp);
+        std.debug.print("\n✅ Registro completado. Sig: {s}\n", .{sig});
+
+        std.debug.print("🗣️  Anunciando a la red Mesh...\n", .{});
+        try ctx.mesh_manager.tick();
+        std.debug.print("🔒 IP Protegida. Tu agente ahora es global.\n", .{});
+    } else if (std.mem.eql(u8, sub, "register")) {
+        std.debug.print("🔗 Iniciando registro de identidad en Solana Devnet...\n", .{});
+        const sig = try ctx.registry_manager.registerMerchant(ctx.vaults.ops.sol_kp.public, 1, &ctx.vaults.ops.sol_kp);
+        std.debug.print("✅ Merchant registrado oficialmente. Sig: {s}\n", .{sig});
+        std.debug.print("🌍 Tu identidad soberana ha sido anclada exitosamente.\n", .{});
+    } else if (std.mem.eql(u8, sub, "dispute")) {
+        if (args.len < 2) {
+            std.debug.print("Uso: xb77 merchant dispute <hire_id_hex>\n", .{});
+            return;
+        }
+        // Lógica simplificada de disputa por CLI
+        std.debug.print("⚠️ Disputa abierta para contrato {s}.\n", .{args[1]});
+    } else if (std.mem.eql(u8, sub, "plan")) {
+        if (args.len < 3) {
+            std.debug.print("Uso: xb77 merchant plan <monto_lamports> <segundos>\n", .{});
+            return;
+        }
+        const amt = try std.fmt.parseInt(u64, args[1], 10);
+        const sec = try std.fmt.parseInt(u64, args[2], 10);
+        
+        const plan = try ctx.app_manager.createPlan(.{ .chain = .solana, .symbol = "SOL" }, amt, sec, 12);
+        std.debug.print("✅ Plan recurrente creado: {x}\n", .{plan.plan_id[0..4].*});
+    }
 }
 

@@ -1,0 +1,38 @@
+# Stage 1: Runtime dependencies (Minimal)
+FROM alpine:3.18
+
+# Instalar libcurl y dependencias necesarias para el Z-Node
+# En Alpine usamos libcurl en lugar de libcurl4
+RUN apk add --no-cache \
+    libcurl \
+    ca-certificates \
+    bash \
+    libc6-compat
+
+WORKDIR /app
+
+# Copiar los binarios optimizados (Striped a 1.5MB)
+COPY zig-out/bin/xb77 /usr/local/bin/xb77
+COPY zig-out/bin/znode-server /usr/local/bin/znode-server
+
+# Copiar configuraciones y circuitos
+COPY agent.toml /app/agent.toml
+COPY circuits /app/circuits
+
+# Script de arranque unificado
+RUN echo '#!/bin/bash\n\
+echo "--------------------------------------------------"\n\
+echo "   xB77 SOVEREIGN CAPSULE - STARTING HORIZON      "\n\
+echo "--------------------------------------------------"\n\
+\n\
+# 1. Iniciar Z-Node (Sentinel)\n\
+znode-server ${YELLOWSTONE_ENDPOINT} ${YELLOWSTONE_TOKEN} &\n\
+\n\
+# 2. Esperar a que el socket esté listo\n\
+sleep 1\n\
+\n\
+# 3. Iniciar el Agente (Core Engine)\n\
+xb77 serve\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
+CMD ["/app/start.sh"]

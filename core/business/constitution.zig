@@ -71,7 +71,7 @@ pub const Constitution = struct {
             var it = std.mem.tokenizeAny(u8, query_lower, " :;,\r\n\t");
             var found = false;
             while (it.next()) |token| {
-                if (token.len < 4) continue; // Skip short words
+                if (token.len < 3) continue; // Allow 'sol', 'eth', etc.
                 if (std.mem.indexOf(u8, rule_lower, token) != null) {
                     found = true;
                     break;

@@ -20,6 +20,15 @@ pub const MissionDirectiveMsg = awp.MissionDirectiveMsg;
 pub const AccountGossipMsg = awp.AccountGossipMsg;
 pub const DeltaSyncMsg = awp.DeltaSyncMsg;
 
+pub const AppQuoteMsg = awp.AppQuoteMsg;
+pub const AppHireMsg = awp.AppHireMsg;
+pub const AppEscrowLockMsg = awp.AppEscrowLockMsg;
+pub const AppEscrowReleaseMsg = awp.AppEscrowReleaseMsg;
+pub const AppDisputeOpenMsg = awp.AppDisputeOpenMsg;
+pub const AppDisputeResolveMsg = awp.AppDisputeResolveMsg;
+pub const AppPlanMsg = awp.AppPlanMsg;
+pub const ServiceDiscoveryMsg = awp.ServiceDiscoveryMsg;
+
 pub const AwpEncoder = awp.AwpEncoder;
 pub const AwpDecoder = awp.AwpDecoder;
 

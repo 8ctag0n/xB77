@@ -11,6 +11,7 @@ pub const Config = struct {
     },
     mnemonic: ?[]const u8 = null,
     mesh_port: u16 = 7777,
+    portal_port: u16 = 8081,
     cdp: struct {
         key_name: ?[]const u8 = null,
         key_secret: ?[]const u8 = null,
@@ -19,6 +20,7 @@ pub const Config = struct {
         endpoint: []const u8,
         api_key: []const u8,
     },
+    registry_program_id: ?[]const u8 = null,
     facilitator: ?[]const u8 = null,
 
     pub fn load(allocator: std.mem.Allocator, path: []const u8) !Config {
@@ -96,6 +98,9 @@ pub const Config = struct {
             if (std.mem.eql(u8, key, "mesh_port")) {
                 config.mesh_port = std.fmt.parseInt(u16, val, 10) catch 7777;
             }
+            if (std.mem.eql(u8, key, "portal_port")) {
+                config.portal_port = std.fmt.parseInt(u16, val, 10) catch 8081;
+            }
             if (std.mem.eql(u8, key, "cdp_key_name")) {
                 config.cdp.key_name = try allocator.dupe(u8, val);
             }
@@ -109,6 +114,9 @@ pub const Config = struct {
             if (std.mem.eql(u8, key, "ipfs_api_key")) {
                 allocator.free(config.ipfs.api_key);
                 config.ipfs.api_key = try allocator.dupe(u8, val);
+            }
+            if (std.mem.eql(u8, key, "registry_program_id")) {
+                config.registry_program_id = try allocator.dupe(u8, val);
             }
             if (std.mem.eql(u8, key, "facilitator")) {
                 config.facilitator = try allocator.dupe(u8, val);
@@ -128,6 +136,7 @@ pub const Config = struct {
         if (self.mnemonic) |m| allocator.free(m);
         if (self.cdp.key_name) |k| allocator.free(k);
         if (self.cdp.key_secret) |k| allocator.free(k);
+        if (self.registry_program_id) |p| allocator.free(p);
         if (self.facilitator) |f| allocator.free(f);
     }
 };

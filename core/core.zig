@@ -70,6 +70,8 @@ pub const engine = struct {
 
 pub const business = struct {
     pub const merchant = @import("business/merchant.zig");
+    pub const registry = @import("business/registry.zig");
+    pub const app = @import("business/app.zig");
     pub const pay = @import("business/pay.zig");
     pub const receipt = @import("business/receipt.zig");
     pub const swap = @import("business/swap.zig");
@@ -91,6 +93,7 @@ pub const context = engine.context;
 pub const core_engine = engine;
 pub const parser = protocol.parser;
 pub const pay = business.pay;
+pub const app = business.app;
 pub const receipt = business.receipt;
 pub const evm = chain.evm;
 pub const tx = protocol.tx;
@@ -107,6 +110,7 @@ pub const strategist = engine.strategist;
 pub const compression = state.compression;
 pub const ipfs = net.ipfs;
 pub const portal = business.portal;
+pub const registry = business.registry;
 pub const brain = engine.brain;
 
 // Re-export common functions from crypto

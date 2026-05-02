@@ -1,0 +1,7 @@
+# xB77 Client Profile
+rpc_solana="mock:devnet"
+rpc_base="https://sepolia.base.org"
+vault_path="./.xb77_client"
+mesh_port=7702
+portal_port=8082
+registry_program_id="Regis1111111111111111111111111111111111111"

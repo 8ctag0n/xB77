@@ -4,36 +4,113 @@ pub const MerchantService = struct {
     name: []const u8,
     description: []const u8,
     price_lamports: u64,
+    stock: u32 = 0,
+    status: enum { available, out_of_stock, discontinued } = .available,
 };
 
 pub const MerchantConfig = struct {
     business_name: []const u8,
     contact: []const u8,
-    services: []const MerchantService,
+    services: []MerchantService,
 
     pub fn save(self: *const MerchantConfig, path: []const u8) !void {
         const file = try std.fs.cwd().createFile(path, .{});
         defer file.close();
 
-        // Generar un JSON simple para descubrimiento (xb77.json)
-        var buf: [4096]u8 = undefined;
-        var fba = std.heap.FixedBufferAllocator.init(&buf);
-        const allocator = fba.allocator();
+        // Generar un JSON simple para descubrimiento (xb77.json) manual
+        var buf = std.ArrayListUnmanaged(u8){};
+        defer buf.deinit(std.heap.page_allocator);
+        const writer = buf.writer(std.heap.page_allocator);
 
-        var list = std.json.Value.initObject(allocator);
-        try list.object.put("business_name", std.json.Value{ .string = self.business_name });
-        try list.object.put("contact", std.json.Value{ .string = self.contact });
+        try writer.writeAll("{\n  \"business_name\": \"");
+        try writer.writeAll(self.business_name);
+        try writer.writeAll("\",\n  \"contact\": \"");
+        try writer.writeAll(self.contact);
+        try writer.writeAll("\",\n  \"services\": [\n");
 
-        var services_arr = std.json.Value.initArray(allocator);
-        for (self.services) |s| {
-            var s_obj = std.json.Value.initObject(allocator);
-            try s_obj.object.put("name", std.json.Value{ .string = s.name });
-            try s_obj.object.put("price", std.json.Value{ .integer = @intCast(s.price_lamports) });
-            try services_arr.array.append(s_obj);
+        for (self.services, 0..) |s, i| {
+            try writer.print("    {{\n      \"name\": \"{s}\",\n      \"price\": {d}\n    }}{s}\n", .{
+                s.name,
+                s.price_lamports,
+                if (i < self.services.len - 1) "," else "",
+            });
         }
-        try list.object.put("services", services_arr);
+        try writer.writeAll("  ]\n}");
 
-        const json_str = try std.json.stringifyAlloc(allocator, list, .{ .whitespace = .indent_2 });
-        try file.writeAll(json_str);
+        try file.writeAll(buf.items);
+    }
+
+    pub fn load(allocator: std.mem.Allocator, path: []const u8) !MerchantConfig {
+        const file = std.fs.cwd().openFile(path, .{}) catch |err| {
+            if (err == error.FileNotFound) {
+                return MerchantConfig{
+                    .business_name = "xB77 Sovereign Agent",
+                    .contact = "@agent",
+                    .services = &.{},
+                };
+            }
+            return err;
+        };
+        defer file.close();
+
+        const content = try file.readToEndAlloc(allocator, 1024 * 1024);
+        defer allocator.free(content);
+
+        const parsed = try std.json.parseFromSlice(std.json.Value, allocator, content, .{ .ignore_unknown_fields = true });
+        defer parsed.deinit();
+
+        const obj = parsed.value.object;
+        const b_name = try allocator.dupe(u8, obj.get("business_name").?.string);
+        const contact = try allocator.dupe(u8, obj.get("contact").?.string);
+
+        const services_json = obj.get("services").?.array;
+        var services = try allocator.alloc(MerchantService, services_json.items.len);
+
+        for (services_json.items, 0..) |s_val, i| {
+            const s_obj = s_val.object;
+            services[i] = .{
+                .name = try allocator.dupe(u8, s_obj.get("name").?.string),
+                .description = "Imported Service",
+                .price_lamports = @intCast(s_obj.get("price").?.integer),
+                .stock = if (s_obj.get("stock")) |v| @intCast(v.integer) else 10,
+                .status = .available,
+            };
+        }
+
+        return MerchantConfig{
+            .business_name = b_name,
+            .contact = contact,
+            .services = services,
+        };
+    }
+
+    pub fn generateBlink(self: *const MerchantConfig, allocator: std.mem.Allocator, base_url: []const u8) ![]u8 {
+        var buf = std.ArrayListUnmanaged(u8){};
+        errdefer buf.deinit(allocator);
+        const writer = buf.writer(allocator);
+
+        try writer.writeAll("{\n");
+        try writer.writeAll("  \"icon\": \"https://xb77.app/logo.png\",\n");
+        try writer.print("  \"title\": \"{s}\",\n", .{self.business_name});
+        try writer.writeAll("  \"description\": \"Sovereign Agent Service - Machine Verified\",\n");
+        try writer.writeAll("  \"label\": \"Purchase\",\n");
+        try writer.writeAll("  \"links\": {\n");
+        try writer.writeAll("    \"actions\": [\n");
+
+        for (self.services, 0..) |s, i| {
+            try writer.print("      {{\n        \"label\": \"{s}\",\n        \"href\": \"{s}/api/actions/pay?service={s}&amount={d}\"\n      }}{s}\n", .{
+                s.name,
+                base_url,
+                s.name,
+                s.price_lamports,
+                if (i < self.services.len - 1) "," else "",
+            });
+        }
+
+        try writer.writeAll("    ]\n");
+        try writer.writeAll("  }\n");
+        try writer.writeAll("}");
+
+        return try buf.toOwnedSlice(allocator);
     }
 };

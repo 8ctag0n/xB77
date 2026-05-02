@@ -112,6 +112,19 @@ pub const AppMessage = struct {
     content: []const u8,
     signature: Signature,
 };
+pub const EscrowStatus = enum {
+    locked,
+    released,
+    disputed,
+};
+
+pub const EscrowAccount = struct {
+    hire_id: [32]u8,
+    amount: u64,
+    asset: Asset,
+    status: EscrowStatus,
+    arbiter: Pubkey,
+};
 
 // --- Telegram API Types ---
 

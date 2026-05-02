@@ -1,4 +1,6 @@
 pub const merchant = @import("../business/merchant.zig");
+pub const registry = @import("../business/registry.zig");
+pub const app = @import("../business/app.zig");
 pub const pay = @import("../business/pay.zig");
 pub const receipt = @import("../business/receipt.zig");
 pub const swap = @import("../business/swap.zig");

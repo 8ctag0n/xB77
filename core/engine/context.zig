@@ -28,6 +28,9 @@ pub const AgentContext = struct {
     router: pay.PaymentRouter,
     mesh_manager: mesh.MeshManager,
     swap_manager: swap.SwapManager,
+    registry_manager: @import("../business/registry.zig").RegistryManager,
+    app_manager: @import("../business/app.zig").AppManager,
+    merchant: @import("../business/merchant.zig").MerchantConfig,
     ipfs_client: @import("../net/ipfs.zig").IpfsClient,
     brain: @import("brain.zig").Brain,
     active_agents: std.StringHashMapUnmanaged(*std.process.Child),
@@ -104,6 +107,17 @@ pub const AgentContext = struct {
 
         const s = try store.Store.init(allocator, config.vaults.path);
 
+        const merchant_path = try std.fs.path.join(allocator, &[_][]const u8{ config.vaults.path, "merchant.json" });
+        defer allocator.free(merchant_path);
+        const m_config = @import("../business/merchant.zig").MerchantConfig.load(allocator, merchant_path) catch |err| blk: {
+            std.debug.print("\n[CONTEXT] ⚠️ Warning loading merchant.json: {s}. Using default.", .{@errorName(err)});
+            break :blk @import("../business/merchant.zig").MerchantConfig{
+                .business_name = "xB77 Sovereign Agent",
+                .contact = "@agent",
+                .services = &.{},
+            };
+        };
+
         var ctx = AgentContext{
             .allocator = allocator,
             .config = config,
@@ -117,6 +131,9 @@ pub const AgentContext = struct {
             .router = undefined, 
             .mesh_manager = try mesh.MeshManager.init(allocator, undefined, agent_id),
             .swap_manager = swap.SwapManager.init(allocator),
+            .registry_manager = @import("../business/registry.zig").RegistryManager.init(allocator, undefined, config.registry_program_id), // Se vincula abajo
+            .app_manager = @import("../business/app.zig").AppManager.init(allocator, null),
+            .merchant = m_config,
             .ipfs_client = @import("../net/ipfs.zig").IpfsClient.init(allocator, config.ipfs.endpoint, config.ipfs.api_key),
             .brain = undefined,
             .active_agents = .{},
@@ -134,6 +151,7 @@ pub const AgentContext = struct {
         
         ctx.brain = @import("brain.zig").Brain.init(allocator, &ctx.constitution);
         ctx.mesh_manager.store = &ctx.store;
+        ctx.registry_manager.sol_client = &ctx.sol_client;
 
         // El router se inicializa con los punteros de 'ctx'. 
         // En Zig, si devolvemos 'ctx' por valor, debemos tener cuidado.
@@ -150,10 +168,19 @@ pub const AgentContext = struct {
             null,
         );
 
+        ctx.app_manager.router = ctx.router.asAppRouter();
+
         // Inyectar el proveedor de pagos x402 en los clientes HTTP
         ctx.ipfs_client.http_client.payment_provider = ctx.getPaymentProvider();
 
         return ctx;
+    }
+
+    pub fn saveMerchantConfig(self: *AgentContext) !void {
+        const merchant_path = try std.fs.path.join(self.allocator, &[_][]const u8{ self.config.vaults.path, "merchant.json" });
+        defer self.allocator.free(merchant_path);
+        try self.merchant.save(merchant_path);
+        std.debug.print("\n[CONTEXT] 💾 Merchant Config Persisted to {s}", .{merchant_path});
     }
 
     /// Implementación de la interfaz de pago para x402

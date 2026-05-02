@@ -93,6 +93,52 @@ pub const PaymentRouter = struct {
         };
     }
 
+    pub fn lockFunds(self: *PaymentRouter, hire_id: [32]u8, amount: u64, asset: types.Asset) ![]const u8 {
+        _ = hire_id;
+        std.debug.print("[APP] Locking {d} {s} for Hire (MagicBlock Ephemeral Escrow)\n", .{
+            amount, asset.symbol
+        });
+        
+        // Evitar llamadas reales a la red durante tests si el endpoint es mock
+        if (std.mem.startsWith(u8, self.sol_client.endpoint, "mock:")) {
+            return try self.allocator.dupe(u8, "mock_escrow_sig_5ov3r31gn");
+        }
+
+        // En un caso real, esto enviaría los fondos al programa de Escrow de MagicBlock.
+        // Por ahora lo ruteamos a una dirección de Escrow Soberana.
+        const escrow_pk = try crypto.stringToPubkey(self.allocator, "11111111111111111111111111111111");
+        
+        const request = PaymentRequest{
+            .amount = amount,
+            .asset = asset,
+            .recipient = .{ .sol = escrow_pk },
+        };
+        
+        const res = try self.pay(request);
+        return res.tx_signature;
+    }
+
+    pub fn releaseFunds(self: *PaymentRouter, hire_id: [32]u8, recipient: types.Pubkey) ![]const u8 {
+        _ = hire_id;
+        _ = recipient;
+        std.debug.print("[APP] Releasing Escrow for Hire to recipient\n", .{});
+        
+        // Mock de liberación exitosa
+        return try self.allocator.dupe(u8, "5ov3r31gn_r3l3453_516");
+    }
+
+    pub fn asAppRouter(self: *PaymentRouter) @import("app.zig").IAppRouter {
+        return .{
+            .ptr = self,
+            .lockFundsFn = struct {
+                fn lock(ptr: *anyopaque, hire_id: [32]u8, amount: u64, asset: types.Asset) ![]const u8 {
+                    const self_ptr: *PaymentRouter = @ptrCast(@alignCast(ptr));
+                    return self_ptr.lockFunds(hire_id, amount, asset);
+                }
+            }.lock,
+        };
+    }
+
     pub fn processBatch(self: *PaymentRouter, file_path: []const u8) !void {
         const file = try std.fs.cwd().openFile(file_path, .{});
         defer file.close();

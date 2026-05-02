@@ -117,17 +117,23 @@ pub const MeshManager = struct {
 
     /// Envía un latido UDP para anunciar nuestra presencia en la red local
     pub fn broadcastPresence(self: *MeshManager, tcp_port: u16) !void {
-        const address = std.net.Address.initIp4(.{ 255, 255, 255, 255 }, 7700);
         const socket = try std.posix.socket(std.posix.AF.INET, std.posix.SOCK.DGRAM, 0);
         defer std.posix.close(socket);
-
-        try std.posix.setsockopt(socket, std.posix.SOL.SOCKET, std.posix.SO.BROADCAST, &std.mem.toBytes(@as(c_int, 1)));
 
         var msg_buf: [34]u8 = undefined;
         @memcpy(msg_buf[0..32], &self.self_id);
         std.mem.writeInt(u16, msg_buf[32..34], tcp_port, .little);
 
-        _ = try std.posix.sendto(socket, &msg_buf, 0, &address.any, address.getOsSockLen());
+        // 1. Loopback Discovery (para demos locales)
+        const loopback = std.net.Address.initIp4(.{ 127, 0, 0, 1 }, 7700);
+        _ = std.posix.sendto(socket, &msg_buf, 0, &loopback.any, loopback.getOsSockLen()) catch {};
+
+        // 2. Network Broadcast
+        const broadcast = std.net.Address.initIp4(.{ 255, 255, 255, 255 }, 7700);
+        std.posix.setsockopt(socket, std.posix.SOL.SOCKET, std.posix.SO.BROADCAST, &std.mem.toBytes(@as(c_int, 1))) catch {};
+        
+        std.debug.print("\n[MESH  ] 📤 Sending presence heartbeat (TCP Port: {d})...", .{tcp_port});
+        _ = std.posix.sendto(socket, &msg_buf, 0, &broadcast.any, broadcast.getOsSockLen()) catch {};
     }
 
     /// Escucha latidos UDP de otros agentes
@@ -137,6 +143,11 @@ pub const MeshManager = struct {
         defer std.posix.close(socket);
 
         try std.posix.setsockopt(socket, std.posix.SOL.SOCKET, std.posix.SO.REUSEADDR, &std.mem.toBytes(@as(c_int, 1)));
+        // SO_REUSEPORT permite que múltiples procesos reciban los mismos paquetes multicast/broadcast
+        if (comptime @hasDecl(std.posix.SO, "REUSEPORT")) {
+             try std.posix.setsockopt(socket, std.posix.SOL.SOCKET, std.posix.SO.REUSEPORT, &std.mem.toBytes(@as(c_int, 1)));
+        }
+        
         try std.posix.bind(socket, &address.any, address.getOsSockLen());
 
         std.debug.print("[MESH  ] 👂 Discovery Listener activo en puerto UDP 7700\n", .{});
