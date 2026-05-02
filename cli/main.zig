@@ -2,6 +2,8 @@ const std = @import("std");
 const core = @import("core");
 const mcp_server = @import("mcp");
 
+var xb77_password: ?[]const u8 = null;
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -14,6 +16,10 @@ pub fn main() !void {
         printUsage();
         return;
     }
+
+    // --- Master Password Retrieval ---
+    xb77_password = std.process.getEnvVarOwned(allocator, "XB77_PASSWORD") catch null;
+    defer if (xb77_password) |p| allocator.free(p);
 
     // --- Procesamiento de Flags Globales ---
     var profile: []const u8 = "default";
@@ -127,7 +133,7 @@ fn printUsage() void {
 }
 
 fn handleLocalExport(allocator: std.mem.Allocator, config_path: []const u8) !void {
-    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
     std.debug.print("\n--- xB77 Sovereign Export ({s}) ---\n", .{config_path});
@@ -161,7 +167,7 @@ fn handleLocalExport(allocator: std.mem.Allocator, config_path: []const u8) !voi
 }
 
 fn handleState(allocator: std.mem.Allocator, config_path: []const u8) !void {
-    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
     const root = ctx.store.tree.getRoot();
@@ -183,7 +189,7 @@ fn handleInit(allocator: std.mem.Allocator, profile: []const u8) !void {
     var config_buf: [256]u8 = undefined;
     const config_path = if (std.mem.eql(u8, profile, "default")) "agent.toml" else try std.fmt.bufPrint(&config_buf, "profiles/{s}.toml", .{profile});
 
-    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
     // El VaultSet.init ya se encarga de crear las llaves si no existen
@@ -196,7 +202,7 @@ fn handleInit(allocator: std.mem.Allocator, profile: []const u8) !void {
 }
 
 fn handleStatus(allocator: std.mem.Allocator, config_path: []const u8) !void {
-    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
     const sol_addr = try ctx.vaults.ops.address(.solana, allocator);
@@ -261,12 +267,12 @@ fn handleShield(allocator: std.mem.Allocator, config_path: []const u8, args: []c
     _ = config_path; _ = args; _ = allocator;
 }
 fn handleMcp(allocator: std.mem.Allocator, config_path: []const u8) !void {
-    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
     try mcp_server.run(allocator, &ctx);
 }
 fn handleServe(allocator: std.mem.Allocator, config_path: []const u8) !void {
-    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
     // Re-vincular el router a la dirección de memoria estable de 'ctx'
@@ -315,7 +321,7 @@ fn handleMeshDiscover(allocator: std.mem.Allocator, config_path: []const u8, arg
 }
 
 fn handleMesh(allocator: std.mem.Allocator, config_path: []const u8) !void {
-    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
     // Simular el seed peer que el Engine agregaría al arrancar
@@ -343,7 +349,7 @@ fn handleMesh(allocator: std.mem.Allocator, config_path: []const u8) !void {
 
 fn handleDeploy(allocator: std.mem.Allocator, config_path: []const u8, args: []const [:0]u8) !void {
     _ = args;
-    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
     std.debug.print("\n🚀 Preparando despliegue para el Agente Soberano ({s})...\n", .{config_path});
@@ -411,7 +417,7 @@ fn handleLink(allocator: std.mem.Allocator, config_path: []const u8, args: []con
     }
     const code = args[0];
 
-    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
     const sol_kp = ctx.vaults.ops.sol_kp;
@@ -449,7 +455,7 @@ fn handleLink(allocator: std.mem.Allocator, config_path: []const u8, args: []con
 }
 
 fn handleCredits(allocator: std.mem.Allocator, config_path: []const u8) !void {
-    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
     const sol_kp = ctx.vaults.ops.sol_kp;
@@ -468,7 +474,7 @@ fn handleCredits(allocator: std.mem.Allocator, config_path: []const u8) !void {
 }
 
 fn handleRemoteExport(allocator: std.mem.Allocator, config_path: []const u8) !void {
-    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
     const sol_kp = ctx.vaults.ops.sol_kp;
@@ -559,7 +565,7 @@ fn handleIdentity(allocator: std.mem.Allocator, config_path: []const u8, args: [
     }
 
     const sub = args[0];
-    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
     if (std.mem.eql(u8, sub, "claim")) {
@@ -583,7 +589,7 @@ fn handleIdentity(allocator: std.mem.Allocator, config_path: []const u8, args: [
 
         var json_list = std.ArrayListUnmanaged(u8){};
         defer json_list.deinit(allocator);
-        try std.json.stringify(payload, .{}, json_list.writer(allocator));
+        try json_list.writer(allocator).print("{any}", .{std.json.fmt(payload, .{})});
 
         var http = core.net.http.HttpClient.init(allocator);
         const url = "https://gateway.xb77.com/identity/claim";
@@ -612,11 +618,13 @@ fn handleIdentity(allocator: std.mem.Allocator, config_path: []const u8, args: [
         const domain = args[1];
         std.debug.print("🔍 Resolviendo '{s}'...\n", .{domain});
 
-        const pubkey = core.business.identity.Identity.resolveSnsNative(allocator, &ctx.sol_client, domain) catch |err| {
-            std.debug.print("⚠️  Fallo resolución nativa: {s}. Probando API fallback...\n", .{@errorName(err)});
-            return core.business.identity.Identity.resolveSnsApi(allocator, &ctx.sol_client, domain) catch |err2| {
-                std.debug.print("❌ Fallo total de resolución: {s}\n", .{@errorName(err2)});
-                return;
+        const pubkey = resolve_blk: {
+            break :resolve_blk core.business.identity.Identity.resolveSnsNative(allocator, &ctx.sol_client, domain) catch |err| {
+                std.debug.print("⚠️  Fallo resolución nativa: {s}. Probando API fallback...\n", .{@errorName(err)});
+                break :resolve_blk core.business.identity.Identity.resolveSnsApi(allocator, &ctx.sol_client, domain) catch |err2| {
+                    std.debug.print("❌ Fallo total de resolución: {s}\n", .{@errorName(err2)});
+                    return;
+                };
             };
         };
 
@@ -634,6 +642,7 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
             \\Comandos:
             \\  status           Muestra el catálogo actual
             \\  add <name> <amt> Añade un nuevo servicio (monto en lamports)
+            \\  setup-shop       Inicia el asistente ULTRA-DELUXE de configuración
             \\  blink            Genera el JSON de Solana Action (Blink)
             \\  publish          Publica el catálogo de forma descentralizada (IPFS)
             \\  register         Registra el Merchant on-chain (Ecosistema APP)
@@ -645,7 +654,7 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
     }
 
     const sub = args[0];
-    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
     if (std.mem.eql(u8, sub, "status")) {
@@ -739,6 +748,99 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
         
         const plan = try ctx.app_manager.createPlan(.{ .chain = .solana, .symbol = "SOL" }, amt, sec, 12);
         std.debug.print("✅ Plan recurrente creado: {x}\n", .{plan.plan_id[0..4].*});
+    } else if (std.mem.eql(u8, sub, "setup-shop")) {
+        try handleSetupShop(allocator, config_path, &ctx);
     }
+}
+
+fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *core.context.AgentContext) !void {
+    var stdin_buf: [1024]u8 = undefined;
+    var stdin_buffered = std.fs.File.stdin().reader(&stdin_buf);
+    
+    var stdout_buf: [4096]u8 = undefined;
+    var stdout_buffered = std.fs.File.stdout().writer(&stdout_buf);
+    const stdout = stdout_buffered.interface;
+    defer stdout_buffered.flush() catch {};
+
+    try stdout.writeAll("\n💎 xB77 ULTRA-DELUXE MERCHANT SETUP 💎\n");
+    try stdout.writeAll("--------------------------------------\n");
+
+    // 1. Nombre del Negocio
+    try stdout.writeAll("Business Name: ");
+    try stdout_buffered.flush();
+    var name_buf: [64]u8 = undefined;
+    const name_raw = (try stdin_buffered.interface.readUntilDelimiterOrEof(&name_buf, '\n')) orelse return;
+    const name = std.mem.trim(u8, name_raw, " \r\n\t");
+
+    // 2. Primer Servicio
+    try stdout.writeAll("Primary Service Name: ");
+    try stdout_buffered.flush();
+    var srv_buf: [64]u8 = undefined;
+    const srv_raw = (try stdin_buffered.interface.readUntilDelimiterOrEof(&srv_buf, '\n')) orelse return;
+    const srv_name = std.mem.trim(u8, srv_raw, " \r\n\t");
+
+    try stdout.writeAll("Price (in lamports, e.g. 50000000): ");
+    try stdout_buffered.flush();
+    var price_buf: [32]u8 = undefined;
+    const price_raw = (try stdin_buffered.interface.readUntilDelimiterOrEof(&price_buf, '\n')) orelse return;
+    const price = std.fmt.parseInt(u64, std.mem.trim(u8, price_raw, " \r\n\t"), 10) catch 50_000_000;
+
+    // 3. Identidad Soberana (opcional)
+    try stdout.writeAll("Claim your .xb77 handle (leave empty to skip): ");
+    try stdout_buffered.flush();
+    var handle_buf: [64]u8 = undefined;
+    const handle_raw = (try stdin_buffered.interface.readUntilDelimiterOrEof(&handle_buf, '\n')) orelse return;
+    const handle = std.mem.trim(u8, handle_raw, " \r\n\t");
+
+    // --- EXECUTION ---
+    try stdout.writeAll("\n🚀 Orchestrating Sovereign Infrastructure...\n");
+
+    // Update Merchant Config
+    ctx.merchant.business_name = try allocator.dupe(u8, name);
+    var service = try allocator.alloc(core.business.merchant.MerchantService, 1);
+    service[0] = .{
+        .name = try allocator.dupe(u8, srv_name),
+        .description = "Ultra-Deluxe Initial Service",
+        .price_lamports = price,
+    };
+    ctx.merchant.services = service;
+    
+    const m_path = try std.fs.path.join(allocator, &[_][]const u8{ ctx.config.vaults.path, "merchant.json" });
+    defer allocator.free(m_path);
+    try ctx.merchant.save(m_path);
+    
+    // Claim Identity if handle provided
+    if (handle.len > 0) {
+        try stdout.print("🆔 Claiming {s}.xb77... ", .{handle});
+        const sol_kp = ctx.vaults.ops.sol_kp;
+        const msg = try std.fmt.allocPrint(allocator, "claim:{s}", .{handle});
+        defer allocator.free(msg);
+        const sig = core.crypto.sign(msg, &sol_kp);
+
+        const payload = .{ .agent_id = sol_kp.public, .name = handle, .signature = sig };
+        var json_list = std.ArrayListUnmanaged(u8){};
+        defer json_list.deinit(allocator);
+        try json_list.writer(allocator).print("{any}", .{std.json.fmt(payload, .{})});
+
+        var http = core.net.http.HttpClient.init(allocator);
+        _ = http.post("https://gateway.xb77.com/identity/claim", json_list.items) catch {
+            try stdout.writeAll("⚠️ Gateway unreachable, skipping claim.\n");
+        };
+        ctx.config.name = try allocator.dupe(u8, handle);
+        try ctx.config.save(allocator, config_path);
+        try stdout.writeAll("DONE\n");
+    }
+
+    // Deploy to Gateway
+    try stdout.writeAll("📡 Syncing with Global Edge... ");
+    try handleDeploy(allocator, config_path, &[_][:0]u8{});
+    try stdout.writeAll("DONE\n");
+
+    try stdout.writeAll("\n✨ SHOP IS LIVE AND SOVEREIGN! ✨\n");
+    if (ctx.config.name) |h| {
+        try stdout.print("Public Profile: https://gateway.xb77.com/p/{s}\n", .{h});
+    }
+    try stdout.writeAll("Blink Link:     https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/pay\n");
+    try stdout.writeAll("--------------------------------------\n");
 }
 

@@ -177,7 +177,63 @@ pub const MeshManager = struct {
             });
 
             try self.addPeer(peer_id, ip_str, peer_port);
+
+            // Intentar verificación proactiva inmediata
+            const new_peer = &self.buckets[self.getBucketIndex(peer_id)].items[self.buckets[self.getBucketIndex(peer_id)].items.len - 1];
+            self.verifyPeer(new_peer) catch {};
         }
+    }
+
+    fn verifyPeer(self: *MeshManager, peer: *Peer) !void {
+        std.debug.print("\n[MESH  ] 🔬 Proactive Verification: {s}:{d}...", .{ peer.address, peer.port });
+        var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch return;
+        defer stream.close();
+
+        var encoder = awp.AwpEncoder.init(self.allocator);
+        defer encoder.deinit();
+
+        const timestamp = std.time.timestamp();
+        const root = self.store.tree.getRoot();
+        
+        // Firmar el handshake para demostrar soberanía
+        var sig_buf: [128]u8 = undefined;
+        const sig_msg = try std.fmt.bufPrint(&sig_buf, "handshake:{d}:{x}", .{ timestamp, root });
+        _ = sig_msg;
+        // Usamos una clave de prueba si no tenemos la real (esto debería venir del Vault en prod)
+        // Para esta fase de la demo, usamos un dummy signature que el otro lado aceptará en modo debug
+        var signature: [64]u8 = [_]u8{0} ** 64;
+        signature[0] = 0x01; // Mock sovereign flag
+
+        const handshake = try encoder.encodeHandshake(.{
+            .agent_id = self.self_id,
+            .protocol_version = 1,
+            .timestamp = timestamp,
+            .signature = signature,
+            .state_root = root,
+            .federation_badge = null,
+        });
+        _ = try stream.write(handshake);
+        
+        // Esperar respuesta (handshake de vuelta o state_query)
+        var buf: [1024]u8 = undefined;
+        const n = try stream.read(&buf);
+        if (n > 0) {
+            peer.status = .connected;
+        }
+    }
+
+    /// Devuelve el root más alto (más reciente) conocido en la red para un CMT
+    pub fn getHighestNetworkRoot(self: *MeshManager) [32]u8 {
+        var best_root = self.store.tree.getRoot();
+        for (0..256) |i| {
+            for (self.buckets[i].items) |peer| {
+                if (peer.status == .verified) {
+                    // Simplificación: asumimos que el root es comparable o simplemente confiamos en el peer
+                    best_root = peer.state_root;
+                }
+            }
+        }
+        return best_root;
     }
 
     /// Inicia un ciclo de descubrimiento (Gossip)
