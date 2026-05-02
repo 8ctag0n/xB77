@@ -9,6 +9,10 @@ pub const Constitution = struct {
     blocked_contracts: std.StringHashMap(void),
     rules: std.ArrayListUnmanaged([]const u8),
     
+    // --- xB77 Frontier Dynamic Policies ---
+    required_sns_namespace: ?[]const u8 = null, // Opt-in: e.g. "*.agent.sol"
+    force_hft_rail: bool = false,               // Opt-in: force MagicBlock PER
+    
     mutex: std.Thread.Mutex,
 
     pub fn init(allocator: std.mem.Allocator) Constitution {
@@ -33,6 +37,8 @@ pub const Constitution = struct {
             self.allocator.free(rule);
         }
         self.rules.deinit(self.allocator);
+        
+        if (self.required_sns_namespace) |ns| self.allocator.free(ns);
     }
 
     pub fn addRule(self: *Constitution, rule: []const u8) !void {

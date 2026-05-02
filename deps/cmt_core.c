@@ -55,23 +55,38 @@ static void keccakf(uint64_t st[25]) {
 
 void cmt_keccak256(const uint8_t* data, size_t len, uint8_t* out) {
     uint64_t st[25];
-    uint8_t temp[200];
     memset(st, 0, sizeof(st));
 
-    // Pad and absorb
-    if (len <= 136) {
-        memcpy(temp, data, len);
-        temp[len] = 0x01;
-        memset(temp + len + 1, 0, 136 - len - 1);
-        temp[135] |= 0x80;
+    const size_t rate = 136;
+    size_t pos = 0;
+
+    // Absorb full blocks
+    while (len - pos >= rate) {
         for (int i = 0; i < 17; i++) {
             uint64_t val = 0;
-            for (int k = 0; k < 8; k++) val |= ((uint64_t)temp[i * 8 + k]) << (k * 8);
+            for (int k = 0; k < 8; k++) val |= ((uint64_t)data[pos + i * 8 + k]) << (k * 8);
             st[i] ^= val;
         }
         keccakf(st);
+        pos += rate;
     }
 
+    // Handle last block with padding
+    uint8_t temp[136];
+    size_t remaining = len - pos;
+    memcpy(temp, data + pos, remaining);
+    temp[remaining] = 0x01;
+    memset(temp + remaining + 1, 0, rate - remaining - 1);
+    temp[rate - 1] |= 0x80;
+
+    for (int i = 0; i < 17; i++) {
+        uint64_t val = 0;
+        for (int k = 0; k < 8; k++) val |= ((uint64_t)temp[i * 8 + k]) << (k * 8);
+        st[i] ^= val;
+    }
+    keccakf(st);
+
+    // Squeeze out 32 bytes (4 words)
     for (int i = 0; i < 4; i++) {
         for (int k = 0; k < 8; k++) out[i * 8 + k] = (uint8_t)(st[i] >> (k * 8));
     }

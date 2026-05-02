@@ -37,7 +37,7 @@ pub const Vault = struct {
     history: std.ArrayListUnmanaged(SpendRecord),
     storage_path: []const u8,
     
-    pub fn init(allocator: std.mem.Allocator, role: VaultRole, policy: SpendPolicy, storage_path: []const u8, mnemonic: ?[]const u8) !Vault {
+    pub fn init(allocator: std.mem.Allocator, role: VaultRole, policy: SpendPolicy, storage_path: []const u8, mnemonic: ?[]const u8, password: ?[]const u8) !Vault {
         var v = Vault{
             .allocator = allocator,
             .role = role,
@@ -48,47 +48,71 @@ pub const Vault = struct {
             .storage_path = try allocator.dupe(u8, storage_path),
         };
         
-        try v.ensureKeys(mnemonic);
+        try v.ensureKeys(mnemonic, password);
         try v.loadHistory();
         return v;
     }
 
-    fn ensureKeys(self: *Vault, mnemonic: ?[]const u8) !void {
+    fn ensureKeys(self: *Vault, mnemonic: ?[]const u8, password: ?[]const u8) !void {
         const key_path = try std.fmt.allocPrint(self.allocator, "{s}.key", .{self.storage_path});
         defer self.allocator.free(key_path);
 
+        const GCM = std.crypto.aead.aes_gcm.Aes256Gcm;
+        const PBKDF2 = std.crypto.pwhash.pbkdf2;
+
         if (std.fs.cwd().openFile(key_path, .{})) |file| {
             defer file.close();
-            var buf: [64 + 32]u8 = undefined;
+            // Formato: [SALT 16] [NONCE 12] [TAG 16] [ENCRYPTED 96]
+            var buf: [16 + 12 + 16 + 96]u8 = undefined;
             const bytes_read = try file.readAll(&buf);
-            if (bytes_read == 96) {
-                @memcpy(&self.sol_kp.secret, buf[0..64]);
-                // Re-derivar public key de Solana
-                const pk = try crypto.Ed25519.PublicKey.fromBytes(self.sol_kp.secret[32..64].*);
-                self.sol_kp.public = pk.toBytes();
+            if (bytes_read == buf.len) {
+                if (password) |pwd| {
+                    const salt = buf[0..16];
+                    const nonce = buf[16..28];
+                    const tag = buf[28..44];
+                    const encrypted = buf[44..];
 
-                var eth_secret: [32]u8 = undefined;
-                @memcpy(&eth_secret, buf[64..96]);
-                
-                // Re-derivar EthAddress usando la API de ECDSA
-                const sk = try crypto.EcdsaKeccak.SecretKey.fromBytes(eth_secret);
-                const kp = try crypto.EcdsaKeccak.KeyPair.fromSecretKey(sk);
-                const uncompressed_pk = kp.public_key.p.toUncompressedSec1();
-                
-                var hash: [32]u8 = undefined;
-                crypto.Keccak256.hash(uncompressed_pk[1..], &hash, .{});
-                
-                var addr: types.EthAddress = undefined;
-                @memcpy(&addr, hash[12..32]);
+                    var key: [32]u8 = undefined;
+                    try PBKDF2(&key, pwd, salt, 4096, std.crypto.auth.hmac.sha2.HmacSha256);
 
-                self.eth_kp = .{
-                    .address = addr,
-                    .secret = eth_secret,
-                };
-                return;
+                    var decrypted: [96]u8 = undefined;
+                    GCM.decrypt(&decrypted, encrypted, tag.*, "", nonce.*, key) catch |err| {
+                        std.debug.print("\n[Vault] ❌ Password incorrecto o Vault corrupto: {}\n", .{err});
+                        return error.InvalidPassword;
+                    };
+
+                    @memcpy(&self.sol_kp.secret, decrypted[0..64]);
+                    
+                    // Re-derivar public key de Solana
+                    const pk = try crypto.Ed25519.PublicKey.fromBytes(self.sol_kp.secret[32..64].*);
+                    self.sol_kp.public = pk.toBytes();
+
+                    var eth_secret: [32]u8 = undefined;
+                    @memcpy(&eth_secret, decrypted[64..96]);
+                    
+                    const sk = try crypto.EcdsaKeccak.SecretKey.fromBytes(eth_secret);
+                    const kp = try crypto.EcdsaKeccak.KeyPair.fromSecretKey(sk);
+                    const uncompressed_pk = kp.public_key.p.toUncompressedSec1();
+                    
+                    var hash: [32]u8 = undefined;
+                    crypto.Keccak256.hash(uncompressed_pk[1..], &hash, .{});
+                    
+                    var addr: types.EthAddress = undefined;
+                    @memcpy(&addr, hash[12..32]);
+
+                    self.eth_kp = .{
+                        .address = addr,
+                        .secret = eth_secret,
+                    };
+                    return;
+                } else {
+                    std.debug.print("\n[Vault] ⚠️ Vault cifrado detectado. Se requiere Master Password.\n", .{});
+                    return error.PasswordRequired;
+                }
             }
         } else |_| {}
 
+        // Si llegamos acá es un Vault nuevo o no existe el archivo
         if (mnemonic) |m| {
             const wdk = @import("../crypto/wdk.zig");
             var provider = try wdk.WdkProvider.init(self.allocator, m);
@@ -101,10 +125,40 @@ pub const Vault = struct {
             self.eth_kp = try crypto.generateEthKeypair();
         }
 
-        const file = try std.fs.cwd().createFile(key_path, .{});
-        defer file.close();
-        try file.writeAll(&self.sol_kp.secret);
-        try file.writeAll(&self.eth_kp.?.secret);
+        // Cifrar antes de guardar
+        if (password) |pwd| {
+            var salt: [16]u8 = undefined;
+            std.crypto.random.bytes(&salt);
+            var nonce: [12]u8 = undefined;
+            std.crypto.random.bytes(&nonce);
+
+            var key: [32]u8 = undefined;
+            try PBKDF2(&key, pwd, &salt, 4096, std.crypto.auth.hmac.sha2.HmacSha256);
+
+            var plain: [96]u8 = undefined;
+            @memcpy(plain[0..64], &self.sol_kp.secret);
+            @memcpy(plain[64..96], &self.eth_kp.?.secret);
+
+            var encrypted: [96]u8 = undefined;
+            var tag: [16]u8 = undefined;
+            GCM.encrypt(&encrypted, &tag, &plain, "", nonce, key);
+
+            const file = try std.fs.cwd().createFile(key_path, .{});
+            defer file.close();
+            try file.writeAll(&salt);
+            try file.writeAll(&nonce);
+            try file.writeAll(&tag);
+            try file.writeAll(&encrypted);
+            
+            std.debug.print("\n[Vault] 🔒 Bunker Vault inicializado y cifrado con AES-GCM.\n", .{});
+        } else {
+            // Guardado inseguro (legacy/dev)
+            const file = try std.fs.cwd().createFile(key_path, .{});
+            defer file.close();
+            try file.writeAll(&self.sol_kp.secret);
+            try file.writeAll(&self.eth_kp.?.secret);
+            std.debug.print("\n[Vault] ⚠️ ADVERTENCIA: Vault guardado en texto plano (Modo Inseguro).\n", .{});
+        }
     }
 
     pub fn deinit(self: *Vault) void {
@@ -208,7 +262,7 @@ pub const VaultSet = struct {
     yield: Vault,
     allocator: std.mem.Allocator,
 
-    pub fn init(allocator: std.mem.Allocator, base_path: []const u8) !VaultSet {
+    pub fn init(allocator: std.mem.Allocator, base_path: []const u8, password: ?[]const u8) !VaultSet {
         // Aseguramos que la carpeta base exista y termine en separador
         try std.fs.cwd().makePath(base_path);
 
@@ -227,9 +281,9 @@ pub const VaultSet = struct {
 
         return .{
             .allocator = allocator,
-            .ops = try Vault.init(allocator, .ops, default_policy, ops_path, null),
-            .reserve = try Vault.init(allocator, .reserve, default_policy, reserve_path, null),
-            .yield = try Vault.init(allocator, .yield, default_policy, yield_path, null),
+            .ops = try Vault.init(allocator, .ops, default_policy, ops_path, null, password),
+            .reserve = try Vault.init(allocator, .reserve, default_policy, reserve_path, null, password),
+            .yield = try Vault.init(allocator, .yield, default_policy, yield_path, null, password),
         };
     }
 

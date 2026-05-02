@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -18,6 +19,8 @@ typedef struct {
     int socket_fd;
     uint8_t buffer[ZNODE_BUFFER_SIZE];
     size_t buffer_len;
+    pthread_t thread;
+    volatile bool running;
 } znode_client_t;
 
 static znode_client_t* global_client = NULL;
@@ -38,11 +41,9 @@ static int connect_to_bridge() {
     return fd;
 }
 
-// Parser ultra-rápido de Yellowstone -> AWP
 static void process_yellowstone_frame(znode_client_t* client, const uint8_t* data, size_t len) {
     if (len == 0) return;
 
-    // Allocate a buffer large enough for the AWP header (type + varint length) + payload
     uint8_t* awp_buf = malloc(len + 16);
     if (!awp_buf) return;
 
@@ -51,7 +52,10 @@ static void process_yellowstone_frame(znode_client_t* client, const uint8_t* dat
     if (client->socket_fd >= 0) {
         if (send(client->socket_fd, awp_buf, awp_len, MSG_NOSIGNAL) < 0) {
             close(client->socket_fd);
-            client->socket_fd = -1;
+            client->socket_fd = connect_to_bridge();
+            if (client->socket_fd >= 0) {
+                send(client->socket_fd, awp_buf, awp_len, MSG_NOSIGNAL);
+            }
         }
     }
     
@@ -70,14 +74,12 @@ static size_t write_callback(char* ptr, size_t size, size_t nmemb, void* userdat
         client->socket_fd = connect_to_bridge();
     }
 
-    // Manejo de buffer para frames gRPC
     if (client->buffer_len + total_size <= ZNODE_BUFFER_SIZE) {
         memcpy(client->buffer + client->buffer_len, ptr, total_size);
         client->buffer_len += total_size;
 
         size_t pos = 0;
         while (pos + 5 <= client->buffer_len) {
-            // gRPC header: 1 byte flags, 4 bytes length (BE)
             uint32_t frame_len = (client->buffer[pos + 1] << 24) |
                                  (client->buffer[pos + 2] << 16) |
                                  (client->buffer[pos + 3] << 8) |
@@ -96,11 +98,26 @@ static size_t write_callback(char* ptr, size_t size, size_t nmemb, void* userdat
             client->buffer_len -= pos;
         }
     } else {
-        // Buffer overflow, resetear (en prod loguearíamos esto)
         client->buffer_len = 0;
     }
 
     return total_size;
+}
+
+static void* stream_thread(void* arg) {
+    znode_client_t* client = (znode_client_t*)arg;
+    
+    while (client->running) {
+        CURLcode res = curl_easy_perform(client->curl);
+        if (res != CURLE_OK) {
+            fprintf(stderr, "[Z-Node] Stream error: %s. Retrying in 5s...\n", curl_easy_strerror(res));
+            sleep(5);
+        } else {
+            // Si el stream termina normalmente (raro en gRPC stream), salimos o reintentamos
+            if (client->running) sleep(1);
+        }
+    }
+    return NULL;
 }
 
 bool znode_connect(znode_config_t config, znode_on_event_cb callback, void* user_data) {
@@ -111,6 +128,7 @@ bool znode_connect(znode_config_t config, znode_on_event_cb callback, void* user
     global_client->callback = callback;
     global_client->user_data = user_data;
     global_client->socket_fd = -1;
+    global_client->running = true;
 
     curl_global_init(CURL_GLOBAL_ALL);
     global_client->curl = curl_easy_init();
@@ -119,16 +137,30 @@ bool znode_connect(znode_config_t config, znode_on_event_cb callback, void* user
         struct curl_slist* headers = NULL;
         headers = curl_slist_append(headers, "Content-Type: application/grpc");
         
-        char token_header[256];
-        snprintf(token_header, sizeof(token_header), "x-token: %s", config.token);
-        headers = curl_slist_append(headers, token_header);
+        if (config.token && strlen(config.token) > 0) {
+            char token_header[256];
+            snprintf(token_header, sizeof(token_header), "x-token: %s", config.token);
+            headers = curl_slist_append(headers, token_header);
+        }
 
         curl_easy_setopt(global_client->curl, CURLOPT_URL, config.endpoint);
         curl_easy_setopt(global_client->curl, CURLOPT_HTTPHEADER, headers);
         curl_easy_setopt(global_client->curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
         curl_easy_setopt(global_client->curl, CURLOPT_POST, 1L);
+        // El cuerpo del POST para Yellowstone gRPC suele ser vacío o un pequeño frame de suscripción
+        // Aquí asumimos que el endpoint ya está configurado para streamear al conectar o enviamos dummy zero
+        curl_easy_setopt(global_client->curl, CURLOPT_POSTFIELDS, "\0\0\0\0\0");
+        curl_easy_setopt(global_client->curl, CURLOPT_POSTFIELDSIZE, 5L);
         curl_easy_setopt(global_client->curl, CURLOPT_WRITEFUNCTION, write_callback);
         curl_easy_setopt(global_client->curl, CURLOPT_WRITEDATA, global_client);
+        curl_easy_setopt(global_client->curl, CURLOPT_PIPEWAIT, 1L);
+
+        if (pthread_create(&global_client->thread, NULL, stream_thread, global_client) != 0) {
+            curl_easy_cleanup(global_client->curl);
+            free(global_client);
+            global_client = NULL;
+            return false;
+        }
 
         return true;
     }
@@ -138,6 +170,8 @@ bool znode_connect(znode_config_t config, znode_on_event_cb callback, void* user
 
 void znode_disconnect() {
     if (global_client) {
+        global_client->running = false;
+        pthread_join(global_client->thread, NULL);
         if (global_client->socket_fd >= 0) close(global_client->socket_fd);
         if (global_client->curl) curl_easy_cleanup(global_client->curl);
         free(global_client);

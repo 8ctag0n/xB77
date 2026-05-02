@@ -26,18 +26,27 @@ void on_solana_event(znode_event_type_t type, void* event_data, void* user_data)
 int main(int argc, char** argv) {
     signal(SIGINT, sig_handler);
 
-    if (argc < 2) {
-        printf("Uso: znode-server <endpoint> [token]\n");
+    const char* env_endpoint = getenv("YELLOWSTONE_ENDPOINT");
+    const char* env_token = getenv("YELLOWSTONE_TOKEN");
+
+    const char* endpoint = (env_endpoint) ? env_endpoint : ((argc > 1) ? argv[1] : NULL);
+    const char* token = (env_token) ? env_token : ((argc > 2) ? argv[2] : "");
+
+    if (!endpoint) {
+        printf("Error: No se proporcionó endpoint de Yellowstone.\n");
+        printf("Uso: export YELLOWSTONE_ENDPOINT=... && znode-server\n");
+        printf("O bien: znode-server <endpoint> [token]\n");
         return 1;
     }
 
     znode_config_t config = {
-        .endpoint = argv[1],
-        .token = (argc > 2) ? argv[2] : ""
+        .endpoint = endpoint,
+        .token = token
     };
 
     printf("\n--- xB77 Z-Node Sentinel ---\n");
     printf("Endpoint: %s\n", config.endpoint);
+    if (token && token[0] != '\0') printf("Token:    [PROPORCIONADO]\n");
     printf("Socket:   /tmp/xb77_znode.sock\n");
     printf("----------------------------\n");
 

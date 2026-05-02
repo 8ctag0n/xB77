@@ -44,6 +44,7 @@ pub const chain = struct {
     pub const solana = @import("chain/solana.zig");
     pub const evm = @import("chain/evm.zig");
     pub const anchor = @import("chain/anchor.zig");
+    pub const magicblock = @import("chain/magicblock.zig");
 };
 
 pub const protocol = struct {

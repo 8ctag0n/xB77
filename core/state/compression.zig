@@ -19,10 +19,12 @@ pub const CompressedAccount = extern struct {
 
     pub fn hash(self: *const CompressedAccount, out: *[32]u8) void {
         const ptr: [*]const u8 = @ptrCast(self);
-        // Hashing del struct completo (120 bytes) usando Keccak256 nativo de Zig
-        std.crypto.hash.sha3.Keccak256.hash(ptr[0..@sizeOf(CompressedAccount)], out, .{});
+        // Hashing del struct completo (120 bytes) usando el motor C optimizado (Fixed in Round 2)
+        cmt_keccak256(ptr, @sizeOf(CompressedAccount), out.ptr);
     }
 };
+
+pub extern fn cmt_keccak256(data: [*]const u8, len: usize, out: [*]u8) void;
 
 /// Motor de Compresión Prioritario xB77
 pub const CompressionEngine = struct {
@@ -82,25 +84,29 @@ pub const CompressionEngine = struct {
 
         const file = try std.fs.cwd().createFile(prover_path, .{});
         defer file.close();
-        const w = file.writer();
+        var buf: [4096]u8 = undefined;
+        var w_buffered = file.writer(&buf);
 
-        try w.print("root = {s}\n", .{try formatArray(tree.allocator, tree.getRoot())});
-        try w.print("amount = {d}\n", .{amount});
-        try w.print("tax = 111\n", .{});
+        try w_buffered.interface.print("root = {s}\n", .{try formatArray(tree.allocator, tree.getRoot())});
+        try w_buffered.interface.print("amount = {d}\n", .{amount});
+        try w_buffered.interface.print("tax = 111\n", .{});
 
-        try w.print("from_index = {d}\n", .{from_idx});
-        try w.print("from_siblings = [\n", .{});
+        try w_buffered.interface.print("from_index = {d}\n", .{from_idx});
+        try w_buffered.interface.print("from_siblings = [\n", .{});
         for (from_siblings, 0..) |s, i| {
-            try w.print("  {s}{s}\n", .{ try formatArray(tree.allocator, s), if (i == 13) "" else "," });
+            try w_buffered.interface.print("  {s}{s}\n", .{ try formatArray(tree.allocator, s), if (i == 13) "" else "," });
         }
-        try w.print("]\n", .{});
+        try w_buffered.interface.print("]\n", .{});
+
+        try w_buffered.end();
 
         // Nota: Aquí deberíamos pasar los datos crudos de las cuentas para el hash
         // Por simplicidad en la demo, usamos placeholders
-        try w.print("from_account_data_old = [{d}, 0, 0, ...]\n", .{from_idx}); // Mock
-        try w.print("from_amount_old = 1000000\n", .{}); // Mock
+        try w_buffered.interface.print("from_account_data_old = [{d}, 0, 0, ...]\n", .{from_idx}); // Mock
+        try w_buffered.interface.print("from_amount_old = 1000000\n", .{}); // Mock
 
         // ... Repetir para 'to' ...
+        try w_buffered.end();
 
         std.debug.print("\n[ZK    ] 🛡️ ZK-Transition artifacts generated at {s}", .{target_dir});
         }
