@@ -21,19 +21,23 @@ pub const PaymentProvider = struct {
     }
 };
 
+const telemetry = @import("../engine/telemetry.zig");
+
 pub const HttpClient = struct {
     allocator: std.mem.Allocator,
     payment_provider: ?PaymentProvider = null,
+    telemetry: ?*telemetry.TelemetryHub = null,
 
     pub fn init(allocator: std.mem.Allocator) HttpClient {
         return .{ .allocator = allocator };
     }
 
     pub fn post(self: *HttpClient, url: []const u8, payload: []const u8) !HttpResponse {
+        if (self.telemetry) |t| t.recordRpc();
         var resp = if (comptime builtin.target.os.tag == .wasi)
             try self.postWasm(url, payload)
         else
-            try self.postNative(url, payload, null);
+            try self.postNative(url, .POST, payload, null);
 
         // x402 Swarm Economy: Infrastructure Toll Handling
         if (resp.status == 402 and self.payment_provider != null) {
@@ -45,13 +49,21 @@ pub const HttpClient = struct {
             std.debug.print("Infrastructure toll settled: {s}. Retrying request...\n", .{tx_hash});
 
             resp.deinit();
-            return try self.postNative(url, payload, tx_hash);
+            return try self.postNative(url, .POST, payload, tx_hash);
         }
 
         return resp;
     }
 
-    fn postNative(self: *HttpClient, url: []const u8, payload: []const u8, payment_hash: ?[]const u8) !HttpResponse {
+    pub fn get(self: *HttpClient, url: []const u8) !HttpResponse {
+        if (self.telemetry) |t| t.recordRpc();
+        return if (comptime builtin.target.os.tag == .wasi)
+            error.NotImplemented // TODO: GET in WASM
+        else
+            try self.postNative(url, .GET, "", null);
+    }
+
+    fn postNative(self: *HttpClient, url: []const u8, method: std.http.Method, payload: []const u8, payment_hash: ?[]const u8) !HttpResponse {
         var client = std.http.Client{ .allocator = self.allocator };
         defer client.deinit();
 
@@ -61,23 +73,30 @@ pub const HttpClient = struct {
         var headers = std.ArrayListUnmanaged(Header){};
         defer headers.deinit(self.allocator);
         try headers.append(self.allocator, .{ .name = "Content-Type", .value = "application/json" });
+        try headers.append(self.allocator, .{ .name = "Accept-Encoding", .value = "identity" });
         if (payment_hash) |hash| {
             try headers.append(self.allocator, .{ .name = "X-xB77-Payment-Hash", .value = hash });
         }
 
-        var req = try client.request(.POST, uri, .{ 
+        var req = try client.request(method, uri, .{ 
             .extra_headers = @ptrCast(headers.items) 
         });
         defer req.deinit();
 
-        req.transfer_encoding = .{ .content_length = payload.len };
-        try req.sendBodyComplete(@constCast(payload));
+        if (method != .GET and method != .HEAD) {
+            req.transfer_encoding = .{ .content_length = payload.len };
+            try req.sendBodyComplete(@constCast(payload));
+        } else {
+            try req.sendBodiless();
+        }
 
         var redirect_buffer: [1024]u8 = undefined;
         var response = try req.receiveHead(&redirect_buffer);
 
         var transfer_buffer: [4096]u8 = undefined;
-        var body_reader = response.reader(&transfer_buffer);
+        var decompress: std.http.Decompress = undefined;
+        var decompress_buffer: [65536]u8 = undefined;
+        var body_reader = response.readerDecompressing(&transfer_buffer, &decompress, &decompress_buffer);
         const body = try body_reader.allocRemaining(self.allocator, .unlimited);
         
         return HttpResponse{

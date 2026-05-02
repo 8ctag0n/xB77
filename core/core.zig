@@ -11,6 +11,9 @@ pub const crypto = struct {
     pub const generateKeypair = c.generateKeypair;
     pub const pubkeyToString = c.pubkeyToString;
     pub const stringToPubkey = c.stringToPubkey;
+    pub const getSnsHashedName = c.getSnsHashedName;
+    pub const createProgramAddress = c.createProgramAddress;
+    pub const findProgramAddress = c.findProgramAddress;
     pub const encodeBase58 = c.encodeBase58;
     pub const decodeBase58 = c.decodeBase58;
     pub const sign = c.sign;
@@ -62,6 +65,7 @@ pub const engine = struct {
     pub const prover = @import("engine/prover.zig");
     pub const brain = @import("engine/brain.zig");
     pub const telemetry = @import("engine/telemetry.zig");
+    pub const orchestrator = @import("engine/orchestrator.zig");
 };
 
 pub const business = struct {

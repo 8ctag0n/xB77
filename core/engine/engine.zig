@@ -46,9 +46,18 @@ pub const Engine = struct {
     /// Inicia el loop de vida del agente.
     pub fn start(self: *Engine) !void {
         self.is_running = true;
+        self.ctx.telemetry.startSession();
         
+        const sol_kp = &self.ctx.vaults.ops.sol_kp;
         const sol_addr = try self.ctx.vaults.ops.address(.solana, self.allocator);
         defer self.allocator.free(sol_addr);
+
+        // --- Business Mode: Credit Check ---
+        if (!self.ctx.orchestrator.canOperate(sol_kp.public)) {
+            std.debug.print("\n[ORCH  ] ❌ Insufficient Credits to start agent. Please fund via /blink.", .{});
+            return error.InsufficientCredits;
+        }
+        
         const eth_addr = try self.ctx.vaults.ops.address(.base, self.allocator);
         defer self.allocator.free(eth_addr);
 
@@ -105,6 +114,14 @@ pub const Engine = struct {
             std.debug.print("\n[Engine] Running tick tasks...", .{});
             try self.tick();
             
+            // --- Business Mode: Periodic Billing ---
+            if (tick_count > 0 and tick_count % 3 == 0) {
+                const report = self.ctx.telemetry.endSession();
+                const balance = try self.ctx.orchestrator.processUsage(sol_kp.public, report);
+                std.debug.print("\n[ORCH  ] 💳 Billable Units: {d} SC | New Balance: {d} SC", .{ report.calculateCost(), balance });
+                self.ctx.telemetry.startSession();
+            }
+
             tick_count += 1;
             std.debug.print("\n[Engine] --- TICK END ---", .{});
 
@@ -116,15 +133,23 @@ pub const Engine = struct {
     fn runStrategist(self: *Engine) !void {
         std.debug.print("\n[STRAT ] 🧠 Strategist Loop: Analyzing swarm intelligence...", .{});
         
-        const analysis = try self.strategist.analyze(self.ctx.active_agents.count());
+        const sol_kp = &self.ctx.vaults.ops.sol_kp;
+        const balance = self.ctx.orchestrator.balances.get(sol_kp.public) orelse 0;
+
+        const analysis = try self.strategist.analyze(self.ctx.active_agents.count(), balance);
         const m = analysis.metrics;
 
-        std.debug.print("\n[STRAT ] 📊 Metrics -> Health: {d:.2} | Volume: {d} | Events: {d}", .{
-            m.health, m.volume, m.event_count,
+        std.debug.print("\n[STRAT ] 📊 Metrics -> Health: {d:.2} | Volume: {d} | Credits: {d} SC", .{
+            m.health, m.volume, m.credit_balance,
         });
 
         // Actuar según la decisión del Strategist
         switch (analysis.decision) {
+            .austerity_mode => {
+                std.debug.print("\n[STRAT ] 📉 AUSTERITY MODE: Low Credits. Slowing down engine to save SC.", .{});
+                // En modo austeridad, dormimos más tiempo o reducimos frecuencia de tareas pesadas
+                std.Thread.sleep(5 * std.time.ns_per_s);
+            },
             .harden_policies => {
                 std.debug.print("\n[STRAT ] ⚠️ LOW HEALTH DETECTED. Recommendation: Harden Compliance Policies.", .{});
             },

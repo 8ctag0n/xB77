@@ -1,6 +1,7 @@
 const std = @import("std");
 
 pub const Config = struct {
+    name: ?[]const u8 = null,
     rpc: struct {
         solana: []const u8,
         base: []const u8,
@@ -47,6 +48,7 @@ pub const Config = struct {
         defer allocator.free(content);
 
         var config = Config{
+            .name = null,
             .rpc = .{
                 .solana = try allocator.dupe(u8, "https://api.devnet.solana.com"),
                 .base = try allocator.dupe(u8, "https://sepolia.base.org"),
@@ -73,6 +75,9 @@ pub const Config = struct {
             const val_raw = std.mem.trim(u8, parts.next() orelse continue, " ");
             const val = std.mem.trim(u8, val_raw, "\"");
 
+            if (std.mem.eql(u8, key, "name")) {
+                config.name = try allocator.dupe(u8, val);
+            }
             if (std.mem.eql(u8, key, "rpc_solana")) {
                 allocator.free(config.rpc.solana);
                 config.rpc.solana = try allocator.dupe(u8, val);
@@ -114,6 +119,7 @@ pub const Config = struct {
     }
 
     pub fn deinit(self: *Config, allocator: std.mem.Allocator) void {
+        if (self.name) |n| allocator.free(n);
         allocator.free(self.rpc.solana);
         allocator.free(self.rpc.base);
         allocator.free(self.vaults.path);

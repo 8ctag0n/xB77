@@ -181,11 +181,19 @@ pub fn pubkeyToString(allocator: std.mem.Allocator, pubkey: *const types.Pubkey)
 }
 
 pub fn stringToPubkey(allocator: std.mem.Allocator, str: []const u8) !types.Pubkey {
-    var pk: types.Pubkey = undefined;
+    var pk: types.Pubkey = [_]u8{0} ** 32;
     const decoded = try decodeBase58(allocator, str);
     defer allocator.free(decoded);
-    if (decoded.len != 32) return error.InvalidAddressLength;
-    @memcpy(&pk, decoded);
+    
+    if (decoded.len > 32) {
+        std.debug.print("\n[CRYPTO] ❌ Decoded length exceeds 32 bytes for {s}: {d}", .{str, decoded.len});
+        return error.InvalidAddressLength;
+    }
+    
+    // Padeamos a la izquierda si es necesario
+    const offset = 32 - decoded.len;
+    @memcpy(pk[offset..32], decoded);
+    
     return pk;
 }
 
@@ -193,4 +201,66 @@ pub fn encodeEthAddress(allocator: std.mem.Allocator, address: types.EthAddress)
     const hex = try bytesToHex(allocator, &address);
     defer allocator.free(hex);
     return std.fmt.allocPrint(allocator, "0x{s}", .{hex});
+}
+
+/// Computes the hashed name for SNS resolution.
+pub fn getSnsHashedName(name: []const u8, out: *[32]u8) void {
+    const prefix = "SPL Name Service";
+    var h = Sha256.init(.{});
+    h.update(prefix);
+    h.update(name);
+    h.final(out);
+}
+
+/// Derives a Program Derived Address (PDA) from seeds and a program ID.
+/// Ported from Solana's create_program_address.
+pub fn createProgramAddress(seeds: [][]const u8, program_id: *const types.Pubkey) ![32]u8 {
+    var hasher = Sha256.init(.{});
+    for (seeds) |seed| {
+        if (seed.len > 32) return error.MaxSeedLengthExceeded;
+        hasher.update(seed);
+    }
+    hasher.update(program_id);
+    hasher.update("ProgramDerivedAddress");
+    
+    var hash: [32]u8 = undefined;
+    hasher.final(&hash);
+
+    // Solana PDAs MUST NOT be on the Ed25519 curve.
+    // Usamos Edwards25519.fromBytes para verificar si los bytes 
+    // corresponden a un punto válido en la curva.
+    if (std.crypto.ecc.Edwards25519.fromBytes(hash)) |_| {
+        // std.debug.print("\n[CRYPTO] Hash is on curve: {x}", .{hash[0..4].*});
+        return error.InvalidPda; // Is on curve, so invalid as PDA
+    } else |err| {
+        if (err == error.InvalidEncoding or err == error.NonCanonical) {
+            return hash; // Not on curve, valid PDA
+        }
+        return err;
+    }
+}
+
+/// Finds a valid PDA by iterating through bumps (255 down to 0).
+pub fn findProgramAddress(seeds: [][]const u8, program_id: *const types.Pubkey) !struct { address: [32]u8, bump: u8 } {
+    var bump: u8 = 255;
+    var extended_seeds: [16][]const u8 = undefined; // Max 16 seeds
+    if (seeds.len >= 16) return error.TooManySeeds;
+    
+    for (seeds, 0..) |s, i| extended_seeds[i] = s;
+    
+    while (true) {
+        const bump_arr = [_]u8{bump};
+        extended_seeds[seeds.len] = &bump_arr;
+        
+        if (createProgramAddress(extended_seeds[0 .. seeds.len + 1], program_id)) |address| {
+            return .{ .address = address, .bump = bump };
+        } else |err| {
+            if (err != error.InvalidPda) return err;
+        }
+
+        if (bump == 0) break;
+        bump -= 1;
+    }
+    
+    return error.PdaNotFound;
 }

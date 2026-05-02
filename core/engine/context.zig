@@ -12,6 +12,8 @@ const store = @import("../state/store.zig");
 const pay = @import("../business/pay.zig");
 const mesh = @import("../net/mesh.zig");
 const swap = @import("../business/swap.zig");
+const orchestrator = @import("orchestrator.zig");
+const telemetry = @import("telemetry.zig");
 
 pub const AgentContext = struct {
     allocator: std.mem.Allocator,
@@ -29,6 +31,10 @@ pub const AgentContext = struct {
     ipfs_client: @import("../net/ipfs.zig").IpfsClient,
     brain: @import("brain.zig").Brain,
     active_agents: std.StringHashMapUnmanaged(*std.process.Child),
+
+    // --- Infrastructure Layer (Business Mode) ---
+    orchestrator: orchestrator.Orchestrator,
+    telemetry: telemetry.TelemetryHub,
 
     pub fn spawnAgent(self: *AgentContext, name: []const u8) !void {
         const allocator = self.allocator;
@@ -114,7 +120,17 @@ pub const AgentContext = struct {
             .ipfs_client = @import("../net/ipfs.zig").IpfsClient.init(allocator, config.ipfs.endpoint, config.ipfs.api_key),
             .brain = undefined,
             .active_agents = .{},
+            .orchestrator = orchestrator.Orchestrator.init(allocator),
+            .telemetry = telemetry.TelemetryHub.init(allocator),
         };
+        
+        ctx.sol_client.http_client.telemetry = &ctx.telemetry;
+        ctx.evm_client.http_client.telemetry = &ctx.telemetry;
+        ctx.ipfs_client.http_client.telemetry = &ctx.telemetry;
+        
+        if (config.facilitator) |f| {
+            ctx.orchestrator.gateway_url = f;
+        }
         
         ctx.brain = @import("brain.zig").Brain.init(allocator, &ctx.constitution);
         ctx.mesh_manager.store = &ctx.store;
@@ -146,7 +162,10 @@ pub const AgentContext = struct {
         
         // Validar contra la Constitución antes de pagar
         if (self.constitution.validateToll(amount, memo)) {
-            std.debug.print("\n[x402] Protocol: Constitutional Authorization Granted ({d} USDT equivalent)\n", .{amount});
+            std.debug.print("\n[x402] Protocol: Constitutional Authorization Granted ({d} SC equivalent)\n", .{amount});
+            
+            // Registramos el pago como una unidad de telemetría para que el Orchestrator lo cobre
+            self.telemetry.recordRpc(); 
             
             // Settlement utilizing Tether WDK identity for infrastructure tolls
             return "0x402_wdk_tether_toll_settlement_hash";
@@ -173,6 +192,8 @@ pub const AgentContext = struct {
         }
         self.active_agents.deinit(self.allocator);
 
+        _ = self.telemetry.endSession();
+        self.orchestrator.deinit();
         self.brain.deinit();
         self.swap_manager.deinit();
         self.mesh_manager.deinit();

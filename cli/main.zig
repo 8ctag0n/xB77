@@ -195,9 +195,12 @@ fn handleStatus(allocator: std.mem.Allocator, config_path: []const u8) !void {
     defer allocator.free(eth_addr);
 
     std.debug.print("\n--- xB77 Agent Status ({s}) ---\n", .{config_path});
-    std.debug.print("Solana: {s}\n", .{sol_addr});
-    std.debug.print("EVM:    {s}\n", .{eth_addr});
-    std.debug.print("Status: Sovereign & Active\n", .{});
+    if (ctx.config.name) |name| {
+        std.debug.print("Identity: {s}.xb77\n", .{name});
+    }
+    std.debug.print("Solana:   {s}\n", .{sol_addr});
+    std.debug.print("EVM:      {s}\n", .{eth_addr});
+    std.debug.print("Status:   Sovereign & Active\n", .{});
 }
 
 fn handleSpawn(allocator: std.mem.Allocator, args: []const [:0]u8) !void {
@@ -328,6 +331,7 @@ fn handleDeploy(allocator: std.mem.Allocator, config_path: []const u8, args: []c
 
     const manifest = core.protocol.types.DeploymentManifest{
         .agent_id = sol_kp.public,
+        .name = ctx.config.name,
         .config_toml = config_toml,
         .timestamp = timestamp,
         .signature = signature,
@@ -413,23 +417,13 @@ fn handleCredits(allocator: std.mem.Allocator, config_path: []const u8) !void {
 
     std.debug.print("\n💳 Sovereign Credits Balance ({s})\n", .{agent_id_hex});
 
-    var http = core.net.http.HttpClient.init(allocator);
-    const balance_url = try std.fmt.allocPrint(allocator, "https://gateway.xb77.com/balance/{s}", .{agent_id_hex});
-    defer allocator.free(balance_url);
-    
-    var resp = http.post(balance_url, "") catch |err| {
-        std.debug.print("❌ Error de conexión: {}\n", .{err});
+    const balance = ctx.orchestrator.syncBalance(sol_kp.public) catch |err| {
+        std.debug.print("❌ Error de conexión con el Gateway: {}\n", .{err});
         return;
     };
-    defer resp.deinit();
 
-    if (resp.status == 200) {
-        // Asumimos que el Gateway devuelve el balance como texto por ahora
-        std.debug.print("Balance: {s} SC\n", .{resp.body});
-        std.debug.print("Estado: Activo & Financiado\n", .{});
-    } else {
-        std.debug.print("❌ Error al obtener balance: {s}\n", .{resp.body});
-    }
+    std.debug.print("Balance: {d} SC\n", .{balance});
+    std.debug.print("Estado: {s}\n", .{if (balance > 50) "Activo & Financiado" else "Créditos Insuficientes"});
 }
 
 fn handleRemoteExport(allocator: std.mem.Allocator, config_path: []const u8) !void {

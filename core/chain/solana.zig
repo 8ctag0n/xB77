@@ -48,6 +48,46 @@ pub const SolanaClient = struct {
         return @intCast(value.integer);
     }
 
+    /// Obtiene la data cruda de una cuenta en base64.
+    pub fn getAccountInfo(self: *SolanaClient, address: []const u8) ![]u8 {
+        const payload = try std.fmt.allocPrint(self.allocator,
+            \\{{"jsonrpc":"2.0","id":1,"method":"getAccountInfo","params":["{s}", {{"encoding": "base64", "commitment": "confirmed"}}]}}
+        , .{address});
+        defer self.allocator.free(payload);
+
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
+        
+        if (response.status != 200) {
+            std.debug.print("\n[SOLANA] RPC Error {d}: {s}", .{response.status, response.body});
+            return error.RpcError;
+        }
+
+        const parsed = std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{
+            .ignore_unknown_fields = true,
+        }) catch |err| {
+            std.debug.print("\n[SOLANA] JSON Parse Error: {any}. Body: {s}", .{err, response.body});
+            return err;
+        };
+        defer parsed.deinit();
+
+        const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
+        if (result == .null) return error.AccountNotFound;
+        
+        const value = result.object.get("value") orelse return error.AccountNotFound;
+        if (value == .null) return error.AccountNotFound;
+
+        const data_array = value.object.get("data") orelse return error.InvalidResponse;
+        const base64_data = data_array.array.items[0].string;
+
+        const decoder = std.base64.standard.Decoder;
+        const decoded_len = try decoder.calcSizeForSlice(base64_data);
+        const decoded_buf = try self.allocator.alloc(u8, decoded_len);
+        try decoder.decode(decoded_buf, base64_data);
+        
+        return decoded_buf;
+    }
+
     /// Solicita fondos al faucet del nodo local/devnet
     pub fn requestAirdrop(self: *SolanaClient, address: []const u8, lamports: u64) !void {
         const payload = try std.fmt.allocPrint(self.allocator,

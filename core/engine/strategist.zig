@@ -7,6 +7,7 @@ pub const SwarmMetrics = struct {
     volume: u64,
     event_count: usize,
     agent_count: usize,
+    credit_balance: u64,
 };
 
 pub const Decision = enum {
@@ -15,6 +16,7 @@ pub const Decision = enum {
     shrink,
     harden_policies,
     compress_state,
+    austerity_mode,
 };
 
 pub const Strategist = struct {
@@ -28,7 +30,7 @@ pub const Strategist = struct {
         };
     }
 
-    pub fn analyze(self: *Strategist, agent_count: usize) !struct { decision: Decision, metrics: SwarmMetrics } {
+    pub fn analyze(self: *Strategist, agent_count: usize, credit_balance: u64) !struct { decision: Decision, metrics: SwarmMetrics } {
         const history = try self.store.getHistory(self.allocator);
         defer {
             for (history) |entry| {
@@ -62,11 +64,16 @@ pub const Strategist = struct {
             .volume = total_volume,
             .event_count = history.len,
             .agent_count = agent_count,
+            .credit_balance = credit_balance,
         };
 
         var decision: Decision = .none;
 
-        if (health < 0.7) {
+        // --- Logic Engine ---
+        if (credit_balance < 5000) {
+            // Si el balance es crítico (< 5000 SC), entrar en modo austeridad
+            decision = .austerity_mode;
+        } else if (health < 0.7) {
             decision = .harden_policies;
         } else if (total_volume > 1_000_000_000) { // > 1 SOL
             decision = .compress_state;

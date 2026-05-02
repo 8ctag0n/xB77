@@ -214,6 +214,39 @@ pub fn build(b: *std.Build) void {
     compression_unit_tests.linkLibC();
     const run_compression_unit_tests = b.addRunArtifact(compression_unit_tests);
 
+    const strategist_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/strategist_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    strategist_unit_tests.root_module.addImport("core", core_module);
+    strategist_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    strategist_unit_tests.addIncludePath(b.path("deps"));
+    strategist_unit_tests.linkLibC();
+    const run_strategist_unit_tests = b.addRunArtifact(strategist_unit_tests);
+
+    const orchestrator_e2e_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/orchestrator_e2e.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    orchestrator_e2e_tests.root_module.addImport("core", core_module);
+    const run_orchestrator_e2e_tests = b.addRunArtifact(orchestrator_e2e_tests);
+
+    const orchestrator_potent_e2e_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/orchestrator_potent_e2e.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    orchestrator_potent_e2e_tests.root_module.addImport("core", core_module);
+    const run_orchestrator_potent_e2e_tests = b.addRunArtifact(orchestrator_potent_e2e_tests);
+
     // --- RPC Check Utility ---
     const rpc_check = b.addExecutable(.{
         .name = "rpc-check",
@@ -291,6 +324,19 @@ pub fn build(b: *std.Build) void {
     sdk_lib.root_module.addImport("core", core_module);
     b.installArtifact(sdk_lib);
 
+    // --- SNS Resolution Test ---
+    const sns_test = b.addExecutable(.{
+        .name = "sns-test",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/sns_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    sns_test.root_module.addImport("core", core_module);
+    sns_test.linkLibC();
+    b.installArtifact(sns_test);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);
     test_step.dependOn(&run_tx_unit_tests.step);
@@ -301,4 +347,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_awp_unit_tests.step);
     test_step.dependOn(&run_brain_unit_tests.step);
     test_step.dependOn(&run_compression_unit_tests.step);
+    test_step.dependOn(&run_strategist_unit_tests.step);
+    test_step.dependOn(&run_orchestrator_e2e_tests.step);
+    test_step.dependOn(&run_orchestrator_potent_e2e_tests.step);
 }

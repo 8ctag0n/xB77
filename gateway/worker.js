@@ -28,7 +28,11 @@ export default {
           ctx.waitUntil(fetch(`https://api.telegram.org/bot${env.TELEGRAM_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chat_id.toString(), text: text })
+            body: JSON.stringify({ 
+              chat_id: chat_id.toString(), 
+              text: text,
+              parse_mode: 'HTML'
+            })
           }));
         }
       }

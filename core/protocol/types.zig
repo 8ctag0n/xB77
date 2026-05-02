@@ -70,6 +70,7 @@ pub const VaultHeader = extern struct {
 
 pub const DeploymentManifest = struct {
     agent_id: Pubkey,
+    name: ?[]const u8 = null,
     config_toml: []const u8,
     timestamp: i64,
     signature: Signature,
@@ -95,6 +96,21 @@ pub const ExportResponse = struct {
     ops_history: []const u8,
     reserve_history: []const u8,
     yield_history: []const u8,
+};
+
+pub const AppMessageType = enum {
+    quote,
+    hire,
+    escrow,
+    dispute,
+    info,
+};
+
+pub const AppMessage = struct {
+    agent_id: Pubkey,
+    msg_type: AppMessageType,
+    content: []const u8,
+    signature: Signature,
 };
 
 // --- Telegram API Types ---

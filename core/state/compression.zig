@@ -19,8 +19,8 @@ pub const CompressedAccount = extern struct {
 
     pub fn hash(self: *const CompressedAccount, out: *[32]u8) void {
         const ptr: [*]const u8 = @ptrCast(self);
-        // Hashing del struct completo (120 bytes)
-        cmt.cmt_keccak256(ptr, @sizeOf(CompressedAccount), out);
+        // Hashing del struct completo (120 bytes) usando Keccak256 nativo de Zig
+        std.crypto.hash.sha3.Keccak256.hash(ptr[0..@sizeOf(CompressedAccount)], out, .{});
     }
 };
 

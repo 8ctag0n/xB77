@@ -102,11 +102,50 @@ export fn handle_request(
         return route_export(allocator, body);
     } else if (std.mem.eql(u8, url, "/webhook/telegram") and std.mem.eql(u8, method, "POST")) {
         return route_telegram(allocator, body);
+    } else if (std.mem.eql(u8, url, "/app/message") and std.mem.eql(u8, method, "POST")) {
+        return route_app_message(allocator, body);
     } else if (std.mem.eql(u8, url, "/link") and std.mem.eql(u8, method, "POST")) {
         return route_link(allocator, body);
     }
 
     return build_response(404, "Not Found");
+}
+
+fn route_app_message(allocator: std.mem.Allocator, body: []const u8) *Response {
+    const parsed = std.json.parseFromSlice(core.protocol.types.AppMessage, allocator, body, .{ .ignore_unknown_fields = true }) catch return build_response(400, "Invalid APP Message");
+    defer parsed.deinit();
+    const m = parsed.value;
+
+    // 1. Verify Signature
+    if (!core.crypto.verify(m.content, &m.signature, &m.agent_id)) return build_response(401, "Invalid Signature");
+
+    // 2. Find associated Telegram chat_id
+    var agent_id_hex_buf: [64]u8 = undefined;
+    const hex = std.fmt.bytesToHex(m.agent_id, .lower);
+    @memcpy(&agent_id_hex_buf, &hex);
+    const agent_id_hex = agent_id_hex_buf[0..64];
+
+    const agent_tg_key = std.fmt.allocPrint(allocator, "atg_{s}", .{agent_id_hex}) catch return build_response(500, "Mem");
+    defer allocator.free(agent_tg_key);
+    
+    const chat_id_str = get_kv_data(allocator, agent_tg_key) catch return build_response(404, "Agent not linked to Telegram");
+    const chat_id = std.fmt.parseInt(i64, chat_id_str, 10) catch 0;
+
+    // 3. Format and Send Notification
+    const icon = switch (m.msg_type) {
+        .quote => "🏷️ *New Quote*",
+        .hire => "🤝 *Agent Hired*",
+        .escrow => "🔒 *Funds in Escrow*",
+        .dispute => "⚠️ *Dispute Raised*",
+        .info => "ℹ️ *Agent Update*",
+    };
+
+    const response = std.fmt.allocPrint(allocator, "{s}\n\n{s}", .{icon, m.content}) catch "Error";
+    defer if (!std.mem.eql(u8, response, "Error")) allocator.free(response);
+    
+    js_telegram_send(chat_id, response.ptr, response.len);
+
+    return build_response(200, "Message Relayed");
 }
 
 fn route_link(allocator: std.mem.Allocator, body: []const u8) *Response {
@@ -190,7 +229,29 @@ fn route_deploy(allocator: std.mem.Allocator, body: []const u8) *Response {
     defer allocator.free(config_key);
     js_kv_put(config_key.ptr, config_key.len, m.config_toml.ptr, m.config_toml.len);
 
-    // 5. Generate ZK-Receipt for the Deploy Fee
+    // 5. Register Name (Edge SNS) if provided
+    if (m.name) |name| {
+        const name_key = std.fmt.allocPrint(allocator, "name_{s}", .{name}) catch "name_err";
+        defer if (!std.mem.eql(u8, name_key, "name_err")) allocator.free(name_key);
+        
+        if (!std.mem.eql(u8, name_key, "name_err")) {
+            // Only register if not taken or if taken by the same agent
+            if (get_kv_data(allocator, name_key)) |existing_id| {
+                if (std.mem.eql(u8, existing_id, agent_id_hex)) {
+                    // Already registered to us, OK
+                }
+            } else |_| {
+                js_kv_put(name_key.ptr, name_key.len, agent_id_hex.ptr, agent_id_hex.len);
+                const agent_name_key = std.fmt.allocPrint(allocator, "agent_name_{s}", .{agent_id_hex}) catch "err";
+                defer if (!std.mem.eql(u8, agent_name_key, "err")) allocator.free(agent_name_key);
+                if (!std.mem.eql(u8, agent_name_key, "err")) {
+                    js_kv_put(agent_name_key.ptr, agent_name_key.len, name.ptr, name.len);
+                }
+            }
+        }
+    }
+
+    // 6. Generate ZK-Receipt for the Deploy Fee
     const zk_receipt = core.business.receipt.ZkReceipt.generate(
         core.business.billing.BillingManager.DEPLOY_FEE_SC,
         0, // No tax on internal SC fees for now
@@ -310,16 +371,152 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
 
         if (get_kv_data(allocator, tg_key)) |agent_id_hex| {
             const status = get_credit_status(allocator, agent_id_hex) catch {
-                js_telegram_send(msg.chat.id, "⚠️ Error reading credit status.", 27);
+                js_telegram_send(msg.chat.id, "⚠️ <b>Error:</b> Reading credit status.", 34);
                 return build_response(200, "OK");
             };
-            const response = std.fmt.allocPrint(allocator, "🛡️ xB77 Sovereign Node\nAgent: {s}...\nBalance: {d} SC\nStatus: Secure", .{agent_id_hex[0..8], status.balance}) catch "Error";
+            
+            const agent_name_key = std.fmt.allocPrint(allocator, "agent_name_{s}", .{agent_id_hex}) catch "agent_name_err";
+            defer allocator.free(agent_name_key);
+            const name = get_kv_data(allocator, agent_name_key) catch "unnamed";
+            
+            const response = if (std.mem.eql(u8, name, "unnamed"))
+                std.fmt.allocPrint(allocator, 
+                    \\🛡️ <b>xB77 Sovereign Node</b>
+                    \\
+                    \\<b>Agent:</b> <code>{s}...</code>
+                    \\<b>Credits:</b> <code>{d} SC</code>
+                    \\<b>Security:</b> <pre>Verified 🟢</pre>
+                    \\
+                    \\<i>Use /name to set an identity.</i>
+                , .{agent_id_hex[0..8], status.balance})
+            else
+                std.fmt.allocPrint(allocator, 
+                    \\🛡️ <b>xB77 Sovereign Node</b>
+                    \\
+                    \\<b>Identity:</b> <code>{s}.xb77</code>
+                    \\<b>Credits:</b> <code>{d} SC</code>
+                    \\<b>Security:</b> <pre>Verified 🟢</pre>
+                , .{name, status.balance});
+            
+            const final_resp = response catch "Error";
+            defer if (!std.mem.eql(u8, final_resp, "Error")) allocator.free(final_resp);
+            js_telegram_send(msg.chat.id, final_resp.ptr, final_resp.len);
+        } else |_| {
+            js_telegram_send(msg.chat.id, "🤖 <b>Node Active.</b>\nUse /start to link your agent.", 49);
+        }
+    } else if (std.mem.startsWith(u8, text, "/name")) {
+        const chat_id_str = std.fmt.allocPrint(allocator, "{d}", .{msg.chat.id}) catch "0";
+        defer allocator.free(chat_id_str);
+        const tg_key = std.fmt.allocPrint(allocator, "tg_{s}", .{chat_id_str}) catch "tg_0";
+        defer allocator.free(tg_key);
+
+        if (get_kv_data(allocator, tg_key)) |agent_id_hex| {
+            if (text.len < 7) {
+                js_telegram_send(msg.chat.id, "<b>Usage:</b> /name &lt;your_name&gt;", 35);
+                return build_response(200, "OK");
+            }
+            const new_name = std.mem.trim(u8, text[6..], " \n\r\t");
+            if (new_name.len < 3) {
+                js_telegram_send(msg.chat.id, "❌ <b>Error:</b> Name too short (min 3 chars).", 45);
+                return build_response(200, "OK");
+            }
+
+            const name_key = std.fmt.allocPrint(allocator, "name_{s}", .{new_name}) catch "name_err";
+            defer allocator.free(name_key);
+
+            // Check if name is taken
+            if (get_kv_data(allocator, name_key)) |_| {
+                js_telegram_send(msg.chat.id, "❌ <b>Error:</b> Name already taken.", 35);
+                return build_response(200, "OK");
+            } else |_| {
+                // Register name
+                js_kv_put(name_key.ptr, name_key.len, agent_id_hex.ptr, agent_id_hex.len);
+                
+                const agent_name_key = std.fmt.allocPrint(allocator, "agent_name_{s}", .{agent_id_hex}) catch "agent_name_err";
+                defer allocator.free(agent_name_key);
+                js_kv_put(agent_name_key.ptr, agent_name_key.len, new_name.ptr, new_name.len);
+
+                const response = std.fmt.allocPrint(allocator, 
+                    \\✨ <b>Identity Secured!</b>
+                    \\Your agent is now globally known as:
+                    \\
+                    \\<code>{s}.xb77</code>
+                , .{new_name}) catch "Error";
+                defer allocator.free(response);
+                js_telegram_send(msg.chat.id, response.ptr, response.len);
+            }
+        } else |_| {
+            js_telegram_send(msg.chat.id, "🤖 Please link your agent first with /start.", 43);
+        }
+    } else if (std.mem.startsWith(u8, text, "/receipts")) {
+        const chat_id_str = std.fmt.allocPrint(allocator, "{d}", .{msg.chat.id}) catch "0";
+        defer allocator.free(chat_id_str);
+        const tg_key = std.fmt.allocPrint(allocator, "tg_{s}", .{chat_id_str}) catch "tg_0";
+        defer allocator.free(tg_key);
+
+        if (get_kv_data(allocator, tg_key)) |agent_id_hex| {
+            const receipts_key = std.fmt.allocPrint(allocator, "receipts_{s}", .{agent_id_hex}) catch "receipts_err";
+            defer allocator.free(receipts_key);
+
+            if (get_kv_data(allocator, receipts_key)) |last_comm| {
+                const response = std.fmt.allocPrint(allocator, 
+                    \\📜 <b>Recent ZK-Receipts</b>
+                    \\
+                    \\1. <code>{s}...</code>
+                    \\
+                    \\<i>Full history available via</i> <code>xb77 export</code>
+                , .{last_comm[0..12]}) catch "Error";
+                defer allocator.free(response);
+                js_telegram_send(msg.chat.id, response.ptr, response.len);
+            } else |_| {
+                js_telegram_send(msg.chat.id, "📭 <b>History:</b> No receipts found.", 36);
+            }
+        } else |_| {
+            js_telegram_send(msg.chat.id, "🤖 Please link your agent first with /start.", 43);
+        }
+    } else if (std.mem.startsWith(u8, text, "/blink")) {
+        const response = 
+            \\⚡ <b>Solana Action (Blink)</b>
+            \\Use this link to fund your agent instantly:
+            \\
+            \\<a href="https://dial.to/?action=solana-action:https://gateway.xb77.com/actions/fund">Fund Agent via Blink</a>
+        ;
+        js_telegram_send(msg.chat.id, response.ptr, response.len);
+    } else if (std.mem.startsWith(u8, text, "/help")) {
+        const response = 
+            \\🛡️ <b>xB77 Mission Control Help</b>
+            \\
+            \\<b>Commands:</b>
+            \\/status - Current node & credit health
+            \\/name &lt;id&gt; - Claim your .xb77 identity
+            \\/receipts - View recent ZK-Proof commitments
+            \\/blink - Fund your agent via Solana Actions
+            \\/pay - (Mock) Process a secure payment
+            \\
+            \\<b>Sovereign Protocol:</b>
+            \\Identity is maintained via your local <code>agent.toml</code> and 
+            \\secured by the xB77 Concurrent Merkle Tree.
+        ;
+        js_telegram_send(msg.chat.id, response.ptr, response.len);
+    } else if (std.mem.startsWith(u8, text, "/start")) {
+        const chat_id_str = std.fmt.allocPrint(allocator, "{d}", .{msg.chat.id}) catch "0";
+        defer allocator.free(chat_id_str);
+        const tg_key = std.fmt.allocPrint(allocator, "tg_{s}", .{chat_id_str}) catch "tg_0";
+        defer allocator.free(tg_key);
+
+        if (get_kv_data(allocator, tg_key) catch null) |agent_id_hex| {
+             const response = std.fmt.allocPrint(allocator, 
+                \\👋 <b>Welcome back, Sovereign!</b>
+                \\
+                \\Agent <code>{s}...</code> is linked and active.
+                \\
+                \\<i>Type /help to see available commands.</i>
+            , .{agent_id_hex[0..8]}) catch "Error";
             defer allocator.free(response);
             js_telegram_send(msg.chat.id, response.ptr, response.len);
-        } else |_| {
-            js_telegram_send(msg.chat.id, "🤖 Node Active. Use /start to link your agent.", 46);
+            return build_response(200, "OK");
         }
-    } else if (std.mem.startsWith(u8, text, "/start")) {
+
         // Generar código de vinculación de 6 caracteres
         const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         var code: [6]u8 = undefined;
@@ -330,12 +527,17 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
         const link_key = std.fmt.allocPrint(allocator, "link_{s}", .{code}) catch "link_err";
         defer allocator.free(link_key);
         
-        const chat_id_str = std.fmt.allocPrint(allocator, "{d}", .{msg.chat.id}) catch "0";
-        defer allocator.free(chat_id_str);
-        
         js_kv_put(link_key.ptr, link_key.len, chat_id_str.ptr, chat_id_str.len);
 
-        const response = std.fmt.allocPrint(allocator, "🔗 *Sovereign Link Initiated*\nRun this in your terminal:\n\n`xb77 link {s}`", .{code}) catch "Error";
+        const response = std.fmt.allocPrint(allocator, 
+            \\🔗 <b>Sovereign Link Initiated</b>
+            \\
+            \\To link your local agent, run this in your terminal:
+            \\
+            \\<code>xb77 link {s}</code>
+            \\
+            \\<i>Expiration: 10 minutes</i>
+        , .{code}) catch "Error";
         defer allocator.free(response);
         js_telegram_send(msg.chat.id, response.ptr, response.len);
     } else if (std.mem.startsWith(u8, text, "/pay")) {
@@ -346,19 +548,19 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
 
         if (get_kv_data(allocator, tg_key)) |agent_id_hex| {
             var status = get_credit_status(allocator, agent_id_hex) catch {
-                js_telegram_send(msg.chat.id, "⚠️ Error reading credit status.", 27);
+                js_telegram_send(msg.chat.id, "⚠️ <b>Error:</b> Reading credit status.", 34);
                 return build_response(200, "OK");
             };
 
             const pay_amount = 50; // Mock payment for now
             if (status.balance < pay_amount) {
-                js_telegram_send(msg.chat.id, "❌ Insufficient credits for this operation.", 41);
+                js_telegram_send(msg.chat.id, "❌ <b>Insufficient Credits</b>", 28);
                 return build_response(200, "OK");
             }
 
             status.balance -= pay_amount;
             save_credit_status(allocator, status) catch {
-                js_telegram_send(msg.chat.id, "❌ Internal error processing payment.", 36);
+                js_telegram_send(msg.chat.id, "❌ <b>Internal Error</b>", 21);
                 return build_response(200, "OK");
             };
 
@@ -368,7 +570,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
                 5, // 10% tax mock
                 .{ .sol = status.agent_id },
             ) catch {
-                js_telegram_send(msg.chat.id, "❌ Error generating ZK receipt.", 31);
+                js_telegram_send(msg.chat.id, "❌ <b>Error:</b> ZK Generation failed.", 34);
                 return build_response(200, "OK");
             };
 
@@ -377,14 +579,21 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
             const comm_hex = core.crypto.bytesToHex(allocator, &zk_receipt.commitment) catch "err";
             defer if (!std.mem.eql(u8, comm_hex, "err")) allocator.free(comm_hex);
 
-            const response = std.fmt.allocPrint(allocator, "💸 *Payment Successful*\nAmount: {d} SC\nRemaining: {d} SC\n\n🛡️ *ZK-Receipt Commitment:*\n`{s}`", .{pay_amount, status.balance, comm_hex}) catch "Error";
+            const response = std.fmt.allocPrint(allocator, 
+                \\💸 <b>Payment Successful</b>
+                \\<b>Amount:</b> <code>{d} SC</code>
+                \\<b>Remaining:</b> <code>{d} SC</code>
+                \\
+                \\🛡️ <b>ZK-Commitment:</b>
+                \\<code>{s}</code>
+            , .{pay_amount, status.balance, comm_hex}) catch "Error";
             defer if (!std.mem.eql(u8, response, "Error")) allocator.free(response);
             js_telegram_send(msg.chat.id, response.ptr, response.len);
         } else |_| {
             js_telegram_send(msg.chat.id, "🤖 Please link your agent first with /start.", 43);
         }
     } else {
-        const response = "🤖 Sovereign Engine Active. Type /status to check.";
+        const response = "🤖 <b>Sovereign Engine Active.</b>\nType /help to see commands.";
         js_telegram_send(msg.chat.id, response.ptr, response.len);
     }
 
