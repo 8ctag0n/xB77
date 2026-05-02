@@ -60,6 +60,10 @@ pub const Identity = struct {
         const data = try solana.getAccountInfo(pda_str);
         defer allocator.free(data);
 
+        // Estructura NameRecordHeader (96 bytes):
+        // [0..32] Parent
+        // [32..64] Owner
+        // [64..96] Class
         if (data.len < 96) return error.InvalidAccountData;
         var owner: types.Pubkey = undefined;
         @memcpy(&owner, data[32..64]);

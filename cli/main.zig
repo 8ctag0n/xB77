@@ -88,6 +88,8 @@ pub fn main() !void {
         try handleRemoteExport(allocator, config_path);
     } else if (std.mem.eql(u8, command, "credits")) {
         try handleCredits(allocator, config_path);
+    } else if (std.mem.eql(u8, command, "identity")) {
+        try handleIdentity(allocator, config_path, cmd_args);
     } else {
         std.debug.print("Comando desconocido: {s}\n", .{command});
         printUsage();
@@ -118,6 +120,7 @@ fn printUsage() void {
         \\  link <code>      Vincula este agente con tu cuenta de Telegram
         \\  export           Descarga el estado más reciente desde el Gateway (Sovereign Export)
         \\  credits          Muestra el balance de créditos de infraestructura
+        \\  identity <sub>   Gestiona tu identidad soberana (.xb77 / .sol)
         \\  merchant <sub>   Gestiona tus servicios comerciales y Blinks
         \\
     , .{});
@@ -540,6 +543,87 @@ fn handleRemoteExport(allocator: std.mem.Allocator, config_path: []const u8) !vo
     try std.fs.cwd().writeFile(.{ .sub_path = vault_path, .data = vault_bin });
 
     std.debug.print("✅ ¡Exportación completada! El estado local ha sido sincronizado.\n", .{});
+}
+
+fn handleIdentity(allocator: std.mem.Allocator, config_path: []const u8, args: []const [:0]u8) !void {
+    if (args.len < 1) {
+        std.debug.print(
+            \\Uso: xb77 identity <comando> [opciones]
+            \\
+            \\Comandos:
+            \\  claim <nombre>   Reclama una identidad .xb77 en el Gateway
+            \\  resolve <name>   Resuelve un dominio .sol o .xb77 a una Pubkey
+            \\
+        , .{});
+        return;
+    }
+
+    const sub = args[0];
+    var ctx = try core.context.AgentContext.init(allocator, config_path);
+    defer ctx.deinit();
+
+    if (std.mem.eql(u8, sub, "claim")) {
+        if (args.len < 2) {
+            std.debug.print("Uso: xb77 identity claim <nombre>\n", .{});
+            return;
+        }
+        const name = args[1];
+        std.debug.print("🛡️  Reclamando identidad '{s}.xb77' para este agente...\n", .{name});
+
+        const sol_kp = ctx.vaults.ops.sol_kp;
+        const msg = try std.fmt.allocPrint(allocator, "claim:{s}", .{name});
+        defer allocator.free(msg);
+        const sig = core.crypto.sign(msg, &sol_kp);
+
+        const payload = .{
+            .agent_id = sol_kp.public,
+            .name = name,
+            .signature = sig,
+        };
+
+        var json_list = std.ArrayListUnmanaged(u8){};
+        defer json_list.deinit(allocator);
+        try std.json.stringify(payload, .{}, json_list.writer(allocator));
+
+        var http = core.net.http.HttpClient.init(allocator);
+        const url = "https://gateway.xb77.com/identity/claim";
+        
+        var resp = http.post(url, json_list.items) catch |err| {
+            std.debug.print("❌ Error de conexión: {}\n", .{err});
+            return;
+        };
+        defer resp.deinit();
+
+        if (resp.status == 200) {
+            std.debug.print("✅ ¡Identidad asegurada! Tu agente es ahora '{s}.xb77'.\n", .{name});
+            
+            // Actualizar config local
+            ctx.config.name = try allocator.dupe(u8, name);
+            try ctx.config.save(allocator, config_path);
+            std.debug.print("💾 Configuración local actualizada.\n", .{});
+        } else {
+            std.debug.print("❌ Error al reclamar identidad ({d}): {s}\n", .{resp.status, resp.body});
+        }
+    } else if (std.mem.eql(u8, sub, "resolve")) {
+        if (args.len < 2) {
+            std.debug.print("Uso: xb77 identity resolve <nombre.sol>\n", .{});
+            return;
+        }
+        const domain = args[1];
+        std.debug.print("🔍 Resolviendo '{s}'...\n", .{domain});
+
+        const pubkey = core.business.identity.Identity.resolveSnsNative(allocator, &ctx.sol_client, domain) catch |err| {
+            std.debug.print("⚠️  Fallo resolución nativa: {s}. Probando API fallback...\n", .{@errorName(err)});
+            return core.business.identity.Identity.resolveSnsApi(allocator, &ctx.sol_client, domain) catch |err2| {
+                std.debug.print("❌ Fallo total de resolución: {s}\n", .{@errorName(err2)});
+                return;
+            };
+        };
+
+        const pk_str = try core.crypto.encodeBase58(allocator, &pubkey);
+        defer allocator.free(pk_str);
+        std.debug.print("✅ Dueño de {s}: {s}\n", .{domain, pk_str});
+    }
 }
 
 fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: []const [:0]u8) !void {

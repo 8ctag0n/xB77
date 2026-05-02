@@ -105,6 +105,8 @@ export fn handle_request(
         return route_export(allocator, body);
     } else if (std.mem.eql(u8, url, "/webhook/telegram") and std.mem.eql(u8, method, "POST")) {
         return route_telegram(allocator, body);
+    } else if (std.mem.eql(u8, url, "/identity/claim") and std.mem.eql(u8, method, "POST")) {
+        return route_identity_claim(allocator, body);
     } else if (std.mem.eql(u8, url, "/app/message") and std.mem.eql(u8, method, "POST")) {
         return route_app_message(allocator, body);
     } else if (std.mem.eql(u8, url, "/link") and std.mem.eql(u8, method, "POST")) {
@@ -112,6 +114,46 @@ export fn handle_request(
     }
 
     return build_response(404, "Not Found");
+}
+
+fn route_identity_claim(allocator: std.mem.Allocator, body: []const u8) *Response {
+    const payload = struct {
+        agent_id: core.types.Pubkey,
+        name: []const u8,
+        signature: core.types.Signature,
+    };
+    const parsed = std.json.parseFromSlice(payload, allocator, body, .{ .ignore_unknown_fields = true }) catch return build_response(400, "Invalid JSON");
+    defer parsed.deinit();
+    const p = parsed.value;
+
+    // 1. Verify Signature
+    const msg = std.fmt.allocPrint(allocator, "claim:{s}", .{p.name}) catch return build_response(500, "Memory Error");
+    defer allocator.free(msg);
+    if (!core.crypto.verify(msg, &p.signature, &p.agent_id)) return build_response(401, "Invalid Signature");
+
+    // 2. Check if name is taken
+    const name_key = std.fmt.allocPrint(allocator, "name_{s}", .{p.name}) catch return build_response(500, "Memory Error");
+    defer allocator.free(name_key);
+
+    const agent_id_hex = core.crypto.bytesToHex(allocator, &p.agent_id) catch return build_response(500, "Memory Error");
+    defer allocator.free(agent_id_hex);
+
+    if (get_kv_data(allocator, name_key)) |existing_id| {
+        if (!std.mem.eql(u8, existing_id, agent_id_hex)) {
+            return build_response(409, "Name already taken");
+        }
+    } else |_| {
+        // 3. Register name
+        js_kv_put(name_key.ptr, name_key.len, agent_id_hex.ptr, agent_id_hex.len);
+        
+        const agent_name_key = std.fmt.allocPrint(allocator, "agent_name_{s}", .{agent_id_hex}) catch "err";
+        defer if (!std.mem.eql(u8, agent_name_key, "err")) allocator.free(agent_name_key);
+        if (!std.mem.eql(u8, agent_name_key, "err")) {
+            js_kv_put(agent_name_key.ptr, agent_name_key.len, p.name.ptr, p.name.len);
+        }
+    }
+
+    return build_response(200, "Identity Secured");
 }
 
 fn route_app_message(allocator: std.mem.Allocator, body: []const u8) *Response {
