@@ -76,8 +76,13 @@ pub const AppManager = struct {
         std.debug.print("[APP] Hire Confirmed for Quote\n", .{});
     }
 
+    pub const AcceptQuoteResult = struct {
+        tx_sig: []const u8,
+        hire_id: [32]u8,
+    };
+
     /// Lógica de Cliente: Inicia el bloqueo de fondos tras recibir una Quote.
-    pub fn acceptQuote(self: *AppManager, quote: awp.AppQuoteMsg) ![]const u8 {
+    pub fn acceptQuote(self: *AppManager, quote: awp.AppQuoteMsg) !AcceptQuoteResult {
         var hire_id: [32]u8 = undefined;
         std.crypto.random.bytes(&hire_id);
 
@@ -98,7 +103,10 @@ pub const AppManager = struct {
         };
         try self.hires.put(self.allocator, hire_id, hire_msg);
 
-        return tx_sig;
+        return .{
+            .tx_sig = tx_sig,
+            .hire_id = hire_id,
+        };
     }
 
     /// Abre una disputa sobre una contratación activa.

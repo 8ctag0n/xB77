@@ -1,0 +1,10 @@
+{
+  "business_name": "CyberAudit Labs",
+  "contact": "@cyberaudit",
+  "services": [
+    {
+      "name": "Smart Contract Audit",
+      "price": 500000000
+    }
+  ]
+}

@@ -4,12 +4,14 @@ pub const MerchantService = struct {
     name: []const u8,
     description: []const u8,
     price_lamports: u64,
+    stock: u32 = 0,
+    status: enum { available, out_of_stock, discontinued } = .available,
 };
 
 pub const MerchantConfig = struct {
     business_name: []const u8,
     contact: []const u8,
-    services: []const MerchantService,
+    services: []MerchantService,
 
     pub fn save(self: *const MerchantConfig, path: []const u8) !void {
         const file = try std.fs.cwd().createFile(path, .{});
@@ -70,6 +72,8 @@ pub const MerchantConfig = struct {
                 .name = try allocator.dupe(u8, s_obj.get("name").?.string),
                 .description = "Imported Service",
                 .price_lamports = @intCast(s_obj.get("price").?.integer),
+                .stock = if (s_obj.get("stock")) |v| @intCast(v.integer) else 10,
+                .status = .available,
             };
         }
 

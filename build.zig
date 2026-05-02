@@ -209,6 +209,11 @@ pub fn build(b: *std.Build) void {
         }),
     });
     merchant_unit_tests.root_module.addImport("core", core_module);
+    const sdk_module = b.createModule(.{
+        .root_source_file = b.path("sdk/merchant_sdk.zig"),
+    });
+    sdk_module.addImport("core", core_module);
+    merchant_unit_tests.root_module.addImport("sdk", sdk_module);
     const run_merchant_unit_tests = b.addRunArtifact(merchant_unit_tests);
 
     const app_unit_tests = b.addTest(.{
@@ -344,6 +349,16 @@ pub fn build(b: *std.Build) void {
     const merchant_wasm_step = b.step("merchant-wasm", "Build the Merchant SDK as WASM");
     merchant_wasm_step.dependOn(&install_merchant_wasm.step);
 
+    const negotiation_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/negotiation_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    negotiation_unit_tests.root_module.addImport("core", core_module);
+    const run_negotiation_unit_tests = b.addRunArtifact(negotiation_unit_tests);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);
     test_step.dependOn(&run_tx_unit_tests.step);
@@ -356,4 +371,5 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_merchant_unit_tests.step);
     test_step.dependOn(&run_app_unit_tests.step);
     test_step.dependOn(&run_compression_unit_tests.step);
+    test_step.dependOn(&run_negotiation_unit_tests.step);
 }

@@ -5,20 +5,22 @@ const merchant = core.business.merchant;
 test "Merchant: Generate Blink Metadata" {
     const allocator = std.testing.allocator;
 
-    const services = [_]merchant.MerchantService{
+    var services = [_]merchant.MerchantService{
         .{
             .name = "AI Logic Audit",
             .description = "Full verification of agent decision logic",
             .price_lamports = 500_000_000,
+            .stock = 10,
         },
         .{
             .name = "Sovereign Hosting",
             .description = "24h of air-gapped agent execution",
             .price_lamports = 1_000_000_000,
+            .stock = 5,
         },
     };
 
-    const config = merchant.MerchantConfig{
+    var config = merchant.MerchantConfig{
         .business_name = "xB77 Labs",
         .contact = "@xb77_labs",
         .services = &services,
@@ -40,4 +42,22 @@ test "Merchant: Generate Blink Metadata" {
     try std.testing.expectEqual(@as(usize, 2), actions.items.len);
     try std.testing.expectEqualStrings("AI Logic Audit", actions.items[0].object.get("label").?.string);
     try std.testing.expect(std.mem.indexOf(u8, actions.items[0].object.get("href").?.string, "amount=500000000") != null);
+}
+
+test "Merchant SDK: Inventory Management" {
+    const allocator = std.testing.allocator;
+    const sdk_mod = @import("sdk");
+    
+    var sdk = sdk_mod.MerchantSDK.init(allocator, "http://localhost:8081");
+    defer sdk.deinit();
+    
+    try sdk.addService("ZK-Proof", "Fast proof generation", 100_000, 50);
+    try std.testing.expectEqual(@as(u32, 50), sdk.config.services[0].stock);
+    
+    _ = try sdk.updateStock("ZK-Proof", -10);
+    try std.testing.expectEqual(@as(u32, 40), sdk.config.services[0].stock);
+    
+    _ = try sdk.updateStock("ZK-Proof", -40);
+    try std.testing.expectEqual(@as(u32, 0), sdk.config.services[0].stock);
+    try std.testing.expect(sdk.config.services[0].status == .out_of_stock);
 }

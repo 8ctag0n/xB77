@@ -30,6 +30,30 @@ export default {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: chat_id.toString(), text: text })
           }));
+        },
+        js_fly_spawn: async (id_ptr, id_len) => {
+          const agent_id = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, id_ptr, id_len));
+          
+          // --- Fly.io Machines API Integration ---
+          // Cada agente es una máquina con el nombre 'xb77-agent-{id}'
+          const fly_api_url = `https://api.machines.dev/v1/apps/${env.FLY_APP_NAME}/machines`;
+          
+          ctx.waitUntil(fetch(fly_api_url, {
+            method: 'POST',
+            headers: { 
+              'Authorization': `Bearer ${env.FLY_API_TOKEN}`,
+              'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({
+              name: `xb77-agent-${agent_id.slice(0, 12)}`,
+              config: {
+                image: env.AGENT_IMAGE || "ghcr.io/xb77/sovereign-capsule:latest",
+                guest: { cpu_kind: "shared", cpus: 1, memory_mb: 256 },
+                env: { AGENT_ID: agent_id },
+                restart: { policy: "no" }
+              }
+            })
+          }).then(r => console.log(`Fly Spawn Status for ${agent_id}: ${r.status}`)));
         }
       }
     });

@@ -33,14 +33,14 @@ test "APP: Complete Flow (Quote -> Hire -> Escrow)" {
     try std.testing.expectEqual(quote.price, 1_000_000);
 
     // 3. Client: Accept Quote (Triggers Escrow Lock)
-    const tx_sig = try app_manager.acceptQuote(quote);
-    defer allocator.free(tx_sig);
-    try std.testing.expect(tx_sig.len > 0);
+    const res = try app_manager.acceptQuote(quote);
+    defer allocator.free(res.tx_sig);
+    try std.testing.expect(res.tx_sig.len > 0);
+    try std.testing.expect(app_manager.hires.contains(res.hire_id));
 
     // 4. Provider: Receive and Handle Hire
     // En un caso real, esto vendría por AWP
-    var hire_it = app_manager.hires.iterator();
-    const hire_msg = hire_it.next().?.value_ptr.*;
+    const hire_msg = app_manager.hires.get(res.hire_id).?;
     
     try app_manager.handleHire(hire_msg);
     

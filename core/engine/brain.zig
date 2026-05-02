@@ -171,30 +171,81 @@ pub const Brain = struct {
         };
     }
 
+    /// Decide si aceptar un presupuesto basado en el precio y la moneda.
+    pub fn shouldAccept(self: *Brain, quote: awp.AppQuoteMsg) bool {
+        // En Hackathon Mode, consultamos la Constitución (RAG-Lite)
+        const budget_limit: u64 = if (self.constitution) |cons| blk: {
+            // Buscamos reglas que mencionen "budget", "limit", "sol" o "max"
+            const rules = cons.queryRules("budget limit sol maximum cost") catch {
+                break :blk 1_000_000_000; // Default 1 SOL si falla el RAG
+            };
+            defer {
+                for (rules) |rule| self.allocator.free(rule);
+                self.allocator.free(rules);
+            }
+
+            var max: u64 = 1_000_000_000; 
+            for (rules) |rule| {
+                // Buscamos patrones de números en las reglas (ej: "0.5 SOL", "2.0", "500000000")
+                if (std.mem.indexOf(u8, rule, "0.5") != null or std.mem.indexOf(u8, rule, "medio") != null) {
+                    max = 500_000_000;
+                } else if (std.mem.indexOf(u8, rule, "2.0") != null or std.mem.indexOf(u8, rule, "dos") != null) {
+                    max = 2_000_000_000;
+                } else if (std.mem.indexOf(u8, rule, "0.1") != null) {
+                    max = 100_000_000;
+                }
+            }
+            break :blk max;
+        } else 1_000_000_000;
+
+        if (std.mem.eql(u8, quote.asset.symbol, "SOL")) {
+            const accepted = quote.price <= budget_limit;
+            if (!accepted) {
+                std.debug.print("\n[BRAIN ] ✋ Quote Rejected by Constitution: {d} > limit {d} SOL", .{quote.price, budget_limit});
+            } else {
+                std.debug.print("\n[BRAIN ] ✅ Quote Approved by Constitution ({d} lamports <= {d} limit)", .{quote.price, budget_limit});
+            }
+            return accepted;
+        }
+        
+        // Otros assets no soportados en la demo por defecto
+        return false;
+    }
+
     /// Analiza una intención y decide si corresponde emitir un presupuesto (Quote).
-    pub fn negotiate(self: *Brain, intent: []const u8, app_manager: *@import("../business/app.zig").AppManager, catalog: @import("../business/merchant.zig").MerchantConfig) !?awp.AppQuoteMsg {
+    pub fn negotiate(self: *Brain, intent: []const u8, app_manager: *@import("../business/app.zig").AppManager, catalog: *@import("../business/merchant.zig").MerchantConfig) !?awp.AppQuoteMsg {
         const lower = try self.allocator.alloc(u8, intent.len);
         defer self.allocator.free(lower);
         for (intent, 0..) |c, i| lower[i] = std.ascii.toLower(c);
 
         // Heurística de detección de servicios
-        for (catalog.services) |service| {
+        for (catalog.services) |*service| {
             const s_lower = try self.allocator.alloc(u8, service.name.len);
             defer self.allocator.free(s_lower);
             for (service.name, 0..) |c, i| s_lower[i] = std.ascii.toLower(c);
 
-            if (std.mem.indexOf(u8, lower, s_lower) != null) {
-                std.debug.print("\n[BRAIN ] 💹 Commercial Intent Detected: {s}", .{service.name});
-                
+            if (std.mem.indexOf(u8, lower, s_lower) != null or std.mem.indexOf(u8, s_lower, lower) != null) {
+                // Verificar stock e inventario
+                if (service.status != .available or service.stock == 0) {
+                    std.debug.print("\n[BRAIN ] ⚠️ Commercial Intent Detected but OUT OF STOCK: {s}", .{service.name});
+                    return null;
+                }
+
+                std.debug.print("\n[BRAIN ] 💹 Commercial Intent Detected: {s} (Current Stock: {d})", .{service.name, service.stock});
+
+                // PERSISTENCIA: Reducimos stock y marcamos para guardar
+                service.stock -= 1;
+                if (service.stock == 0) service.status = .out_of_stock;
+
+                std.debug.print("\n[BRAIN ] 📦 Stock reduced for {s}. New stock: {d}", .{service.name, service.stock});
+
                 // Generar presupuesto autónomo (1 hora de validez)
                 return try app_manager.createQuote(
                     .{ .chain = .solana, .symbol = "SOL" },
                     service.price_lamports,
                     3600
                 );
-            }
-        }
+            }        }
 
         return null;
-    }
-};
+    }};

@@ -7,14 +7,16 @@ pub const SovereignPortal = struct {
     store: *store.Store,
     vaults: *@import("../state/vault.zig").VaultSet,
     mesh: *@import("../net/mesh.zig").MeshManager,
+    merchant: *@import("../business/merchant.zig").MerchantConfig,
     port: u16,
 
-    pub fn init(allocator: std.mem.Allocator, s: *store.Store, v: *@import("../state/vault.zig").VaultSet, m: *@import("../net/mesh.zig").MeshManager, port: u16) SovereignPortal {
+    pub fn init(allocator: std.mem.Allocator, s: *store.Store, v: *@import("../state/vault.zig").VaultSet, m: *@import("../net/mesh.zig").MeshManager, merchant: *@import("../business/merchant.zig").MerchantConfig, port: u16) SovereignPortal {
         return .{
             .allocator = allocator,
             .store = s,
             .vaults = v,
             .mesh = m,
+            .merchant = merchant,
             .port = port,
         };
     }
@@ -24,12 +26,20 @@ pub const SovereignPortal = struct {
         var server = try address.listen(.{ .reuse_address = true });
         defer server.deinit();
 
-        std.debug.print("[PORTAL] 🌐 Sovereign Gateway active at http://0.0.0.0:{d}\n", .{self.port});
+        std.debug.print("[PORTAL] 🌐 Sovereign Gateway active at http://0.0.0.0:{d} (Multi-threaded)\n", .{self.port});
 
         while (true) {
             const conn = try server.accept();
-            try self.handleRequest(conn.stream);
+            // Despachar a un nuevo hilo para no bloquear el mesh
+            const thread = try std.Thread.spawn(.{}, handleConnection, .{ self, conn.stream });
+            thread.detach();
         }
+    }
+
+    fn handleConnection(self: *SovereignPortal, stream: std.net.Stream) void {
+        self.handleRequest(stream) catch |err| {
+            std.debug.print("[PORTAL] ❌ Error handling request: {any}\n", .{err});
+        };
     }
 
     fn handleRequest(self: *SovereignPortal, stream: std.net.Stream) !void {
@@ -45,6 +55,8 @@ pub const SovereignPortal = struct {
             try self.sendJsonResponse(stream, 200, try self.getStatusJson());
         } else if (std.mem.indexOf(u8, request, "GET /balance") != null) {
             try self.sendJsonResponse(stream, 200, try self.getBalanceJson());
+        } else if (std.mem.indexOf(u8, request, "GET /blink") != null) {
+            try self.sendJsonResponse(stream, 200, try self.getBlinkJson());
         } else if (std.mem.indexOf(u8, request, "GET /proof") != null) {
             // Extraer el índice de la query string (simplificado)
             const proof_json = try self.getProofJson(request);

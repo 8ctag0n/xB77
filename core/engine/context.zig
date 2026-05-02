@@ -125,7 +125,7 @@ pub const AgentContext = struct {
             .router = undefined, 
             .mesh_manager = try mesh.MeshManager.init(allocator, undefined, agent_id),
             .swap_manager = swap.SwapManager.init(allocator),
-            .registry_manager = @import("../business/registry.zig").RegistryManager.init(allocator, undefined), // Se vincula abajo
+            .registry_manager = @import("../business/registry.zig").RegistryManager.init(allocator, undefined, config.registry_program_id), // Se vincula abajo
             .app_manager = @import("../business/app.zig").AppManager.init(allocator, null),
             .merchant = m_config,
             .ipfs_client = @import("../net/ipfs.zig").IpfsClient.init(allocator, config.ipfs.endpoint, config.ipfs.api_key),
@@ -158,6 +158,13 @@ pub const AgentContext = struct {
         ctx.ipfs_client.http_client.payment_provider = ctx.getPaymentProvider();
 
         return ctx;
+    }
+
+    pub fn saveMerchantConfig(self: *AgentContext) !void {
+        const merchant_path = try std.fs.path.join(self.allocator, &[_][]const u8{ self.config.vaults.path, "merchant.json" });
+        defer self.allocator.free(merchant_path);
+        try self.merchant.save(merchant_path);
+        std.debug.print("\n[CONTEXT] 💾 Merchant Config Persisted to {s}", .{merchant_path});
     }
 
     /// Implementación de la interfaz de pago para x402

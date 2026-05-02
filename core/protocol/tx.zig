@@ -125,6 +125,63 @@ pub const borsh = struct {
     }
 };
 
+/// Construye la data de la instrucción 'InitMerchant' para el registro xB77.
+pub fn buildInitMerchantInstruction(
+    allocator: std.mem.Allocator,
+    merchant_id: [32]u8,
+    methods: u64,
+) ![]u8 {
+    var buf = std.ArrayListUnmanaged(u8){};
+    errdefer buf.deinit(allocator);
+    const writer = buf.writer(allocator);
+
+    // 1. Discriminador Anchor (8 bytes): SHA256("global:init_merchant")[0..8]
+    const discriminator = [_]u8{ 0xd1, 0x0b, 0xd6, 0xc3, 0xde, 0x9d, 0x7c, 0xc0 };
+    try writer.writeAll(&discriminator);
+
+    // 2. Payload: merchantId (bytes -> u32 len + data)
+    try borsh.writeVecU8(writer, &merchant_id);
+
+    // 3. Payload: supportedMethods (u64)
+    try borsh.writeU64(writer, methods);
+
+    return buf.toOwnedSlice(allocator);
+}
+
+/// Construye la data de la instrucción 'AddCatalog' para el registro xB77.
+pub fn buildAddCatalogInstruction(
+    allocator: std.mem.Allocator,
+    merchant_id: [32]u8,
+    catalog_id: u64,
+    category: u8,
+    catalog_url: []const u8,
+) ![]u8 {
+    var buf = std.ArrayListUnmanaged(u8){};
+    errdefer buf.deinit(allocator);
+    const writer = buf.writer(allocator);
+
+    // 1. Discriminador Anchor (8 bytes): SHA256("global:add_catalog")[0..8]
+    const discriminator = [_]u8{ 0xf5, 0xa5, 0x19, 0xd1, 0xd4, 0x7f, 0xe2, 0x1f };
+    try writer.writeAll(&discriminator);
+
+    // 2. Payload: merchantId
+    try borsh.writeVecU8(writer, &merchant_id);
+
+    // 3. Payload: catalogId
+    try borsh.writeU64(writer, catalog_id);
+
+    // 4. Payload: category
+    try writer.writeByte(category);
+
+    // 5. Payload: catalogUrl (bytes)
+    try borsh.writeVecU8(writer, catalog_url);
+
+    // 6. Payload: metadataHash (Option<[u8; 32]> -> None = 0)
+    try writer.writeByte(0);
+
+    return buf.toOwnedSlice(allocator);
+}
+
 /// Construye la data de la instrucción 'AnchorStateZk' para el programa xB77.
 /// Formato: [Discriminador (1)] + [Root (32)] + [Proof (Vec<u8>)]
 /// El discriminador es 4 para 'AnchorStateZk' en el enum CoreInstruction.

@@ -75,7 +75,7 @@ pub const Engine = struct {
         // --- SOVEREIGN PORTAL (HTTP Gateway) ---
         const portal_thread = try std.Thread.spawn(.{}, struct {
             fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) void {
-                var p = core.portal.SovereignPortal.init(allocator, &ctx.store, &ctx.vaults, &ctx.mesh_manager, &ctx.merchant, 8081);
+                var p = core.portal.SovereignPortal.init(allocator, &ctx.store, &ctx.vaults, &ctx.mesh_manager, &ctx.merchant, ctx.config.portal_port);
                 p.start() catch |err| {
                     std.debug.print("[Engine] ❌ Portal Error: {}\n", .{err});
                 };
@@ -158,8 +158,10 @@ pub const Engine = struct {
         if (try self.ctx.brain.negotiate(intent, &self.ctx.app_manager, self.ctx.merchant)) |quote| {
             std.debug.print("\n[Engine] 🤝 Negotiation Successful. Issuing Quote: {x}...", .{quote.quote_id[0..4]});
             
+            // Persistencia inmediata tras negociación exitosa
+            try self.ctx.saveMerchantConfig();
+            
             // En un flujo real, enviaríamos la Quote de vuelta al originador vía AWP.
-            // Por ahora, lo dejamos en el log como "Autonomous Sales Success".
             return;
         }
 

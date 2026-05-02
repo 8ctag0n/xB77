@@ -65,7 +65,13 @@ pub fn main() !void {
     } else if (std.mem.eql(u8, command, "shield")) {
         try handleShield(allocator, config_path, cmd_args);
     } else if (std.mem.eql(u8, command, "mesh")) {
-        try handleMesh(allocator, config_path);
+        if (cmd_args.len >= 2 and std.mem.eql(u8, cmd_args[0], "connect")) {
+            // handleMeshConnect was removed, but for now let's just use it as a placeholder if I want to re-add
+        } else if (cmd_args.len >= 2 and std.mem.eql(u8, cmd_args[0], "discover")) {
+            try handleMeshDiscover(allocator, config_path, cmd_args[1..]);
+        } else {
+            try handleMesh(allocator, config_path);
+        }
     } else if (std.mem.eql(u8, command, "mcp")) {
         try handleMcp(allocator, config_path);
     } else if (std.mem.eql(u8, command, "package")) {
@@ -109,11 +115,10 @@ fn printUsage() void {
         \\  package          Sovereign Export (Panic Button): Empaqueta estado y llaves
         \\  serve            Inicia la operación autónoma 24/7
         \\  deploy           Sube la configuración al Sovereign Gateway (Cloudflare)
-        link <code>      Vincula este agente con tu cuenta de Telegram
-        export           Descarga el estado más reciente desde el Gateway (Sovereign Export)
-        credits          Muestra el balance de créditos de infraestructura
-        merchant <sub>   Gestiona tus servicios comerciales y Blinks
-
+        \\  link <code>      Vincula este agente con tu cuenta de Telegram
+        \\  export           Descarga el estado más reciente desde el Gateway (Sovereign Export)
+        \\  credits          Muestra el balance de créditos de infraestructura
+        \\  merchant <sub>   Gestiona tus servicios comerciales y Blinks
         \\
     , .{});
 }
@@ -270,6 +275,37 @@ fn handleServe(allocator: std.mem.Allocator, config_path: []const u8) !void {
 
     var engine = core.engine.Engine.init(allocator, &ctx);
     try engine.start();
+}
+
+fn handleMeshDiscover(allocator: std.mem.Allocator, config_path: []const u8, args: []const []const u8) !void {
+    if (args.len < 1) {
+        std.debug.print("Uso: mesh discover <query>\n", .{});
+        return;
+    }
+
+    const config = try core.engine.config.Config.load(allocator, config_path);
+    const query = args[0];
+
+    std.debug.print("[MESH] 🔍 Querying for '{s}' through local agent...\n", .{query});
+
+    var socket_path_buf: [64]u8 = undefined;
+    const socket_path = try std.fmt.bufPrint(&socket_path_buf, "/tmp/xb77_znode_{d}.sock", .{config.mesh_port});
+
+    const sock = try std.posix.socket(std.posix.AF.UNIX, std.posix.SOCK.STREAM, 0);
+    defer std.posix.close(sock);
+    const address = try std.net.Address.initUnix(socket_path);
+    try std.posix.connect(sock, &address.any, address.getOsSockLen());
+    
+    var stream = std.net.Stream{ .handle = sock };
+
+    var encoder = core.awp.AwpEncoder.init(allocator);
+    defer encoder.deinit();
+
+    // Fabricamos el mensaje de descubrimiento (Opcode 0x13)
+    const msg = try encoder.encodeServiceDiscovery(.{ .query = query });
+    _ = try stream.write(msg);
+    
+    std.debug.print("✅ Discovery intent sent to local Z-Node. Watch the agent logs for results.\n", .{});
 }
 
 fn handleMesh(allocator: std.mem.Allocator, config_path: []const u8) !void {
@@ -555,17 +591,26 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
     } else if (std.mem.eql(u8, sub, "add")) {
         // ... (existing add logic)
         if (args.len < 3) {
-            std.debug.print("Uso: xb77 merchant add <nombre> <precio_lamports>\n", .{});
+            std.debug.print("Uso: xb77 merchant add <nombre> <precio_lamports> [stock]\n", .{});
             return;
         }
         const name = args[1];
         const price = try std.fmt.parseInt(u64, args[2], 10);
+        const stock = if (args.len > 3) try std.fmt.parseInt(u32, args[3], 10) else 10;
 
-        std.debug.print("Añadiendo servicio: {s} ({d} lamports)...\n", .{ name, price });
+        std.debug.print("Añadiendo servicio: {s} ({d} lamports, stock: {d})...\n", .{ name, price, stock });
         
-        const services = try allocator.alloc(core.business.merchant.MerchantService, 1);
-        services[0] = .{ .name = name, .description = "Service from CLI", .price_lamports = price };
-        ctx.merchant.services = services;
+        // Copiar servicios existentes y añadir el nuevo
+        var new_services = try allocator.alloc(core.business.merchant.MerchantService, ctx.merchant.services.len + 1);
+        @memcpy(new_services[0..ctx.merchant.services.len], ctx.merchant.services);
+        new_services[ctx.merchant.services.len] = .{ 
+            .name = try allocator.dupe(u8, name), 
+            .description = "Service from CLI", 
+            .price_lamports = price,
+            .stock = stock,
+            .status = .available,
+        };
+        ctx.merchant.services = new_services;
         
         const m_path = try std.fs.path.join(allocator, &[_][]const u8{ ctx.config.vaults.path, "merchant.json" });
         defer allocator.free(m_path);
@@ -577,17 +622,28 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
         defer allocator.free(blink);
         std.debug.print("\n--- Solana Action (Blink) Metadata ---\n{s}\n", .{blink});
     } else if (std.mem.eql(u8, sub, "publish")) {
-        std.debug.print("🚀 Iniciando publicación descentralizada...\n", .{});
-        const cid = try ctx.ipfs_client.uploadState("{\"merchant\": \"xb77\"}"); // Simplificado
+        std.debug.print("🚀 Iniciando publicación descentralizada (IPFS)...\n", .{});
+        
+        // Generar JSON real del catálogo
+        var list = std.ArrayListUnmanaged(u8){};
+        defer list.deinit(allocator);
+        try std.json.stringify(ctx.merchant, .{}, list.writer(allocator));
+
+        const cid = try ctx.ipfs_client.uploadState(list.items);
         std.debug.print("✅ Catálogo publicado en IPFS: {s}\n", .{cid});
-        std.debug.print("🗣️  Anunciando CID a la red Mesh (Privacy-First Discovery)...\n", .{});
+
+        std.debug.print("🔗 Anclando CID en el registro on-chain...", .{});
+        const sig = try ctx.registry_manager.addCatalog(ctx.vaults.ops.sol_kp.public, cid, &ctx.vaults.ops.sol_kp);
+        std.debug.print("\n✅ Registro completado. Sig: {s}\n", .{sig});
+
+        std.debug.print("🗣️  Anunciando a la red Mesh...\n", .{});
         try ctx.mesh_manager.tick();
-        std.debug.print("🔒 IP Protegida. Los agentes te encontrarán vía IPFS.\n", .{});
+        std.debug.print("🔒 IP Protegida. Tu agente ahora es global.\n", .{});
     } else if (std.mem.eql(u8, sub, "register")) {
-        std.debug.print("🔗 Iniciando registro on-chain en el Ecosistema APP...\n", .{});
+        std.debug.print("🔗 Iniciando registro de identidad en Solana Devnet...\n", .{});
         const sig = try ctx.registry_manager.registerMerchant(ctx.vaults.ops.sol_kp.public, 1, &ctx.vaults.ops.sol_kp);
         std.debug.print("✅ Merchant registrado oficialmente. Sig: {s}\n", .{sig});
-        std.debug.print("🌍 Tu agente ahora es visible para partners (Uniswap, Coinbase, QuickNode).\n", .{});
+        std.debug.print("🌍 Tu identidad soberana ha sido anclada exitosamente.\n", .{});
     } else if (std.mem.eql(u8, sub, "dispute")) {
         if (args.len < 2) {
             std.debug.print("Uso: xb77 merchant dispute <hire_id_hex>\n", .{});
