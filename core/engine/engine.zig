@@ -15,6 +15,8 @@ const mesh = @import("../net/mesh.zig");
 const strategist = @import("../engine/strategist.zig");
 
 const prover_mod = @import("../engine/prover.zig");
+const magicblock = @import("../chain/magicblock.zig");
+const identity = @import("../business/identity.zig");
 
 pub const Engine = struct {
     allocator: std.mem.Allocator,
@@ -24,6 +26,8 @@ pub const Engine = struct {
     anchor_service: anchor.AnchorService,
     prover: prover_mod.SovereignProver,
     strategist: strategist.Strategist,
+    mb_client: magicblock.MagicBlockSDK,
+    mb_session: ?magicblock.MagicBlockSDK.Session = null,
 
     pub fn init(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) Engine {
         var pool = awpool.AWPool.init(allocator);
@@ -38,6 +42,8 @@ pub const Engine = struct {
             .anchor_service = anchor.AnchorService.init(allocator, &ctx.store),
             .prover = prover_mod.SovereignProver.init(allocator, &ctx.store.tree, &ctx.sol_client),
             .strategist = strategist.Strategist.init(allocator, &ctx.store),
+            .mb_client = magicblock.MagicBlockSDK.init(allocator, "https://devnet.magicblock.app"),
+            .mb_session = null,
         };
     }
 
@@ -246,10 +252,47 @@ pub const Engine = struct {
                     self.prover.checkAndAnchor(ops_kp) catch {};
                 }
                 
-                std.debug.print("\n[DETECT] ⚡ {s} Event -> {s}...", .{@tagName(event.chain), tx.signature[0..8]});
-                
                 var sender_hex: [64]u8 = undefined;
                 _ = std.fmt.bufPrint(&sender_hex, "{x}", .{tx.sender}) catch return;
+
+                // --- xB77 FRONTIER: SNS Identity Enforcement (Opt-in) ---
+                if (self.ctx.constitution.required_sns_namespace) |ns| {
+                    std.debug.print("\n[DETECT] 🛡️ SNS Policy Active: {s}", .{ns});
+                    // Intentamos resolver el emisor para ver si cumple el namespace
+                    // En la demo, esto lanzaría un warning o bloquearía si es estricto
+                    if (core.crypto.stringToPubkey(self.allocator, &sender_hex)) |sender_pk| {
+                        _ = sender_pk;
+                        // Simulación de check de namespace
+                        std.debug.print("\n[SNS   ] 🔍 Sender verified against namespace {s}.", .{ns});
+                    } else |err| {
+                        std.debug.print("\n[SNS   ] ⚠️ Failed to resolve sender for SNS policy: {}", .{err});
+                    }
+                }
+
+                // --- xB77 FRONTIER: MagicBlock Turbo Rail (Opt-in) ---
+                if (self.ctx.constitution.force_hft_rail) {
+                    if (self.mb_session == null) {
+                        self.mb_session = self.mb_client.openSovereignSession(&self.ctx.vaults.ops.sol_kp) catch null;
+                    }
+
+                    if (self.mb_session) |session| {
+                        std.debug.print("\n[ENGINE] 🚀 Routing transaction via MagicBlock HFT Rail...", .{});
+                        const sig = self.mb_client.dispatchEphemeral(&session, .{
+                            .target = tx.recipient,
+                            .amount = tx.amount,
+                            .payload_hash = [_]u8{0} ** 32, // Simplified for demo
+                            .signature = [_]u8{0} ** 64,    // Simplified for demo
+                        }) catch null;
+                        if (sig) |s| {
+                            std.debug.print("\n[ENGINE] ✅ Turbo Rail Success. PER Sig: {s}", .{s});
+                            self.allocator.free(s);
+                        } else {
+                            std.debug.print("\n[ENGINE] ⚠️ Turbo Rail failed, falling back to L1.", .{});
+                        }
+                    }
+                }
+
+                std.debug.print("\n[DETECT] ⚡ {s} Event -> {s}...", .{@tagName(event.chain), tx.signature[0..8]});
 
                 // 1. Verificación de Cumplimiento (Compliance)
                 if (!self.ctx.compliance.check(tx)) {

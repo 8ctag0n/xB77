@@ -129,22 +129,25 @@ pub const Config = struct {
     pub fn save(self: *const Config, allocator: std.mem.Allocator, path: []const u8) !void {
         const file = try std.fs.cwd().createFile(path, .{});
         defer file.close();
-        const writer = file.writer();
+        var buf: [4096]u8 = undefined;
+        var writer_buffered = file.writer(&buf);
 
-        try writer.print("# xB77 Sovereign Agent Configuration\n", .{});
-        if (self.name) |n| try writer.print("name = \"{s}\"\n", .{n});
-        try writer.print("rpc_solana = \"{s}\"\n", .{self.rpc.solana});
-        try writer.print("rpc_base = \"{s}\"\n", .{self.rpc.base});
-        try writer.print("vault_path = \"{s}\"\n", .{self.vaults.path});
-        if (self.mnemonic) |m| try writer.print("mnemonic = \"{s}\"\n", .{m});
-        try writer.print("mesh_port = {d}\n", .{self.mesh_port});
-        try writer.print("portal_port = {d}\n", .{self.portal_port});
-        if (self.cdp.key_name) |k| try writer.print("cdp_key_name = \"{s}\"\n", .{k});
-        if (self.cdp.key_secret) |k| try writer.print("cdp_key_secret = \"{s}\"\n", .{k});
-        try writer.print("ipfs_endpoint = \"{s}\"\n", .{self.ipfs.endpoint});
-        try writer.print("ipfs_api_key = \"{s}\"\n", .{self.ipfs.api_key});
-        if (self.registry_program_id) |p| try writer.print("registry_program_id = \"{s}\"\n", .{p});
-        if (self.facilitator) |f| try writer.print("facilitator = \"{s}\"\n", .{f});
+        try writer_buffered.interface.print("# xB77 Sovereign Agent Configuration\n", .{});
+        if (self.name) |n| try writer_buffered.interface.print("name = \"{s}\"\n", .{n});
+        try writer_buffered.interface.print("rpc_solana = \"{s}\"\n", .{self.rpc.solana});
+        try writer_buffered.interface.print("rpc_base = \"{s}\"\n", .{self.rpc.base});
+        try writer_buffered.interface.print("vault_path = \"{s}\"\n", .{self.vaults.path});
+        if (self.mnemonic) |m| try writer_buffered.interface.print("mnemonic = \"{s}\"\n", .{m});
+        try writer_buffered.interface.print("mesh_port = {d}\n", .{self.mesh_port});
+        try writer_buffered.interface.print("portal_port = {d}\n", .{self.portal_port});
+        if (self.cdp.key_name) |k| try writer_buffered.interface.print("cdp_key_name = \"{s}\"\n", .{k});
+        if (self.cdp.key_secret) |k| try writer_buffered.interface.print("cdp_key_secret = \"{s}\"\n", .{k});
+        try writer_buffered.interface.print("ipfs_endpoint = \"{s}\"\n", .{self.ipfs.endpoint});
+        try writer_buffered.interface.print("ipfs_api_key = \"{s}\"\n", .{self.ipfs.api_key});
+        if (self.registry_program_id) |p| try writer_buffered.interface.print("registry_program_id = \"{s}\"\n", .{p});
+        if (self.facilitator) |f| try writer_buffered.interface.print("facilitator = \"{s}\"\n", .{f});
+
+        try writer_buffered.end();
 
         _ = allocator;
     }

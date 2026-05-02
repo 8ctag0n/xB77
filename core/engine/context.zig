@@ -90,7 +90,7 @@ pub const AgentContext = struct {
         std.debug.print("\n[KILL  ] 💀 Agent '{s}' terminated.", .{name});
     }
 
-    pub fn init(allocator: std.mem.Allocator, config_path: []const u8) !AgentContext {
+    pub fn init(allocator: std.mem.Allocator, config_path: []const u8, password: ?[]const u8) !AgentContext {
         const config = try config_mod.Config.load(allocator, config_path);
 
         var cdp_client: ?cdp.CdpClient = null;
@@ -98,7 +98,7 @@ pub const AgentContext = struct {
             cdp_client = cdp.CdpClient.init(allocator, config.cdp.key_name.?, config.cdp.key_secret.?);
         }
 
-        var vaults = try vault.VaultSet.init(allocator, config.vaults.path);
+        var vaults = try vault.VaultSet.init(allocator, config.vaults.path, password);
         const sol_addr = try vaults.ops.address(.solana, allocator);
         defer allocator.free(sol_addr);
         
