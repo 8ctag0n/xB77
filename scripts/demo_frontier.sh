@@ -20,6 +20,20 @@ export YELLOWSTONE_ENDPOINT="mock_endpoint"
 # 3. Create a helper to simulate the payment & proof generation
 cat << 'EOF' > .tmp_demo/simulate_payment.sh
 #!/bin/bash
+echo "[STRAT ] 📉 AUSTERITY MODE: Critical SC Balance."
+sleep 1
+echo "[SWARM ] 🐝 Triggering Flash Loan protocol..."
+echo "[MESH  ] 📢 Broadcasting Loan Request to Swarm: 50000000 SC at 500 bps... Sent to 1 peers."
+sleep 1
+echo "[SWARM ] 🐝 SOS Received from Peer a8b3. Needs 50000000 SC at 500 bps."
+echo "[SWARM ] 🧠 Brain evaluated risk: Acceptable. Sending Loan Offer..."
+sleep 1
+echo "[SWARM ] 🤝 Loan Offer Received from c1f9: 50000000 SC."
+echo "[SWARM ] ✅ Accept offer. Liquidity injected. Returning to Normal Operation."
+sleep 1
+echo "[SWARM ] 💸 Peer accepted loan. Executing L1 transfer via MagicBlock..."
+echo "[SWARM ] ✅ Transfer complete."
+echo ""
 echo "[MOCK] Simulating inbound Blink payment of 0.05 SOL..."
 sleep 2
 echo "[BRAIN ] 🧠 Consulting Gemma 4 (Local Sovereign Model)..."
