@@ -102,7 +102,7 @@ pub const Store = struct {
             // --- INICIALIZACIÓN CRÍTICA DEL ÁRBOL ---
             try tree.initializeEmptyVault();
         } else {
-            std.debug.print("\n[STORE ] 📂 Found EXISTING vault. Magic: {s}, Version: {d}, Next Index: {d}", .{
+            std.debug.print("\n[STORE ]  Found EXISTING vault. Magic: {s}, Version: {d}, Next Index: {d}", .{
                 header.magic, header.version, header.next_index
             });
         }
@@ -134,7 +134,7 @@ pub const Store = struct {
         // Calcular checksum del header (opcional por ahora, pero deluxe)
         // @todo: Implementar header checksum verification
         
-        std.debug.print("\n[STORE ] ⚓ L1 Anchor updated in Vault Header.", .{});
+        std.debug.print("\n[STORE ]  L1 Anchor updated in Vault Header.", .{});
     }
 
     fn rehydrate(self: *Store) !void {
@@ -178,8 +178,8 @@ pub const Store = struct {
             try self.account_index.put(self.allocator, owner_pk, idx);
         }
         
-        std.debug.print("\n[VAULT ] 🗄️ Sovereign Vault updated (Header Index: {d}).", .{self.header.next_index});
-        std.debug.print("\n[STATE ] 🌳 New Root: {x}...", .{self.tree.getRoot()[0..4]});
+        std.debug.print("\n[VAULT ] ️ Sovereign Vault updated (Header Index: {d}).", .{self.header.next_index});
+        std.debug.print("\n[STATE ]  New Root: {x}...", .{self.tree.getRoot()[0..4]});
     }
 
     /// Lee todas las entradas para auditoría (memoria intensivo, usar con cuidado)

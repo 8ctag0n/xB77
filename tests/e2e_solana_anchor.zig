@@ -17,7 +17,7 @@ pub fn main() !void {
     const agent_kp = crypto.generateKeypair();
     const agent_address = try crypto.encodeBase58(allocator, &agent_kp.public);
     defer allocator.free(agent_address);
-    std.debug.print("\n[AGENT ] 🛡️ Identity Generated: {s}", .{agent_address});
+    std.debug.print("\n[AGENT ] ️ Identity Generated: {s}", .{agent_address});
 
     // 2. Levantar el Sovereign Store (Memoria Persistente)
     const test_path = "./.test_e2e_anchor";
@@ -37,7 +37,7 @@ pub fn main() !void {
     
     const root = s.tree.getRoot();
     const root_hex = std.fmt.bytesToHex(root, .lower);
-    std.debug.print("\n[STATE ] 🌳 Sovereign Root generated: 0x{s}", .{root_hex});
+    std.debug.print("\n[STATE ]  Sovereign Root generated: 0x{s}", .{root_hex});
 
     // 3. Conexión al Validador
     const endpoint = "http://127.0.0.1:8899";
@@ -57,11 +57,11 @@ pub fn main() !void {
         std.debug.print(".", .{});
     }
 
-    std.debug.print("\n[SOLANA] 💰 Agent Balance: {d} lamports", .{balance});
+    std.debug.print("\n[SOLANA]  Agent Balance: {d} lamports", .{balance});
     if (balance == 0) return error.FundingFailed;
 
     // 5. Armar la Transacción Soberana
-    std.debug.print("\n[SOLANA] ⚓ Preparing Sovereign Anchor Transaction...", .{});
+    std.debug.print("\n[SOLANA]  Preparing Sovereign Anchor Transaction...", .{});
     const blockhash = try client.getLatestBlockhash();
     
     // Nuestro "Data Availability" por ahora: un Memo con la raíz firmada
@@ -78,7 +78,7 @@ pub fn main() !void {
     const tx_signature = try client.sendTransaction(tx_buf);
     defer allocator.free(tx_signature);
     
-    std.debug.print("\n[SOLANA] 🚀 TRANSACTION SENT!", .{});
-    std.debug.print("\n[SOLANA] 🔗 Signature: {s}", .{tx_signature});
+    std.debug.print("\n[SOLANA]  TRANSACTION SENT!", .{});
+    std.debug.print("\n[SOLANA]  Signature: {s}", .{tx_signature});
     std.debug.print("\n=== E2E TEST SUCCESSFUL ===\n", .{});
 }

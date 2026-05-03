@@ -186,7 +186,7 @@ pub fn stringToPubkey(allocator: std.mem.Allocator, str: []const u8) !types.Pubk
     defer allocator.free(decoded);
     
     if (decoded.len > 32) {
-        std.debug.print("\n[CRYPTO] ❌ Decoded length exceeds 32 bytes for {s}: {d}", .{str, decoded.len});
+        std.debug.print("\n[CRYPTO]  Decoded length exceeds 32 bytes for {s}: {d}", .{str, decoded.len});
         return error.InvalidAddressLength;
     }
     

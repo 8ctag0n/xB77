@@ -107,7 +107,7 @@ pub const SwapManager = struct {
     pub fn lock(self: *SwapManager, swap_id: [32]u8) !void {
         var swap = self.active_swaps.getPtr(swap_id) orelse return error.SwapNotFound;
         
-        std.debug.print("\n[SWAP  ] 🔒 Locking {d} {s} on {s}...", .{
+        std.debug.print("\n[SWAP  ]  Locking {d} {s} on {s}...", .{
             swap.offered_amount,
             swap.offered_asset.symbol,
             @tagName(swap.offered_asset.chain)
@@ -117,7 +117,7 @@ pub const SwapManager = struct {
         // con un programa que implemente el HTLC.
         swap.status = .locked;
         
-        std.debug.print(" ✅ Funds Locked with hash {x}...", .{swap.hash[0..4]});
+        std.debug.print("  Funds Locked with hash {x}...", .{swap.hash[0..4]});
     }
 
     /// Revela el secreto para completar el swap
@@ -125,11 +125,11 @@ pub const SwapManager = struct {
         var swap = self.active_swaps.getPtr(swap_id) orelse return error.SwapNotFound;
         if (swap.status != .locked) return error.SwapNotLocked;
 
-        std.debug.print("\n[SWAP  ] 🔑 Revealing secret for swap {x}...", .{swap_id[0..4]});
+        std.debug.print("\n[SWAP  ]  Revealing secret for swap {x}...", .{swap_id[0..4]});
         
         // Al revelar el secreto, el par puede reclamar los fondos en la otra cadena.
         swap.status = .revealed;
         
-        std.debug.print(" ✅ Secret Revealed. Deal finalized.");
+        std.debug.print("  Secret Revealed. Deal finalized.");
     }
 };

@@ -65,19 +65,19 @@ fn process_anchor_state_zk(
     msg!("[ZK JUDGE] Verifying state transition to root: {:?}", payload.root);
 
     if payload.proof.len() < 32 {
-        msg!("❌ Error: ZK Proof is too short or malformed");
+        msg!(" Error: ZK Proof is too short or malformed");
         return Err(CoreError::InvalidZkProof.into());
     }
 
     // El primer input público en Noir suele ser el root (32 bytes)
     let proof_root = &payload.proof[0..32];
     if proof_root != payload.root {
-        msg!("❌ Error: Proof root mismatch! Expected: {:?}, Found: {:?}", payload.root, proof_root);
+        msg!(" Error: Proof root mismatch! Expected: {:?}, Found: {:?}", payload.root, proof_root);
         return Err(CoreError::ZkRootMismatch.into());
     }
 
-    msg!("✅ ZK Proof verified mathematically (Noir Protocol).");
-    msg!("✅ State Integrity: Verified by Sovereign Cryptography.");
+    msg!(" ZK Proof verified mathematically (Noir Protocol).");
+    msg!(" State Integrity: Verified by Sovereign Cryptography.");
 
 
     // 3. Persistencia On-Chain
@@ -110,7 +110,7 @@ fn process_anchor_state_zk(
     let mut data = agent_state_account.try_borrow_mut_data()?;
     borsh::BorshSerialize::serialize(&state, &mut &mut data[..]).map_err(|_| ProgramError::AccountDataTooSmall)?;
 
-    msg!("⚓ Sovereign State Anchored for Agent: {:?}", agent_signer.key);
+    msg!(" Sovereign State Anchored for Agent: {:?}", agent_signer.key);
     Ok(())
 }
 

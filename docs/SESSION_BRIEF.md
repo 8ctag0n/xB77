@@ -1,6 +1,6 @@
-# xB77 Sovereign Brief: Round 2 - The Awakening 🚀
+# xB77 Sovereign Brief: Round 2 - The Awakening 
 
-## 📊 Session Recap (2026-05-02)
+##  Session Recap (2026-05-02)
 We have successfully transitioned xB77 from a raw technical engine to a **polished, demo-ready Sovereign Financial OS**.
 
 ### Key Achievements:
@@ -12,26 +12,26 @@ We have successfully transitioned xB77 from a raw technical engine to a **polish
 
 ---
 
-## 🎯 Next Objective: The "Hybrid Move"
+##  Next Objective: The "Hybrid Move"
 The goal for the next session is to **tear down the wall between simulation and reality**.
 
-### Task 1: Z-Node Real-Time Pulse (HFT Sentinel) 📡
+### Task 1: Z-Node Real-Time Pulse (HFT Sentinel) 
 *   **Objective:** Connect the Z-Node sentinel (C/Zig bridge) to a live Solana Geyser stream (Devnet/Mainnet).
 *   **Success Metric:** The agent responds to a real on-chain transaction in <50ms without polling.
 *   **Vibe:** "The bot that never sleeps, but always watches."
 
-### Task 2: On-Chain ZK-Truth (The Mic Drop) 🛡️
+### Task 2: On-Chain ZK-Truth (The Mic Drop) ️
 *   **Objective:** Integrate the Noir verification program into the Solana Anchor program.
 *   **Success Metric:** An on-chain transaction that fails if the ZK-Receipt commitment is invalid.
 *   **Vibe:** "Cryptographically enforced sovereignty."
 
-### Task 3: P2P Mesh Gossip (AWP Real) 🕸️
+### Task 3: P2P Mesh Gossip (AWP Real) ️
 *   **Objective:** Implement basic peer discovery for the Agent Wire Protocol.
 *   **Success Metric:** Two independent agents exchanging "Quotes" without a central server.
 
 ---
 
-## 🛠️ Technical Debt & "Lijado"
+## ️ Technical Debt & "Lijado"
 - [ ] Fix `GET` implementation in WASM for Edge deployment.
 - [ ] Implement header checksum verification in `state.vault`.
 - [ ] Benchmark AWP latency under high-concurrency simulation.

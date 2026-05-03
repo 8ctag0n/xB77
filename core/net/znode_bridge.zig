@@ -30,7 +30,7 @@ fn listenUnix(engine: anytype) !void {
     var listener = try server.listen(.{ .reuse_address = true });
     defer listener.deinit();
 
-    std.debug.print("[Z-Node] 🚩 Local Bridge (SDK) activo en {s}\n", .{socket_path});
+    std.debug.print("[Z-Node]  Local Bridge (SDK) activo en {s}\n", .{socket_path});
 
     while (engine.is_running) {
         const conn = try listener.accept();
@@ -44,22 +44,22 @@ fn listenMesh(engine: anytype) !void {
     var listener = try address.listen(.{ .reuse_address = true });
     defer listener.deinit();
 
-    std.debug.print("[Z-Node] 📡 Mesh Network activa en puerto {d}\n", .{port});
+    std.debug.print("[Z-Node]  Mesh Network activa en puerto {d}\n", .{port});
 
     while (engine.is_running) {
         const conn = try listener.accept();
-        std.debug.print("[Mesh] 🌐 Nueva conexión entrante desde {any}\n", .{conn.address});
+        std.debug.print("[Mesh]  Nueva conexión entrante desde {any}\n", .{conn.address});
         handleConnection(engine, conn.stream) catch continue;
     }
 }
 
 fn verifyZkProof(proof: []const u8) bool {
     // Hackathon Ready: Pasamos de simulación a ejecución real (o casi real) de Noir
-    std.debug.print("\n[ZK-Noir] 🔬 Verifying Plonk Proof ({d} bytes)...", .{proof.len});
+    std.debug.print("\n[ZK-Noir]  Verifying Plonk Proof ({d} bytes)...", .{proof.len});
 
     // Aceptamos el badge de la demo rápido
     if (std.mem.eql(u8, proof, "zk_badge_verified_by_commander")) {
-        std.debug.print(" ✅ DEMO BADGE ACCEPTED.", .{});
+        std.debug.print("  DEMO BADGE ACCEPTED.", .{});
         return true;
     }
 
@@ -71,7 +71,7 @@ fn verifyZkProof(proof: []const u8) bool {
     const proof_path = "circuits/agent_badge/proofs/xb77_last.proof";
     std.fs.cwd().makePath("circuits/agent_badge/proofs") catch {};
     var proof_file = std.fs.cwd().createFile(proof_path, .{}) catch |err| {
-        std.debug.print(" ⚠️ Error creating proof file: {any}", .{err});
+        std.debug.print(" ️ Error creating proof file: {any}", .{err});
         return true; // Fallback demo
     };
     proof_file.writeAll(proof) catch {};
@@ -96,7 +96,7 @@ fn verifyZkProof(proof: []const u8) bool {
 
     if (child.spawnAndWait()) |status| {
         if (status == .Exited and status.Exited == 0) {
-            std.debug.print(" ✅ NOIR VERIFIED.", .{});
+            std.debug.print("  NOIR VERIFIED.", .{});
             return true;
         }
     } else |_| {
@@ -104,12 +104,12 @@ fn verifyZkProof(proof: []const u8) bool {
         // Un byte de la prueba debe ser 'X' para que sea "válida" en modo fallback
         if (proof[10] == 'X' or proof[0] == 0x01) {
             std.Thread.sleep(150 * std.time.ns_per_ms);
-            std.debug.print(" ✅ NOIR (Simulated/Fallback) VALIDATED.", .{});
+            std.debug.print("  NOIR (Simulated/Fallback) VALIDATED.", .{});
             return true;
         }
     }
 
-    std.debug.print(" ❌ INVALID PROOF.", .{});
+    std.debug.print("  INVALID PROOF.", .{});
     return false;
 }
 fn handleConnection(engine: anytype, stream: std.net.Stream) !void {
@@ -124,7 +124,7 @@ fn handleConnection(engine: anytype, stream: std.net.Stream) !void {
     while (decoder.pos < bytes_read) {
         const opcode = decoder.data[decoder.pos];
         handler.handle(opcode, &decoder) catch |err| {
-            std.debug.print("[Protocol] ❌ Error handling message 0x{x}: {}\n", .{opcode, err});
+            std.debug.print("[Protocol]  Error handling message 0x{x}: {}\n", .{opcode, err});
             break;
         };
     }
@@ -168,17 +168,17 @@ const ProtocolHandler = struct {
                 });
                 
                 if (handshake.federation_badge) |badge| {
-                    std.debug.print("[ZK  ] ⚖️ Validating Federation Badge...", .{});
+                    std.debug.print("[ZK  ] ️ Validating Federation Badge...", .{});
                     if (verifyZkProof(badge)) {
-                        std.debug.print(" ✅ ALIANZA RECONOCIDA. Nodo federado.\n", .{});
+                        std.debug.print("  ALIANZA RECONOCIDA. Nodo federado.\n", .{});
                     } else {
-                        std.debug.print(" ❌ BADGE INVALID. Untrusted peer.\n", .{});
+                        std.debug.print("  BADGE INVALID. Untrusted peer.\n", .{});
                     }
                 }
             },
             @intFromEnum(awp.MessageType.transfer) => {
                 const transfer = try decoder.decodeTransfer();
-                std.debug.print("\n[AWP] 💸 Transfer received from mesh child: {d} {s}", .{ 
+                std.debug.print("\n[AWP]  Transfer received from mesh child: {d} {s}", .{ 
                     transfer.amount, 
                     @tagName(transfer.chain) 
                 });
@@ -192,7 +192,7 @@ const ProtocolHandler = struct {
                     .amount = transfer.amount,
                 });
                 
-                std.debug.print("\n[BATCH ] 📥 Transaction added to current batch. Total leaves: {d}", .{self.store.tree.rightmost_index});
+                std.debug.print("\n[BATCH ]  Transaction added to current batch. Total leaves: {d}", .{self.store.tree.rightmost_index});
             },
             @intFromEnum(awp.MessageType.order) => {
                 const order = try decoder.decodeOrder();
@@ -200,7 +200,7 @@ const ProtocolHandler = struct {
             },
             @intFromEnum(awp.MessageType.state_query) => {
                 const query = try decoder.decodeStateQuery();
-                std.debug.print("[AWP] 🔍 Recibido StateQuery(index: {d})\n", .{query.index});
+                std.debug.print("[AWP]  Recibido StateQuery(index: {d})\n", .{query.index});
                 
                 var encoder = awp.AwpEncoder.init(self.allocator);
                 defer encoder.deinit();
@@ -212,21 +212,21 @@ const ProtocolHandler = struct {
                     &dummy_proof
                 );
                 _ = try self.stream.write(response_msg);
-                std.debug.print("[AWP] 📤 Respondido con StateResponse\n", .{});
+                std.debug.print("[AWP]  Respondido con StateResponse\n", .{});
             },
             @intFromEnum(awp.MessageType.state_response) => {
                 const response = try decoder.decodeStateResponse();
-                std.debug.print("[AWP] 🛡️ Recibido StateResponse(index: {d}, proof_len: {d})\n", .{response.index, response.proof_len});
-                std.debug.print("[Mesh] 🔗 Estado del par verificado. Root: {x}\n", .{response.root[0..4].*});
+                std.debug.print("[AWP] ️ Recibido StateResponse(index: {d}, proof_len: {d})\n", .{response.index, response.proof_len});
+                std.debug.print("[Mesh]  Estado del par verificado. Root: {x}\n", .{response.root[0..4].*});
             },
             @intFromEnum(awp.MessageType.mission_directive) => {
                 const mission = try decoder.decodeMissionDirective();
-                std.debug.print("\n[AWP] 📡 MISSION RECEIVED: {x}", .{mission.id[0..4].*});
+                std.debug.print("\n[AWP]  MISSION RECEIVED: {x}", .{mission.id[0..4].*});
 
                 // 1. ¿Es una consulta comercial disfrazada de misión?
                 // (Usamos el budget como proxy del intent para esta demo)
                 if (try self.engine_ptr.ctx.brain.negotiate("audit decision logic", &self.engine_ptr.ctx.app_manager, &self.engine_ptr.ctx.merchant)) |quote| {
-                    std.debug.print("\n[BRAIN ] 💹 MISSION matches catalog. Issuing Quote: {x}...", .{quote.quote_id[0..4]});
+                    std.debug.print("\n[BRAIN ]  MISSION matches catalog. Issuing Quote: {x}...", .{quote.quote_id[0..4]});
                     
                     try self.engine_ptr.ctx.saveMerchantConfig();
 
@@ -238,14 +238,14 @@ const ProtocolHandler = struct {
                 }
                 
                 if (verifyZkProof(mission.zk_proof)) {
-                    std.debug.print(" ✅ VERIFIED BY NOIR.", .{});
+                    std.debug.print("  VERIFIED BY NOIR.", .{});
                 } else {
-                    std.debug.print(" ❌ SECURITY BREACH: Invalid ZK Proof. Mission discarded.", .{});
+                    std.debug.print("  SECURITY BREACH: Invalid ZK Proof. Mission discarded.", .{});
                 }
             },
             @intFromEnum(awp.MessageType.account_gossip) => {
                 const gossip = try decoder.decodeAccountGossip();
-                std.debug.print("\n[MESH  ] 🗣️ Account Gossip: Pubkey {x}... found at CMT index {d}.", .{ 
+                std.debug.print("\n[MESH  ] ️ Account Gossip: Pubkey {x}... found at CMT index {d}.", .{ 
                     gossip.pubkey[0..4], 
                     gossip.cmt_index 
                 });
@@ -272,13 +272,13 @@ const ProtocolHandler = struct {
             // --- APP (Agent Payments Protocol) Handlers ---
             @intFromEnum(awp.MessageType.app_quote) => {
                 const quote = try decoder.decodeAppQuote();
-                std.debug.print("\n[APP] 📜 Received Quote: {x}... Price: {d} {s}", .{ 
+                std.debug.print("\n[APP]  Received Quote: {x}... Price: {d} {s}", .{ 
                     quote.quote_id[0..4], quote.price, quote.asset.symbol
                 });
                 
                 // 1. ¿Aceptamos el presupuesto?
                 if (self.engine_ptr.ctx.brain.shouldAccept(quote)) {
-                    std.debug.print("\n[BRAIN ] ✅ Quote accepted. Locking funds...", .{});
+                    std.debug.print("\n[BRAIN ]  Quote accepted. Locking funds...", .{});
                     
                     const res = try self.engine_ptr.ctx.app_manager.acceptQuote(quote);
                     
@@ -297,7 +297,7 @@ const ProtocolHandler = struct {
                         quote.quote_id[0..4], res.tx_sig[0..8]
                     });
                 } else {
-                    std.debug.print("\n[BRAIN ] ❌ Quote rejected (Price too high or invalid asset).", .{});
+                    std.debug.print("\n[BRAIN ]  Quote rejected (Price too high or invalid asset).", .{});
                 }
             },
             @intFromEnum(awp.MessageType.app_hire) => {
@@ -315,22 +315,22 @@ const ProtocolHandler = struct {
                 });
                 _ = try self.stream.write(lock_msg);
                 
-                std.debug.print("\n[APP] 🔒 Escrow Lock confirmed. Contract Active for Hire {x}.", .{hire.hire_id[0..4]});
+                std.debug.print("\n[APP]  Escrow Lock confirmed. Contract Active for Hire {x}.", .{hire.hire_id[0..4]});
             },
             @intFromEnum(awp.MessageType.app_escrow_lock) => {
                 const lock = try decoder.decodeAppEscrowLock();
-                std.debug.print("\n[APP] 🔒 Funds Locked in Escrow: {d} lamports (Hire: {x}...)", .{
+                std.debug.print("\n[APP]  Funds Locked in Escrow: {d} lamports (Hire: {x}...)", .{
                     lock.amount, lock.hire_id[0..4]
                 });
             },
             @intFromEnum(awp.MessageType.service_discovery) => {
                 const discovery = try decoder.decodeServiceDiscovery();
-                std.debug.print("\n[MESH  ] 🔍 Service Discovery Query: {s}", .{discovery.query});
+                std.debug.print("\n[MESH  ]  Service Discovery Query: {s}", .{discovery.query});
                 
                 // 1. ¿Lo ofrecemos nosotros?
                 const brain = &self.engine_ptr.ctx.brain;
                 if (try brain.negotiate(discovery.query, &self.engine_ptr.ctx.app_manager, &self.engine_ptr.ctx.merchant)) |quote| {
-                    std.debug.print("\n[BRAIN ] 💹 Found match for discovery. Sending Quote: {x}...", .{quote.quote_id[0..4]});
+                    std.debug.print("\n[BRAIN ]  Found match for discovery. Sending Quote: {x}...", .{quote.quote_id[0..4]});
                     
                     try self.engine_ptr.ctx.saveMerchantConfig();
 
@@ -344,7 +344,7 @@ const ProtocolHandler = struct {
                     // (Simplificación: si la conexión es local, el puerto remoto suele ser 0 o algo identificable en Unix)
                     // Pero para la demo, simplemente propagamos a todos los peers conocidos.
                     
-                    std.debug.print("\n[MESH  ] 📣 Propagating discovery query to mesh...", .{});
+                    std.debug.print("\n[MESH  ]  Propagating discovery query to mesh...", .{});
                     
                     var encoder = awp.AwpEncoder.init(self.allocator);
                     defer encoder.deinit();

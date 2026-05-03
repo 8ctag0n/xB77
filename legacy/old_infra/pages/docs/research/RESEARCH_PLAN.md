@@ -4,7 +4,7 @@
 
 ---
 
-## 🎯 TARGET LOCKS (CONFIRMED TECH & PARTNERS)
+##  TARGET LOCKS (CONFIRMED TECH & PARTNERS)
 
 ### 1. ARCIUM (The Vault)
 *   **Role:** Confidential Treasury (C-SPL).
@@ -35,14 +35,14 @@
 
 ---
 
-## 🛠 THE "GOD LEVEL" STACK (AGENT INTERFACE)
+##  THE "GOD LEVEL" STACK (AGENT INTERFACE)
 *   **MCP (Model Context Protocol):** Local server for Claude/Cursor.
 *   **LangChain Tooling:** Dynamic tools for autonomous agent spending.
 *   **Feature:** `agent.pay({ amount: 50, currency: 'USD1' })`.
 
 ---
 
-## 🚀 EXECUTION PHASE 1: THE SCAFFOLD (STARTING NOW)
+##  EXECUTION PHASE 1: THE SCAFFOLD (STARTING NOW)
 1.  **Noir Circuit (`/circuits`):** Identity verification.
 2.  **Arcium Vault (`/contracts`):** Confidential money management.
 3.  **Light SDK (`/sdk`):** Compressed receipt generation.

@@ -40,7 +40,7 @@ pub const SolanaClient = struct {
 
         // Estructura de Solana: { "jsonrpc": "2.0", "result": { "context": { "slot": 1 }, "value": 0 }, "id": 1 }
         const result = parsed.value.object.get("result") orelse {
-            std.debug.print("\n[SOLANA] ❌ Error in response: {s}", .{response.body});
+            std.debug.print("\n[SOLANA]  Error in response: {s}", .{response.body});
             return error.InvalidResponse;
         };
         const value = result.object.get("value") orelse return error.InvalidResponse;
@@ -102,17 +102,17 @@ pub const SolanaClient = struct {
         defer parsed.deinit();
 
         if (parsed.value.object.get("error")) |err| {
-            std.debug.print("\n[SOLANA] ❌ Airdrop failed: {any}", .{err});
+            std.debug.print("\n[SOLANA]  Airdrop failed: {any}", .{err});
             return error.AirdropFailed;
         }
-        std.debug.print("\n[SOLANA] 💸 Airdrop requested for {s} ({d} lamports)", .{address, lamports});
+        std.debug.print("\n[SOLANA]  Airdrop requested for {s} ({d} lamports)", .{address, lamports});
     }
 
     /// Anclaje de Estado Soberano (L1 Anchoring) Real
     /// Envía el Root del CMT y la Prueba ZK al programa xB77 en Solana.
     pub fn anchorMeshState(self: *SolanaClient, root: [32]u8, proof: []const u8, signer_kp: *const types.Keypair) ![]u8 {
         const tx_mod = @import("../protocol/tx.zig");
-        std.debug.print("\n[SOLANA] ⚓ Anchoring Mesh State (ZK) to L1...", .{});
+        std.debug.print("\n[SOLANA]  Anchoring Mesh State (ZK) to L1...", .{});
 
         // 1. Obtener Blockhash fresco y Priority Fee
         const blockhash = try self.getLatestBlockhash();
@@ -121,7 +121,7 @@ pub const SolanaClient = struct {
         defer self.allocator.free(signer_addr);
         
         const priority_fee = try self.getQuickNodePriorityFee(signer_addr);
-        std.debug.print("\n[SOLANA] 🚀 Dynamic Priority Fee: {d} micro-lamports", .{priority_fee});
+        std.debug.print("\n[SOLANA]  Dynamic Priority Fee: {d} micro-lamports", .{priority_fee});
 
         // 2. Construir la data de la instrucción
         const ix_data = try tx_mod.buildAnchorStateZkInstruction(self.allocator, root, proof);
@@ -168,7 +168,7 @@ pub const SolanaClient = struct {
 
         // 6. Enviar!
         const sig = try self.sendTransaction(buf.items);
-        std.debug.print("\n[SOLANA] ✅ Anchor TX Sent. Sig: {s}", .{sig});
+        std.debug.print("\n[SOLANA]  Anchor TX Sent. Sig: {s}", .{sig});
         
         return sig;
     }
@@ -208,7 +208,7 @@ pub const SolanaClient = struct {
         defer parsed.deinit();
 
         const result = parsed.value.object.get("result") orelse {
-            std.debug.print("\n[SOLANA] ❌ Tx failed: {s}", .{response.body});
+            std.debug.print("\n[SOLANA]  Tx failed: {s}", .{response.body});
             return error.InvalidResponse;
         };
         return try self.allocator.dupe(u8, result.string);
@@ -348,13 +348,13 @@ pub const SolanaClient = struct {
         defer self.allocator.free(payload);
 
         var response = self.http_client.post(self.endpoint, payload) catch |err| {
-            std.debug.print("[Solana] ⚠️ Error fetching compressed balance: {any}. Falling back to 0.\n", .{err});
+            std.debug.print("[Solana] ️ Error fetching compressed balance: {any}. Falling back to 0.\n", .{err});
             return 0;
         };
         defer response.deinit();
 
         const parsed = std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{}) catch |err| {
-             std.debug.print("[Solana] ⚠️ JSON Parse error on compressed balance: {any}\n", .{err});
+             std.debug.print("[Solana] ️ JSON Parse error on compressed balance: {any}\n", .{err});
              return 0;
         };
         defer parsed.deinit();

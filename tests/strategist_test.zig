@@ -24,5 +24,5 @@ test "Strategist: Austerity Mode Trigger" {
     // Case 2: Low balance (Austerity Mode)
     const analysis2 = try strat.analyze(1, 4000);
     try std.testing.expect(analysis2.decision == .austerity_mode);
-    std.debug.print("\n[TEST] Low Balance: Decision = {s} (Austerity Active) 📉", .{@tagName(analysis2.decision)});
+    std.debug.print("\n[TEST] Low Balance: Decision = {s} (Austerity Active) ", .{@tagName(analysis2.decision)});
 }

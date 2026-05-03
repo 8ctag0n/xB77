@@ -1,4 +1,4 @@
-# 📦 Light Merkle Tree Prover
+#  Light Merkle Tree Prover
 
 Light Prover is a service for processing of Merkle tree updates.
 The correctness of the batched Merkle tree update is assured through the generation of a SNARK (generated

@@ -7,7 +7,7 @@ TARGET_DIR="${ROOT_DIR}/onchain/target/deploy"
 KEYPAIRS_DIR="${ROOT_DIR}/.devnet/keypairs"
 CLUSTER_URL="https://api.devnet.solana.com"
 
-echo "--- 🚀 XB77 Devnet Deployment ---"
+echo "---  XB77 Devnet Deployment ---"
 echo "Setting config to Devnet..."
 solana config set --url "$CLUSTER_URL"
 
@@ -40,7 +40,7 @@ deploy() {
         --upgrade-authority "$deployer_kp" \
         "$so"
         
-    echo "✅ $name Deployed: $prog_id"
+    echo " $name Deployed: $prog_id"
 }
 
 # Deploy sequence (Order matters for dependencies?)
@@ -53,6 +53,6 @@ deploy "xb77_gateway"
 deploy "xb77_core"
 
 echo ""
-echo "--- 🎉 Deployment Complete! ---"
+echo "---  Deployment Complete! ---"
 echo "Next steps:"
 echo "1. Run 'scripts/init-devnet.ts' to initialize global state."

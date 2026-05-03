@@ -16,11 +16,11 @@ head:
   - ['script', { src: 'https://player.vimeo.com/api/player.js', defer: true }]
 
 features:
-  - title: 🔒 Shielded Payments
+  - title:  Shielded Payments
     details: Leverages ShadowWire for decoupled, private B2B treasury management.
-  - title: 🕵️ Obfuscated Flows
+  - title: ️ Obfuscated Flows
     details: Routes sensitive transactions through Privacy Cash pools to break chain-link analysis.
-  - title: 📑 ZK-Compressed Receipts
+  - title:  ZK-Compressed Receipts
     details: Private on-chain transaction history powered by Light Protocol.
 ---
 

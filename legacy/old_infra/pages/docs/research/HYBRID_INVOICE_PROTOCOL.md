@@ -70,4 +70,4 @@ An enterprise can share a specific `AuditViewKey` with a regulator or auditor. T
 *   [ ] **Standardization:** Defining the compact-UBL schema for Solana.
 
 ---
-*Built with ❤️ for the Solana Privacy Hackathon 2026.*
+*Built with ️ for the Solana Privacy Hackathon 2026.*

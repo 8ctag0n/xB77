@@ -1,4 +1,4 @@
-# 🏆 HACKATHON WINNING STRATEGY: XB77
+#  HACKATHON WINNING STRATEGY: XB77
 **Target Event:** Solana Privacy Hackathon
 **Goal:** Submit a visually stunning, technically sound "Autonomous CFO" that solves the Privacy vs. Transparency paradox.
 
@@ -40,8 +40,8 @@ We target multiple flanks simultaneously with a single, cohesive product:
 ### Phase 2: Visualizing Privacy (The "Magic")
 *Current Status:* Privacy is invisible in the code.
 *   **Task 2.1:** **"The Shield Toggle"**. Add a visual element in the Transaction Feed:
-    *   🔓 **Public (Starpay):** Show details plainly.
-    *   🔒 **Private (Light):** Show `*******` for the recipient/amount, with a "Reveal" button (simulating the Viewing Key).
+    *    **Public (Starpay):** Show details plainly.
+    *    **Private (Light):** Show `*******` for the recipient/amount, with a "Reveal" button (simulating the Viewing Key).
 *   **Task 2.2:** **Compressed Receipt Viewer**. When clicking a receipt, show the JSON data and highlight the "ZK-Compressed" fields.
 
 ### Phase 3: The Compliance Guardrail (The "Shield")
@@ -82,7 +82,7 @@ bun run hub/index.ts
 
 ### Step 4: UI Polish ("The Privacy Toggle")
 *   **File:** `hub/hub.ts` (renderReceipts function)
-*   **Action:** If `receipt.type === 'private'`, mask the text. Add a `[👁️]` button that unmasks it locally.
+*   **Action:** If `receipt.type === 'private'`, mask the text. Add a `[️]` button that unmasks it locally.
 
 ### Step 5: The Demo Recording Script (3 Minutes)
 1.  **Intro (30s):** "Agents are the future, but they leak data. Meet xb77."

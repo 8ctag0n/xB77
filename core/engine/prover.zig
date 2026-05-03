@@ -33,8 +33,8 @@ pub const SovereignProver = struct {
         const diff = current_idx - self.last_anchored_index;
 
         if (diff >= self.anchor_threshold) {
-            std.debug.print("\n[PROVER] 🏭 CMT Threshold reached ({d} new states).", .{diff});
-            std.debug.print("\n[PROVER] 🌳 Proving Mesh States in ZK (Autonomous Sequencer Mode)...", .{});
+            std.debug.print("\n[PROVER]  CMT Threshold reached ({d} new states).", .{diff});
+            std.debug.print("\n[PROVER]  Proving Mesh States in ZK (Autonomous Sequencer Mode)...", .{});
             
             const root = self.tree.getRoot();
             const leaf = self.tree.rightmost_leaf;
@@ -49,39 +49,39 @@ pub const SovereignProver = struct {
             if (self.tree.change_logs.items.len > 0) {
                 try self.tree.exportToNoir(0, leaf, root, file);
             } else {
-                std.debug.print("\n[PROVER] ⚠️ No change logs found, skipping anchor.", .{});
+                std.debug.print("\n[PROVER] ️ No change logs found, skipping anchor.", .{});
                 return;
             }
 
             // 2. Ejecutar Nargo Prove vía el wrapper script
-            std.debug.print("\n[PROVER] 🛠️ Executing: scripts/nargo.sh prove --package state_anchor", .{});
+            std.debug.print("\n[PROVER] ️ Executing: scripts/nargo.sh prove --package state_anchor", .{});
             
             var child = std.process.Child.init(&[_][]const u8{ "bash", "scripts/nargo.sh", "prove", "--package", "state_anchor" }, self.allocator);
             const term = child.spawnAndWait() catch |err| {
-                std.debug.print("\n[PROVER] ❌ Failed to spawn nargo script: {any}", .{err});
+                std.debug.print("\n[PROVER]  Failed to spawn nargo script: {any}", .{err});
                 return err;
             };
 
             if (term != .Exited or term.Exited != 0) {
-                std.debug.print("\n[PROVER] ❌ ZK Proof generation failed. Verify container runtime (Docker/Podman).", .{});
+                std.debug.print("\n[PROVER]  ZK Proof generation failed. Verify container runtime (Docker/Podman).", .{});
                 // Fallback a Mock Proof para no trabar el flujo de la demo si el entorno no tiene Docker
                 const mock_proof = try self.generateHighFidelityMockProof(root);
                 defer self.allocator.free(mock_proof);
                 
-                std.debug.print("\n[PROVER] ⚠️ Falling back to high-fidelity Mock Proof for demo flow.", .{});
+                std.debug.print("\n[PROVER] ️ Falling back to high-fidelity Mock Proof for demo flow.", .{});
                 const sig = try self.sol_client.anchorMeshState(root, mock_proof, signer);
                 defer self.allocator.free(sig);
-                std.debug.print("\n[PROVER] ⚓ (MOCK) Mesh State Anchored. L1 Sig: {s}", .{sig});
+                std.debug.print("\n[PROVER]  (MOCK) Mesh State Anchored. L1 Sig: {s}", .{sig});
                 self.last_anchored_index = current_idx;
                 return;
             } 
 
-            std.debug.print("\n[PROVER] ✨ ZK-Proof generated successfully by Noir.", .{});
+            std.debug.print("\n[PROVER]  ZK-Proof generated successfully by Noir.", .{});
 
             // 3. Obtener la prueba real
             const proof_file_path = "circuits/state_anchor/proofs/state_anchor.proof";
             const real_proof = std.fs.cwd().readFileAlloc(self.allocator, proof_file_path, 1024 * 64) catch |err| {
-                std.debug.print("\n[PROVER] ❌ Could not read proof file: {any}", .{err});
+                std.debug.print("\n[PROVER]  Could not read proof file: {any}", .{err});
                 return err;
             };
             defer self.allocator.free(real_proof);
@@ -90,7 +90,7 @@ pub const SovereignProver = struct {
             const sig = try self.sol_client.anchorMeshState(root, real_proof, signer);
             defer self.allocator.free(sig);
             
-            std.debug.print("\n[PROVER] ⚓ Mesh State Anchored at Index {d}. L1 Sig: {s}", .{current_idx, sig});
+            std.debug.print("\n[PROVER]  Mesh State Anchored at Index {d}. L1 Sig: {s}", .{current_idx, sig});
             self.last_anchored_index = current_idx;
         }
     }

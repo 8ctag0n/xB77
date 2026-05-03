@@ -148,7 +148,7 @@ pub const PaymentRouter = struct {
 
         var lines = std.mem.splitScalar(u8, content, '\n');
 
-        std.debug.print("\n🚀 Starting Deluxe Batch Processing: {s}\n", .{file_path});
+        std.debug.print("\n Starting Deluxe Batch Processing: {s}\n", .{file_path});
         var count: usize = 0;
         var success_count: usize = 0;
 
@@ -157,13 +157,13 @@ pub const PaymentRouter = struct {
             count += 1;
 
             const instr_parsed = std.json.parseFromSlice(BatchInstruction, self.allocator, line, .{ .ignore_unknown_fields = true }) catch |err| {
-                std.debug.print("❌ Line {d}: Parse error: {}\n", .{count, err});
+                std.debug.print(" Line {d}: Parse error: {}\n", .{count, err});
                 continue;
             };
             defer instr_parsed.deinit();
             const instr = instr_parsed.value;
 
-            std.debug.print("📦 [{d}] Processing {d} {s} to {s}...", .{count, instr.amount, instr.symbol, instr.to[0..8]});
+            std.debug.print(" [{d}] Processing {d} {s} to {s}...", .{count, instr.amount, instr.symbol, instr.to[0..8]});
 
             // Convertir instrucción a PaymentRequest
             const req = if (instr.chain == .solana) blk: {
@@ -198,7 +198,7 @@ pub const PaymentRouter = struct {
             success_count += 1;
         }
 
-        std.debug.print("\n✨ Batch Finished: {d}/{d} transactions successful.\n", .{success_count, count});
+        std.debug.print("\n Batch Finished: {d}/{d} transactions successful.\n", .{success_count, count});
     }
 
     fn route(self: *PaymentRouter, request: PaymentRequest) types.Chain {

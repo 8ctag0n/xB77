@@ -104,7 +104,7 @@ pub const MerchantSDK = struct {
                 .out_of_stock => "SOLD-OUT",
                 .discontinued => "DISC",
             };
-            std.debug.print("📦 {s:<20} | {d:>5} | {s}\n", .{ s.name, s.stock, status_str });
+            std.debug.print(" {s:<20} | {d:>5} | {s}\n", .{ s.name, s.stock, status_str });
         }
     }
 
@@ -131,7 +131,7 @@ pub const MerchantSDK = struct {
 
         // 2. Subir a IPFS
         const cid = try ipfs.uploadState(buf.items);
-        std.debug.print("[SDK] ✅ Catalog published to IPFS. CID: {s}\n", .{cid});
+        std.debug.print("[SDK]  Catalog published to IPFS. CID: {s}\n", .{cid});
         
         return cid;
     }

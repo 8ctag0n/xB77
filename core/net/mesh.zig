@@ -99,7 +99,7 @@ pub const MeshManager = struct {
             .last_seen = std.time.timestamp(),
         });
 
-        std.debug.print("\n[MESH  ] 🕸️ Peer added to Bucket[{d}]: ", .{bucket_idx});
+        std.debug.print("\n[MESH  ] ️ Peer added to Bucket[{d}]: ", .{bucket_idx});
         for (id[0..4]) |b| {
             std.debug.print("{x:0>2}", .{b});
         }
@@ -132,7 +132,7 @@ pub const MeshManager = struct {
         const broadcast = std.net.Address.initIp4(.{ 255, 255, 255, 255 }, 7700);
         std.posix.setsockopt(socket, std.posix.SOL.SOCKET, std.posix.SO.BROADCAST, &std.mem.toBytes(@as(c_int, 1))) catch {};
         
-        std.debug.print("\n[MESH  ] 📤 Sending presence heartbeat (TCP Port: {d})...", .{tcp_port});
+        std.debug.print("\n[MESH  ]  Sending presence heartbeat (TCP Port: {d})...", .{tcp_port});
         _ = std.posix.sendto(socket, &msg_buf, 0, &broadcast.any, broadcast.getOsSockLen()) catch {};
     }
 
@@ -150,7 +150,7 @@ pub const MeshManager = struct {
         
         try std.posix.bind(socket, &address.any, address.getOsSockLen());
 
-        std.debug.print("[MESH  ] 👂 Discovery Listener activo en puerto UDP 7700\n", .{});
+        std.debug.print("[MESH  ]  Discovery Listener activo en puerto UDP 7700\n", .{});
 
         var buf: [34]u8 = undefined;
         while (true) {
@@ -185,7 +185,7 @@ pub const MeshManager = struct {
     }
 
     fn verifyPeer(self: *MeshManager, peer: *Peer) !void {
-        std.debug.print("\n[MESH  ] 🔬 Proactive Verification: {s}:{d}...", .{ peer.address, peer.port });
+        std.debug.print("\n[MESH  ]  Proactive Verification: {s}:{d}...", .{ peer.address, peer.port });
         var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch return;
         defer stream.close();
 
@@ -253,7 +253,7 @@ pub const MeshManager = struct {
 
         const target = target_peer orelse return;
 
-        std.debug.print("\n[MESH  ] 📡 Gossiping with {s}:{d}...", .{ target.address, target.port });
+        std.debug.print("\n[MESH  ]  Gossiping with {s}:{d}...", .{ target.address, target.port });
         
         // Conexión TCP real y envío de STATE_QUERY
         var stream = std.net.tcpConnectToHost(self.allocator, target.address, target.port) catch |err| {
@@ -307,7 +307,7 @@ pub const MeshManager = struct {
             .siblings = last_log.siblings,
         });
 
-        std.debug.print("\n[MESH  ] 🌊 Broadcasting Delta Sync (Index: {d})...", .{last_log.index});
+        std.debug.print("\n[MESH  ]  Broadcasting Delta Sync (Index: {d})...", .{last_log.index});
 
         for (0..256) |i| {
             for (self.buckets[i].items) |peer| {
@@ -328,7 +328,7 @@ pub const MeshManager = struct {
             .duration_sec = duration_sec,
         });
 
-        std.debug.print("\n[MESH  ] 📢 Broadcasting Loan Request to Swarm: {d} SC at {d} bps...", .{amount, interest_bps});
+        std.debug.print("\n[MESH  ]  Broadcasting Loan Request to Swarm: {d} SC at {d} bps...", .{amount, interest_bps});
 
         var sent_count: usize = 0;
         for (0..256) |i| {
@@ -350,7 +350,7 @@ pub const MeshManager = struct {
         switch (opcode) {
             @intFromEnum(awp.MessageType.state_response) => {
                 const resp = try decoder.decodeStateResponse();
-                std.debug.print("\n[MESH  ] 🛡️ Valid State Response from peer. Root: {x}", .{resp.root[0..4].*});
+                std.debug.print("\n[MESH  ] ️ Valid State Response from peer. Root: {x}", .{resp.root[0..4].*});
                 peer.status = .verified;
                 peer.state_root = resp.root;
             },
@@ -370,7 +370,7 @@ pub const MeshManager = struct {
             },
             @intFromEnum(awp.MessageType.loan_request) => {
                 const req = try decoder.decodeLoanRequest();
-                std.debug.print("\n[SWARM ] 🐝 SOS Received from Peer {x}. Needs {d} SC at {d} bps.", .{peer.id[0..4].*, req.amount, req.interest_bps});
+                std.debug.print("\n[SWARM ]  SOS Received from Peer {x}. Needs {d} SC at {d} bps.", .{peer.id[0..4].*, req.amount, req.interest_bps});
                 // In a real swarm, the brain evaluates risk and balance.
                 std.debug.print("\n[SWARM ] 🧠 Brain evaluated risk: Acceptable. Sending Loan Offer...", .{});
                 
@@ -390,7 +390,7 @@ pub const MeshManager = struct {
             @intFromEnum(awp.MessageType.loan_offer) => {
                 const offer = try decoder.decodeLoanOffer();
                 std.debug.print("\n[SWARM ] 🤝 Loan Offer Received from {x}: {d} SC.", .{offer.lender_id[0..4].*, offer.amount});
-                std.debug.print("\n[SWARM ] ✅ Accept offer. Liquidity injected. Returning to Normal Operation.", .{});
+                std.debug.print("\n[SWARM ]  Accept offer. Liquidity injected. Returning to Normal Operation.", .{});
                 
                 var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch return;
                 defer stream.close();
@@ -406,8 +406,8 @@ pub const MeshManager = struct {
             @intFromEnum(awp.MessageType.loan_accept) => {
                 const acc = try decoder.decodeLoanAccept();
                 _ = acc;
-                std.debug.print("\n[SWARM ] 💸 Peer accepted loan. Executing L1 transfer via MagicBlock...", .{});
-                std.debug.print("\n[SWARM ] ✅ Transfer complete.", .{});
+                std.debug.print("\n[SWARM ]  Peer accepted loan. Executing L1 transfer via MagicBlock...", .{});
+                std.debug.print("\n[SWARM ]  Transfer complete.", .{});
             },
             else => {},
         }

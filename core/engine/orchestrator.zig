@@ -74,7 +74,7 @@ pub const Orchestrator = struct {
         const current = self.balances.get(agent_id) orelse 0;
         try self.balances.put(self.allocator, agent_id, current + credits);
         
-        std.debug.print("\n[ORCH  ] 💳 Credit Updated for {x:0>2}{x:0>2}{x:0>2}{x:0>2}...: {d} SC", .{
+        std.debug.print("\n[ORCH  ]  Credit Updated for {x:0>2}{x:0>2}{x:0>2}{x:0>2}...: {d} SC", .{
             agent_id[0], agent_id[1], agent_id[2], agent_id[3], current + credits
         });
     }

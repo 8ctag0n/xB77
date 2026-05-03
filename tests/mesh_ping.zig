@@ -9,13 +9,13 @@ pub fn main() !void {
     std.debug.print("\n--- xB77 Mesh P2P Handshake (The Baptism) ---\n", .{});
 
     var stream = std.net.tcpConnectToHost(std.heap.page_allocator, target_ip, target_port) catch |err| {
-        std.debug.print("❌ Error: No se pudo conectar a la Mesh ({any}).\n", .{err});
-        std.debug.print("💡 Asegurate de que el Agente esté corriendo en modo 'serve'.\n", .{});
+        std.debug.print(" Error: No se pudo conectar a la Mesh ({any}).\n", .{err});
+        std.debug.print(" Asegurate de que el Agente esté corriendo en modo 'serve'.\n", .{});
         return;
     };
     defer stream.close();
 
-    std.debug.print("🔗 Conectado a la Mesh en {s}:{d}. Negociando...\n", .{target_ip, target_port});
+    std.debug.print(" Conectado a la Mesh en {s}:{d}. Negociando...\n", .{target_ip, target_port});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -44,9 +44,9 @@ pub fn main() !void {
         .owner = [_]u8{0xAA} ** 32,
     };
     _ = try encoder.encodeOrder(order);
-    std.debug.print("🛒 Mesh Order: BUY 5 SOL @ 145 USDC.\n", .{});
+    std.debug.print(" Mesh Order: BUY 5 SOL @ 145 USDC.\n", .{});
     
     // Enviar el paquete binario completo por la red
     try stream.writeAll(encoder.buf.items);
-    std.debug.print("🚀 Paquetes P2P inyectados en la Mesh. xB77 está vivo.\n", .{});
+    std.debug.print(" Paquetes P2P inyectados en la Mesh. xB77 está vivo.\n", .{});
 }

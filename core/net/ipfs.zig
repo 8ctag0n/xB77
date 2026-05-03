@@ -20,10 +20,10 @@ pub const IpfsClient = struct {
     pub fn uploadState(self: *IpfsClient, state_json: []const u8) ![]const u8 {
         // En QuickNode/IPFS esto suele ser un POST multipart/form-data
         // Por ahora implementamos la estructura de la llamada
-        std.debug.print("\n[IPFS ] 📦 Preparing Sovereign Snapshot ({d} bytes)...", .{state_json.len});
+        std.debug.print("\n[IPFS ]  Preparing Sovereign Snapshot ({d} bytes)...", .{state_json.len});
         
         // Simulación de subida exitosa (aquí iría el POST real)
-        std.debug.print("\n[IPFS ] 🚀 Uploading to QuickNode IPFS Gateway...", .{});
+        std.debug.print("\n[IPFS ]  Uploading to QuickNode IPFS Gateway...", .{});
         
         // Retornamos un CID simulado (esto lo dará la API real)
         return try self.allocator.dupe(u8, "QmSovereignStatexB77FakeCID111");

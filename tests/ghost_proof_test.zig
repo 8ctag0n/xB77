@@ -40,7 +40,7 @@ test "The Ghost Proof: Zig to Noir State Anchor" {
     defer file.close();
     try file.writeAll(content_list.items);
 
-    std.debug.print("\n[GHOST ] 👻 Prover.toml exported to {s}", .{prover_path});
+    std.debug.print("\n[GHOST ]  Prover.toml exported to {s}", .{prover_path});
 
     // 3. Verificar que el archivo existe y tiene el formato correcto
     const content = try std.fs.cwd().readFileAlloc(allocator, prover_path, 1024 * 10);

@@ -75,7 +75,7 @@ Go to the **ZK-Receipt Verification Portal** at the bottom of the Gateway page.
 **Speaker:**
 > "The agent generated a Noir ZK-proof and anchored the Merkle root on-chain. Here, the auditor uses the Gateway's local WASM verifier. By providing the Viewing Key, they mathematically verify the ZK-Proof directly in the browser."
 
-*(The screen flashes GREEN: ✅ PROOF VALID (GHOST RECEIPT) and decrypts the data).*
+*(The screen flashes GREEN:  PROOF VALID (GHOST RECEIPT) and decrypts the data).*
 
 **Speaker:**
 > "The Ghost Receipt proves the 2.011% tax was paid on-chain, while the transaction details remain completely private. xB77: True sovereignty for the agentic economy. Thank you."

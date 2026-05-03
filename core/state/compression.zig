@@ -54,8 +54,8 @@ pub const CompressionEngine = struct {
         to_acc.amount += amount;
         from_acc.nonce += 1;
         
-        std.debug.print("\n[COMP ] ⚖️ Sovereign Tax of {d} lamports collected.", .{self.sovereign_tax});
-        std.debug.print("\n[COMP ] 🔄 State Updated: {d} transferred privately.", .{amount});
+        std.debug.print("\n[COMP ] ️ Sovereign Tax of {d} lamports collected.", .{self.sovereign_tax});
+        std.debug.print("\n[COMP ]  State Updated: {d} transferred privately.", .{amount});
         }
 
         /// Genera los artefactos necesarios para que Noir verifique la transición de estado.
@@ -108,7 +108,7 @@ pub const CompressionEngine = struct {
         // ... Repetir para 'to' ...
         try w_buffered.end();
 
-        std.debug.print("\n[ZK    ] 🛡️ ZK-Transition artifacts generated at {s}", .{target_dir});
+        std.debug.print("\n[ZK    ] ️ ZK-Transition artifacts generated at {s}", .{target_dir});
         }
 
         fn formatArray(allocator: std.mem.Allocator, arr: [32]u8) ![]u8 {

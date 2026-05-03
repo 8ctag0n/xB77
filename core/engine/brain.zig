@@ -21,27 +21,27 @@ pub const BrainInsight = struct {
         var list = std.ArrayList(u8).init(self.allocator);
         const writer = list.writer();
 
-        try writer.print("🛡️ XB77 INTELLIGENCE REPORT\n", .{});
+        try writer.print("️ XB77 INTELLIGENCE REPORT\n", .{});
         try writer.print("---------------------------\n", .{});
         try writer.print("INTENT: {s}\n\n", .{self.decision_trace});
         
         // Additive Identity Check: Highlight WDK if asset is USDT
         if (std.mem.eql(u8, self.directive.zk_proof, "zkp_authorized_by_shield_v1")) {
-            try writer.print("🔒 IDENTITY: Tether WDK Sovereign Verified\n", .{});
+            try writer.print(" IDENTITY: Tether WDK Sovereign Verified\n", .{});
         } else {
             try writer.print("🆔 IDENTITY: Local Keypair Verified\n", .{});
         }
         
         if (self.relevant_rules.len > 0) {
-            try writer.print("\n📜 CONSTITUTIONAL RAG:\n", .{});
+            try writer.print("\n CONSTITUTIONAL RAG:\n", .{});
             for (self.relevant_rules) |rule| {
                 try writer.print("   • {s}\n", .{rule});
             }
         } else {
-            try writer.print("\n📜 RAG: No specific rules triggered.\n", .{});
+            try writer.print("\n RAG: No specific rules triggered.\n", .{});
         }
         
-        try writer.print("\n🛡️ COMPLIANCE:\n", .{});
+        try writer.print("\n️ COMPLIANCE:\n", .{});
         if (self.directive.compliance_proof) |proof| {
             if (proof.len > 32) {
                 try writer.print("   {s}...\n", .{proof[0..32]});
@@ -51,7 +51,7 @@ pub const BrainInsight = struct {
         }
 
         const id_hex = std.fmt.bytesToHex(self.directive.id, .lower);
-        try writer.print("\n⚡ MISSION HASH: 0x{s}\n", .{&id_hex[0..12]});
+        try writer.print("\n MISSION HASH: 0x{s}\n", .{&id_hex[0..12]});
 
         return list.toOwnedSlice();
     }
@@ -102,14 +102,14 @@ pub const Brain = struct {
         defer self.allocator.free(payload);
 
         var resp = self.http_client.post("http://127.0.0.1:11434/api/generate", payload) catch |err| {
-            std.debug.print("\n[BRAIN ] ⚠️ Gemma 4 not found (Ollama offline). Falling back to heuristics: {}", .{err});
+            std.debug.print("\n[BRAIN ] ️ Gemma 4 not found (Ollama offline). Falling back to heuristics: {}", .{err});
             return try self.interpret(directive);
         };
         defer resp.deinit();
 
         // 3. Parsear respuesta (Simplificado para la demo)
         // En una implementación final, usaríamos std.json.parse
-        std.debug.print("\n[BRAIN ] ✨ Gemma 4 reasoned: Sovereign Decision reached.", .{});
+        std.debug.print("\n[BRAIN ]  Gemma 4 reasoned: Sovereign Decision reached.", .{});
         
         return try self.interpret(directive); // Fallback a interpret para llenar el struct por ahora
     }
@@ -258,9 +258,9 @@ pub const Brain = struct {
         if (std.mem.eql(u8, quote.asset.symbol, "SOL")) {
             const accepted = quote.price <= budget_limit;
             if (!accepted) {
-                std.debug.print("\n[BRAIN ] ✋ Quote Rejected by Constitution: {d} > limit {d} SOL", .{quote.price, budget_limit});
+                std.debug.print("\n[BRAIN ]  Quote Rejected by Constitution: {d} > limit {d} SOL", .{quote.price, budget_limit});
             } else {
-                std.debug.print("\n[BRAIN ] ✅ Quote Approved by Constitution ({d} lamports <= {d} limit)", .{quote.price, budget_limit});
+                std.debug.print("\n[BRAIN ]  Quote Approved by Constitution ({d} lamports <= {d} limit)", .{quote.price, budget_limit});
             }
             return accepted;
         }
@@ -284,17 +284,17 @@ pub const Brain = struct {
             if (std.mem.indexOf(u8, lower, s_lower) != null or std.mem.indexOf(u8, s_lower, lower) != null) {
                 // Verificar stock e inventario
                 if (service.status != .available or service.stock == 0) {
-                    std.debug.print("\n[BRAIN ] ⚠️ Commercial Intent Detected but OUT OF STOCK: {s}", .{service.name});
+                    std.debug.print("\n[BRAIN ] ️ Commercial Intent Detected but OUT OF STOCK: {s}", .{service.name});
                     return null;
                 }
 
-                std.debug.print("\n[BRAIN ] 💹 Commercial Intent Detected: {s} (Current Stock: {d})", .{service.name, service.stock});
+                std.debug.print("\n[BRAIN ]  Commercial Intent Detected: {s} (Current Stock: {d})", .{service.name, service.stock});
 
                 // PERSISTENCIA: Reducimos stock y marcamos para guardar
                 service.stock -= 1;
                 if (service.stock == 0) service.status = .out_of_stock;
 
-                std.debug.print("\n[BRAIN ] 📦 Stock reduced for {s}. New stock: {d}", .{service.name, service.stock});
+                std.debug.print("\n[BRAIN ]  Stock reduced for {s}. New stock: {d}", .{service.name, service.stock});
 
                 // Generar presupuesto autónomo (1 hora de validez)
                 return try app_manager.createQuote(

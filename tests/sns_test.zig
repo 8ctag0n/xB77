@@ -28,12 +28,12 @@ pub fn main() !void {
         defer allocator.free(owner_native_str);
         std.debug.print("\n[SNS TEST] Native Result: {s}", .{owner_native_str});
         if (std.mem.eql(u8, owner_native_str, owner_api_str)) {
-            std.debug.print("\n[SNS TEST] ✨ MATCH! Native engine is 100% Sovereign.", .{});
+            std.debug.print("\n[SNS TEST]  MATCH! Native engine is 100% Sovereign.", .{});
         } else {
-            std.debug.print("\n[SNS TEST] ⚠️ Mismatch between Native and API results.", .{});
+            std.debug.print("\n[SNS TEST] ️ Mismatch between Native and API results.", .{});
         }
     } else |err| {
-        std.debug.print("\n[SNS TEST] ❌ Native resolution failed: {any}", .{err});
+        std.debug.print("\n[SNS TEST]  Native resolution failed: {any}", .{err});
         std.debug.print("\n[SNS TEST] (This is expected until we fix the PDA derivation seeds).", .{});
     }
     std.debug.print("\n", .{});

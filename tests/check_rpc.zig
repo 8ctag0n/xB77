@@ -17,10 +17,10 @@ pub fn main() !void {
     const sys_program = "11111111111111111111111111111111";
     
     const balance = client.getBalance(sys_program) catch |err| {
-        std.debug.print("\n[RPC CHECK] ❌ Failed to connect: {any}", .{err});
+        std.debug.print("\n[RPC CHECK]  Failed to connect: {any}", .{err});
         std.debug.print("\n[HINT] Make sure 'solana-test-validator' is running.", .{});
         return;
     };
 
-    std.debug.print("\n[RPC CHECK] ✅ Connected! System Program Balance: {d} lamports", .{balance});
+    std.debug.print("\n[RPC CHECK]  Connected! System Program Balance: {d} lamports", .{balance});
 }

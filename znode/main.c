@@ -19,7 +19,7 @@ void on_solana_event(znode_event_type_t type, void* event_data, void* user_data)
     if (type == ZNODE_EVENT_TRANSACTION) {
         // La data real ya se está mandando por el Unix Socket en znode.c
         // Aquí solo logueamos para el operador
-        printf("[Z-Node] ⚡️ Stream Activity: Chunk forward to Agent\n");
+        printf("[Z-Node] ️ Stream Activity: Chunk forward to Agent\n");
     }
 }
 
@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
     printf("----------------------------\n");
 
     if (znode_connect(config, on_solana_event, NULL)) {
-        printf("📡 Conexión gRPC establecida. Esperando eventos...\n");
+        printf(" Conexión gRPC establecida. Esperando eventos...\n");
         
         // En una implementación con libcurl real, esto debería ser 
         // un loop de curl_multi o similar. Para la demo/test, 

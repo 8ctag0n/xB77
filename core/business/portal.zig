@@ -26,7 +26,7 @@ pub const SovereignPortal = struct {
         var server = try address.listen(.{ .reuse_address = true });
         defer server.deinit();
 
-        std.debug.print("[PORTAL] 🌐 Sovereign Gateway active at http://0.0.0.0:{d} (Multi-threaded)\n", .{self.port});
+        std.debug.print("[PORTAL]  Sovereign Gateway active at http://0.0.0.0:{d} (Multi-threaded)\n", .{self.port});
 
         while (true) {
             const conn = try server.accept();
@@ -38,7 +38,7 @@ pub const SovereignPortal = struct {
 
     fn handleConnection(self: *SovereignPortal, stream: std.net.Stream) void {
         self.handleRequest(stream) catch |err| {
-            std.debug.print("[PORTAL] ❌ Error handling request: {any}\n", .{err});
+            std.debug.print("[PORTAL]  Error handling request: {any}\n", .{err});
         };
     }
 

@@ -135,7 +135,7 @@ pub const ComplianceEngine = struct {
         // 1. Blacklist Check (Simulado)
         const malicious_addr = [_]u8{0xDE, 0xAD, 0xBE, 0xEF} ++ ([_]u8{0} ** 16);
         if (std.mem.eql(u8, &tx.recipient, &malicious_addr)) {
-            std.debug.print("[Shield] 🛑 ALERTA: Intento de envío a dirección sancionada detectado.\n", .{});
+            std.debug.print("[Shield]  ALERTA: Intento de envío a dirección sancionada detectado.\n", .{});
             return false;
         }
 
@@ -149,14 +149,14 @@ pub const ComplianceEngine = struct {
                 }
             }
             if (!found) {
-                std.debug.print("[Shield] ⚠️ Dirección no presente en Whitelist ZK. Se requiere proof externa.\n", .{});
+                std.debug.print("[Shield] ️ Dirección no presente en Whitelist ZK. Se requiere proof externa.\n", .{});
                 // Para el MVP de S8, permitimos si no es maliciosa, pero logueamos la advertencia.
             }
         }
 
         // Velocity Check: No más de 1M por transacción en la rampa AWP
         if (tx.amount > 1_000_000_000_000) {
-             std.debug.print("[Shield] ⚠️ Volumen excedido. Aplicando Circuit Breaker.\n", .{});
+             std.debug.print("[Shield] ️ Volumen excedido. Aplicando Circuit Breaker.\n", .{});
              return false;
         }
 

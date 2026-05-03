@@ -26,7 +26,7 @@ test "Orchestrator Potent E2E: Agent Lifecycle & Credit-Gating" {
     // 2. Demonstration: Credit-Gating (Phase 1: Blocked)
     std.debug.print("\n[TEST] Phase 1: Checking operation with 0 credits...", .{});
     if (!orch.canOperate(agent_id)) {
-        std.debug.print("\n[ORCH] ❌ Access Denied: Insufficient Credits.", .{});
+        std.debug.print("\n[ORCH]  Access Denied: Insufficient Credits.", .{});
     } else {
         return error.TestFailed;
     }
@@ -38,7 +38,7 @@ test "Orchestrator Potent E2E: Agent Lifecycle & Credit-Gating" {
     try orch.creditDeposit(agent_id, deposit_lamports);
     
     try std.testing.expect(orch.canOperate(agent_id));
-    std.debug.print("\n[ORCH] ✅ Access Granted. Balance: {d} SC", .{orch.balances.get(agent_id).?});
+    std.debug.print("\n[ORCH]  Access Granted. Balance: {d} SC", .{orch.balances.get(agent_id).?});
 
     // 4. Phase 3: Telemetry Integration Magic
     std.debug.print("\n[TEST] Phase 3: Simulating Agent Activity (Telemetry Magic)...", .{});
@@ -52,7 +52,7 @@ test "Orchestrator Potent E2E: Agent Lifecycle & Credit-Gating" {
     _ = client.get("http://localhost:8899") catch {}; // We don't care about the actual request failure
     
     try std.testing.expectEqual(@as(u32, 1), hub.rpc_count);
-    std.debug.print("\n[MAGIC] 🛰️  HttpClient RPC automatically recorded in TelemetryHub.", .{});
+    std.debug.print("\n[MAGIC] ️  HttpClient RPC automatically recorded in TelemetryHub.", .{});
 
     // Simulate more RPC calls
     var i: usize = 0;
@@ -72,7 +72,7 @@ test "Orchestrator Potent E2E: Agent Lifecycle & Credit-Gating" {
     const cost = report.calculateCost();
     const balance_after_op = try orch.processUsage(agent_id, report);
     
-    std.debug.print("\n[ORCH] 💳 Billable Units: {d} SC | New Balance: {d} SC", .{cost, balance_after_op});
+    std.debug.print("\n[ORCH]  Billable Units: {d} SC | New Balance: {d} SC", .{cost, balance_after_op});
     
     try std.testing.expect(cost >= 246);
     try std.testing.expectEqual(500_000 - cost, balance_after_op);
@@ -93,7 +93,7 @@ test "Orchestrator Potent E2E: Agent Lifecycle & Credit-Gating" {
     
     const err = orch.processUsage(agent_id, heavy_report);
     if (err == error.InsufficientCredits) {
-        std.debug.print("\n[ORCH] 🚨 ALERT: Credit exhausted during operation. Engine emergency shutdown.", .{});
+        std.debug.print("\n[ORCH]  ALERT: Credit exhausted during operation. Engine emergency shutdown.", .{});
     } else {
         return error.TestFailed;
     }

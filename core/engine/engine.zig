@@ -60,7 +60,7 @@ pub const Engine = struct {
 
         // --- Business Mode: Credit Check ---
         if (!self.ctx.orchestrator.canOperate(sol_kp.public)) {
-            std.debug.print("\n[ORCH  ] ❌ Insufficient Credits to start agent. Please fund via /blink.", .{});
+            std.debug.print("\n[ORCH  ]  Insufficient Credits to start agent. Please fund via /blink.", .{});
             return error.InsufficientCredits;
         }
         
@@ -80,7 +80,7 @@ pub const Engine = struct {
         const discovery_thread = try std.Thread.spawn(.{}, struct {
             fn run(m: *mesh.MeshManager) void {
                 m.listenForPeers() catch |err| {
-                    std.debug.print("[Engine] ❌ Discovery Listener Error: {}\n", .{err});
+                    std.debug.print("[Engine]  Discovery Listener Error: {}\n", .{err});
                 };
             }
         }.run, .{&self.ctx.mesh_manager});
@@ -92,7 +92,7 @@ pub const Engine = struct {
             fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) void {
                 var p = core.portal.SovereignPortal.init(allocator, &ctx.store, &ctx.vaults, &ctx.mesh_manager, &ctx.merchant, ctx.config.portal_port);
                 p.start() catch |err| {
-                    std.debug.print("[Engine] ❌ Portal Error: {}\n", .{err});
+                    std.debug.print("[Engine]  Portal Error: {}\n", .{err});
                 };
             }
         }.run, .{ self.allocator, self.ctx });
@@ -124,7 +124,7 @@ pub const Engine = struct {
             if (tick_count > 0 and tick_count % 3 == 0) {
                 const report = self.ctx.telemetry.endSession();
                 const balance = try self.ctx.orchestrator.processUsage(sol_kp.public, report);
-                std.debug.print("\n[ORCH  ] 💳 Billable Units: {d} SC | New Balance: {d} SC", .{ report.calculateCost(), balance });
+                std.debug.print("\n[ORCH  ]  Billable Units: {d} SC | New Balance: {d} SC", .{ report.calculateCost(), balance });
                 self.ctx.telemetry.startSession();
             }
 
@@ -145,39 +145,39 @@ pub const Engine = struct {
         const analysis = try self.strategist.analyze(self.ctx.active_agents.count(), balance);
         const m = analysis.metrics;
 
-        std.debug.print("\n[STRAT ] 📊 Metrics -> Health: {d:.2} | Volume: {d} | Credits: {d} SC", .{
+        std.debug.print("\n[STRAT ]  Metrics -> Health: {d:.2} | Volume: {d} | Credits: {d} SC", .{
             m.health, m.volume, m.credit_balance,
         });
 
         // Actuar según la decisión del Strategist
         switch (analysis.decision) {
             .austerity_mode => {
-                std.debug.print("\n[STRAT ] 📉 AUSTERITY MODE: Critical SC Balance.", .{});
-                std.debug.print("\n[SWARM ] 🐝 Triggering Flash Loan protocol...", .{});
+                std.debug.print("\n[STRAT ]  AUSTERITY MODE: Critical SC Balance.", .{});
+                std.debug.print("\n[SWARM ]  Triggering Flash Loan protocol...", .{});
                 // Pedimos 0.05 SOL (50000000 lamports) a 5% (500 bps) por 60s
                 self.ctx.mesh_manager.broadcastLoanRequest(50000000, 500, 60) catch |err| {
-                    std.debug.print("\n[SWARM ] ❌ Error broadcasting loan request: {}", .{err});
+                    std.debug.print("\n[SWARM ]  Error broadcasting loan request: {}", .{err});
                 };
                 std.Thread.sleep(2 * std.time.ns_per_s);
             },
             .harden_policies => {
-                std.debug.print("\n[STRAT ] ⚠️ LOW HEALTH DETECTED. Recommendation: Harden Compliance Policies.", .{});
+                std.debug.print("\n[STRAT ] ️ LOW HEALTH DETECTED. Recommendation: Harden Compliance Policies.", .{});
             },
             .compress_state => {
-                std.debug.print("\n[STRAT ] 💰 HIGH VOLUME. Recommendation: Trigger State Compression (L2).", .{});
+                std.debug.print("\n[STRAT ]  HIGH VOLUME. Recommendation: Trigger State Compression (L2).", .{});
                 // Forzar anclaje inmediato para liberar espacio y consolidar en L1
                 const ops_kp = &self.ctx.vaults.ops.sol_kp;
                 try self.prover.checkAndAnchor(ops_kp);
             },
             .shrink => {
-                std.debug.print("\n[STRAT ] 💀 OVERPOPULATION. Taking Action: Killing redundant agent...", .{});
+                std.debug.print("\n[STRAT ]  OVERPOPULATION. Taking Action: Killing redundant agent...", .{});
                 var it = self.ctx.active_agents.iterator();
                 if (it.next()) |kv| {
                     try self.ctx.killAgent(kv.key_ptr.*);
                 }
             },
             .expand => {
-                std.debug.print("\n[STRAT ] 🚀 EXPANSION READY. Spawning specialized worker...", .{});
+                std.debug.print("\n[STRAT ]  EXPANSION READY. Spawning specialized worker...", .{});
                 var name_buf: [32]u8 = undefined;
                 const name = try std.fmt.bufPrint(&name_buf, "worker-{d}", .{@mod(std.time.milliTimestamp(), 1000)});
                 try self.ctx.spawnAgent(name);
@@ -212,12 +212,12 @@ pub const Engine = struct {
         // 1. Tareas de anclaje (Sovereign Prover - Autonomous ZK-Sequencer)
         const ops_kp = &self.ctx.vaults.ops.sol_kp;
         self.prover.checkAndAnchor(ops_kp) catch |err| {
-            std.debug.print("\n[Engine] ❌ Prover Error: {}", .{err});
+            std.debug.print("\n[Engine]  Prover Error: {}", .{err});
         };
 
         // 2. Tareas de red (Mesh Gossip)
         self.ctx.mesh_manager.tick() catch |err| {
-            std.debug.print("\n[Engine] ❌ Mesh Error: {}", .{err});
+            std.debug.print("\n[Engine]  Mesh Error: {}", .{err});
         };
 
         // 3. Tareas autónomas de mantenimiento
@@ -230,10 +230,10 @@ pub const Engine = struct {
 
             // Si el balance es menor a 0.005 ETH (en Base Sepolia), pedimos faucet
             if (balance < 5_000_000_000_000_000) {
-                std.debug.print("\n[Engine] ⛽ Low balance detected ({d} wei). Orchestrating AgentKit Faucet...", .{balance});
+                std.debug.print("\n[Engine]  Low balance detected ({d} wei). Orchestrating AgentKit Faucet...", .{balance});
                 const res = try cdp_client.requestFaucet(eth_kp.address, "base-sepolia");
                 defer self.allocator.free(res);
-                std.debug.print("\n[Engine] 📦 AgentKit Response: {s}", .{res});
+                std.debug.print("\n[Engine]  AgentKit Response: {s}", .{res});
             }
         }
     }
@@ -249,8 +249,8 @@ pub const Engine = struct {
 
                 // --- YELLOWSTONE DELUXE: Front-Running & HFT Awareness ---
                 if (tx.amount > 5_000_000_000) { // Si vemos transacciones "ballena" (>5 SOL)
-                    std.debug.print("\n[HFT   ] 🐋 Whale transaction detected ({d} lamports) at slot {d}!", .{tx.amount, event.slot});
-                    std.debug.print("\n[HFT   ] ⚡ Front-running network congestion: Triggering preemptive state anchor.", .{});
+                    std.debug.print("\n[HFT   ]  Whale transaction detected ({d} lamports) at slot {d}!", .{tx.amount, event.slot});
+                    std.debug.print("\n[HFT   ]  Front-running network congestion: Triggering preemptive state anchor.", .{});
                     
                     const ops_kp = &self.ctx.vaults.ops.sol_kp;
                     self.prover.checkAndAnchor(ops_kp) catch {};
@@ -261,15 +261,15 @@ pub const Engine = struct {
 
                 // --- xB77 FRONTIER: SNS Identity Enforcement (Opt-in) ---
                 if (self.ctx.constitution.required_sns_namespace) |ns| {
-                    std.debug.print("\n[DETECT] 🛡️ SNS Policy Active: {s}", .{ns});
+                    std.debug.print("\n[DETECT] ️ SNS Policy Active: {s}", .{ns});
                     // Intentamos resolver el emisor para ver si cumple el namespace
                     // En la demo, esto lanzaría un warning o bloquearía si es estricto
                     if (core.crypto.stringToPubkey(self.allocator, &sender_hex)) |sender_pk| {
                         _ = sender_pk;
                         // Simulación de check de namespace
-                        std.debug.print("\n[SNS   ] 🔍 Sender verified against namespace {s}.", .{ns});
+                        std.debug.print("\n[SNS   ]  Sender verified against namespace {s}.", .{ns});
                     } else |err| {
-                        std.debug.print("\n[SNS   ] ⚠️ Failed to resolve sender for SNS policy: {}", .{err});
+                        std.debug.print("\n[SNS   ] ️ Failed to resolve sender for SNS policy: {}", .{err});
                     }
                 }
 
@@ -280,7 +280,7 @@ pub const Engine = struct {
                     }
 
                     if (self.mb_session) |session| {
-                        std.debug.print("\n[ENGINE] 🚀 Routing transaction via MagicBlock HFT Rail...", .{});
+                        std.debug.print("\n[ENGINE]  Routing transaction via MagicBlock HFT Rail...", .{});
                         const sig = self.mb_client.dispatchEphemeral(&session, .{
                             .target = tx.recipient,
                             .amount = tx.amount,
@@ -288,19 +288,19 @@ pub const Engine = struct {
                             .signature = [_]u8{0} ** 64,    // Simplified for demo
                         }) catch null;
                         if (sig) |s| {
-                            std.debug.print("\n[ENGINE] ✅ Turbo Rail Success. PER Sig: {s}", .{s});
+                            std.debug.print("\n[ENGINE]  Turbo Rail Success. PER Sig: {s}", .{s});
                             self.allocator.free(s);
                         } else {
-                            std.debug.print("\n[ENGINE] ⚠️ Turbo Rail failed, falling back to L1.", .{});
+                            std.debug.print("\n[ENGINE] ️ Turbo Rail failed, falling back to L1.", .{});
                         }
                     }
                 }
 
-                std.debug.print("\n[DETECT] ⚡ {s} Event -> {s}...", .{@tagName(event.chain), tx.signature[0..8]});
+                std.debug.print("\n[DETECT]  {s} Event -> {s}...", .{@tagName(event.chain), tx.signature[0..8]});
 
                 // 1. Verificación de Cumplimiento (Compliance)
                 if (!self.ctx.compliance.check(tx)) {
-                    std.debug.print("\n[JUDGE ] ❌ FAILED Compliance: Policy mismatch.", .{});
+                    std.debug.print("\n[JUDGE ]  FAILED Compliance: Policy mismatch.", .{});
                     const sig_hex = core.crypto.bytesToHex(self.allocator, &tx.signature) catch tx.signature[0..8];
                     defer if (sig_hex.len > 8) self.allocator.free(sig_hex);
 
@@ -320,7 +320,7 @@ pub const Engine = struct {
 
                 // 3. Verificación Constitucional Primaria
                 if (!self.ctx.constitution.isActionAllowed(&sender_hex)) {
-                    std.debug.print("\n[JUDGE ] ❌ FAILED Constitution: Actor Blacklisted.", .{});
+                    std.debug.print("\n[JUDGE ]  FAILED Constitution: Actor Blacklisted.", .{});
                     const sig_hex = core.crypto.bytesToHex(self.allocator, &tx.signature) catch tx.signature[0..8];
                     defer if (sig_hex.len > 8) self.allocator.free(sig_hex);
 
@@ -334,7 +334,7 @@ pub const Engine = struct {
                     return;
                 }
 
-                std.debug.print("\n[JUDGE ] ✅ PASSED: Compliance OK | Risk: {s} ({d:.2})", .{risk_label, risk_score});
+                std.debug.print("\n[JUDGE ]  PASSED: Compliance OK | Risk: {s} ({d:.2})", .{risk_label, risk_score});
                 std.debug.print("\n[PULSE ] 🧠 Veredicto: Transacción Soberana Aceptada.", .{});
                 
                 const sig_hex = core.crypto.bytesToHex(self.allocator, &tx.signature) catch tx.signature[0..8];
@@ -355,7 +355,7 @@ pub const Engine = struct {
                     var path_buf: [256]u8 = undefined;
                     const prover_path = std.fmt.bufPrint(&path_buf, "{s}/zk_prover_{s}.toml", .{ self.ctx.config.vaults.path, sig_hex[0..8] }) catch "Prover.toml";
                     r.writeProverToml(prover_path) catch {};
-                    std.debug.print("\n[GHOST ] 👻 ZK-Receipt generated: {s}", .{prover_path});
+                    std.debug.print("\n[GHOST ]  ZK-Receipt generated: {s}", .{prover_path});
                 } else |err| {
                     std.debug.print("\n[WARN  ] Failed to generate ZK receipt: {}", .{err});
                 }

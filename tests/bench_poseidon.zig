@@ -24,8 +24,8 @@ pub fn main() !void {
     std.debug.print("[BENCH ] Last Hash: {x}...\n", .{last_hash >> 224});
     
     if (hashes_per_sec > 100_000) {
-        std.debug.print("[BENCH ] 🚀 STATUS: EXTREME PERFORMANCE (DELUXE EDITION)\n\n", .{});
+        std.debug.print("[BENCH ]  STATUS: EXTREME PERFORMANCE (DELUXE EDITION)\n\n", .{});
     } else {
-        std.debug.print("[BENCH ] ✅ STATUS: OPERATIONAL\n\n", .{});
+        std.debug.print("[BENCH ]  STATUS: OPERATIONAL\n\n", .{});
     }
 }

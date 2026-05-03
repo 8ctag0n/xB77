@@ -31,7 +31,7 @@ pub const AWPool = struct {
     pub fn processOrder(self: *AWPool, order_in: awp.OrderMsg) !void {
         var remaining_amount = order_in.amount;
         
-        std.debug.print("[AWPool] 🌊 New Order: {s} {d} {s} @ {d}\n", .{
+        std.debug.print("[AWPool]  New Order: {s} {d} {s} @ {d}\n", .{
             @tagName(order_in.side),
             remaining_amount,
             order_in.asset.symbol,
@@ -47,7 +47,7 @@ pub const AWPool = struct {
                 if (std.mem.eql(u8, sell.asset.symbol, order_in.asset.symbol) and sell.price <= order_in.price) {
                     const match_amount = @min(remaining_amount, sell.amount);
                     
-                    std.debug.print("[AWPool] 🎯 MATCH! Partial/Full fill: {d} {s}\n", .{ match_amount, sell.asset.symbol });
+                    std.debug.print("[AWPool]  MATCH! Partial/Full fill: {d} {s}\n", .{ match_amount, sell.asset.symbol });
                     
                     try self.settle(order_in, sell.*, match_amount);
                     
@@ -69,7 +69,7 @@ pub const AWPool = struct {
                 var remaining_order = order_in;
                 remaining_order.amount = remaining_amount;
                 try self.buy_orders.append(self.allocator, remaining_order);
-                std.debug.print("[AWPool] 📥 Remaining {d} added to Buy Orders.\n", .{remaining_amount});
+                std.debug.print("[AWPool]  Remaining {d} added to Buy Orders.\n", .{remaining_amount});
             }
         } else {
             // Lógica simétrica para SELL
@@ -80,7 +80,7 @@ pub const AWPool = struct {
                 if (std.mem.eql(u8, buy.asset.symbol, order_in.asset.symbol) and buy.price >= order_in.price) {
                     const match_amount = @min(remaining_amount, buy.amount);
                     
-                    std.debug.print("[AWPool] 🎯 MATCH! Partial/Full fill: {d} {s}\n", .{ match_amount, buy.asset.symbol });
+                    std.debug.print("[AWPool]  MATCH! Partial/Full fill: {d} {s}\n", .{ match_amount, buy.asset.symbol });
                     
                     try self.settle(buy.*, order_in, match_amount);
                     
@@ -99,7 +99,7 @@ pub const AWPool = struct {
                 var remaining_order = order_in;
                 remaining_order.amount = remaining_amount;
                 try self.sell_orders.append(self.allocator, remaining_order);
-                std.debug.print("[AWPool] 📥 Remaining {d} added to Sell Orders.\n", .{remaining_amount});
+                std.debug.print("[AWPool]  Remaining {d} added to Sell Orders.\n", .{remaining_amount});
             }
         }
     }
@@ -107,14 +107,14 @@ pub const AWPool = struct {
     fn settle(self: *AWPool, buy: awp.OrderMsg, sell: awp.OrderMsg, amount: u64) !void {
         const router = self.router orelse return;
 
-        std.debug.print("[AWPool] 💳 Settling match: {d} {s} (Buy owner: {x}, Sell owner: {x})\n", .{ 
+        std.debug.print("[AWPool]  Settling match: {d} {s} (Buy owner: {x}, Sell owner: {x})\n", .{ 
             amount, 
             sell.asset.symbol,
             buy.owner[0..4].*,
             sell.owner[0..4].*
         });
 
-        // 📝 REGISTRO REAL EN EL LEDGER PRIVADO
+        //  REGISTRO REAL EN EL LEDGER PRIVADO
         if (self.store) |s| {
             s.record(.{
                 .timestamp = std.time.milliTimestamp(),
@@ -123,7 +123,7 @@ pub const AWPool = struct {
                 .description = "P2P Match Settled",
                 .amount = amount,
             }) catch |err| {
-                std.debug.print("[AWPool] ⚠️ Failed to record match: {}\n", .{err});
+                std.debug.print("[AWPool] ️ Failed to record match: {}\n", .{err});
             };
         }
 

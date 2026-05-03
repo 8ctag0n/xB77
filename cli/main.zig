@@ -158,11 +158,11 @@ fn handleLocalExport(allocator: std.mem.Allocator, config_path: []const u8) !voi
     const term = try child.wait();
 
     if (term == .Exited and term.Exited == 0) {
-        std.debug.print("✅ Sovereign Export COMPLETADO: {s}\n", .{out_name});
+        std.debug.print(" Sovereign Export COMPLETADO: {s}\n", .{out_name});
         std.debug.print("Este blob contiene su Merkle Tree y sus llaves privadas WDK.\n", .{});
         std.debug.print("GUÁRDELO EN UN LUGAR SEGURO. ES SU SOBERANÍA.\n", .{});
     } else {
-        std.debug.print("❌ Exportación FALLIDA. (error de tar)\n", .{});
+        std.debug.print(" Exportación FALLIDA. (error de tar)\n", .{});
     }
 }
 
@@ -225,7 +225,7 @@ fn handleSpawn(allocator: std.mem.Allocator, args: []const [:0]u8) !void {
         return;
     }
     const name = args[0];
-    std.debug.print("🏭 Instanciando nuevo Agente Soberano: {s}...\n", .{name});
+    std.debug.print(" Instanciando nuevo Agente Soberano: {s}...\n", .{name});
     
     // 1. Crear carpeta de perfil
     try std.fs.cwd().makePath("profiles");
@@ -252,7 +252,7 @@ fn handleSpawn(allocator: std.mem.Allocator, args: []const [:0]u8) !void {
         \\
     );
 
-    std.debug.print("✅ Agente '{s}' listo. Ejecuta 'xb77 -p {s} init' para activarlo.\n", .{name, name});
+    std.debug.print(" Agente '{s}' listo. Ejecuta 'xb77 -p {s} init' para activarlo.\n", .{name, name});
     _ = allocator;
 }
 
@@ -298,7 +298,7 @@ fn handleMeshDiscover(allocator: std.mem.Allocator, config_path: []const u8, arg
     const config = try core.engine.config.Config.load(allocator, config_path);
     const query = args[0];
 
-    std.debug.print("[MESH] 🔍 Querying for '{s}' through local agent...\n", .{query});
+    std.debug.print("[MESH]  Querying for '{s}' through local agent...\n", .{query});
 
     var socket_path_buf: [64]u8 = undefined;
     const socket_path = try std.fmt.bufPrint(&socket_path_buf, "/tmp/xb77_znode_{d}.sock", .{config.mesh_port});
@@ -317,7 +317,7 @@ fn handleMeshDiscover(allocator: std.mem.Allocator, config_path: []const u8, arg
     const msg = try encoder.encodeServiceDiscovery(.{ .query = query });
     _ = try stream.write(msg);
     
-    std.debug.print("✅ Discovery intent sent to local Z-Node. Watch the agent logs for results.\n", .{});
+    std.debug.print(" Discovery intent sent to local Z-Node. Watch the agent logs for results.\n", .{});
 }
 
 fn handleMesh(allocator: std.mem.Allocator, config_path: []const u8) !void {
@@ -352,7 +352,7 @@ fn handleDeploy(allocator: std.mem.Allocator, config_path: []const u8, args: []c
     var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
-    std.debug.print("\n🚀 Preparando despliegue para el Agente Soberano ({s})...\n", .{config_path});
+    std.debug.print("\n Preparando despliegue para el Agente Soberano ({s})...\n", .{config_path});
 
     // 1. Leer agent.toml (o el perfil actual)
     const file = try std.fs.cwd().openFile(config_path, .{});
@@ -396,17 +396,17 @@ fn handleDeploy(allocator: std.mem.Allocator, config_path: []const u8, args: []c
     // URL del Gateway (ajustar segun despliegue real)
     const gateway_url = "https://gateway.xb77.com/deploy";
     
-    std.debug.print("📡 Sincronizando con el Edge en {s}...\n", .{gateway_url});
+    std.debug.print(" Sincronizando con el Edge en {s}...\n", .{gateway_url});
     var resp = http.post(gateway_url, json_body) catch |err| {
-        std.debug.print("❌ Error de conexión: {}\n", .{err});
+        std.debug.print(" Error de conexión: {}\n", .{err});
         return;
     };
     defer resp.deinit();
 
     if (resp.status == 200) {
-        std.debug.print("✅ ¡Despliegue exitoso! Tu agente ya es omnipresente.\n", .{});
+        std.debug.print(" ¡Despliegue exitoso! Tu agente ya es omnipresente.\n", .{});
     } else {
-        std.debug.print("❌ Fallo en el despliegue ({d}): {s}\n", .{resp.status, resp.body});
+        std.debug.print(" Fallo en el despliegue ({d}): {s}\n", .{resp.status, resp.body});
     }
 }
 
@@ -422,7 +422,7 @@ fn handleLink(allocator: std.mem.Allocator, config_path: []const u8, args: []con
 
     const sol_kp = ctx.vaults.ops.sol_kp;
     
-    std.debug.print("\n🔗 Vinculando Agente {s} con Telegram...\n", .{try core.crypto.pubkeyToString(allocator, &sol_kp.public)});
+    std.debug.print("\n Vinculando Agente {s} con Telegram...\n", .{try core.crypto.pubkeyToString(allocator, &sol_kp.public)});
 
     // Firmar el código para probar posesión de la identidad
     const signature = core.crypto.sign(code, &sol_kp);
@@ -442,15 +442,15 @@ fn handleLink(allocator: std.mem.Allocator, config_path: []const u8, args: []con
     const link_url = "https://gateway.xb77.com/link";
     
     var resp = http.post(link_url, json_body) catch |err| {
-        std.debug.print("❌ Error de conexión: {}\n", .{err});
+        std.debug.print(" Error de conexión: {}\n", .{err});
         return;
     };
     defer resp.deinit();
 
     if (resp.status == 200) {
-        std.debug.print("✅ ¡Vinculación exitosa! Ya puedes operar vía Telegram.\n", .{});
+        std.debug.print(" ¡Vinculación exitosa! Ya puedes operar vía Telegram.\n", .{});
     } else {
-        std.debug.print("❌ Fallo en la vinculación ({d}): {s}\n", .{resp.status, resp.body});
+        std.debug.print(" Fallo en la vinculación ({d}): {s}\n", .{resp.status, resp.body});
     }
 }
 
@@ -462,10 +462,10 @@ fn handleCredits(allocator: std.mem.Allocator, config_path: []const u8) !void {
     const agent_id_hex = try core.crypto.bytesToHex(allocator, &sol_kp.public);
     defer allocator.free(agent_id_hex);
 
-    std.debug.print("\n💳 Sovereign Credits Balance ({s})\n", .{agent_id_hex});
+    std.debug.print("\n Sovereign Credits Balance ({s})\n", .{agent_id_hex});
 
     const balance = ctx.orchestrator.syncBalance(sol_kp.public) catch |err| {
-        std.debug.print("❌ Error de conexión con el Gateway: {}\n", .{err});
+        std.debug.print(" Error de conexión con el Gateway: {}\n", .{err});
         return;
     };
 
@@ -480,7 +480,7 @@ fn handleRemoteExport(allocator: std.mem.Allocator, config_path: []const u8) !vo
     const sol_kp = ctx.vaults.ops.sol_kp;
     const timestamp = std.time.milliTimestamp();
 
-    std.debug.print("\n🛡️ Iniciando Sovereign Export para el Agente {s}...\n", .{try core.crypto.pubkeyToString(allocator, &sol_kp.public)});
+    std.debug.print("\n️ Iniciando Sovereign Export para el Agente {s}...\n", .{try core.crypto.pubkeyToString(allocator, &sol_kp.public)});
 
     // 1. Firmar el timestamp para autenticación
     var ts_buf: [8]u8 = undefined;
@@ -501,15 +501,15 @@ fn handleRemoteExport(allocator: std.mem.Allocator, config_path: []const u8) !vo
     var http = core.net.http.HttpClient.init(allocator);
     const export_url = "https://gateway.xb77.com/export";
     
-    std.debug.print("📡 Descargando estado desde el Edge...\n", .{});
+    std.debug.print(" Descargando estado desde el Edge...\n", .{});
     var resp = http.post(export_url, json_list.items) catch |err| {
-        std.debug.print("❌ Error de conexión: {}\n", .{err});
+        std.debug.print(" Error de conexión: {}\n", .{err});
         return;
     };
     defer resp.deinit();
 
     if (resp.status != 200) {
-        std.debug.print("❌ Error en la exportación ({d}): {s}\n", .{resp.status, resp.body});
+        std.debug.print(" Error en la exportación ({d}): {s}\n", .{resp.status, resp.body});
         return;
     }
 
@@ -548,7 +548,7 @@ fn handleRemoteExport(allocator: std.mem.Allocator, config_path: []const u8) !vo
     
     try std.fs.cwd().writeFile(.{ .sub_path = vault_path, .data = vault_bin });
 
-    std.debug.print("✅ ¡Exportación completada! El estado local ha sido sincronizado.\n", .{});
+    std.debug.print(" ¡Exportación completada! El estado local ha sido sincronizado.\n", .{});
 }
 
 fn handleIdentity(allocator: std.mem.Allocator, config_path: []const u8, args: []const [:0]u8) !void {
@@ -574,7 +574,7 @@ fn handleIdentity(allocator: std.mem.Allocator, config_path: []const u8, args: [
             return;
         }
         const name = args[1];
-        std.debug.print("🛡️  Reclamando identidad '{s}.xb77' para este agente...\n", .{name});
+        std.debug.print("️  Reclamando identidad '{s}.xb77' para este agente...\n", .{name});
 
         const sol_kp = ctx.vaults.ops.sol_kp;
         const msg = try std.fmt.allocPrint(allocator, "claim:{s}", .{name});
@@ -595,20 +595,20 @@ fn handleIdentity(allocator: std.mem.Allocator, config_path: []const u8, args: [
         const url = "https://gateway.xb77.com/identity/claim";
         
         var resp = http.post(url, json_list.items) catch |err| {
-            std.debug.print("❌ Error de conexión: {}\n", .{err});
+            std.debug.print(" Error de conexión: {}\n", .{err});
             return;
         };
         defer resp.deinit();
 
         if (resp.status == 200) {
-            std.debug.print("✅ ¡Identidad asegurada! Tu agente es ahora '{s}.xb77'.\n", .{name});
+            std.debug.print(" ¡Identidad asegurada! Tu agente es ahora '{s}.xb77'.\n", .{name});
             
             // Actualizar config local
             ctx.config.name = try allocator.dupe(u8, name);
             try ctx.config.save(allocator, config_path);
-            std.debug.print("💾 Configuración local actualizada.\n", .{});
+            std.debug.print(" Configuración local actualizada.\n", .{});
         } else {
-            std.debug.print("❌ Error al reclamar identidad ({d}): {s}\n", .{resp.status, resp.body});
+            std.debug.print(" Error al reclamar identidad ({d}): {s}\n", .{resp.status, resp.body});
         }
     } else if (std.mem.eql(u8, sub, "resolve")) {
         if (args.len < 2) {
@@ -616,13 +616,13 @@ fn handleIdentity(allocator: std.mem.Allocator, config_path: []const u8, args: [
             return;
         }
         const domain = args[1];
-        std.debug.print("🔍 Resolviendo '{s}'...\n", .{domain});
+        std.debug.print(" Resolviendo '{s}'...\n", .{domain});
 
         const pubkey = resolve_blk: {
             break :resolve_blk core.business.identity.Identity.resolveSnsNative(allocator, &ctx.sol_client, domain) catch |err| {
-                std.debug.print("⚠️  Fallo resolución nativa: {s}. Probando API fallback...\n", .{@errorName(err)});
+                std.debug.print("️  Fallo resolución nativa: {s}. Probando API fallback...\n", .{@errorName(err)});
                 break :resolve_blk core.business.identity.Identity.resolveSnsApi(allocator, &ctx.sol_client, domain) catch |err2| {
-                    std.debug.print("❌ Fallo total de resolución: {s}\n", .{@errorName(err2)});
+                    std.debug.print(" Fallo total de resolución: {s}\n", .{@errorName(err2)});
                     return;
                 };
             };
@@ -630,7 +630,7 @@ fn handleIdentity(allocator: std.mem.Allocator, config_path: []const u8, args: [
 
         const pk_str = try core.crypto.encodeBase58(allocator, &pubkey);
         defer allocator.free(pk_str);
-        std.debug.print("✅ Dueño de {s}: {s}\n", .{domain, pk_str});
+        std.debug.print(" Dueño de {s}: {s}\n", .{domain, pk_str});
     }
 }
 
@@ -664,7 +664,7 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
             std.debug.print("No services defined. Use 'xb77 merchant add' to start.\n", .{});
         }
         for (ctx.merchant.services) |s| {
-            std.debug.print("🔹 {s:<20} | {d:>12} lamports\n", .{ s.name, s.price_lamports });
+            std.debug.print(" {s:<20} | {d:>12} lamports\n", .{ s.name, s.price_lamports });
         }
         
         if (ctx.app_manager.plans.count() > 0) {
@@ -672,7 +672,7 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
             var it = ctx.app_manager.plans.iterator();
             while (it.next()) |entry| {
                 const p = entry.value_ptr;
-                std.debug.print("🗓️  Plan {x}: {d} lamports every {d}s\n", .{ p.plan_id[0..4].*, p.amount_per_period, p.period_sec });
+                std.debug.print("️  Plan {x}: {d} lamports every {d}s\n", .{ p.plan_id[0..4].*, p.amount_per_period, p.period_sec });
             }
         }
     } else if (std.mem.eql(u8, sub, "add")) {
@@ -703,13 +703,13 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
         defer allocator.free(m_path);
         try ctx.merchant.save(m_path);
         
-        std.debug.print("✅ Servicio añadido y guardado en {s}\n", .{m_path});
+        std.debug.print(" Servicio añadido y guardado en {s}\n", .{m_path});
     } else if (std.mem.eql(u8, sub, "blink")) {
         const blink = try ctx.merchant.generateBlink(allocator, "https://gateway.xb77.com");
         defer allocator.free(blink);
         std.debug.print("\n--- Solana Action (Blink) Metadata ---\n{s}\n", .{blink});
     } else if (std.mem.eql(u8, sub, "publish")) {
-        std.debug.print("🚀 Iniciando publicación descentralizada (IPFS)...\n", .{});
+        std.debug.print(" Iniciando publicación descentralizada (IPFS)...\n", .{});
         
         // Generar JSON real del catálogo
         var list = std.ArrayListUnmanaged(u8){};
@@ -717,27 +717,27 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
         try std.json.stringify(ctx.merchant, .{}, list.writer(allocator));
 
         const cid = try ctx.ipfs_client.uploadState(list.items);
-        std.debug.print("✅ Catálogo publicado en IPFS: {s}\n", .{cid});
+        std.debug.print(" Catálogo publicado en IPFS: {s}\n", .{cid});
 
-        std.debug.print("🔗 Anclando CID en el registro on-chain...", .{});
+        std.debug.print(" Anclando CID en el registro on-chain...", .{});
         const sig = try ctx.registry_manager.addCatalog(ctx.vaults.ops.sol_kp.public, cid, &ctx.vaults.ops.sol_kp);
-        std.debug.print("\n✅ Registro completado. Sig: {s}\n", .{sig});
+        std.debug.print("\n Registro completado. Sig: {s}\n", .{sig});
 
-        std.debug.print("🗣️  Anunciando a la red Mesh...\n", .{});
+        std.debug.print("️  Anunciando a la red Mesh...\n", .{});
         try ctx.mesh_manager.tick();
-        std.debug.print("🔒 IP Protegida. Tu agente ahora es global.\n", .{});
+        std.debug.print(" IP Protegida. Tu agente ahora es global.\n", .{});
     } else if (std.mem.eql(u8, sub, "register")) {
-        std.debug.print("🔗 Iniciando registro de identidad en Solana Devnet...\n", .{});
+        std.debug.print(" Iniciando registro de identidad en Solana Devnet...\n", .{});
         const sig = try ctx.registry_manager.registerMerchant(ctx.vaults.ops.sol_kp.public, 1, &ctx.vaults.ops.sol_kp);
-        std.debug.print("✅ Merchant registrado oficialmente. Sig: {s}\n", .{sig});
-        std.debug.print("🌍 Tu identidad soberana ha sido anclada exitosamente.\n", .{});
+        std.debug.print(" Merchant registrado oficialmente. Sig: {s}\n", .{sig});
+        std.debug.print(" Tu identidad soberana ha sido anclada exitosamente.\n", .{});
     } else if (std.mem.eql(u8, sub, "dispute")) {
         if (args.len < 2) {
             std.debug.print("Uso: xb77 merchant dispute <hire_id_hex>\n", .{});
             return;
         }
         // Lógica simplificada de disputa por CLI
-        std.debug.print("⚠️ Disputa abierta para contrato {s}.\n", .{args[1]});
+        std.debug.print("️ Disputa abierta para contrato {s}.\n", .{args[1]});
     } else if (std.mem.eql(u8, sub, "plan")) {
         if (args.len < 3) {
             std.debug.print("Uso: xb77 merchant plan <monto_lamports> <segundos>\n", .{});
@@ -747,7 +747,7 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
         const sec = try std.fmt.parseInt(u64, args[2], 10);
         
         const plan = try ctx.app_manager.createPlan(.{ .chain = .solana, .symbol = "SOL" }, amt, sec, 12);
-        std.debug.print("✅ Plan recurrente creado: {x}\n", .{plan.plan_id[0..4].*});
+        std.debug.print(" Plan recurrente creado: {x}\n", .{plan.plan_id[0..4].*});
     } else if (std.mem.eql(u8, sub, "setup-shop")) {
         try handleSetupShop(allocator, config_path, &ctx);
     }
@@ -762,7 +762,7 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
     const stdout = stdout_buffered.interface;
     defer stdout_buffered.flush() catch {};
 
-    try stdout.writeAll("\n💎 xB77 ULTRA-DELUXE MERCHANT SETUP 💎\n");
+    try stdout.writeAll("\n xB77 ULTRA-DELUXE MERCHANT SETUP \n");
     try stdout.writeAll("--------------------------------------\n");
 
     // 1. Nombre del Negocio
@@ -793,7 +793,7 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
     const handle = std.mem.trim(u8, handle_raw, " \r\n\t");
 
     // --- EXECUTION ---
-    try stdout.writeAll("\n🚀 Orchestrating Sovereign Infrastructure...\n");
+    try stdout.writeAll("\n Orchestrating Sovereign Infrastructure...\n");
 
     // Update Merchant Config
     ctx.merchant.business_name = try allocator.dupe(u8, name);
@@ -824,7 +824,7 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
 
         var http = core.net.http.HttpClient.init(allocator);
         _ = http.post("https://gateway.xb77.com/identity/claim", json_list.items) catch {
-            try stdout.writeAll("⚠️ Gateway unreachable, skipping claim.\n");
+            try stdout.writeAll("️ Gateway unreachable, skipping claim.\n");
         };
         ctx.config.name = try allocator.dupe(u8, handle);
         try ctx.config.save(allocator, config_path);
@@ -832,11 +832,11 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
     }
 
     // Deploy to Gateway
-    try stdout.writeAll("📡 Syncing with Global Edge... ");
+    try stdout.writeAll(" Syncing with Global Edge... ");
     try handleDeploy(allocator, config_path, &[_][:0]u8{});
     try stdout.writeAll("DONE\n");
 
-    try stdout.writeAll("\n✨ SHOP IS LIVE AND SOVEREIGN! ✨\n");
+    try stdout.writeAll("\n SHOP IS LIVE AND SOVEREIGN! \n");
     if (ctx.config.name) |h| {
         try stdout.print("Public Profile: https://gateway.xb77.com/p/{s}\n", .{h});
     }

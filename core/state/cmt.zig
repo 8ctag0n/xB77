@@ -234,7 +234,7 @@ pub const ConcurrentMerkleTree = struct {
         const buffer = self.nodes_buffer orelse return;
         if (self.rightmost_index == 0) return;
 
-        std.debug.print("\n[CMT   ] 🔄 Reconstructing with Poseidon from Index: {d}, Vault Root: {x}...", .{
+        std.debug.print("\n[CMT   ]  Reconstructing with Poseidon from Index: {d}, Vault Root: {x}...", .{
             self.rightmost_index, buffer[0].hash[0..4]
         });
 

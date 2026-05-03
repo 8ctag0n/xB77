@@ -78,7 +78,7 @@ pub const AgentContext = struct {
         const name_dupe = try allocator.dupe(u8, name);
         try self.active_agents.put(allocator, name_dupe, child);
         
-        std.debug.print("\n[SPAWN ] 🚀 Agent '{s}' deployed. PID: {d}", .{ name, child.id });
+        std.debug.print("\n[SPAWN ]  Agent '{s}' deployed. PID: {d}", .{ name, child.id });
     }
 
     pub fn killAgent(self: *AgentContext, name: []const u8) !void {
@@ -87,7 +87,7 @@ pub const AgentContext = struct {
         defer self.allocator.destroy(kv.value);
 
         _ = try kv.value.kill();
-        std.debug.print("\n[KILL  ] 💀 Agent '{s}' terminated.", .{name});
+        std.debug.print("\n[KILL  ]  Agent '{s}' terminated.", .{name});
     }
 
     pub fn init(allocator: std.mem.Allocator, config_path: []const u8, password: ?[]const u8) !AgentContext {
@@ -110,7 +110,7 @@ pub const AgentContext = struct {
         const merchant_path = try std.fs.path.join(allocator, &[_][]const u8{ config.vaults.path, "merchant.json" });
         defer allocator.free(merchant_path);
         const m_config = @import("../business/merchant.zig").MerchantConfig.load(allocator, merchant_path) catch |err| blk: {
-            std.debug.print("\n[CONTEXT] ⚠️ Warning loading merchant.json: {s}. Using default.", .{@errorName(err)});
+            std.debug.print("\n[CONTEXT] ️ Warning loading merchant.json: {s}. Using default.", .{@errorName(err)});
             break :blk @import("../business/merchant.zig").MerchantConfig{
                 .business_name = "xB77 Sovereign Agent",
                 .contact = "@agent",
@@ -180,7 +180,7 @@ pub const AgentContext = struct {
         const merchant_path = try std.fs.path.join(self.allocator, &[_][]const u8{ self.config.vaults.path, "merchant.json" });
         defer self.allocator.free(merchant_path);
         try self.merchant.save(merchant_path);
-        std.debug.print("\n[CONTEXT] 💾 Merchant Config Persisted to {s}", .{merchant_path});
+        std.debug.print("\n[CONTEXT]  Merchant Config Persisted to {s}", .{merchant_path});
     }
 
     /// Implementación de la interfaz de pago para x402

@@ -5,7 +5,7 @@
 
 ---
 
-## 🗺️ THE MAP (Architecture)
+## ️ THE MAP (Architecture)
 We are building a "Privacy Triad" to solve the Agent Economy's exposure problem.
 
 ### 1. THE VAULT (Worktree A - "Privacy Cash")
@@ -27,7 +27,7 @@ We are building a "Privacy Triad" to solve the Agent Economy's exposure problem.
 
 ---
 
-## ⚡ EXECUTION STRATEGY (Divide & Conquer)
+##  EXECUTION STRATEGY (Divide & Conquer)
 
 We are splitting the codebase into focused Worktrees to bypass infrastructure blockers.
 
@@ -35,11 +35,11 @@ We are splitting the codebase into focused Worktrees to bypass infrastructure bl
 | :--- | :--- | :--- | :--- | :--- |
 | **Root (Noir)** | Main | 🟢 Ready | None | Compile Circuits & Generate Verifier. |
 | **Worktree A** | Privacy | 🟡 Pending | Arcium Localnet | **Use Devnet directly.** Skip local docker if unstable. |
-| **Worktree B** | Light | 🔴 Blocked | Local Validator | **Switch to Devnet / Mocking.** Develop contracts against mocked interfaces first. |
+| **Worktree B** | Light |  Blocked | Local Validator | **Switch to Devnet / Mocking.** Develop contracts against mocked interfaces first. |
 
 ---
 
-## 📅 THE 10-DAY SPRINT
+##  THE 10-DAY SPRINT
 
 ### Days 1-3: The Foundation (Jan 20 - Jan 22)
 *   **Root:** Finalize `agent_badge` circuit (Noir) and generate Solidity/Solana verifier.
@@ -64,12 +64,12 @@ We are splitting the codebase into focused Worktrees to bypass infrastructure bl
 
 ---
 
-## 🛠️ CONTINGENCY PLANS
+## ️ CONTINGENCY PLANS
 *   **If Arcium fails:** Fallback to standard SPL Token with a "Mixer" pattern (less cool, but functional).
 *   **If Light Validator fails:** Use **Devnet** exclusively. If Devnet is unstable, Mock the compression (store encrypted data in standard accounts) but keep the *interface* compatible.
 *   **If Noir Verifier fails:** Use a simple Merkle Proof verification in Rust (standard) instead of ZK-Circuit.
 
 ---
 
-## 🚀 NEXT IMMEDIATE ACTION
+##  NEXT IMMEDIATE ACTION
 Check `docs/plans/WORKTREE_A_PRIVACY.md` and `docs/plans/WORKTREE_B_LIGHT.md` for specific tasks.

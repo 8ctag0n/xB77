@@ -25,7 +25,7 @@ pub const AnchorService = struct {
     }
 
     fn anchor(self: *AnchorService) !void {
-        std.debug.print("\n[ANCHOR] ⚓ CMT Threshold reached ({d} new entries). Generating Global Checkpoint...", .{self.anchor_threshold});
+        std.debug.print("\n[ANCHOR]  CMT Threshold reached ({d} new entries). Generating Global Checkpoint...", .{self.anchor_threshold});
         
         const root = self.store.tree.getRoot();
 
@@ -54,8 +54,8 @@ pub const AnchorService = struct {
 
         // 3. Simular llamada On-Chain
         // En una implementación final, aquí usaríamos SolanaClient/EvmClient para llamar al Verificador.
-        std.debug.print("\n[ANCHOR] 📡 Sending Global Checkpoint to Base (Sepolia) & Solana (Devnet)...", .{});
-        std.debug.print("\n[ANCHOR] ✅ Global Anchor SUCCEEDED. New Sovereign Root: 0x", .{});
+        std.debug.print("\n[ANCHOR]  Sending Global Checkpoint to Base (Sepolia) & Solana (Devnet)...", .{});
+        std.debug.print("\n[ANCHOR]  Global Anchor SUCCEEDED. New Sovereign Root: 0x", .{});
         for (root) |b| {
             std.debug.print("{x:0>2}", .{b});
         }

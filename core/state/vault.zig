@@ -77,7 +77,7 @@ pub const Vault = struct {
 
                     var decrypted: [96]u8 = undefined;
                     GCM.decrypt(&decrypted, encrypted, tag.*, "", nonce.*, key) catch |err| {
-                        std.debug.print("\n[Vault] ❌ Password incorrecto o Vault corrupto: {}\n", .{err});
+                        std.debug.print("\n[Vault]  Password incorrecto o Vault corrupto: {}\n", .{err});
                         return error.InvalidPassword;
                     };
 
@@ -106,7 +106,7 @@ pub const Vault = struct {
                     };
                     return;
                 } else {
-                    std.debug.print("\n[Vault] ⚠️ Vault cifrado detectado. Se requiere Master Password.\n", .{});
+                    std.debug.print("\n[Vault] ️ Vault cifrado detectado. Se requiere Master Password.\n", .{});
                     return error.PasswordRequired;
                 }
             }
@@ -150,14 +150,14 @@ pub const Vault = struct {
             try file.writeAll(&tag);
             try file.writeAll(&encrypted);
             
-            std.debug.print("\n[Vault] 🔒 Bunker Vault inicializado y cifrado con AES-GCM.\n", .{});
+            std.debug.print("\n[Vault]  Bunker Vault inicializado y cifrado con AES-GCM.\n", .{});
         } else {
             // Guardado inseguro (legacy/dev)
             const file = try std.fs.cwd().createFile(key_path, .{});
             defer file.close();
             try file.writeAll(&self.sol_kp.secret);
             try file.writeAll(&self.eth_kp.?.secret);
-            std.debug.print("\n[Vault] ⚠️ ADVERTENCIA: Vault guardado en texto plano (Modo Inseguro).\n", .{});
+            std.debug.print("\n[Vault] ️ ADVERTENCIA: Vault guardado en texto plano (Modo Inseguro).\n", .{});
         }
     }
 

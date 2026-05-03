@@ -42,7 +42,7 @@ pub const MagicBlockSDK = struct {
     /// Involucra una transacción on-chain inicial en Solana para bloquear el estado.
     pub fn openSovereignSession(self: *MagicBlockSDK, agent_kp: *const types.Keypair) !Session {
         _ = self;
-        std.debug.print("\n[MAGIC ] 🛡️ Initiating Sovereign Session (PER) for Agent {x}...", .{agent_kp.public[0..4]});
+        std.debug.print("\n[MAGIC ] ️ Initiating Sovereign Session (PER) for Agent {x}...", .{agent_kp.public[0..4]});
         
         // 1. En un entorno real, aquí se llamaría al programa de MagicBlock en Solana
         // para "delegar" el control de una cuenta al rollup efímero.
@@ -57,7 +57,7 @@ pub const MagicBlockSDK = struct {
             .is_active = true,
         };
 
-        std.debug.print("\n[MAGIC ] ✅ PER Session Active: {x} (Expires in 1h)", .{session_id[0..8].*});
+        std.debug.print("\n[MAGIC ]  PER Session Active: {x} (Expires in 1h)", .{session_id[0..8].*});
         return session;
     }
 
@@ -66,7 +66,7 @@ pub const MagicBlockSDK = struct {
     pub fn dispatchEphemeral(self: *MagicBlockSDK, session: *const Session, tx: EphemeralTx) ![]const u8 {
         if (!session.is_active or session.isExpired()) return error.SessionInvalid;
 
-        std.debug.print("\n[MAGIC ] ⚡ Dispatching HFT Transaction to Sequencer...", .{});
+        std.debug.print("\n[MAGIC ]  Dispatching HFT Transaction to Sequencer...", .{});
         
         // Simulación de llamada gRPC al secuenciador de MagicBlock
         // En la versión deluxe, usaríamos core.net.http o un cliente gRPC nativo.
@@ -79,7 +79,7 @@ pub const MagicBlockSDK = struct {
     /// Cierra la sesión y hace el commit final a Solana L1.
     pub fn commitToSolana(self: *MagicBlockSDK, session: *Session) !void {
         _ = self;
-        std.debug.print("\n[MAGIC ] ⚓ Committing Ephemeral State to Solana L1...", .{});
+        std.debug.print("\n[MAGIC ]  Committing Ephemeral State to Solana L1...", .{});
         session.is_active = false;
         // Logic to trigger the sequencer's settle process...
     }

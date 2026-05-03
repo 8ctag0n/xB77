@@ -200,8 +200,8 @@ fn route_profile(allocator: std.mem.Allocator, name: []const u8) *Response {
         \\                <h2>Active Services</h2>
         \\                <p style="font-size: 0.9rem; color: #888;">This agent provides autonomous financial services verified by ZK-Proofs.</p>
         \\                <div style="display: flex; gap: 1rem;">
-        \\                    <a href="https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/pay?agent={s}" class="blink-btn">⚡ HIRE VIA BLINK</a>
-        \\                    <a href="https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/fund?agent={s}" class="blink-btn" style="background: transparent; color: var(--neon-green); border: 1px solid var(--neon-green);">➕ ADD CREDITS</a>
+        \\                    <a href="https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/pay?agent={s}" class="blink-btn"> HIRE VIA BLINK</a>
+        \\                    <a href="https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/fund?agent={s}" class="blink-btn" style="background: transparent; color: var(--neon-green); border: 1px solid var(--neon-green);"> ADD CREDITS</a>
         \\                </div>
         \\            </div>
         \\
@@ -236,15 +236,15 @@ fn route_profile(allocator: std.mem.Allocator, name: []const u8) *Response {
         \\                const data = await res.json();
         \\                if (data.valid) {{
         \\                    if (data.amount) {{
-        \\                        resultDiv.innerHTML = '<b style="color: #00ff00;">✅ PROOF VALID (GHOST RECEIPT)</b><br>Decrypted Data:<br>Amount: ' + data.amount + '<br>Tax Paid: ' + data.tax + '<br>Recipient: ' + data.recipient;
+        \\                        resultDiv.innerHTML = '<b style="color: #00ff00;"> PROOF VALID (GHOST RECEIPT)</b><br>Decrypted Data:<br>Amount: ' + data.amount + '<br>Tax Paid: ' + data.tax + '<br>Recipient: ' + data.recipient;
         \\                    }} else {{
-        \\                        resultDiv.innerHTML = '<b style="color: #00ff00;">✅ PROOF VALID</b><br>Transaction found in Global Registry.<br>Tax Compliance: Verified (2.011%)<br>Recipient Commitment: Match';
+        \\                        resultDiv.innerHTML = '<b style="color: #00ff00;"> PROOF VALID</b><br>Transaction found in Global Registry.<br>Tax Compliance: Verified (2.011%)<br>Recipient Commitment: Match';
         \\                    }}
         \\                }} else {{
-        \\                    resultDiv.innerHTML = '<b style="color: #ff0000;">❌ PROOF INVALID</b><br>' + (data.error || 'Commitment not found.');
+        \\                    resultDiv.innerHTML = '<b style="color: #ff0000;"> PROOF INVALID</b><br>' + (data.error || 'Commitment not found.');
         \\                }}
         \\            }} catch (e) {{
-        \\                resultDiv.innerHTML = '❌ Network Error';
+        \\                resultDiv.innerHTML = ' Network Error';
         \\            }}
         \\        }}
         \\    </script>
@@ -358,10 +358,10 @@ fn route_app_message(allocator: std.mem.Allocator, body: []const u8) *Response {
 
     // 3. Format and Send Notification
     const icon = switch (m.msg_type) {
-        .quote => "🏷️ *New Quote*",
+        .quote => "️ *New Quote*",
         .hire => "🤝 *Agent Hired*",
-        .escrow => "🔒 *Funds in Escrow*",
-        .dispute => "⚠️ *Dispute Raised*",
+        .escrow => " *Funds in Escrow*",
+        .dispute => "️ *Dispute Raised*",
         .info => "ℹ️ *Agent Update*",
     };
 
@@ -404,7 +404,7 @@ fn route_link(allocator: std.mem.Allocator, body: []const u8) *Response {
 
     // Notificar por Telegram
     const chat_id = std.fmt.parseInt(i64, chat_id_str, 10) catch 0;
-    const msg = "✅ Agent Linked Successfully! You can now use /status and /pay.";
+    const msg = " Agent Linked Successfully! You can now use /status and /pay.";
     js_telegram_send(chat_id, msg.ptr, msg.len);
 
     return build_response(200, "Linked");
@@ -429,7 +429,7 @@ fn route_spawn(allocator: std.mem.Allocator, body: []const u8) *Response {
     
     js_fly_spawn(&agent_id_hex_buf, 64);
     
-    std.debug.print("[GATEWAY] 🚀 Requesting Fly.io Machine for {s}\n", .{agent_id_hex_buf});
+    std.debug.print("[GATEWAY]  Requesting Fly.io Machine for {s}\n", .{agent_id_hex_buf});
 
     return build_response(202, "Spawn Initiated");
 }
@@ -620,7 +620,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
 
         if (get_kv_data(allocator, tg_key)) |agent_id_hex| {
             const status = get_credit_status(allocator, agent_id_hex) catch {
-                js_telegram_send(msg.chat.id, "⚠️ <b>Error:</b> Reading credit status.", 34);
+                js_telegram_send(msg.chat.id, "️ <b>Error:</b> Reading credit status.", 34);
                 return build_response(200, "OK");
             };
             
@@ -630,7 +630,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
             
             const response = if (std.mem.eql(u8, name, "unnamed"))
                 std.fmt.allocPrint(allocator, 
-                    \\🛡️ <b>xB77 Sovereign Node</b>
+                    \\️ <b>xB77 Sovereign Node</b>
                     \\
                     \\<b>Agent:</b> <code>{s}...</code>
                     \\<b>Credits:</b> <code>{d} SC</code>
@@ -640,7 +640,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
                 , .{agent_id_hex[0..8], status.balance})
             else
                 std.fmt.allocPrint(allocator, 
-                    \\🛡️ <b>xB77 Sovereign Node</b>
+                    \\️ <b>xB77 Sovereign Node</b>
                     \\
                     \\<b>Identity:</b> <code>{s}.xb77</code>
                     \\<b>Credits:</b> <code>{d} SC</code>
@@ -666,7 +666,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
             }
             const new_name = std.mem.trim(u8, text[6..], " \n\r\t");
             if (new_name.len < 3) {
-                js_telegram_send(msg.chat.id, "❌ <b>Error:</b> Name too short (min 3 chars).", 45);
+                js_telegram_send(msg.chat.id, " <b>Error:</b> Name too short (min 3 chars).", 45);
                 return build_response(200, "OK");
             }
 
@@ -675,7 +675,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
 
             // Check if name is taken
             if (get_kv_data(allocator, name_key)) |_| {
-                js_telegram_send(msg.chat.id, "❌ <b>Error:</b> Name already taken.", 35);
+                js_telegram_send(msg.chat.id, " <b>Error:</b> Name already taken.", 35);
                 return build_response(200, "OK");
             } else |_| {
                 // Register name
@@ -686,7 +686,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
                 js_kv_put(agent_name_key.ptr, agent_name_key.len, new_name.ptr, new_name.len);
 
                 const response = std.fmt.allocPrint(allocator, 
-                    \\✨ <b>Identity Secured!</b>
+                    \\ <b>Identity Secured!</b>
                     \\Your agent is now globally known as:
                     \\
                     \\<code>{s}.xb77</code>
@@ -709,7 +709,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
 
             if (get_kv_data(allocator, receipts_key)) |last_comm| {
                 const response = std.fmt.allocPrint(allocator, 
-                    \\📜 <b>Recent ZK-Receipts</b>
+                    \\ <b>Recent ZK-Receipts</b>
                     \\
                     \\1. <code>{s}...</code>
                     \\
@@ -718,14 +718,14 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
                 defer allocator.free(response);
                 js_telegram_send(msg.chat.id, response.ptr, response.len);
             } else |_| {
-                js_telegram_send(msg.chat.id, "📭 <b>History:</b> No receipts found.", 36);
+                js_telegram_send(msg.chat.id, " <b>History:</b> No receipts found.", 36);
             }
         } else |_| {
             js_telegram_send(msg.chat.id, "🤖 Please link your agent first with /start.", 43);
         }
     } else if (std.mem.startsWith(u8, text, "/blink")) {
         const response = 
-            \\⚡ <b>Solana Action (Blink)</b>
+            \\ <b>Solana Action (Blink)</b>
             \\Use this link to fund your agent instantly:
             \\
             \\<a href="https://dial.to/?action=solana-action:https://gateway.xb77.com/actions/fund">Fund Agent via Blink</a>
@@ -733,7 +733,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
         js_telegram_send(msg.chat.id, response.ptr, response.len);
     } else if (std.mem.startsWith(u8, text, "/help")) {
         const response = 
-            \\🛡️ <b>xB77 Mission Control Help</b>
+            \\️ <b>xB77 Mission Control Help</b>
             \\
             \\<b>Commands:</b>
             \\/status - Current node & credit health
@@ -755,7 +755,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
 
         if (get_kv_data(allocator, tg_key) catch null) |agent_id_hex| {
              const response = std.fmt.allocPrint(allocator, 
-                \\👋 <b>Welcome back, Sovereign!</b>
+                \\ <b>Welcome back, Sovereign!</b>
                 \\
                 \\Agent <code>{s}...</code> is linked and active.
                 \\
@@ -779,7 +779,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
         js_kv_put(link_key.ptr, link_key.len, chat_id_str.ptr, chat_id_str.len);
 
         const response = std.fmt.allocPrint(allocator, 
-            \\🔗 <b>Sovereign Link Initiated</b>
+            \\ <b>Sovereign Link Initiated</b>
             \\
             \\To link your local agent, run this in your terminal:
             \\
@@ -797,19 +797,19 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
 
         if (get_kv_data(allocator, tg_key)) |agent_id_hex| {
             var status = get_credit_status(allocator, agent_id_hex) catch {
-                js_telegram_send(msg.chat.id, "⚠️ <b>Error:</b> Reading credit status.", 34);
+                js_telegram_send(msg.chat.id, "️ <b>Error:</b> Reading credit status.", 34);
                 return build_response(200, "OK");
             };
 
             const pay_amount = 50; // Mock payment for now
             if (status.balance < pay_amount) {
-                js_telegram_send(msg.chat.id, "❌ <b>Insufficient Credits</b>", 28);
+                js_telegram_send(msg.chat.id, " <b>Insufficient Credits</b>", 28);
                 return build_response(200, "OK");
             }
 
             status.balance -= pay_amount;
             save_credit_status(allocator, status) catch {
-                js_telegram_send(msg.chat.id, "❌ <b>Internal Error</b>", 21);
+                js_telegram_send(msg.chat.id, " <b>Internal Error</b>", 21);
                 return build_response(200, "OK");
             };
 
@@ -819,7 +819,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
                 5, // 10% tax mock
                 .{ .sol = status.agent_id },
             ) catch {
-                js_telegram_send(msg.chat.id, "❌ <b>Error:</b> ZK Generation failed.", 34);
+                js_telegram_send(msg.chat.id, " <b>Error:</b> ZK Generation failed.", 34);
                 return build_response(200, "OK");
             };
 
@@ -829,11 +829,11 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
             defer if (!std.mem.eql(u8, comm_hex, "err")) allocator.free(comm_hex);
 
             const response = std.fmt.allocPrint(allocator, 
-                \\💸 <b>Payment Successful</b>
+                \\ <b>Payment Successful</b>
                 \\<b>Amount:</b> <code>{d} SC</code>
                 \\<b>Remaining:</b> <code>{d} SC</code>
                 \\
-                \\🛡️ <b>ZK-Commitment:</b>
+                \\️ <b>ZK-Commitment:</b>
                 \\<code>{s}</code>
             , .{pay_amount, status.balance, comm_hex}) catch "Error";
             defer if (!std.mem.eql(u8, response, "Error")) allocator.free(response);

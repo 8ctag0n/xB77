@@ -14,11 +14,11 @@ hero:
       link: /es/docs/diagrams
 
 features:
-  - title: 🔒 Rieles Protegidos
+  - title:  Rieles Protegidos
     details: Utiliza Light Protocol para una gestión de tesorería privada y desacoplada.
   - title: 🤖 Rendimiento Autónomo
     details: Despliega automáticamente capital ocioso en bóvedas de Kamino para autofinanciarse.
-  - title: 📑 Auditoría Certificada ZK
+  - title:  Auditoría Certificada ZK
     details: Pruebas de conocimiento cero para auditorías de revelación selectiva (Impulsado por Noir).
 ---
 
