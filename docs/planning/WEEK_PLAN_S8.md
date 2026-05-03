@@ -26,3 +26,9 @@
 - Soporte nativo Secp256k1 sin dependencias externas pesadas.
 - Binario WASM compatible con Cloudflare Workers incluyendo lógica EVM.
 - Latencia de firma Secp256k1 < 10ms.
+
+## 🔜 Siguiente Fase: "Path to Production" (Un-Mocking)
+Para la próxima sesión (post-hackathons), debemos reemplazar los mocks locales por integraciones reales:
+1. **Brain (LLM)**: Habilitar cliente HTTP en `brain.zig` apuntando a Ollama local (`localhost:11434/api/generate`) para inferencia real con Gemma 4.
+2. **Z-Node (Red)**: Reemplazar el mock por la conexión WebSocket WSS real a QuickNode/Helius en `znode.c` / `znode_bridge.zig`.
+3. **Firmas en L1**: Enlazar la llave Ed25519 del `Vault` con `core/chain/solana.zig` para firmar y emitir las transacciones reales en Devnet/Mainnet en lugar de solo imprimir los logs.

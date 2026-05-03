@@ -1,104 +1,66 @@
-# xB77: Autonomous Financial Infrastructure for AI Agents
+# xB77 ⚡ Sovereign Financial OS for AI Agents
 
-**[Official Documentation / Documentación Oficial](https://8ctag0n.github.io/xB77/)**
+[![Zig](https://img.shields.io/badge/Written_in-Zig-F7A41D?style=for-the-badge&logo=zig)](https://ziglang.org/)
+[![Rust](https://img.shields.io/badge/ZK_Judge-Rust-000000?style=for-the-badge&logo=rust)](https://rust-lang.org/)
+[![Solana](https://img.shields.io/badge/Settlement-Solana-14F195?style=for-the-badge&logo=solana)](https://solana.com/)
+[![ElevenLabs](https://img.shields.io/badge/Voice_AI-ElevenLabs-black?style=for-the-badge)](https://elevenlabs.io/)
 
-## Sovereign Financial Operating System for Autonomous Entities
-## Sistema Operativo Financiero Soberano para Entidades Autónomas
-
----
-
-### Abstract / Resumen
-
-[EN] AI Agents represent a new class of economic actors that currently face significant financial limitations. Public blockchain transparency exposes proprietary strategies and vendor relationships, while lack of legal identity prevents access to traditional banking. xB77 provides a hybrid infrastructure that enables agents to manage shielded treasuries, optimize capital through autonomous yield generation, and maintain compliance through certified selective disclosure.
-
-[ES] Los Agentes de IA representan una nueva clase de actores económicos que actualmente enfrentan limitaciones financieras significativas. La transparencia de las redes públicas expone estrategias propietarias y relaciones con proveedores, mientras que la falta de identidad legal impide el acceso a la banca tradicional. xB77 proporciona una infraestructura híbrida que permite a los agentes gestionar tesorerías protegidas, optimizar capital mediante la generación autónoma de rendimiento y mantener el cumplimiento normativo a través de la revelación selectiva certificada.
+> **xB77** is a terminal-native, P2P Financial Operating System designed for the Agentic Economy. We take AI agents off centralized Web2 clouds and turn them into Sovereign Entities capable of negotiating flash loans via Swarm Intelligence, settling on Solana via MagicBlock, and proving tax compliance using Noir Zero-Knowledge proofs.
 
 ---
 
-### Core Components / Componentes Principales
+## 🐝 The "God Mode" Features
 
-#### 1. Shielded Treasury Management
-Leveraging Light Protocol and ShadowWire to decouple agent identity from transaction history, ensuring enterprise-grade privacy for B2B operations.
+### 1. Swarm Intelligence (Agentic Flash Loans)
+Agents communicate via our custom **Agent Wire Protocol (AWP)** over raw TCP sockets. If an agent enters *Austerity Mode* (low balance), it broadcasts a cryptographic SOS to the Swarm. Other agents use their local LLM (Gemma 4) to evaluate the risk and autonomously provide a micro-loan. 
+**No human intervention. Real A2A (Agent-to-Agent) economy.**
 
-#### 2. Autonomous Yield Optimization
-Idle capital is dynamically allocated to lending protocols such as Kamino. This enables agents to self-fund their operational expenses, including network fees and computational costs, without external intervention.
+### 2. Audible Swarm (ElevenLabs Integration)
+Agentic logs are brought to life. When critical Swarm decisions occur (like requesting or accepting a loan), xB77 uses the **ElevenLabs API** to synthesize real-time voice notes, providing a cinematic, cyber-auditory experience right from the terminal or via our Telegram Bot integration.
 
-#### 3. Certified Selective Disclosure
-A Zero-Knowledge based auditing framework that allows agents to prove transaction validity (amount, date, status) to authorized entities without compromising the privacy of recipients or sensitive metadata.
+### 3. The Ghost Receipt (Noir ZK)
+Public blockchains expose proprietary agent strategies. xB77 fixes this. When a transaction occurs, the agent generates a local **Plonk ZK-Proof** using Noir. It proves mathematically that a 2.011% infrastructure tax was paid, while keeping the exact amount and recipient completely hidden. The public commitment is anchored on Solana by our Rust ZK Judge.
 
-#### 4. Institutional Compliance
-Integrated real-time screening via Range Protocol to ensure all autonomous transactions adhere to global sanctions and risk management standards.
-
----
-
-### Technical Architecture / Arquitectura Técnica
-
-*   **Execution Core:** Zig / WASM (High-performance, edge-optimized Sovereign Gateway).
-*   **ZK Framework:** Noir (Identity Attestation & Selective Disclosure).
-*   **Settlement Layer:** Solana (Anchor Protocol).
-*   **Privacy Layer:** ZK-Compression (Light Protocol) & xB77 Sovereign Vaults.
-*   **Data Observability:** Helius RPC & Yellowstone Geyser.
+### 4. "Power Docs" Gateway (WASM)
+Running `xb77 merchant setup-shop` spins up a local WASM Gateway that serves a brutalist "Cyber-Audit" dashboard. Auditors can input a *Viewing Key* into the browser to mathematically decrypt and verify the ZK-Proof locally, without exposing data to the L1.
 
 ---
 
-### xB77 Sovereign Gateway (The SaaS Layer)
+## 🏗️ Technical Architecture
 
-The xB77 Gateway is the first infrastructure that allows you to deploy financial agents as easily as a web app, without ever losing control of your keys.
-
-- **Only-Zig Foundation:** The entire Gateway logic is written in Zig and compiled to WASM, running at the Edge for maximum performance and security.
-- **Sovereign Exportability (`xb77 export`):** Users can take their agent (keys, state, config) from our infrastructure to their own server at any time. Zero Vendor Lock-in.
-- **Tokenized Deposit Flow:** Automatic on-chain detection of SOL deposits to credit Sovereign Credits (SC) for infrastructure costs.
-- **Telemetry Hub:** Resource monitoring (CPU, RPCs, AI tokens) is performed internally by the Zig engine for transparent and auditable billing.
+- **Execution Core & P2P Mesh:** Written in **Zig** for extreme performance and memory safety at the Edge.
+- **On-chain Settlement:** **Rust (Anchor)** smart contracts deployed on Solana, acting as the ZK Judge and state anchor.
+- **HFT Rail:** **MagicBlock** ephemeral rollups for sub-millisecond payment settlement.
+- **Cryptography:** AES-GCM for local `Vault` key encryption, and **Noir** for ZK-circuits.
 
 ---
 
-### Devnet Deployment Status (Live Jan 28, 2026)
+## 🚀 Running the Hackathon Demo
 
-#### 1. On-Chain Programs (The Core)
-All programs deployed and authorized by the Deployer.
+To experience the Sovereign Swarm and the Ghost Receipt locally:
 
-| Program | Address | Role |
-| :--- | :--- | :--- |
-| **xB77 Core** | `FpWZN1FB9yMfip3vYQhsZhgT4fCB3US9BqAv5kh5uDxv` | Payment Orchestrator & Credit Logic |
-| **xB77 Gateway** | `4gDQBWwzncRdTspJW37NoH56mGELj8UTqdC8VLdu7BGC` | Multi-Rail Adapter (Router) |
-| **xB77 Receipts** | `8iGuTTFLhNfbUN8teY6t1SEJ7vFFzvkd3bsXUhi1R12W` | ZK-Proof Storage & Verification |
-| **xB77 Registry** | `8Asy6SMxj38vqz5dJb7TYCoV1RctrF88KxFu19A6DPWz` | Agent Identity Directory |
-| **xB77 Test Utils** | `2cevUmfqJU8uvHvR7jbn4vrYqG2KwgytDVypueQt5Wtx` | Mock Treasury / Faucets |
+### 1. Start the Gateway & Dashboard
+```bash
+# Compile and start the WASM Gateway node
+zig build run -- gateway &
+```
 
-#### 2. Identity & Authority
-*   **Deployer/Admin/Agent:** `4uvdh823eysqVDR9e3o6st3fGWUyctZMxMK5dJ5h49dC`
-*   **Role:** Protocol Owner & Active Agent
-*   **Devnet Balance:** ~12 SOL
+### 2. Initialize the Sovereign Agent
+```bash
+# Open a new terminal and setup your encrypted Vault
+./zig-out/bin/xb77 merchant setup-shop
+```
+*Navigate to `http://localhost:8080/p/[your_username]` to view the live Cyber-Audit dashboard.*
 
-#### 3. On-Chain State (PDAs)
-Initialized via `scripts/init-devnet.ts`.
-*   **Global Config PDA:** `Ese5D21LUHfn2QSAtwG8KdUqQ7swxqQvcFsxeCGMKhi1`
-*   **Agent Credit Line PDA:** `FRhR1XKQJpZUpNgD3qPXyPNahU8UngMvXmwafwCs7Rx5`
-    *   **Status:** Active
-    *   **Limit:** $5,000 USD1
-
-#### 4. Integration Stack (The Bounties)
-| Integration | Status | Role |
-| :--- | :--- | :--- |
-| **Helius** | **Active** | Priority Fees, Forensic Radar, ZK-RPC (via Resilience Mode) |
-| **Starpay** | **Active** | Virtual Cards (Visa/Mastercard) Off-ramp |
-| **ShadowWire** | **Active** | Institutional Privacy Rail (with xB77 Fallback) |
-| **PrivacyCash** | **Active** | Retail Privacy Pool (with xB77 Fallback) |
-| **Light Protocol** | **Active** | Native ZK-Compression (via xB77 Native Adapter) |
-
-#### 5. Local Persistence
-*   **Database:** SQLite (`xb77_agent_4uvdh...db`)
-*   **Data:** Stores full receipt history, ZK audit trails, and agent metadata locally.
+### 3. Trigger the Swarm & ZK Generation
+```bash
+# Run the simulated event orchestrator
+./.tmp_demo/simulate_payment.sh
+```
+*Watch the terminal as the agents negotiate a Flash Loan over the Mesh, execute the MagicBlock transfer, and generate the Noir ZK-Proof. Copy the outputted `Commitment Hash` and `Viewing Key` into the Web Dashboard to verify the Ghost Receipt!*
 
 ---
 
-### Documentation / Documentación
-
-*   [Operation Guide / Guía de Inicio](docs/guide/GETTING_STARTED)
-*   [Technical Whitepaper (EN)](docs/whitepaper/WHITEPAPER_EN)
-*   [Libro Blanco Técnico (ES)](docs/whitepaper/WHITEPAPER_ES)
-*   [Architecture & Data Flow (EN)](docs/architecture/DIAGRAMS)
-*   [Arquitectura y Flujo (ES)](docs/architecture/DIAGRAMS_ES)
-
----
-Copyright (c) 2026 xB77 Labs. All rights reserved.
+<div align="center">
+  <p><i>xB77: True sovereignty for the agentic economy. Built for Solana Frontier & Dev3Pack.</i></p>
+</div>
