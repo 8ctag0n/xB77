@@ -29,6 +29,12 @@ pub const AppDisputeResolveMsg = awp.AppDisputeResolveMsg;
 pub const AppPlanMsg = awp.AppPlanMsg;
 pub const ServiceDiscoveryMsg = awp.ServiceDiscoveryMsg;
 
+// --- Swarm Intelligence Messages ---
+pub const LoanRequestMsg = awp.LoanRequestMsg;
+pub const LoanOfferMsg = awp.LoanOfferMsg;
+pub const LoanAcceptMsg = awp.LoanAcceptMsg;
+pub const LoanSettleMsg = awp.LoanSettleMsg;
+
 pub const AwpEncoder = awp.AwpEncoder;
 pub const AwpDecoder = awp.AwpDecoder;
 

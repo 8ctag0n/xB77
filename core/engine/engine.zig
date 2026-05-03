@@ -152,9 +152,13 @@ pub const Engine = struct {
         // Actuar según la decisión del Strategist
         switch (analysis.decision) {
             .austerity_mode => {
-                std.debug.print("\n[STRAT ] 📉 AUSTERITY MODE: Low Credits. Slowing down engine to save SC.", .{});
-                // En modo austeridad, dormimos más tiempo o reducimos frecuencia de tareas pesadas
-                std.Thread.sleep(5 * std.time.ns_per_s);
+                std.debug.print("\n[STRAT ] 📉 AUSTERITY MODE: Critical SC Balance.", .{});
+                std.debug.print("\n[SWARM ] 🐝 Triggering Flash Loan protocol...", .{});
+                // Pedimos 0.05 SOL (50000000 lamports) a 5% (500 bps) por 60s
+                self.ctx.mesh_manager.broadcastLoanRequest(50000000, 500, 60) catch |err| {
+                    std.debug.print("\n[SWARM ] ❌ Error broadcasting loan request: {}", .{err});
+                };
+                std.Thread.sleep(2 * std.time.ns_per_s);
             },
             .harden_policies => {
                 std.debug.print("\n[STRAT ] ⚠️ LOW HEALTH DETECTED. Recommendation: Harden Compliance Policies.", .{});

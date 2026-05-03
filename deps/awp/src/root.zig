@@ -28,6 +28,12 @@ pub const MessageType = enum(u8) {
     app_dispute_resolve = 0x15,
     app_plan = 0x16,
     service_discovery = 0x17,
+    
+    // --- Swarm Intelligence (Flash Loans) ---
+    loan_request = 0x18,
+    loan_offer = 0x19,
+    loan_accept = 0x1A,
+    loan_settle = 0x1B,
 };
 
 pub const RawYellowstoneMsg = struct {
@@ -81,6 +87,28 @@ pub const AppPlanMsg = struct {
 
 pub const ServiceDiscoveryMsg = struct {
     query: []const u8,
+};
+
+// --- Swarm Intelligence Messages ---
+pub const LoanRequestMsg = struct {
+    amount: u64,
+    interest_bps: u16,
+    duration_sec: u64,
+};
+
+pub const LoanOfferMsg = struct {
+    lender_id: [32]u8,
+    amount: u64,
+    interest_bps: u16,
+};
+
+pub const LoanAcceptMsg = struct {
+    lender_id: [32]u8,
+};
+
+pub const LoanSettleMsg = struct {
+    amount_paid: u64,
+    lender_id: [32]u8,
 };
 
 pub const DeltaSyncMsg = struct {
@@ -443,6 +471,35 @@ pub const AwpEncoder = struct {
         try self.writeByte(@intFromEnum(MessageType.service_discovery));
         try self.writeVarint(msg.query.len);
         try self.buf.appendSlice(self.allocator, msg.query);
+        return self.buf.items;
+    }
+
+    pub fn encodeLoanRequest(self: *AwpEncoder, msg: LoanRequestMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.loan_request));
+        try self.writeVarint(msg.amount);
+        try self.writeVarint(msg.interest_bps);
+        try self.writeVarint(msg.duration_sec);
+        return self.buf.items;
+    }
+
+    pub fn encodeLoanOffer(self: *AwpEncoder, msg: LoanOfferMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.loan_offer));
+        try self.buf.appendSlice(self.allocator, &msg.lender_id);
+        try self.writeVarint(msg.amount);
+        try self.writeVarint(msg.interest_bps);
+        return self.buf.items;
+    }
+
+    pub fn encodeLoanAccept(self: *AwpEncoder, msg: LoanAcceptMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.loan_accept));
+        try self.buf.appendSlice(self.allocator, &msg.lender_id);
+        return self.buf.items;
+    }
+
+    pub fn encodeLoanSettle(self: *AwpEncoder, msg: LoanSettleMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.loan_settle));
+        try self.writeVarint(msg.amount_paid);
+        try self.buf.appendSlice(self.allocator, &msg.lender_id);
         return self.buf.items;
     }
 };
@@ -883,5 +940,66 @@ pub const AwpDecoder = struct {
         self.pos += query_len;
 
         return ServiceDiscoveryMsg{ .query = query };
+    }
+
+    pub fn decodeLoanRequest(self: *AwpDecoder) !LoanRequestMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.loan_request)) return error.InvalidMessageType;
+
+        const amount = try self.readVarint();
+        const interest_bps = try self.readVarint();
+        const duration_sec = try self.readVarint();
+
+        return LoanRequestMsg{
+            .amount = amount,
+            .interest_bps = @intCast(interest_bps),
+            .duration_sec = duration_sec,
+        };
+    }
+
+    pub fn decodeLoanOffer(self: *AwpDecoder) !LoanOfferMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.loan_offer)) return error.InvalidMessageType;
+
+        var lender_id: [32]u8 = undefined;
+        @memcpy(&lender_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        const amount = try self.readVarint();
+        const interest_bps = try self.readVarint();
+
+        return LoanOfferMsg{
+            .lender_id = lender_id,
+            .amount = amount,
+            .interest_bps = @intCast(interest_bps),
+        };
+    }
+
+    pub fn decodeLoanAccept(self: *AwpDecoder) !LoanAcceptMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.loan_accept)) return error.InvalidMessageType;
+
+        var lender_id: [32]u8 = undefined;
+        @memcpy(&lender_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        return LoanAcceptMsg{
+            .lender_id = lender_id,
+        };
+    }
+
+    pub fn decodeLoanSettle(self: *AwpDecoder) !LoanSettleMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.loan_settle)) return error.InvalidMessageType;
+
+        const amount_paid = try self.readVarint();
+        var lender_id: [32]u8 = undefined;
+        @memcpy(&lender_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        return LoanSettleMsg{
+            .amount_paid = amount_paid,
+            .lender_id = lender_id,
+        };
     }
 };

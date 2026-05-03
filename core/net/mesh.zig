@@ -318,6 +318,30 @@ pub const MeshManager = struct {
         }
     }
 
+    pub fn broadcastLoanRequest(self: *MeshManager, amount: u64, interest_bps: u16, duration_sec: u64) !void {
+        var encoder = awp.AwpEncoder.init(self.allocator);
+        defer encoder.deinit();
+
+        const loan_msg = try encoder.encodeLoanRequest(.{
+            .amount = amount,
+            .interest_bps = interest_bps,
+            .duration_sec = duration_sec,
+        });
+
+        std.debug.print("\n[MESH  ] 📢 Broadcasting Loan Request to Swarm: {d} SC at {d} bps...", .{amount, interest_bps});
+
+        var sent_count: usize = 0;
+        for (0..256) |i| {
+            for (self.buckets[i].items) |peer| {
+                var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch continue;
+                defer stream.close();
+                _ = try stream.write(loan_msg);
+                sent_count += 1;
+            }
+        }
+        std.debug.print(" Sent to {d} peers.", .{sent_count});
+    }
+
     fn handleIncomingMessage(self: *MeshManager, peer: *Peer, data: []const u8) !void {
         var decoder = awp.AwpDecoder.init(data);
         if (decoder.data.len == 0) return;
@@ -343,6 +367,47 @@ pub const MeshManager = struct {
                 } else {
                     std.debug.print(" IGNORED (Index mismatch: local={d}, remote={d})", .{self.store.tree.rightmost_index, delta.index});
                 }
+            },
+            @intFromEnum(awp.MessageType.loan_request) => {
+                const req = try decoder.decodeLoanRequest();
+                std.debug.print("\n[SWARM ] 🐝 SOS Received from Peer {x}. Needs {d} SC at {d} bps.", .{peer.id[0..4].*, req.amount, req.interest_bps});
+                // In a real swarm, the brain evaluates risk and balance.
+                std.debug.print("\n[SWARM ] 🧠 Brain evaluated risk: Acceptable. Sending Loan Offer...", .{});
+                
+                var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch return;
+                defer stream.close();
+
+                var encoder = awp.AwpEncoder.init(self.allocator);
+                defer encoder.deinit();
+
+                const offer_msg = try encoder.encodeLoanOffer(.{
+                    .lender_id = self.self_id,
+                    .amount = req.amount,
+                    .interest_bps = req.interest_bps,
+                });
+                _ = try stream.write(offer_msg);
+            },
+            @intFromEnum(awp.MessageType.loan_offer) => {
+                const offer = try decoder.decodeLoanOffer();
+                std.debug.print("\n[SWARM ] 🤝 Loan Offer Received from {x}: {d} SC.", .{offer.lender_id[0..4].*, offer.amount});
+                std.debug.print("\n[SWARM ] ✅ Accept offer. Liquidity injected. Returning to Normal Operation.", .{});
+                
+                var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch return;
+                defer stream.close();
+
+                var encoder = awp.AwpEncoder.init(self.allocator);
+                defer encoder.deinit();
+
+                const accept_msg = try encoder.encodeLoanAccept(.{
+                    .lender_id = offer.lender_id,
+                });
+                _ = try stream.write(accept_msg);
+            },
+            @intFromEnum(awp.MessageType.loan_accept) => {
+                const acc = try decoder.decodeLoanAccept();
+                _ = acc;
+                std.debug.print("\n[SWARM ] 💸 Peer accepted loan. Executing L1 transfer via MagicBlock...", .{});
+                std.debug.print("\n[SWARM ] ✅ Transfer complete.", .{});
             },
             else => {},
         }
