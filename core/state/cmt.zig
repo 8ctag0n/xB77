@@ -1,6 +1,7 @@
 const std = @import("std");
 const bn254 = @import("../crypto/bn254.zig");
 const poseidon = @import("../crypto/poseidon.zig");
+const crypto = @import("../crypto/crypto.zig");
 const Fr = bn254.Fr;
 const Poseidon = poseidon.Poseidon;
 
@@ -24,9 +25,15 @@ pub const CMTError = error{
     IndexOutOfBounds,
 };
 
+pub const HashType = enum {
+    poseidon,
+    keccak,
+};
+
 pub const ConcurrentMerkleTree = struct {
     allocator: std.mem.Allocator,
     depth: u8,
+    hash_type: HashType = .poseidon,
     
     // Buffer opcional para el árbol completo (inyectado vía mmap por el Store)
     nodes_buffer: ?[*]cmt_hash_t = null,
@@ -49,10 +56,11 @@ pub const ConcurrentMerkleTree = struct {
         siblings: [][32]u8,
     };
 
-    pub fn init(allocator: std.mem.Allocator, depth: u8) !ConcurrentMerkleTree {
+    pub fn init(allocator: std.mem.Allocator, depth: u8, hash_type: HashType) !ConcurrentMerkleTree {
         var tree = ConcurrentMerkleTree{
             .allocator = allocator,
             .depth = depth,
+            .hash_type = hash_type,
             .root_buffer = try std.ArrayListUnmanaged([32]u8).initCapacity(allocator, 1024),
             .change_logs = try std.ArrayListUnmanaged(ChangeLog).initCapacity(allocator, 1024),
             .rightmost_proof = try std.ArrayListUnmanaged([32]u8).initCapacity(allocator, depth),
@@ -60,7 +68,7 @@ pub const ConcurrentMerkleTree = struct {
             .rightmost_leaf = [_]u8{0} ** 32,
         };
 
-        // Inicializar el árbol vacío (nodos base de Poseidon)
+        // Inicializar el árbol vacío (nodos base)
         const empty_root = try tree.computeEmptyRoot(depth);
         try tree.root_buffer.append(allocator, empty_root);
         
@@ -82,14 +90,11 @@ pub const ConcurrentMerkleTree = struct {
         self.rightmost_proof.deinit(self.allocator);
     }
 
-    fn computeEmptyNode(self: *const ConcurrentMerkleTree, level: u8) ![32]u8 {
+    pub fn computeEmptyNode(self: *const ConcurrentMerkleTree, level: u8) ![32]u8 {
         if (level == 0) return [_]u8{0} ** 32;
         const child = try self.computeEmptyNode(level - 1);
         
-        // H(child, child) usando Poseidon nativo
-        const child_u256 = @as(u256, @bitCast(child));
-        const hash_val = Poseidon.hash2(child_u256, child_u256);
-        return @bitCast(hash_val);
+        return self.hashNodes(child, child, false);
     }
 
     fn computeEmptyRoot(self: *const ConcurrentMerkleTree, depth: u8) ![32]u8 {
@@ -163,16 +168,31 @@ pub const ConcurrentMerkleTree = struct {
         cmt_get_proof(buffer, index, self.depth, c_out);
     }
 
-    fn hashNodes(_: *const ConcurrentMerkleTree, node: [32]u8, sibling: [32]u8, node_is_right: bool) [32]u8 {
-        const n_u256 = @as(u256, @bitCast(node));
-        const s_u256 = @as(u256, @bitCast(sibling));
-        
-        const hash_val = if (node_is_right) 
-            Poseidon.hash2(s_u256, n_u256) 
-        else 
-            Poseidon.hash2(n_u256, s_u256);
+    fn hashNodes(self: *const ConcurrentMerkleTree, node: [32]u8, sibling: [32]u8, node_is_right: bool) [32]u8 {
+        if (self.hash_type == .poseidon) {
+            const n_u256 = @as(u256, @bitCast(node));
+            const s_u256 = @as(u256, @bitCast(sibling));
             
-        return @bitCast(hash_val);
+            const hash_val = if (node_is_right) 
+                Poseidon.hash2(s_u256, n_u256) 
+            else 
+                Poseidon.hash2(n_u256, s_u256);
+                
+            return @bitCast(hash_val);
+        } else {
+            // Priority path (Keccak256 via C)
+            var buf: [64]u8 = undefined;
+            if (node_is_right) {
+                @memcpy(buf[0..32], &sibling);
+                @memcpy(buf[32..64], &node);
+            } else {
+                @memcpy(buf[0..32], &node);
+                @memcpy(buf[32..64], &sibling);
+            }
+            var out: [32]u8 = undefined;
+            cmt_keccak256(&buf, 64, &out);
+            return out;
+        }
     }
 
     pub fn getRoot(self: *const ConcurrentMerkleTree) [32]u8 {
@@ -234,8 +254,8 @@ pub const ConcurrentMerkleTree = struct {
         const buffer = self.nodes_buffer orelse return;
         if (self.rightmost_index == 0) return;
 
-        std.debug.print("\n[CMT   ]  Reconstructing with Poseidon from Index: {d}, Vault Root: {x}...", .{
-            self.rightmost_index, buffer[0].hash[0..4]
+        std.debug.print("\n[CMT   ]  Reconstructing with {s} from Index: {d}, Vault Root: {x}...", .{
+            @tagName(self.hash_type), self.rightmost_index, buffer[0].hash[0..4]
         });
 
         const last_index = self.rightmost_index - 1;
@@ -254,54 +274,89 @@ pub const ConcurrentMerkleTree = struct {
         try self.root_buffer.insert(self.allocator, 0, buffer[0].hash);
     }
 
-    /// Verifica una prueba de inclusión (100% Zig + Poseidon)
-    pub fn verifyProof(root: [32]u8, leaf: [32]u8, index: u64, proof: [][32]u8) bool {
+    /// Verifica una prueba de inclusión (100% Zig + Poseidon/Keccak)
+    pub fn verifyProof(root: [32]u8, leaf: [32]u8, index: u64, proof: [][32]u8, hash_type: HashType) bool {
         var current = leaf;
         for (proof, 0..) |sibling, i| {
             const node_is_right = (index >> @intCast(i)) & 1 == 1;
             
-            const n_u256 = @as(u256, @bitCast(current));
-            const s_u256 = @as(u256, @bitCast(sibling));
-            
-            const hash_val = if (node_is_right) 
-                Poseidon.hash2(s_u256, n_u256) 
-            else 
-                Poseidon.hash2(n_u256, s_u256);
+            if (hash_type == .poseidon) {
+                const n_u256 = @as(u256, @bitCast(current));
+                const s_u256 = @as(u256, @bitCast(sibling));
                 
-            current = @bitCast(hash_val);
+                const hash_val = if (node_is_right) 
+                    Poseidon.hash2(s_u256, n_u256) 
+                else 
+                    Poseidon.hash2(n_u256, s_u256);
+                    
+                current = @bitCast(hash_val);
+            } else {
+                var buf: [64]u8 = undefined;
+                if (node_is_right) {
+                    @memcpy(buf[0..32], &sibling);
+                    @memcpy(buf[32..64], &current);
+                } else {
+                    @memcpy(buf[0..32], &current);
+                    @memcpy(buf[32..64], &sibling);
+                }
+                cmt_keccak256(&buf, 64, &current);
+            }
         }
         return std.mem.eql(u8, &current, &root);
     }
 
-    /// Exporta los datos de una prueba al formato Prover.toml de Noir
-    pub fn exportToNoir(self: *const ConcurrentMerkleTree, log_index: usize, leaf: [32]u8, root: [32]u8, file_writer: anytype) !void {
+    /// Exporta los datos de una transición al formato Prover.toml de Noir
+    pub fn exportTransitionToNoir(
+        self: *const ConcurrentMerkleTree, 
+        log_index: usize, 
+        old_leaf: [32]u8, 
+        old_root: [32]u8, 
+        new_root: [32]u8, 
+        amount: u64,
+        entry_type: u8,
+        tx_hash_preimage: [32]u8,
+        tax_collected: u64,
+        file_writer: anytype
+    ) !void {
         const log = self.change_logs.items[log_index];
         
         var list = std.ArrayListUnmanaged(u8){};
         defer list.deinit(self.allocator);
         const w = list.writer(self.allocator);
 
-        try w.print("root = [\n", .{});
-        for (root, 0..) |b, i| {
-            try w.print("  {d}{s}\n", .{ b, if (i == 31) "" else "," });
-        }
-        try w.print("]\n\n", .{});
+        // old_root
+        const old_root_hex = try crypto.bytesToHex(self.allocator, &old_root);
+        defer self.allocator.free(old_root_hex);
+        try w.print("old_root = \"0x{s}\"\n", .{old_root_hex});
 
-        try w.print("index = {d}\n\n", .{log.index});
+        // new_root
+        const new_root_hex = try crypto.bytesToHex(self.allocator, &new_root);
+        defer self.allocator.free(new_root_hex);
+        try w.print("new_root = \"0x{s}\"\n", .{new_root_hex});
 
-        try w.print("leaf = [\n", .{});
-        for (leaf, 0..) |b, i| {
-            try w.print("  {d}{s}\n", .{ b, if (i == 31) "" else "," });
-        }
-        try w.print("]\n\n", .{});
+        try w.print("index = {d}\n", .{log.index});
+
+        // old_leaf
+        const old_leaf_hex = try crypto.bytesToHex(self.allocator, &old_leaf);
+        defer self.allocator.free(old_leaf_hex);
+        try w.print("old_leaf = \"0x{s}\"\n", .{old_leaf_hex});
+        
+        try w.print("amount = {d}\n", .{amount});
+        try w.print("entry_type = {d}\n", .{entry_type});
+
+        const tx_hash_hex = try crypto.bytesToHex(self.allocator, &tx_hash_preimage);
+        defer self.allocator.free(tx_hash_hex);
+        try w.print("tx_hash_preimage = \"0x{s}\"\n", .{tx_hash_hex});
+        try w.print("tax_collected = {d}\n", .{tax_collected});
 
         try w.print("siblings = [\n", .{});
         for (log.siblings, 0..) |p, i| {
-            try w.print("  [\n", .{});
-            for (p, 0..) |b, j| {
-                try w.print("    {d}{s}\n", .{ b, if (j == 31) "" else "," });
-            }
-            try w.print("  ]{s}\n", .{ if (i == log.siblings.len - 1) "" else "," });
+            const p_hex = try crypto.bytesToHex(self.allocator, &p);
+            defer self.allocator.free(p_hex);
+            try w.print("  \"0x{s}\"{s}\n", .{
+                p_hex,
+                if (i == log.siblings.len - 1) "" else ","
+            });
         }
         try w.print("]\n", .{});
 
