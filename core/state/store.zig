@@ -33,6 +33,25 @@ pub const LedgerEntry = struct {
         hasher.update(self.tx_hash);
         hasher.final(out);
     }
+
+    pub fn poseidonHash(self: LedgerEntry) [32]u8 {
+        const poseidon = @import("../crypto/poseidon.zig");
+
+        // Empaquetamos amount (64 bits) y entry_type (8 bits) en un u256
+        const amount_combined = (@as(u256, self.amount) << 8) | @as(u256, @intFromEnum(self.entry_type));
+
+        // Convertimos tx_hash a u256 (solo los primeros 32 bytes o lo que quepa)
+        var tx_hash_val: u256 = 0;
+        if (self.tx_hash.len >= 32) {
+            tx_hash_val = std.mem.readInt(u256, self.tx_hash[0..32], .little);
+        }
+
+        const hash_val = poseidon.Poseidon.hash2(amount_combined, tx_hash_val % @import("../crypto/bn254.zig").Fr.P);
+
+        var out: [32]u8 = undefined;
+        std.mem.writeInt(u256, &out, hash_val, .little);
+        return out;
+    }
 };
 
 pub const Store = struct {
@@ -84,7 +103,7 @@ pub const Store = struct {
         const header: *types.VaultHeader = @ptrCast(vault_ptr.ptr);
 
         // Inicializar el CMT con el buffer desplazado por el header
-        var tree = try cmt.ConcurrentMerkleTree.init(allocator, depth);
+        var tree = try cmt.ConcurrentMerkleTree.init(allocator, depth, .poseidon);
         tree.nodes_buffer = @ptrCast(vault_ptr.ptr + types.VaultHeader.HEADER_SIZE);
         tree.rightmost_index = header.next_index;
 
@@ -163,8 +182,13 @@ pub const Store = struct {
         try ledger_file.writeAll(line);
 
         // 2. Actualizar el Sovereign Vault
-        var leaf: [32]u8 = undefined;
-        entry.hash(&leaf);
+        const leaf = if (self.tree.hash_type == .poseidon) 
+            entry.poseidonHash() 
+        else blk: {
+            var l: [32]u8 = undefined;
+            entry.hash(&l);
+            break :blk l;
+        };
         
         const idx = self.tree.rightmost_index;
         try self.tree.append(leaf);
