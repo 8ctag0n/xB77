@@ -162,6 +162,9 @@ pub const Vault = struct {
     }
 
     pub fn deinit(self: *Vault) void {
+        for (self.history.items) |record| {
+            self.allocator.free(record.asset.symbol);
+        }
         self.history.deinit(self.allocator);
         self.policy.blacklist.deinit();
         self.allocator.free(self.storage_path);
@@ -243,7 +246,7 @@ pub const Vault = struct {
         try self.history.append(self.allocator, .{
             .timestamp = ts,
             .amount = amount,
-            .asset = asset,
+            .asset = .{ .chain = asset.chain, .symbol = try self.allocator.dupe(u8, asset.symbol) },
         });
 
         const file = try std.fs.cwd().createFile(self.storage_path, .{ .truncate = false });

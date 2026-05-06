@@ -27,6 +27,9 @@ pub const SolanaClient = struct {
     }
 
     pub fn getBalance(self: *SolanaClient, address: []const u8) !u64 {
+        if (std.mem.startsWith(u8, self.endpoint, "mock:")) {
+            return 10_000_000_000; // 10 SOL mock balance
+        }
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"getBalance","params":["{s}", {{"commitment": "confirmed"}}]}}
         , .{address});
@@ -174,6 +177,9 @@ pub const SolanaClient = struct {
     }
 
     pub fn getLatestBlockhash(self: *SolanaClient) !types.Hash {
+        if (std.mem.startsWith(u8, self.endpoint, "mock:")) {
+            return [_]u8{0x42} ** 32;
+        }
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"getLatestBlockhash","params":[]}}
         , .{});
@@ -193,6 +199,10 @@ pub const SolanaClient = struct {
     }
 
     pub fn sendTransaction(self: *SolanaClient, tx_bytes: []const u8) ![]u8 {
+        if (std.mem.startsWith(u8, self.endpoint, "mock:")) {
+            std.debug.print("\n[SOLANA]  (MOCK) Transaction accepted: {x}...", .{tx_bytes[0..@min(tx_bytes.len, 8)]});
+            return try self.allocator.dupe(u8, "5H77mockSignature7777777777777777777777777777777777777777777777777");
+        }
         const encoded_buf = try self.encodeBase64(tx_bytes);
         defer self.allocator.free(encoded_buf);
 
@@ -292,6 +302,9 @@ pub const SolanaClient = struct {
     /// Implementa la API específica de QuickNode para estimación de Priority Fees.
     /// Esto es mucho más preciso que el método estándar de Solana.
     pub fn getQuickNodePriorityFee(self: *SolanaClient, account: []const u8) !u64 {
+        if (std.mem.startsWith(u8, self.endpoint, "mock:")) {
+            return 0;
+        }
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"qn_estimatePriorityFees","params":{{"last_n_blocks":20,"account":"{s}","api_version":2}}}}
         , .{account});
@@ -342,6 +355,9 @@ pub const SolanaClient = struct {
     /// Obtiene el saldo comprimido (ZK-Compression) de una dirección.
     /// Requiere un RPC compatible con Light Protocol / Photon.
     pub fn getCompressedBalanceByOwner(self: *SolanaClient, address: []const u8) !u64 {
+        if (std.mem.startsWith(u8, self.endpoint, "mock:")) {
+            return 5_000_000_000; // 5 SOL mock compressed balance
+        }
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"getCompressedBalanceByOwner","params":["{s}"]}}
         , .{address});
