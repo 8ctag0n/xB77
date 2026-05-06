@@ -1,4 +1,5 @@
+.text
 .globl entrypoint
 entrypoint:
-    mov r0, 0
+    r0 = 0
     exit

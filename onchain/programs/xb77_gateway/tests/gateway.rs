@@ -98,12 +98,9 @@ fn init_instruction(
         orderbook_root: [0u8; 32],
         mxe_program_id: [0u8; 32],
         receipts_program_id: [0u8; 32],
-        light_system_program: [0u8; 32],
-        light_account_compression_program: [0u8; 32],
-        light_noop_program: [0u8; 32],
-    };
-    let data = wincode::serialize(&GatewayInstruction::InitGateway(payload)).unwrap();
+        };
 
+        let update_ix_data = wincode::serialize(&GatewayInstruction::UpdateGateway(payload)).unwrap();
     let (gateway_state, _bump) =
         find_program_address(&[GATEWAY_STATE_SEED], program_id);
 
@@ -126,12 +123,9 @@ fn update_instruction(program_id: Pubkey, admin: Pubkey, merkle_root: [u8; 32]) 
         orderbook_root: [0u8; 32],
         mxe_program_id: [0u8; 32],
         receipts_program_id: [0u8; 32],
-        light_system_program: [0u8; 32],
-        light_account_compression_program: [0u8; 32],
-        light_noop_program: [0u8; 32],
-    };
-    let data = wincode::serialize(&GatewayInstruction::UpdateGateway(payload)).unwrap();
+        };
 
+        let update_ix_data = wincode::serialize(&GatewayInstruction::UpdateGateway(payload)).unwrap();
     let (gateway_state, _bump) =
         find_program_address(&[GATEWAY_STATE_SEED], program_id);
 

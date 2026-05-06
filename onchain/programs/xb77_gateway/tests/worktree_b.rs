@@ -91,9 +91,6 @@ fn worktree_b_full_flow() {
         orderbook_root: [0u8; 32],
         mxe_program_id: [0u8; 32],
         receipts_program_id: [0u8; 32],
-        light_system_program: [0u8; 32],
-        light_account_compression_program: [0u8; 32],
-        light_noop_program: [0u8; 32],
     };
     let init_data = wincode::serialize(&GatewayInstruction::InitGateway(init_payload)).unwrap();
     let init_ix = Instruction::new_with_bytes(

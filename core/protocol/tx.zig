@@ -456,6 +456,38 @@ pub fn buildMemoTx(
     return buf.toOwnedSlice(allocator);
 }
 
+/// Construye la data de la instrucción 'RequestPayment' para el programa xB77.
+/// Formato: [Discriminador (1)] + Payload { request_id, amount, vendor, memo_hash, zk_proof, current_root }
+pub fn buildRequestPaymentInstruction(
+    allocator: std.mem.Allocator,
+    request_id: u64,
+    amount: u64,
+    vendor: [32]u8,
+    memo_hash: [32]u8,
+    zk_proof: []const u8,
+    current_root: [32]u8,
+) ![]u8 {
+    var buf = std.ArrayListUnmanaged(u8){};
+    errdefer buf.deinit(allocator);
+    const writer = buf.writer(allocator);
+
+    // 1. Discriminador del Enum CoreInstruction::RequestPayment
+    // Rust Enum: InitCore=0, RegisterAgent=1, VerifyAndCredit=2, RequestPayment=3
+    try writer.writeByte(3);
+
+    // 2. Payload
+    try borsh.writeU64(writer, request_id);
+    try borsh.writeU64(writer, amount);
+    try writer.writeAll(&vendor);
+    try writer.writeAll(&memo_hash);
+    
+    // xB77 Sovereign Compression params
+    try borsh.writeVecU8(writer, zk_proof);
+    try writer.writeAll(&current_root);
+
+    return buf.toOwnedSlice(allocator);
+}
+
 /// Firma una transacción in-place.
 /// Asume que el buffer empieza con [1] (compact-u16 para 1 firma),
 /// seguido de 64 bytes reservados para la firma,

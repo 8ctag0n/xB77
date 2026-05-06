@@ -83,9 +83,6 @@ fn test_core_payment_logic() {
             AccountMeta::new(credit_line_pda, false),
             AccountMeta::new_readonly(agent, true), // Signer
             AccountMeta::new_readonly(receipts_program_id, false), // Receipts Program
-            // Mock Light Accounts (Core passes them through)
-            AccountMeta::new_readonly(Pubkey::new_unique(), false),
-            AccountMeta::new_readonly(Pubkey::new_unique(), false),
         ],
     );
 
@@ -97,8 +94,6 @@ fn test_core_payment_logic() {
             (credit_line_pda, credit_line_account),
             (agent, Account::default()),
             (receipts_program_id, Account { executable: true, ..Account::default() }), // Pretend it's executable
-            (Pubkey::new_unique(), Account::default()),
-            (Pubkey::new_unique(), Account::default()),
         ],
         &[],
     );

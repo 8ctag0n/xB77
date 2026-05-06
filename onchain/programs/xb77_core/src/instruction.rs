@@ -28,17 +28,16 @@ pub struct RequestPaymentPayload {
     pub amount: u64,
     pub vendor: [u8; 32],
     pub memo_hash: [u8; 32],
-    // Light Protocol / Receipts params
-    pub proof: Vec<u8>,
-    pub address_tree_info: Vec<u8>,
-    pub output_state_tree_index: u8,
-    }
+    // xB77 Sovereign Compression: Proof that this payment is valid according to the agent's state
+    pub zk_proof: Vec<u8>,
+    pub current_root: [u8; 32],
+}
 
-    #[derive(Debug, SchemaRead, SchemaWrite)]
-    pub struct AnchorStateZkPayload {
+#[derive(Debug, SchemaRead, SchemaWrite)]
+pub struct AnchorStateZkPayload {
     pub root: [u8; 32],
     pub proof: Vec<u8>,
-    }
+}
 
     #[derive(Debug, SchemaRead, SchemaWrite)]
     pub enum CoreInstruction {

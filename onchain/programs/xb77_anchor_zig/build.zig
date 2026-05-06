@@ -4,7 +4,6 @@ pub fn build(b: *std.Build) void {
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .bpfel,
         .os_tag = .freestanding,
-        .cpu_model = .{.explicit = &std.Target.bpf.cpu.v3},
     });
 
     const exe = b.addExecutable(.{

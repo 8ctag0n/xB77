@@ -24,12 +24,11 @@ pub enum GatewayError {
     InvalidNullifier = 19,
     InvalidNullifierPda = 20,
     NullifierAlreadyUsed = 21,
-    InvalidLightReceiptAccount = 22,
-    ShadowWireBindingFailed = 23,
-    BadgeNotVerified = 24,
-    InvalidReceiptsProgram = 25,
-    MissingInstructionData = 26,
-    InvalidMxeProgram = 27,
+    ShadowWireBindingFailed = 22,
+    BadgeNotVerified = 23,
+    InvalidReceiptsProgram = 24,
+    MissingInstructionData = 25,
+    InvalidMxeProgram = 26,
 }
 
 impl From<GatewayError> for ProgramError {

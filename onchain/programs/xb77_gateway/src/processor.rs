@@ -571,9 +571,6 @@ fn process_update_gateway(
     config.orderbook_root = payload.orderbook_root;
     config.mxe_program_id = payload.mxe_program_id;
     config.receipts_program_id = payload.receipts_program_id;
-    config.light_system_program = payload.light_system_program;
-    config.light_account_compression_program = payload.light_account_compression_program;
-    config.light_noop_program = payload.light_noop_program;
 
     let serialized = wincode::serialize(&config)
         .map_err(|_| ProgramError::from(GatewayError::InvalidInstruction))?;
@@ -631,9 +628,6 @@ fn process_init_gateway(
         orderbook_root: payload.orderbook_root,
         mxe_program_id: payload.mxe_program_id,
         receipts_program_id: payload.receipts_program_id,
-        light_system_program: payload.light_system_program,
-        light_account_compression_program: payload.light_account_compression_program,
-        light_noop_program: payload.light_noop_program,
         bump,
     };
     let serialized = wincode::serialize(&config)
