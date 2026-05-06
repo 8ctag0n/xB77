@@ -164,6 +164,7 @@ pub const AgentContext = struct {
             &ctx.sol_client,
             &ctx.evm_client,
             &ctx.vaults,
+            &ctx.store,
             &ctx.constitution,
             null,
         );

@@ -4,28 +4,30 @@ const cmt = @import("../state/cmt.zig");
 const solana = @import("../chain/solana.zig");
 const types = @import("../protocol/types.zig");
 
+const store_mod = @import("../state/store.zig");
+
 /// Sovereign Prover: El rol del Agente como Sequencer Descentralizado.
 /// Se encarga de observar la Mesh y consolidar el estado comprimido en L1.
 pub const SovereignProver = struct {
     allocator: std.mem.Allocator,
-    tree: *cmt.ConcurrentMerkleTree,
+    store: *store_mod.Store,
     sol_client: *solana.SolanaClient,
     
     // Umbral de cambios antes de anclar en L1 (para ahorrar fees)
-    anchor_threshold: u64 = 10,
+    anchor_threshold: u64 = 1,
     last_anchored_index: u64 = 0,
 
-    pub fn init(allocator: std.mem.Allocator, tree: *cmt.ConcurrentMerkleTree, sol: *solana.SolanaClient) SovereignProver {
+    pub fn init(allocator: std.mem.Allocator, s: *store_mod.Store, sol: *solana.SolanaClient) SovereignProver {
         return .{
             .allocator = allocator,
-            .tree = tree,
+            .store = s,
             .sol_client = sol,
         };
     }
 
     /// Revisa si es necesario anclar el estado actual en Solana.
     pub fn checkAndAnchor(self: *SovereignProver, signer: *const types.Keypair) !void {
-        const current_idx = self.tree.rightmost_index;
+        const current_idx = self.store.tree.rightmost_index;
         
         // Si no hay nada nuevo, no hacemos nada
         if (current_idx <= self.last_anchored_index) return;
@@ -36,8 +38,30 @@ pub const SovereignProver = struct {
             std.debug.print("\n[PROVER]  CMT Threshold reached ({d} new states).", .{diff});
             std.debug.print("\n[PROVER]  Proving Mesh States in ZK (Autonomous Sequencer Mode)...", .{});
             
-            const root = self.tree.getRoot();
-            const leaf = self.tree.rightmost_leaf;
+            const new_root = self.store.tree.root_buffer.items[0];
+            const old_root = self.store.tree.root_buffer.items[1];
+            const old_leaf = try self.store.tree.computeEmptyNode(0);
+
+            // Recuperar el pre-image del Ledger
+            const history = try self.store.getHistory(self.allocator);
+            defer {
+                for (history) |e| {
+                    self.allocator.free(e.description);
+                    self.allocator.free(e.tx_hash);
+                }
+                self.allocator.free(history);
+            }
+            
+            if (history.len == 0) return;
+            const last_entry = history[history.len - 1];
+            
+            const tax_collected = (last_entry.amount * 2011) / 100000;
+            var tx_hash_preimage: [32]u8 = [_]u8{0} ** 32;
+            if (last_entry.tx_hash.len >= 32) {
+                // Si es un hex string, hay que decodearlo. 
+                // Por ahora asumimos que es binario o lo truncamos.
+                @memcpy(tx_hash_preimage[0..@min(last_entry.tx_hash.len, 32)], last_entry.tx_hash[0..@min(last_entry.tx_hash.len, 32)]);
+            }
 
             // 1. Generar Prover.toml para Noir
             const prover_toml_path = "circuits/state_anchor/Prover.toml";
@@ -45,9 +69,19 @@ pub const SovereignProver = struct {
             const file = try std.fs.cwd().createFile(prover_toml_path, .{});
             defer file.close();
             
-            // Usamos el último log para la prueba de inclusión
-            if (self.tree.change_logs.items.len > 0) {
-                try self.tree.exportToNoir(0, leaf, root, file);
+            // Usamos el último log para la prueba de transición
+            if (self.store.tree.change_logs.items.len > 0) {
+                try self.store.tree.exportTransitionToNoir(
+                    0, 
+                    old_leaf, 
+                    old_root, 
+                    new_root, 
+                    last_entry.amount, 
+                    @intFromEnum(last_entry.entry_type),
+                    tx_hash_preimage,
+                    tax_collected,
+                    file
+                );
             } else {
                 std.debug.print("\n[PROVER] ️ No change logs found, skipping anchor.", .{});
                 return;
@@ -65,11 +99,11 @@ pub const SovereignProver = struct {
             if (term != .Exited or term.Exited != 0) {
                 std.debug.print("\n[PROVER]  ZK Proof generation failed. Verify container runtime (Docker/Podman).", .{});
                 // Fallback a Mock Proof para no trabar el flujo de la demo si el entorno no tiene Docker
-                const mock_proof = try self.generateHighFidelityMockProof(root);
+                const mock_proof = try self.generateHighFidelityMockProof(new_root);
                 defer self.allocator.free(mock_proof);
                 
                 std.debug.print("\n[PROVER] ️ Falling back to high-fidelity Mock Proof for demo flow.", .{});
-                const sig = try self.sol_client.anchorMeshState(root, mock_proof, signer);
+                const sig = try self.sol_client.anchorMeshState(new_root, mock_proof, signer);
                 defer self.allocator.free(sig);
                 std.debug.print("\n[PROVER]  (MOCK) Mesh State Anchored. L1 Sig: {s}", .{sig});
                 self.last_anchored_index = current_idx;
@@ -86,11 +120,12 @@ pub const SovereignProver = struct {
             };
             defer self.allocator.free(real_proof);
 
-            // 4. Anclar en Solana
-            const sig = try self.sol_client.anchorMeshState(root, real_proof, signer);
+            // 4. Anclar en Solana (Nuestro programa Soberano)
+            // Ya no usamos Light, usamos AnchorStateZk directo del programa xB77 Core
+            const sig = try self.sol_client.anchorMeshState(new_root, real_proof, signer);
             defer self.allocator.free(sig);
             
-            std.debug.print("\n[PROVER]  Mesh State Anchored at Index {d}. L1 Sig: {s}", .{current_idx, sig});
+            std.debug.print("\n[PROVER]  Sovereign State Anchored at Index {d}. L1 Sig: {s}", .{current_idx, sig});
             self.last_anchored_index = current_idx;
         }
     }

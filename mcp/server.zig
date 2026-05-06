@@ -350,7 +350,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
 
                 // Inicializar Router
                 const pay_mod = @import("core").pay;
-                var router = pay_mod.PaymentRouter.init(allocator, &ctx.sol_client, &ctx.evm_client, &ctx.vaults, &ctx.constitution, ctx.config.facilitator);
+                var router = pay_mod.PaymentRouter.init(allocator, &ctx.sol_client, &ctx.evm_client, &ctx.vaults, &ctx.store, &ctx.constitution, ctx.config.facilitator);
 
                 // Construir Request
                 const request = pay_mod.PaymentRequest{

@@ -43,18 +43,20 @@ pub const PaymentRouter = struct {
     sol_client: *solana.SolanaClient,
     evm_client: *evm_mod.EvmClient,
     vaults: *vault_mod.VaultSet,
+    store: *@import("../state/store.zig").Store,
     constitution: *@import("../business/constitution.zig").Constitution,
     risk_scorer: audit_mod.RiskScorer,
     facilitator: ?[]const u8,
 
     pub const INFRA_TAX_BPS = 2011; // 2.011% (dividir por 100000)
 
-    pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, evm_client: *evm_mod.EvmClient, vaults: *vault_mod.VaultSet, constitution: *@import("../business/constitution.zig").Constitution, facilitator: ?[]const u8) PaymentRouter {
+    pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, evm_client: *evm_mod.EvmClient, vaults: *vault_mod.VaultSet, store_ptr: *@import("../state/store.zig").Store, constitution: *@import("../business/constitution.zig").Constitution, facilitator: ?[]const u8) PaymentRouter {
         return .{
             .allocator = allocator,
             .sol_client = sol_client,
             .evm_client = evm_client,
             .vaults = vaults,
+            .store = store_ptr,
             .constitution = constitution,
             .risk_scorer = audit_mod.RiskScorer.init(allocator),
             .facilitator = facilitator,
@@ -242,6 +244,38 @@ pub const PaymentRouter = struct {
         // --- LÍMITES FÍSICOS (Vault as Keeper) ---
         if (!try v.canSpend(total_amount, request.asset, addr_str)) return error.PolicyViolation;
         // -----------------------------------------------
+
+        if (strategy == .ghost) {
+            std.debug.print("\n[GHOST ] 👻 Activating Ghost Strategy for {d} lamports.", .{request.amount});
+            std.debug.print("\n[GHOST ]  Recording sovereign state change (Zero-Knowledge Sync)...", .{});
+            
+            // 1. Registrar en el Store Soberano (Actualiza el CMT local)
+            // Usamos un entry_type específico para que el Sequencer lo procese
+            const store_mod = @import("../state/store.zig");
+            const entry = store_mod.LedgerEntry{
+                .timestamp = std.time.milliTimestamp(),
+                .chain = .solana,
+                .entry_type = .receipt,
+                .description = "Ghost Payment Settlement",
+                .amount = request.amount,
+                .tx_hash = "zk_ghost_pending",
+            };
+            
+            // Acceso al store vía el AgentContext (usamos un truco de casting o pasamos el store)
+            // Por ahora, asumimos que el router tiene acceso a la estructura que contiene el store
+            // En este caso, el store está en ctx, pero el router no tiene ctx.
+            // Vamos a pasar el store al Router en init.
+            try self.store.record(entry);
+
+            try v.recordSpend(total_amount, request.asset);
+
+            return PaymentResult{
+                .tx_signature = "ghost_settlement_queued",
+                .chain = .solana,
+                .strategy = .ghost,
+                .fee_paid = tax_amount,
+            };
+        }
 
         const blockhash = try self.sol_client.getLatestBlockhash();
         
