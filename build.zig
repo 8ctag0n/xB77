@@ -275,6 +275,19 @@ pub fn build(b: *std.Build) void {
     orchestrator_potent_e2e_tests.root_module.addImport("core", core_module);
     const run_orchestrator_potent_e2e_tests = b.addRunArtifact(orchestrator_potent_e2e_tests);
 
+    const ghost_payment_e2e_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/ghost_payment_e2e.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    ghost_payment_e2e_tests.root_module.addImport("core", core_module);
+    ghost_payment_e2e_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    ghost_payment_e2e_tests.addIncludePath(b.path("deps"));
+    ghost_payment_e2e_tests.linkLibC();
+    const run_ghost_payment_e2e_tests = b.addRunArtifact(ghost_payment_e2e_tests);
+
     // --- RPC Check Utility ---
     const rpc_check = b.addExecutable(.{
         .name = "rpc-check",
@@ -419,5 +432,6 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_strategist_unit_tests.step);
     test_step.dependOn(&run_orchestrator_e2e_tests.step);
     test_step.dependOn(&run_orchestrator_potent_e2e_tests.step);
+    test_step.dependOn(&run_ghost_payment_e2e_tests.step);
     test_step.dependOn(&run_negotiation_unit_tests.step);
 }

@@ -34,6 +34,7 @@ test "APP: Complete Flow (Quote -> Hire -> Escrow)" {
         &ctx.sol_client,
         &ctx.evm_client,
         &ctx.vaults,
+        &ctx.store,
         &ctx.constitution,
         null,
     );

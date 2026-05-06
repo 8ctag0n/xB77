@@ -25,6 +25,6 @@ test "Ghost Strategy: Generate ZK Prover File" {
 
     try std.testing.expect(std.mem.indexOf(u8, content, "amount = 1000000000") != null);
     try std.testing.expect(std.mem.indexOf(u8, content, "tax_paid = 20110000") != null);
-    try std.testing.expect(std.mem.indexOf(u8, content, "recipient_hash = \"0xab") != null);
+    try std.testing.expect(std.mem.indexOf(u8, content, "recipient_pubkey = \"0xab") != null);
     try std.testing.expect(std.mem.indexOf(u8, content, "secret_salt = \"0x") != null);
 }

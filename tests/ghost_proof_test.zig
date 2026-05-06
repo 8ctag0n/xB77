@@ -30,11 +30,25 @@ test "The Ghost Proof: Zig to Noir State Anchor" {
     var content_list = std.ArrayListUnmanaged(u8){};
     defer content_list.deinit(allocator);
 
-    var leaf: [32]u8 = undefined;
-    entry.hash(&leaf);
+    const old_root = try s.tree.computeEmptyNode(s.tree.depth);
+    const old_leaf = try s.tree.computeEmptyNode(0);
+    const tax = (entry.amount * 2011) / 100000;
     
+    var tx_hash_preimage: [32]u8 = [_]u8{0} ** 32;
+    @memcpy(tx_hash_preimage[0..@min(entry.tx_hash.len, 32)], entry.tx_hash[0..@min(entry.tx_hash.len, 32)]);
+
     var writer = content_list.writer(allocator);
-    try s.tree.exportToNoir(0, leaf, s.tree.getRoot(), &writer);
+    try s.tree.exportTransitionToNoir(
+        0, 
+        old_leaf, 
+        old_root, 
+        s.tree.getRoot(), 
+        entry.amount, 
+        @intFromEnum(entry.entry_type),
+        tx_hash_preimage,
+        tax,
+        &writer
+    );
 
     const file = try std.fs.cwd().createFile(prover_path, .{});
     defer file.close();
@@ -46,7 +60,10 @@ test "The Ghost Proof: Zig to Noir State Anchor" {
     const content = try std.fs.cwd().readFileAlloc(allocator, prover_path, 1024 * 10);
     defer allocator.free(content);
 
-    try std.testing.expect(std.mem.indexOf(u8, content, "root = [") != null);
+    try std.testing.expect(std.mem.indexOf(u8, content, "old_root = \"0x") != null);
+    try std.testing.expect(std.mem.indexOf(u8, content, "new_root = \"0x") != null);
     try std.testing.expect(std.mem.indexOf(u8, content, "index = ") != null);
+    try std.testing.expect(std.mem.indexOf(u8, content, "amount = ") != null);
+    try std.testing.expect(std.mem.indexOf(u8, content, "tax_collected = ") != null);
     try std.testing.expect(std.mem.indexOf(u8, content, "siblings = [") != null);
 }
