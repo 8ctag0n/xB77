@@ -15,6 +15,7 @@ wincode = { version = "0.2.5", default-features = false, features = ["alloc", "d
 spl-token = { version = "4.0.0", default-features = false, features = ["no-entrypoint"] }
 borsh = "=1.5.5"
 thiserror = "=1.0.69"
+light-poseidon = "0.4.0"
 
 # Hard-pinning for Rust 1.75.0 (Solana SBF SDK) - Commented out to resolve conflicts in 2026
 # block-buffer = "=0.10.4"

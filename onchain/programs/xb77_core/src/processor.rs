@@ -8,6 +8,7 @@ use solana_program::{
 };
 extern crate alloc;
 use alloc::format;
+use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::{
@@ -41,6 +42,7 @@ fn process_anchor_state_zk(
     let account_info_iter = &mut accounts.iter();
     let agent_state_account = next_account_info(account_info_iter)?;
     let agent_signer = next_account_info(account_info_iter)?;
+    let verifier_program = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
     if !agent_signer.is_signer {
@@ -57,24 +59,45 @@ fn process_anchor_state_zk(
         return Err(ProgramError::InvalidSeeds);
     }
 
-    // 2. EL JUEZ ZK (Sovereign Verification)
-    msg!("[ZK JUDGE] Verifying state transition for agent: {:?}", agent_signer.key);
-    msg!("[ZK JUDGE] New Root to anchor: {:?}", payload.root);
+    // 2. EL JUEZ SOBERANO (ZK Verification via CPI)
+    msg!("[SOVEREIGN] Verifying ZK Proof for agent batch transition: {:?}", agent_signer.key);
+    
+    // Obtener root anterior de la PDA
+    if !agent_state_account.data_is_empty() {
+        let data = agent_state_account.try_borrow_data()?;
+        let mut anchored_root = [0u8; 32];
+        anchored_root.copy_from_slice(&data[32..64]);
 
-    if payload.proof.len() < 32 {
-        msg!(" Error: ZK Proof is too short or malformed");
-        return Err(CoreError::InvalidZkProof.into());
+        if anchored_root != payload.initial_root {
+            msg!("Error: Initial root mismatch! PDA: {:?}, Payload: {:?}", anchored_root, payload.initial_root);
+            return Err(CoreError::ZkRootMismatch.into());
+        }
     }
 
-    // El primer input público en Noir suele ser el root (32 bytes)
-    let proof_root = &payload.proof[0..32];
-    if proof_root != payload.root {
-        msg!(" Error: Proof root mismatch! Expected: {:?}, Found: {:?}", payload.root, proof_root);
-        return Err(CoreError::ZkRootMismatch.into());
-    }
+    // --- CPI to ZK Verifier Program ---
+    // The verifier program (Sunspot) expects: [proof_len (4 bytes) | proof | witness]
+    // We assume the caller has packed the proof and public inputs correctly.
+    let mut verifier_data = Vec::new();
+    let proof_len = payload.zk_proof.len() as u32;
+    verifier_data.extend_from_slice(&proof_len.to_le_bytes());
+    verifier_data.extend_from_slice(&payload.zk_proof);
+    
+    let verifier_instruction = solana_program::instruction::Instruction {
+        program_id: *verifier_program.key,
+        accounts: vec![], 
+        data: verifier_data,
+    };
 
-    msg!(" ZK Proof verified mathematically via xB77 Sovereign Protocol.");
-    msg!(" State Integrity: Verified by Poseidon BN254.");
+    msg!("[SOVEREIGN] Calling ZK Verifier CPI...");
+    solana_program::program::invoke(
+        &verifier_instruction,
+        &[verifier_program.clone()],
+    ).map_err(|_| {
+        msg!("Error: ZK Verification FAILED.");
+        CoreError::InvalidZkProof
+    })?;
+
+    msg!(" Batch Integrity: Verified by Zero-Knowledge Proof.");
 
     // 3. Persistencia On-Chain
     let rent = solana_program::rent::Rent::get()?;
@@ -99,11 +122,11 @@ fn process_anchor_state_zk(
     // Actualizamos el root soberano
     let mut data = agent_state_account.try_borrow_mut_data()?;
     data[0..32].copy_from_slice(agent_signer.key.as_ref());
-    data[32..64].copy_from_slice(&payload.root);
+    data[32..64].copy_from_slice(&payload.final_root);
     let now = solana_program::clock::Clock::get()?.unix_timestamp;
     data[64..72].copy_from_slice(&now.to_le_bytes());
 
-    msg!(" State Anchor Successful. Root updated.");
+    msg!(" Batch Anchor Successful. Root updated via ZK Proof.");
     Ok(())
 }
 

@@ -35,8 +35,15 @@ pub struct RequestPaymentPayload {
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
 pub struct AnchorStateZkPayload {
-    pub root: [u8; 32],
-    pub proof: Vec<u8>,
+    pub initial_root: [u8; 32],
+    pub final_root: [u8; 32],
+    pub indices: [u64; 5],
+    pub siblings: [[ [u8; 32]; 14]; 5],
+    pub amounts: [u64; 5],
+    pub entry_types: [u8; 5],
+    pub tx_hashes: [[u8; 32]; 5],
+    pub total_tax_collected: u64,
+    pub zk_proof: Vec<u8>, 
 }
 
     #[derive(Debug, SchemaRead, SchemaWrite)]
