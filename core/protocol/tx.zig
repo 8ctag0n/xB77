@@ -229,6 +229,48 @@ pub fn buildAnchorStateZkInstruction(
     return buf.toOwnedSlice(allocator);
 }
 
+/// Construye la data de la instrucción 'OpenPerSession' para el programa xB77.
+pub fn buildOpenPerSessionInstruction(
+    allocator: std.mem.Allocator,
+    amount: u64,
+    session_id: [32]u8,
+    expiry: i64,
+) ![]u8 {
+    var buf = std.ArrayListUnmanaged(u8){};
+    errdefer buf.deinit(allocator);
+    const writer = buf.writer(allocator);
+
+    // 1. Discriminador del Enum CoreInstruction::OpenPerSession (5)
+    try writer.writeByte(5);
+
+    // 2. Payload serializado
+    try borsh.writeU64(writer, amount);
+    try writer.writeAll(&session_id);
+    try borsh.writeU64(writer, @bitCast(expiry));
+
+    return buf.toOwnedSlice(allocator);
+}
+
+/// Construye la data de la instrucción 'RegisterAgent' para el programa xB77.
+pub fn buildRegisterAgentInstruction(
+    allocator: std.mem.Allocator,
+    agent_id: [32]u8,
+    initial_limit: u64,
+) ![]u8 {
+    var buf = std.ArrayListUnmanaged(u8){};
+    errdefer buf.deinit(allocator);
+    const writer = buf.writer(allocator);
+
+    // 1. Discriminador del Enum CoreInstruction::RegisterAgent (1)
+    try writer.writeByte(1);
+
+    // 2. Payload serializado
+    try writer.writeAll(&agent_id);
+    try borsh.writeU64(writer, initial_limit);
+
+    return buf.toOwnedSlice(allocator);
+}
+
 pub const AccountMeta = struct {
     pubkey: types.Pubkey,
     is_signer: bool,

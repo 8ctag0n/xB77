@@ -2,12 +2,14 @@ const std = @import("std");
 const core = @import("../core.zig");
 const types = core.types;
 const crypto = core.crypto;
+const solana_mod = @import("../chain/solana.zig");
 
 /// MagicBlock Sovereign SDK (Native Zig Implementation).
 /// Focuses on Private Ephemeral Rollups (PER) for HFT Agent Commerce.
 pub const MagicBlockSDK = struct {
     allocator: std.mem.Allocator,
     sequencer_url: []const u8,
+    sol_client: ?*solana_mod.SolanaClient = null,
     
     pub const Session = struct {
         id: [32]u8,
@@ -41,23 +43,81 @@ pub const MagicBlockSDK = struct {
     /// Abre una sesión PER nativamente.
     /// Involucra una transacción on-chain inicial en Solana para bloquear el estado.
     pub fn openSovereignSession(self: *MagicBlockSDK, agent_kp: *const types.Keypair) !Session {
-        _ = self;
         std.debug.print("\n[MAGIC ] ️ Initiating Sovereign Session (PER) for Agent {x}...", .{agent_kp.public[0..4]});
         
-        // 1. En un entorno real, aquí se llamaría al programa de MagicBlock en Solana
-        // para "delegar" el control de una cuenta al rollup efímero.
-        
+        // 1. Generar Session ID aleatorio
         var session_id: [32]u8 = undefined;
         std.crypto.random.bytes(&session_id);
+
+        const expiry = std.time.timestamp() + 3600; // 1 hora de turbo
+
+        // 2. Anclar el Escrow en Solana (L1) REAL
+        if (self.sol_client) |sol| {
+            const tx_mod = @import("../protocol/tx.zig");
+            const amount: u64 = 2_000_000_000; // 2.0 SOL hardcoded for the demo session
+
+            std.debug.print("\n[MAGIC ]  Locking {d} lamports in L1 Escrow for Session {x}...", .{amount, session_id[0..4].*});
+            
+            const ix_data = try tx_mod.buildOpenPerSessionInstruction(self.allocator, amount, session_id, expiry);
+            defer self.allocator.free(ix_data);
+
+            const program_id = try crypto.stringToPubkey(self.allocator, "FpWZN1FB9yMfip3vYQhsZhgT4fCB3US9BqAv5kh5uDxv");
+            
+            // PDA del Escrow: [b"per_escrow", agent_pubkey, session_id]
+            var seeds = [_][]const u8{ "per_escrow", &agent_kp.public, &session_id };
+            const pda_res = try crypto.findProgramAddress(&seeds, &program_id);
+            
+            // Build and sign TX
+            const blockhash = try sol.getLatestBlockhash();
+            
+            var buf = std.ArrayListUnmanaged(u8){};
+            defer buf.deinit(self.allocator);
+            const writer = buf.writer(self.allocator);
+
+            try tx_mod.writeCompactU16(writer, 1);
+            try buf.appendNTimes(self.allocator, 0, 64);
+            
+            const message_start = buf.items.len;
+            try writer.writeByte(1); // num_sigs
+            try writer.writeByte(0); // num_signed_readonly
+            try writer.writeByte(2); // num_unsigned_readonly (program, system)
+            
+            try tx_mod.writeCompactU16(writer, 4); // signer, pda, program, system
+            try buf.appendSlice(self.allocator, &agent_kp.public);
+            try buf.appendSlice(self.allocator, &pda_res.address);
+            try buf.appendSlice(self.allocator, &program_id);
+            const system_program = [_]u8{0} ** 32;
+            try buf.appendSlice(self.allocator, &system_program);
+            
+            try buf.appendSlice(self.allocator, &blockhash);
+            
+            try tx_mod.writeCompactU16(writer, 1);
+            try writer.writeByte(2); // program_id index
+            try tx_mod.writeCompactU16(writer, 3); // 3 accounts
+            try writer.writeByte(0); // signer
+            try writer.writeByte(1); // escrow pda
+            try writer.writeByte(3); // system program
+            
+            try tx_mod.writeCompactU16(writer, @intCast(ix_data.len));
+            try buf.appendSlice(self.allocator, ix_data);
+
+            const message = buf.items[message_start..];
+            const signature = crypto.sign(message, agent_kp);
+            @memcpy(buf.items[1..65], &signature);
+
+            const sig = try sol.sendTransaction(buf.items);
+            std.debug.print("\n[MAGIC ]  L1 Escrow Anchor Successful. Sig: {s}", .{sig});
+            self.allocator.free(sig);
+        }
 
         const session = Session{
             .id = session_id,
             .authority = agent_kp.public,
-            .expiry = std.time.timestamp() + 3600, // 1 hora de turbo
+            .expiry = expiry,
             .is_active = true,
         };
 
-        std.debug.print("\n[MAGIC ]  PER Session Active: {x} (Expires in 1h)", .{session_id[0..8].*});
+        std.debug.print("\n[MAGIC ]  PER Session Active: {x} (Sequencer: {s})", .{session_id[0..8].*, self.sequencer_url});
         return session;
     }
 
@@ -66,14 +126,29 @@ pub const MagicBlockSDK = struct {
     pub fn dispatchEphemeral(self: *MagicBlockSDK, session: *const Session, tx: EphemeralTx) ![]const u8 {
         if (!session.is_active or session.isExpired()) return error.SessionInvalid;
 
-        std.debug.print("\n[MAGIC ]  Dispatching HFT Transaction to Sequencer...", .{});
+        std.debug.print("\n[MAGIC ]  Dispatching HFT Transaction to Sequencer {s}...", .{self.sequencer_url});
         
-        // Simulación de llamada gRPC al secuenciador de MagicBlock
-        // En la versión deluxe, usaríamos core.net.http o un cliente gRPC nativo.
-        std.Thread.sleep(15 * std.time.ns_per_ms);
+        const http_mod = @import("../mesh/http.zig");
+        var client = http_mod.HttpClient.init(self.allocator);
+        defer client.deinit();
 
-        const sig_hex = try std.fmt.allocPrint(self.allocator, "per_sig_{x}", .{tx.payload_hash[0..8].*});
-        return sig_hex;
+        // Serialización del AWP Packet (Transferencia Efímera)
+        var body = std.ArrayListUnmanaged(u8){};
+        defer body.deinit(self.allocator);
+        
+        try std.json.stringify(.{
+            .session_id = session.id,
+            .target = tx.target,
+            .amount = tx.amount,
+            .payload_hash = tx.payload_hash,
+            .signature = tx.signature,
+        }, .{}, body.writer(self.allocator));
+
+        const response = try client.post(self.sequencer_url, body.items);
+        defer self.allocator.free(response);
+
+        // El secuenciador devuelve la firma de aceptación en el Rollup
+        return try self.allocator.dupe(u8, response);
     }
 
     /// Cierra la sesión y hace el commit final a Solana L1.

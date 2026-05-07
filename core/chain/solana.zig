@@ -1,7 +1,7 @@
 const std = @import("std");
-const crypto = @import("../crypto/crypto.zig");
+const crypto = @import("../security/crypto.zig");
 const types = @import("../protocol/types.zig");
-const http = @import("../net/http.zig");
+const http = @import("../mesh/http.zig");
 
 pub const SignatureInfo = struct {
     signature: []const u8,
@@ -27,9 +27,6 @@ pub const SolanaClient = struct {
     }
 
     pub fn getBalance(self: *SolanaClient, address: []const u8) !u64 {
-        if (std.mem.startsWith(u8, self.endpoint, "mock:")) {
-            return 10_000_000_000; // 10 SOL mock balance
-        }
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"getBalance","params":["{s}", {{"commitment": "confirmed"}}]}}
         , .{address});
@@ -111,25 +108,47 @@ pub const SolanaClient = struct {
         std.debug.print("\n[SOLANA]  Airdrop requested for {s} ({d} lamports)", .{address, lamports});
     }
 
-    /// Anclaje de Estado Soberano (L1 Anchoring) Real
+    /// Anclaje de Estado Soberano (L1 Anchoring) Real - Batch Mode
     /// Envía el Root del CMT y la Prueba ZK al programa xB77 en Solana.
-    pub fn anchorMeshState(self: *SolanaClient, root: [32]u8, proof: []const u8, signer_kp: *const types.Keypair) ![]u8 {
+    pub fn anchorMeshState(
+        self: *SolanaClient, 
+        initial_root: [32]u8, 
+        final_root: [32]u8, 
+        indices: [5]u64,
+        siblings: [5][14][32]u8,
+        amounts: [5]u64,
+        entry_types: [5]u8,
+        tx_hashes: [5][32]u8,
+        total_tax: u64,
+        zk_proof: []const u8,
+        signer_kp: *const types.Keypair
+    ) ![]u8 {
         const tx_mod = @import("../protocol/tx.zig");
-        std.debug.print("\n[SOLANA]  Anchoring Mesh State (ZK) to L1...", .{});
+        std.debug.print("\n[SOLANA]  Anchoring Sovereign Batch (ZK) to L1...", .{});
 
         // 1. Obtener Blockhash fresco y Priority Fee
         const blockhash = try self.getLatestBlockhash();
         const signer_pubkey = signer_kp.public;
         const signer_addr = try crypto.pubkeyToString(self.allocator, &signer_pubkey);
         defer self.allocator.free(signer_addr);
-        
+
         const priority_fee = try self.getQuickNodePriorityFee(signer_addr);
         std.debug.print("\n[SOLANA]  Dynamic Priority Fee: {d} micro-lamports", .{priority_fee});
 
-        // 2. Construir la data de la instrucción
-        const ix_data = try tx_mod.buildAnchorStateZkInstruction(self.allocator, root, proof);
+        // 2. Construir la data de la instrucción (Batch transition data)
+        const ix_data = try tx_mod.buildAnchorStateZkInstruction(
+            self.allocator, 
+            initial_root,
+            final_root, 
+            indices,
+            siblings,
+            amounts,
+            entry_types,
+            tx_hashes,
+            total_tax,
+            zk_proof
+        );
         defer self.allocator.free(ix_data);
-
         // 3. Definir el Programa (xB77 Core) y Cuentas
         const program_id = try crypto.stringToPubkey(self.allocator, "FpWZN1FB9yMfip3vYQhsZhgT4fCB3US9BqAv5kh5uDxv");
 
@@ -177,9 +196,6 @@ pub const SolanaClient = struct {
     }
 
     pub fn getLatestBlockhash(self: *SolanaClient) !types.Hash {
-        if (std.mem.startsWith(u8, self.endpoint, "mock:")) {
-            return [_]u8{0x42} ** 32;
-        }
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"getLatestBlockhash","params":[]}}
         , .{});
@@ -199,10 +215,6 @@ pub const SolanaClient = struct {
     }
 
     pub fn sendTransaction(self: *SolanaClient, tx_bytes: []const u8) ![]u8 {
-        if (std.mem.startsWith(u8, self.endpoint, "mock:")) {
-            std.debug.print("\n[SOLANA]  (MOCK) Transaction accepted: {x}...", .{tx_bytes[0..@min(tx_bytes.len, 8)]});
-            return try self.allocator.dupe(u8, "5H77mockSignature7777777777777777777777777777777777777777777777777");
-        }
         const encoded_buf = try self.encodeBase64(tx_bytes);
         defer self.allocator.free(encoded_buf);
 
@@ -302,9 +314,6 @@ pub const SolanaClient = struct {
     /// Implementa la API específica de QuickNode para estimación de Priority Fees.
     /// Esto es mucho más preciso que el método estándar de Solana.
     pub fn getQuickNodePriorityFee(self: *SolanaClient, account: []const u8) !u64 {
-        if (std.mem.startsWith(u8, self.endpoint, "mock:")) {
-            return 0;
-        }
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"qn_estimatePriorityFees","params":{{"last_n_blocks":20,"account":"{s}","api_version":2}}}}
         , .{account});
@@ -355,9 +364,6 @@ pub const SolanaClient = struct {
     /// Obtiene el saldo comprimido (ZK-Compression) de una dirección.
     /// Requiere un RPC compatible con Light Protocol / Photon.
     pub fn getCompressedBalanceByOwner(self: *SolanaClient, address: []const u8) !u64 {
-        if (std.mem.startsWith(u8, self.endpoint, "mock:")) {
-            return 5_000_000_000; // 5 SOL mock compressed balance
-        }
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"getCompressedBalanceByOwner","params":["{s}"]}}
         , .{address});

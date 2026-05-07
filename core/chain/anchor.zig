@@ -1,6 +1,6 @@
 const std = @import("std");
 const core = @import("../core.zig");
-const store = @import("../state/store.zig");
+const store = @import("../protocol/store.zig");
 const types = @import("../protocol/types.zig");
 
 pub const AnchorService = struct {

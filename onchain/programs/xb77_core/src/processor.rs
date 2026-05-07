@@ -13,7 +13,10 @@ use alloc::vec::Vec;
 
 use crate::{
     error::CoreError,
-    instruction::{CoreInstruction, InitCorePayload, RegisterAgentPayload, RequestPaymentPayload, VerifyAndCreditPayload},
+    instruction::{
+        AnchorStateZkPayload, CoreInstruction, InitCorePayload, OpenPerSessionPayload,
+        RegisterAgentPayload, RequestPaymentPayload, VerifyAndCreditPayload,
+    },
     state::{CoreConfig, CreditLine},
 };
 
@@ -31,7 +34,74 @@ pub fn process_instruction(
         CoreInstruction::VerifyAndCredit(payload) => process_verify_and_credit(program_id, accounts, payload),
         CoreInstruction::RequestPayment(payload) => process_request_payment(program_id, accounts, payload),
         CoreInstruction::AnchorStateZk(payload) => process_anchor_state_zk(program_id, accounts, payload),
+        CoreInstruction::OpenPerSession(payload) => process_open_per_session(program_id, accounts, payload),
     }
+}
+
+fn process_open_per_session(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    payload: crate::instruction::OpenPerSessionPayload,
+) -> ProgramResult {
+    let account_info_iter = &mut accounts.iter();
+    let agent_signer = next_account_info(account_info_iter)?;
+    let per_escrow_account = next_account_info(account_info_iter)?;
+    let system_program = next_account_info(account_info_iter)?;
+
+    if !agent_signer.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    // 1. Validar PDA del Escrow: [b"per_escrow", agent_pubkey, session_id]
+    let (expected_pda, bump) = Pubkey::find_program_address(
+        &[b"per_escrow", agent_signer.key.as_ref(), &payload.session_id],
+        program_id
+    );
+
+    if expected_pda != *per_escrow_account.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+
+    // 2. Transferir SOL al Escrow
+    msg!("[MAGIC-ESCROW] Locking {} lamports for HFT session: {:?}", payload.amount, payload.session_id);
+    
+    let rent = solana_program::rent::Rent::get()?;
+    let space = 8 + 8; // amount + expiry
+
+    if per_escrow_account.data_is_empty() {
+        let create_ix = solana_program::system_instruction::create_account(
+            agent_signer.key,
+            per_escrow_account.key,
+            rent.minimum_balance(space).max(payload.amount),
+            space as u64,
+            program_id,
+        );
+        solana_program::program::invoke_signed(
+            &create_ix,
+            &[agent_signer.clone(), per_escrow_account.clone(), system_program.clone()],
+            &[&[b"per_escrow", agent_signer.key.as_ref(), &payload.session_id, &[bump]]],
+        )?;
+    } else {
+        // Si ya existe, transferimos el monto adicional si es necesario
+        // (Aunque para el demo, una sesión = una PDA nueva)
+        let transfer_ix = solana_program::system_instruction::transfer(
+            agent_signer.key,
+            per_escrow_account.key,
+            payload.amount,
+        );
+        solana_program::program::invoke(
+            &transfer_ix,
+            &[agent_signer.clone(), per_escrow_account.clone(), system_program.clone()],
+        )?;
+    }
+
+    // 3. Persistir metadata de la sesión
+    let mut data = per_escrow_account.try_borrow_mut_data()?;
+    data[0..8].copy_from_slice(&payload.amount.to_le_bytes());
+    data[8..16].copy_from_slice(&payload.expiry.to_le_bytes());
+
+    msg!("[MAGIC-ESCROW] Session {} initialized on-chain. Ready for HFT PER.", payload.session_id[0..4].iter().map(|b| format!("{:02x}", b)).collect::<String>());
+    Ok(())
 }
 
 fn process_anchor_state_zk(

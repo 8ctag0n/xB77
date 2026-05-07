@@ -1,6 +1,6 @@
 const std = @import("std");
 const types = @import("../protocol/types.zig");
-const http = @import("../net/http.zig");
+const http = @import("../mesh/http.zig");
 
 pub const EvmClient = struct {
     allocator: std.mem.Allocator,
@@ -110,7 +110,7 @@ pub const EvmClient = struct {
 };
 
 pub fn addressToHex(allocator: std.mem.Allocator, addr: types.EthAddress) ![]u8 {
-    const crypto = @import("../crypto/crypto.zig");
+    const crypto = @import("../security/crypto.zig");
     const hex_encoded = try crypto.bytesToHex(allocator, &addr);
     defer allocator.free(hex_encoded);
     return try std.fmt.allocPrint(allocator, "0x{s}", .{hex_encoded});

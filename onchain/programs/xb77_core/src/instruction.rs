@@ -46,6 +46,13 @@ pub struct AnchorStateZkPayload {
     pub zk_proof: Vec<u8>, 
 }
 
+#[derive(Debug, SchemaRead, SchemaWrite)]
+pub struct OpenPerSessionPayload {
+    pub amount: u64,
+    pub session_id: [u8; 32],
+    pub expiry: i64,
+}
+
     #[derive(Debug, SchemaRead, SchemaWrite)]
     pub enum CoreInstruction {
     /// Initialize the global config
@@ -62,4 +69,7 @@ pub struct AnchorStateZkPayload {
 
     /// Anchor the sovereign Merkle root with a ZK proof
     AnchorStateZk(AnchorStateZkPayload),
+
+    /// Open an Ephemeral Session (MagicBlock PER) for HFT
+    OpenPerSession(OpenPerSessionPayload),
     }

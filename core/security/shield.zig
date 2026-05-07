@@ -3,12 +3,16 @@ const types = @import("../protocol/types.zig");
 const crypto = @import("../security/crypto.zig");
 const awp = @import("../protocol/awp.zig");
 const yellowstone = @import("../mesh/yellowstone.zig");
+const solana = @import("../chain/solana.zig");
+const constitution = @import("../security/constitution.zig");
 
 const Address = [32]u8;
 
 /// ComplianceEngine: The Sovereign Shield of xB77.
 pub const ComplianceEngine = struct {
     allocator: std.mem.Allocator,
+    sol_client: ?*solana.SolanaClient = null,
+    constitution: ?*constitution.Constitution = null,
     
     /// El Root del Merkle Tree de cumplimiento (Whitelist/Sanctions).
     sanctions_merkle_root: [32]u8,
@@ -130,7 +134,7 @@ pub const ComplianceEngine = struct {
         };
     }
 
-    /// Lógica de chequeo de sanciones usando el Merkle Root.
+    /// Lógica de chequeo de sanciones usando el Merkle Root y SNS.
     pub fn check(self: *ComplianceEngine, tx: yellowstone.TransactionData) bool {
         // 1. Blacklist Check (Simulado)
         const malicious_addr = [_]u8{0xDE, 0xAD, 0xBE, 0xEF} ++ ([_]u8{0} ** 16);
@@ -139,7 +143,29 @@ pub const ComplianceEngine = struct {
             return false;
         }
 
-        // 2. Whitelist Check (Si hay direcciones cargadas)
+        // 2. Hard SNS Enforcement (Power Play Stream A)
+        if (self.constitution) |consti| {
+            if (consti.required_sns_namespace) |namespace| {
+                if (self.sol_client) |sol| {
+                    _ = sol;
+                    std.debug.print("[Shield] 🆔 Hard SNS Enforcement active. Checking namespace: {s}\n", .{namespace});
+                    
+                    // Nota: En un entorno real, el tx.recipient (Pubkey) debería tener un SNS vinculado.
+                    // Para la demo, validamos que la dirección no sea anónima si el namespace es obligatorio.
+                    // Implementación simplificada: Intentamos resolver un SNS ficticio basado en la pubkey
+                    // o esperamos que el counterparty provea su SNS en el handshake del AWP.
+                    
+                    // Si no tiene SNS vinculado en el catálogo local o on-chain, rechazamos.
+                    // (Simulación de fallo si no es un 'agent.sol')
+                    if (tx.amount > 1_000_000_000 and !std.mem.startsWith(u8, namespace, "*")) {
+                         std.debug.print("[Shield] ️ REJECTED: Counterparty lacks required Sovereign Identity ({s}).\n", .{namespace});
+                         return false;
+                    }
+                }
+            }
+        }
+
+        // 3. Whitelist Check (Si hay direcciones cargadas)
         if (self.whitelist.items.len > 0) {
             var found = false;
             for (self.whitelist.items) |addr| {

@@ -218,8 +218,36 @@ pub const PaymentRouter = struct {
             .lockFundsFn = struct {
                 fn lock(ptr: *anyopaque, hire_id: [32]u8, amount: u64, asset: types.Asset) ![]const u8 {
                     const self_ptr: *PaymentRouter = @ptrCast(@alignCast(ptr));
-                    _ = self_ptr; _ = hire_id; _ = amount; _ = asset;
-                    return "mock_lock_sig";
+                    
+                    std.debug.print("\n[ROUTER]  Locking funds for App Hire {x}...", .{hire_id[0..4].*});
+                    
+                    if (asset.chain != .solana) return error.UnsupportedEscrowChain;
+
+                    const v = &self_ptr.vaults.ops;
+                    const blockhash = try self_ptr.sol_client.getLatestBlockhash();
+                    
+                    // En xB77, el bloqueo de fondos para un "Hire" se hace vía una transferencia
+                    // al Escrow del programa core o directamente al merchant con un flag de escrow.
+                    // Para el demo, usamos una transferencia directa con Memo que el programa core intercepta.
+                    
+                    var transfers = std.ArrayListUnmanaged(tx_mod.Transfer){};
+                    defer transfers.deinit(self_ptr.allocator);
+                    
+                    // En un entorno productivo, el hire_id se usaría para derivar una PDA de Escrow.
+                    // Aquí simplificamos usando la cuenta del merchant pero bajo control del programa.
+                    try transfers.append(self_ptr.allocator, .{ 
+                        .to = self_ptr.vaults.ops.sol_kp.public, // Mock: debería ser la PDA del Escrow
+                        .lamports = amount 
+                    });
+
+                    const fac_pk = if (self_ptr.facilitator) |f| try crypto.stringToPubkey(self_ptr.allocator, f) else null;
+                    const tx_bytes = try tx_mod.buildMultiTransferTx(self_ptr.allocator, v.sol_kp.public, transfers.items, blockhash, 1000, fac_pk);
+                    defer self_ptr.allocator.free(tx_bytes);
+                    
+                    const signature = crypto.sign(tx_bytes[65..], &v.sol_kp);
+                    @memcpy(tx_bytes[1..65], &signature);
+                    
+                    return try self_ptr.sol_client.sendTransaction(tx_bytes);
                 }
             }.lock,
         };
