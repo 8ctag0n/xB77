@@ -11,15 +11,46 @@ pub const IAppRouter = struct {
     }
 };
 
+pub const RecurringPlan = struct {
+    plan_id: [32]u8,
+    asset: types.Asset,
+    amount_per_period: u64,
+    period_sec: u64,
+    max_periods: u32,
+    current_period: u32 = 0,
+};
+
 pub const AppManager = struct {
     allocator: std.mem.Allocator,
     router: ?IAppRouter,
+    plans: std.AutoHashMapUnmanaged([32]u8, RecurringPlan),
 
     pub fn init(allocator: std.mem.Allocator, router: ?IAppRouter) AppManager {
         return .{
             .allocator = allocator,
             .router = router,
+            .plans = .{},
         };
+    }
+
+    pub fn deinit(self: *AppManager) void {
+        self.plans.deinit(self.allocator);
+    }
+
+    pub fn createPlan(self: *AppManager, asset: types.Asset, amount: u64, period_sec: u64, max_periods: u32) !RecurringPlan {
+        var plan_id: [32]u8 = undefined;
+        std.crypto.random.bytes(&plan_id);
+
+        const plan = RecurringPlan{
+            .plan_id = plan_id,
+            .asset = asset,
+            .amount_per_period = amount,
+            .period_sec = period_sec,
+            .max_periods = max_periods,
+        };
+
+        try self.plans.put(self.allocator, plan_id, plan);
+        return plan;
     }
 
     pub fn createQuote(self: *AppManager, service_id: []const u8, amount: u64, expiry: u64) !awp.AppQuoteMsg {

@@ -37,13 +37,13 @@ pub const VoiceClient = struct {
             },
         }, .{}, list.writer());
 
-        // We would need to set the XI-API-KEY header in HttpClient
-        // For the hackathon demo, we'll assume the HttpClient supports custom headers
-        // or we'll wrap it.
+        // Set XI-API-KEY Header (Assuming HttpClient supports headers or using a raw request)
+        // For the purpose of the real demo, we ensure the client is configured.
+        client.setExtraHeader("xi-api-key", self.api_key);
         
-        std.debug.print("[VOICE]  Generating speech for: \"{s}\"\n", .{text});
+        std.debug.print("[VOICE]  Generating sovereign voice for: \"{s}\" (ElevenLabs)...\n", .{text});
         
-        // Mock response for now (binary audio data)
-        return try self.allocator.dupe(u8, "AUDIO_DATA_MOCK");
+        const response = try client.post(url, list.items);
+        return response; // Devuelve el MP3 binario
     }
 };

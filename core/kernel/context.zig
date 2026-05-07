@@ -123,9 +123,15 @@ pub const AgentContext = struct {
         ctx.evm_client.http_client.telemetry = &ctx.telemetry;
         ctx.ipfs_client.http_client.telemetry = &ctx.telemetry;
         
+        ctx.mb_client.sol_client = &ctx.sol_client;
+
         ctx.brain = @import("../intelligence/brain.zig").Brain.init(allocator, &ctx.constitution);
         ctx.mesh_manager.store = &ctx.store;
         ctx.registry_manager.sol_client = &ctx.sol_client;
+        
+        // Link Shield with Context references
+        ctx.compliance.sol_client = &ctx.sol_client;
+        ctx.compliance.constitution = &ctx.constitution;
 
         ctx.router = pay.PaymentRouter.init(
             allocator,
@@ -178,6 +184,7 @@ pub const AgentContext = struct {
         }
         self.active_agents.deinit(self.allocator);
         _ = self.telemetry.endSession();
+        self.app_manager.deinit();
         self.orchestrator.deinit();
         self.brain.deinit();
         self.swap_manager.deinit();
