@@ -16,6 +16,24 @@ ENV PATH="/root/.nargo/bin:$PATH"
 # Pin Noir to 0.36.0 to match SDK
 RUN /root/.nargo/bin/noirup -v 0.36.0
 
+# Install bbup and Barretenberg (bb)
+RUN curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/master/barretenberg/cpp/installation/install | bash
+ENV PATH="/root/.bb:$PATH"
+
 WORKDIR /app
 
-ENTRYPOINT ["nargo"]
+# Wrapper script to handle nargo + bb (The ZK-Bridge)
+RUN echo '#!/bin/bash\n\
+if [ "$1" == "prove" ]; then\n\
+  # 1. Compile\n\
+  nargo compile\n\
+  # 2. Execute (Witness generation)\n\
+  nargo execute witness\n\
+  # 3. Prove with bb\n\
+  # Note: This assumes package name and typical folder structure\n\
+  bb prove -b ./target/state_anchor.json -w ./target/witness.tr -o ./proofs/state_anchor.proof\n\
+else\n\
+  nargo "$@"\n\
+fi' > /usr/local/bin/zk-bridge && chmod +x /usr/local/bin/zk-bridge
+
+ENTRYPOINT ["zk-bridge"]

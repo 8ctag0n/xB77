@@ -1,51 +1,58 @@
 use dep::std;
 
 fn main(
-    old_root: pub Field,
-    new_root: pub Field,
-    index: pub u64,
-    old_leaf: Field,
+    initial_root: pub Field,
+    final_root: pub Field,
+    indices: [u64; 5],
     
-    // Pre-image of new_leaf (Sovereign Entry)
-    amount: u64,
-    entry_type: u8,
-    tx_hash_preimage: Field,
+    // Pre-images of new_leaves
+    amounts: [u64; 5],
+    entry_types: [u8; 5],
+    tx_hashes: [Field; 5],
 
-    siblings: [Field; 14],
+    siblings: [[Field; 14]; 5],
 
-    // Public Output for Solana (Infra Tax Verification)
-    tax_collected: pub u64
+    // Public Output for Solana (Total Infra Tax Verification)
+    total_tax_collected: pub u64
 ) {
-    // 1. Verify Infra Tax (2.011%)
-    // En Noir, la división de enteros trunca como en Zig.
-    assert(tax_collected == (amount * 2011) / 100000);
+    let mut current_tax: u64 = 0;
+    let mut current_root = initial_root;
 
-    // 2. Reconstruct new_leaf from pre-image
-    // El empaquetamiento debe coincidir exactamente con store.zig
-    let amount_combined = ((amount as u128) << 8 | (entry_type as u128)) as Field;
-    let new_leaf = std::hash::poseidon::bn254::hash_2([amount_combined, tx_hash_preimage]);
+    for i in 0..5 {
+        // 1. Verify and accumulate Infra Tax (2.011%)
+        current_tax += (amounts[i] * 2011) / 100000;
 
-    // 3. Verify old_leaf was in old_root
-    let mut current_old = old_leaf;
-    for i in 0..14 {
-        let bit = (index >> (i as u8)) & 1;
-        if bit == 1 {
-            current_old = std::hash::poseidon::bn254::hash_2([siblings[i], current_old]);
-        } else {
-            current_old = std::hash::poseidon::bn254::hash_2([current_old, siblings[i]]);
+        // 2. Reconstruct new_leaf from pre-image
+        let amount_combined = ((amounts[i] as u128) << 8 | (entry_types[i] as u128)) as Field;
+        let new_leaf = std::hash::poseidon::bn254::hash_2([amount_combined, tx_hashes[i]]);
+
+        // 3. Verify transition: current_root must have an empty leaf at indices[i]
+        // (In xB77 Sovereign CMT, appends always replace an empty leaf)
+        let mut check_old_root = 0; // Empty leaf is Field 0
+        for j in 0..14 {
+            let bit = (indices[i] >> (j as u8)) & 1;
+            if bit == 1 {
+                check_old_root = std::hash::poseidon::bn254::hash_2([siblings[i][j], check_old_root]);
+            } else {
+                check_old_root = std::hash::poseidon::bn254::hash_2([check_old_root, siblings[i][j]]);
+            }
         }
-    }
-    assert(current_old == old_root);
+        assert(check_old_root == current_root);
 
-    // 4. Verify new_leaf is in new_root with the same siblings
-    let mut current_new = new_leaf;
-    for i in 0..14 {
-        let bit = (index >> (i as u8)) & 1;
-        if bit == 1 {
-            current_new = std::hash::poseidon::bn254::hash_2([siblings[i], current_new]);
-        } else {
-            current_new = std::hash::poseidon::bn254::hash_2([current_new, siblings[i]]);
+        // 4. Compute next root with the new leaf
+        let mut next_root = new_leaf;
+        for j in 0..14 {
+            let bit = (indices[i] >> (j as u8)) & 1;
+            if bit == 1 {
+                next_root = std::hash::poseidon::bn254::hash_2([siblings[i][j], next_root]);
+            } else {
+                next_root = std::hash::poseidon::bn254::hash_2([next_root, siblings[i][j]]);
+            }
         }
+        current_root = next_root;
     }
-    assert(current_new == new_root);
+
+    // Final Verifications
+    assert(current_root == final_root);
+    assert(current_tax == total_tax_collected);
 }
