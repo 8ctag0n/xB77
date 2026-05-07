@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Instalamos Agave (Solana) v2.0.15
-RUN sh -c "$(curl -sSfL https://release.anza.xyz/v2.0.15/install)"
+# Instalamos Agave (Solana) v3.1.14
+RUN sh -c "$(curl -sSfL https://release.anza.xyz/v3.1.14/install)"
 ENV PATH="/root/.local/share/solana/install/active_release/bin:${PATH}"
 
 WORKDIR /app

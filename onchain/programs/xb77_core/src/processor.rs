@@ -10,6 +10,7 @@ extern crate alloc;
 use alloc::format;
 use alloc::vec;
 use alloc::vec::Vec;
+use alloc::string::String;
 
 use crate::{
     error::CoreError,
@@ -69,7 +70,7 @@ fn process_open_per_session(
     let space = 8 + 8; // amount + expiry
 
     if per_escrow_account.data_is_empty() {
-        let create_ix = solana_program::system_instruction::create_account(
+        let create_ix = solana_system_interface::instruction::create_account(
             agent_signer.key,
             per_escrow_account.key,
             rent.minimum_balance(space).max(payload.amount),
@@ -84,7 +85,7 @@ fn process_open_per_session(
     } else {
         // Si ya existe, transferimos el monto adicional si es necesario
         // (Aunque para el demo, una sesión = una PDA nueva)
-        let transfer_ix = solana_program::system_instruction::transfer(
+        let transfer_ix = solana_system_interface::instruction::transfer(
             agent_signer.key,
             per_escrow_account.key,
             payload.amount,
@@ -175,7 +176,7 @@ fn process_anchor_state_zk(
 
     if agent_state_account.data_is_empty() {
         msg!(" Creating new state anchor account for agent...");
-        let create_ix = solana_program::system_instruction::create_account(
+        let create_ix = solana_system_interface::instruction::create_account(
             agent_signer.key,
             agent_state_account.key,
             rent.minimum_balance(space),
@@ -232,7 +233,7 @@ fn process_init_core(
         let rent = solana_program::rent::Rent::get()?;
         let lamports = rent.minimum_balance(bytes.len());
         solana_program::program::invoke_signed(
-            &solana_program::system_instruction::create_account(
+            &solana_system_interface::instruction::create_account(
                 admin_signer.key,
                 config_account.key,
                 lamports,
@@ -292,7 +293,7 @@ fn process_register_agent(
         let rent = solana_program::rent::Rent::get()?;
         let lamports = rent.minimum_balance(bytes.len());
         solana_program::program::invoke_signed(
-            &solana_program::system_instruction::create_account(
+            &solana_system_interface::instruction::create_account(
                 admin_signer.key,
                 credit_line_account.key,
                 lamports,
