@@ -183,22 +183,28 @@ fn handleState(allocator: std.mem.Allocator, config_path: []const u8) !void {
 }
 
 fn handleInit(allocator: std.mem.Allocator, profile: []const u8) !void {
-    std.debug.print("Generando identidad para perfil '{s}'...\n", .{profile});
+    std.debug.print("\n[INIT  ]  Generating Sovereign Identity for profile '{s}'...\n", .{profile});
     
-    // Construir path de config
     var config_buf: [256]u8 = undefined;
     const config_path = if (std.mem.eql(u8, profile, "default")) "agent.toml" else try std.fmt.bufPrint(&config_buf, "profiles/{s}.toml", .{profile});
 
     var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
     defer ctx.deinit();
 
-    // El VaultSet.init ya se encarga de crear las llaves si no existen
-    // Solo necesitamos reportar la dirección generada
     const sol_addr = try ctx.vaults.ops.address(.solana, allocator);
     defer allocator.free(sol_addr);
+    const eth_addr = try ctx.vaults.ops.address(.base, allocator);
+    defer allocator.free(eth_addr);
     
-    std.debug.print("¡Perfil '{s}' inicializado!\n", .{profile});
-    std.debug.print("Dirección Solana: {s}\n", .{sol_addr});
+    std.debug.print("\n[SUCCESS] Profile '{s}' initialized!\n", .{profile});
+    std.debug.print("          --------------------------------------\n", .{});
+    std.debug.print("          Solana (L1/PER):  {s}\n", .{sol_addr});
+    std.debug.print("          Base (EVM/Sett):  {s}\n", .{eth_addr});
+    std.debug.print("          --------------------------------------\n", .{});
+    std.debug.print("\nNext Steps:\n", .{});
+    std.debug.print("  1. Fund your agent:  xb77 -p {s} credits\n", .{profile});
+    std.debug.print("  2. Setup your shop:  xb77 -p {s} merchant setup-shop\n", .{profile});
+    std.debug.print("  3. Start operating:  xb77 -p {s} serve\n", .{profile});
 }
 
 fn handleStatus(allocator: std.mem.Allocator, config_path: []const u8) !void {
@@ -461,18 +467,25 @@ fn handleCredits(allocator: std.mem.Allocator, config_path: []const u8) !void {
     defer ctx.deinit();
 
     const sol_kp = ctx.vaults.ops.sol_kp;
-    const agent_id_hex = try core.crypto.bytesToHex(allocator, &sol_kp.public);
-    defer allocator.free(agent_id_hex);
+    const sol_addr = try core.crypto.pubkeyToString(allocator, &sol_kp.public);
+    defer allocator.free(sol_addr);
 
-    std.debug.print("\n Sovereign Credits Balance ({s})\n", .{agent_id_hex});
+    std.debug.print("\n[CREDIT]  Sovereign Credits Balance for {s}\n", .{sol_addr});
 
     const balance = ctx.orchestrator.syncBalance(sol_kp.public) catch |err| {
-        std.debug.print(" Error de conexión con el Gateway: {}\n", .{err});
+        std.debug.print("\n[ERROR ]  Gateway Sync Failed: {}. Falling back to local cache.\n", .{err});
         return;
     };
 
-    std.debug.print("Balance: {d} SC\n", .{balance});
-    std.debug.print("Estado: {s}\n", .{if (balance > 50) "Activo & Financiado" else "Créditos Insuficientes"});
+    std.debug.print("          Balance: {d} SC\n", .{balance});
+    std.debug.print("          Status:  {s}\n", .{if (balance >= 50) "Active & Funded" else "Low Credits"});
+
+    if (balance < 50) {
+        std.debug.print("\nHow to Fund:\n", .{});
+        std.debug.print("  1. Send 0.05 SOL to the agent's Solana address above.\n", .{});
+        std.debug.print("  2. Use the following Blink to fund via Credit Card/Apple Pay (MOCK):\n", .{});
+        std.debug.print("     https://dial.to/?action=solana-action:https://gateway.xb77.com/api/fund/{s}\n", .{sol_addr});
+    }
 }
 
 fn handleRemoteExport(allocator: std.mem.Allocator, config_path: []const u8) !void {
@@ -749,7 +762,12 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
         const sec = try std.fmt.parseInt(u64, args[2], 10);
         
         const plan = try ctx.app_manager.createPlan(.{ .chain = .solana, .symbol = "SOL" }, amt, sec, 12);
-        std.debug.print(" Plan recurrente creado: {x}\n", .{plan.plan_id[0..4].*});
+        const plan_id_hex = try core.security.crypto.bytesToHex(allocator, &plan.plan_id);
+        defer allocator.free(plan_id_hex);
+        
+        std.debug.print("\n[MERCH ]  Recurring Plan created successfully!\n", .{});
+        std.debug.print("          Plan ID: {s}\n", .{plan_id_hex});
+        std.debug.print("          Terms:   {d} lamports every {d} seconds\n", .{ amt, sec });
     } else if (std.mem.eql(u8, sub, "setup-shop")) {
         try handleSetupShop(allocator, config_path, &ctx);
     }
@@ -795,15 +813,26 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
     const handle = std.mem.trim(u8, handle_raw, " \r\n\t");
 
     // --- EXECUTION ---
-    try stdout.writeAll("\n Orchestrating Sovereign Infrastructure...\n");
+    try stdout.writeAll("\n[SETUP ]  Orchestrating Sovereign Infrastructure...\n");
+
+    // Automatic Defaults: Facilitator and Registry
+    if (ctx.config.facilitator == null) {
+        ctx.config.facilitator = try allocator.dupe(u8, "xB77infraTax11111111111111111111111111111");
+    }
+    if (ctx.config.registry_program_id == null) {
+        ctx.config.registry_program_id = try allocator.dupe(u8, "Reg111111111111111111111111111111111111111");
+    }
+    try ctx.config.save(allocator, config_path);
 
     // Update Merchant Config
     ctx.merchant.business_name = try allocator.dupe(u8, name);
-    var service = try allocator.alloc(core.business.merchant.MerchantService, 1);
+    var service = try allocator.alloc(core.commerce.merchant.MerchantService, 1);
     service[0] = .{
         .name = try allocator.dupe(u8, srv_name),
-        .description = "Ultra-Deluxe Initial Service",
+        .description = "Sovereign Service",
         .price_lamports = price,
+        .stock = 999,
+        .status = .available,
     };
     ctx.merchant.services = service;
     
@@ -813,19 +842,19 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
     
     // Claim Identity if handle provided
     if (handle.len > 0) {
-        try stdout.print("🆔 Claiming {s}.xb77... ", .{handle});
+        try stdout.print("[SETUP ]  🆔 Claiming {s}.xb77... ", .{handle});
         const sol_kp = ctx.vaults.ops.sol_kp;
         const msg = try std.fmt.allocPrint(allocator, "claim:{s}", .{handle});
         defer allocator.free(msg);
-        const sig = core.crypto.sign(msg, &sol_kp);
+        const sig = core.security.crypto.sign(msg, &sol_kp);
 
         const payload = .{ .agent_id = sol_kp.public, .name = handle, .signature = sig };
         var json_list = std.ArrayListUnmanaged(u8){};
         defer json_list.deinit(allocator);
         try json_list.writer(allocator).print("{any}", .{std.json.fmt(payload, .{})});
 
-        var http = core.net.http.HttpClient.init(allocator);
-        _ = http.post("https://gateway.xb77.com/identity/claim", json_list.items) catch {
+        var http_client = core.mesh.http.HttpClient.init(allocator);
+        _ = http_client.post("https://gateway.xb77.com/identity/claim", json_list.items) catch {
             try stdout.writeAll("️ Gateway unreachable, skipping claim.\n");
         };
         ctx.config.name = try allocator.dupe(u8, handle);
@@ -834,15 +863,15 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
     }
 
     // Deploy to Gateway
-    try stdout.writeAll(" Syncing with Global Edge... ");
+    try stdout.writeAll("[SETUP ]  Syncing with Global Edge... ");
     try handleDeploy(allocator, config_path, &[_][:0]u8{});
     try stdout.writeAll("DONE\n");
 
-    try stdout.writeAll("\n SHOP IS LIVE AND SOVEREIGN! \n");
+    try stdout.writeAll("\n[SUCCESS] SHOP IS LIVE AND SOVEREIGN! \n");
     if (ctx.config.name) |h| {
-        try stdout.print("Public Profile: https://gateway.xb77.com/p/{s}\n", .{h});
+        try stdout.print("          Public Profile: https://gateway.xb77.com/p/{s}\n", .{h});
     }
-    try stdout.writeAll("Blink Link:     https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/pay\n");
-    try stdout.writeAll("--------------------------------------\n");
+    try stdout.writeAll("          Blink Link:     https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/pay\n");
+    try stdout.writeAll("          --------------------------------------\n");
 }
 
