@@ -36,7 +36,7 @@ pub fn build(b: *std.Build) void {
     });
     exe.root_module.addImport("core", core_module);
     exe.root_module.addImport("mcp", mcp_module);
-    exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11", "-fno-stack-check"} });
+    exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11", "-fno-stack-check", "-fPIC"} });
     exe.addIncludePath(b.path("deps"));
     exe.linkLibC();
 
