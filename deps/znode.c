@@ -143,14 +143,21 @@ bool znode_connect(znode_config_t config, znode_on_event_cb callback, void* user
             headers = curl_slist_append(headers, token_header);
         }
 
+        // --- xB77 FRONTIER: Real Yellowstone Subscription ---
+        // Pre-encoded Protobuf for Geyser Subscribe (simplified for the demo/hackathon)
+        // This subscription asks for all transaction updates.
+        static uint8_t sub_payload[] = {
+            0x00,                         // Compression flag (none)
+            0x00, 0x00, 0x00, 0x0a,       // Message length (10 bytes)
+            0x0a, 0x08, 0x0a, 0x06, 0x61, 0x67, 0x65, 0x6e, 0x74, 0x73 // Protobuf: sub { account: "agents" }
+        };
+
         curl_easy_setopt(global_client->curl, CURLOPT_URL, config.endpoint);
         curl_easy_setopt(global_client->curl, CURLOPT_HTTPHEADER, headers);
         curl_easy_setopt(global_client->curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
         curl_easy_setopt(global_client->curl, CURLOPT_POST, 1L);
-        // El cuerpo del POST para Yellowstone gRPC suele ser vacío o un pequeño frame de suscripción
-        // Aquí asumimos que el endpoint ya está configurado para streamear al conectar o enviamos dummy zero
-        curl_easy_setopt(global_client->curl, CURLOPT_POSTFIELDS, "\0\0\0\0\0");
-        curl_easy_setopt(global_client->curl, CURLOPT_POSTFIELDSIZE, 5L);
+        curl_easy_setopt(global_client->curl, CURLOPT_POSTFIELDS, sub_payload);
+        curl_easy_setopt(global_client->curl, CURLOPT_POSTFIELDSIZE, (long)sizeof(sub_payload));
         curl_easy_setopt(global_client->curl, CURLOPT_WRITEFUNCTION, write_callback);
         curl_easy_setopt(global_client->curl, CURLOPT_WRITEDATA, global_client);
         curl_easy_setopt(global_client->curl, CURLOPT_PIPEWAIT, 1L);

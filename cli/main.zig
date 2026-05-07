@@ -280,6 +280,7 @@ fn handleServe(allocator: std.mem.Allocator, config_path: []const u8) !void {
         allocator,
         &ctx.sol_client,
         &ctx.evm_client,
+        &ctx.mb_client,
         &ctx.vaults,
         &ctx.store,
         &ctx.constitution,

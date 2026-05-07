@@ -6,3 +6,5 @@
 {"timestamp":1777276467887,"chain":"solana","entry_type":"match","description":"P2P Match Settled","amount":1000000,"tx_hash":""}
 {"timestamp":1777276467892,"chain":"solana","entry_type":"match","description":"P2P Match Settled","amount":1000000,"tx_hash":""}
 {"timestamp":1714210000,"chain":"solana","entry_type":"audit","description":"High Volume Swap","amount":500000000,"tx_hash":"TEST_EXPANSION_SIG"}
+{"timestamp":1778024745080,"chain":"solana","entry_type":"receipt","description":"Ghost Payment Settlement","amount":2000000000,"tx_hash":"zk_ghost_pending"}
+{"timestamp":1778025047346,"chain":"solana","entry_type":"receipt","description":"Ghost Payment Settlement","amount":2000000000,"tx_hash":"zk_ghost_pending"}

@@ -36,7 +36,7 @@ pub fn build(b: *std.Build) void {
     });
     exe.root_module.addImport("core", core_module);
     exe.root_module.addImport("mcp", mcp_module);
-    exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11", "-fno-stack-check"} });
     exe.addIncludePath(b.path("deps"));
     exe.linkLibC();
 
@@ -54,6 +54,8 @@ pub fn build(b: *std.Build) void {
     znode_exe.addCSourceFile(.{ .file = b.path("deps/znode.c"), .flags = &.{"-std=c11"} });
     znode_exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
     znode_exe.addIncludePath(b.path("deps"));
+    znode_exe.addIncludePath(.{ .cwd_relative = "/usr/include" });
+    znode_exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
     znode_exe.linkLibC();
     znode_exe.linkSystemLibrary("curl");
 
