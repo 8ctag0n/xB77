@@ -1,5 +1,5 @@
 const std = @import("std");
-const crypto = @import("../crypto/crypto.zig");
+const crypto = @import("../security/crypto.zig");
 const types = @import("../protocol/types.zig");
 const awp = @import("../protocol/awp.zig");
 

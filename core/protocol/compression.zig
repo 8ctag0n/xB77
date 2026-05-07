@@ -1,7 +1,7 @@
 const std = @import("std");
-const crypto = @import("../crypto/crypto.zig");
+const crypto = @import("../security/crypto.zig");
 const types = @import("../protocol/types.zig");
-const cmt = @import("../state/cmt.zig");
+const cmt = @import("../protocol/cmt.zig");
 
 /// Estructura de una cuenta comprimida (Ficha de la Bóveda)
 /// Usamos extern struct para asegurar un layout de memoria determinista

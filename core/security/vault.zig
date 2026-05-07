@@ -1,5 +1,5 @@
 const std = @import("std");
-const crypto = @import("../crypto/crypto.zig");
+const crypto = @import("../security/crypto.zig");
 const types = @import("../protocol/types.zig");
 const solana = @import("../chain/solana.zig");
 
@@ -114,7 +114,7 @@ pub const Vault = struct {
 
         // Si llegamos acá es un Vault nuevo o no existe el archivo
         if (mnemonic) |m| {
-            const wdk = @import("../crypto/wdk.zig");
+            const wdk = @import("../security/wdk.zig");
             var provider = try wdk.WdkProvider.init(self.allocator, m);
             defer provider.deinit();
 

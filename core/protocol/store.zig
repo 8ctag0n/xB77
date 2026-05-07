@@ -1,6 +1,6 @@
 const std = @import("std");
 const types = @import("../protocol/types.zig");
-const cmt = @import("../state/cmt.zig");
+const cmt = @import("../protocol/cmt.zig");
 
 pub const EntryType = enum {
     audit,
@@ -35,7 +35,7 @@ pub const LedgerEntry = struct {
     }
 
     pub fn poseidonHash(self: LedgerEntry) [32]u8 {
-        const poseidon = @import("../crypto/poseidon.zig");
+        const poseidon = @import("../security/poseidon.zig");
 
         // Empaquetamos amount (64 bits) y entry_type (8 bits) en un u256
         const amount_combined = (@as(u256, self.amount) << 8) | @as(u256, @intFromEnum(self.entry_type));
@@ -46,7 +46,7 @@ pub const LedgerEntry = struct {
             tx_hash_val = std.mem.readInt(u256, self.tx_hash[0..32], .little);
         }
 
-        const hash_val = poseidon.Poseidon.hash2(amount_combined, tx_hash_val % @import("../crypto/bn254.zig").Fr.P);
+        const hash_val = poseidon.Poseidon.hash2(amount_combined, tx_hash_val % @import("../security/bn254.zig").Fr.P);
 
         var out: [32]u8 = undefined;
         std.mem.writeInt(u256, &out, hash_val, .little);

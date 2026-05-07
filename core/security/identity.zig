@@ -1,7 +1,7 @@
 const std = @import("std");
-const crypto = @import("../crypto/crypto.zig");
-const bn254 = @import("../crypto/bn254.zig");
-const poseidon = @import("../crypto/poseidon.zig");
+const crypto = @import("../security/crypto.zig");
+const bn254 = @import("../security/bn254.zig");
+const poseidon = @import("../security/poseidon.zig");
 const types = @import("../protocol/types.zig");
 const solana_mod = @import("../chain/solana.zig");
 

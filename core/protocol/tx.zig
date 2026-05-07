@@ -1,6 +1,6 @@
 const std = @import("std");
 const types = @import("../protocol/types.zig");
-const crypto = @import("../crypto/crypto.zig");
+const crypto = @import("../security/crypto.zig");
 const rlp = @import("../protocol/rlp.zig");
 
 pub const EthEip1559Tx = struct {
@@ -182,27 +182,49 @@ pub fn buildAddCatalogInstruction(
     return buf.toOwnedSlice(allocator);
 }
 
-/// Construye la data de la instrucción 'AnchorStateZk' para el programa xB77.
-/// Formato: [Discriminador (1)] + [Root (32)] + [Proof (Vec<u8>)]
-/// El discriminador es 4 para 'AnchorStateZk' en el enum CoreInstruction.
+/// Construye la data de la instrucción 'AnchorStateZk' para el programa xB77 (Batch Mode).
+/// Formato: [Discriminador (1)] + [Payload serializado con Borsh]
 pub fn buildAnchorStateZkInstruction(
     allocator: std.mem.Allocator,
-    root: [32]u8,
-    proof: []const u8,
+    initial_root: [32]u8,
+    final_root: [32]u8,
+    indices: [5]u64,
+    siblings: [5][14][32]u8,
+    amounts: [5]u64,
+    entry_types: [5]u8,
+    tx_hashes: [5][32]u8,
+    total_tax: u64,
+    zk_proof: []const u8,
 ) ![]u8 {
     var buf = std.ArrayListUnmanaged(u8){};
     errdefer buf.deinit(allocator);
     const writer = buf.writer(allocator);
 
-    // 1. Discriminador del Enum CoreInstruction::AnchorStateZk
-    // En el enum Rust, InitCore=0, RegisterAgent=1, ..., AnchorStateZk=4
+    // 1. Discriminador del Enum CoreInstruction::AnchorStateZk (4)
     try writer.writeByte(4);
 
-    // 2. Payload: root [u8; 32]
-    try writer.writeAll(&root);
-
-    // 3. Payload: proof Vec<u8>
-    try borsh.writeVecU8(writer, proof);
+    // 2. Payload serializado (Borsh-compatible)
+    try writer.writeAll(&initial_root);
+    try writer.writeAll(&final_root);
+    
+    // indices [u64; 5]
+    for (indices) |idx| try borsh.writeU64(writer, idx);
+    
+    // siblings [[ [u8; 32]; 14]; 5]
+    for (siblings) |batch_s| {
+        for (batch_s) |s| {
+            try writer.writeAll(&s);
+        }
+    }
+    
+    for (amounts) |amt| try borsh.writeU64(writer, amt);
+    for (entry_types) |t| try writer.writeByte(t);
+    for (tx_hashes) |h| try writer.writeAll(&h);
+    
+    try borsh.writeU64(writer, total_tax);
+    
+    // Vec<u8> (zk_proof)
+    try borsh.writeVecU8(writer, zk_proof);
 
     return buf.toOwnedSlice(allocator);
 }

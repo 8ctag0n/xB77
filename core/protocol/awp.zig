@@ -1,6 +1,6 @@
 const std = @import("std");
 const types = @import("../protocol/types.zig");
-const crypto = @import("../crypto/crypto.zig");
+const crypto = @import("../security/crypto.zig");
 pub const awp = @import("awp"); // Importamos el paquete universal
 
 /// Puente (Bridge) entre el Core de xB77 y el Paquete AWP Universal.

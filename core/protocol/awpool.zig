@@ -2,8 +2,8 @@ const std = @import("std");
 const core = @import("../core.zig");
 const awp = @import("../protocol/awp.zig");
 
-const pay = @import("../business/pay.zig");
-const store_mod = @import("../state/store.zig");
+const pay = @import("../commerce/pay.zig");
+const store_mod = @import("../protocol/store.zig");
 
 /// AWPool: El motor de matching binario de xB77.
 /// Permite el cruce de órdenes entre Agentes Soberanos vía AWP.

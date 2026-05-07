@@ -1,8 +1,8 @@
 const std = @import("std");
 const types = @import("../protocol/types.zig");
-const crypto = @import("../crypto/crypto.zig");
+const crypto = @import("../security/crypto.zig");
 const awp = @import("../protocol/awp.zig");
-const yellowstone = @import("../net/yellowstone.zig");
+const yellowstone = @import("../mesh/yellowstone.zig");
 
 const Address = [32]u8;
 
@@ -156,16 +156,72 @@ pub const ComplianceEngine = struct {
 
         // Velocity Check: No más de 1M por transacción en la rampa AWP
         if (tx.amount > 1_000_000_000_000) {
-             std.debug.print("[Shield] ️ Volumen excedido. Aplicando Circuit Breaker.\n", .{});
+             std.debug.print("[Shield] ⚠️ Volumen excedido. Aplicando Circuit Breaker.\n", .{});
              return false;
         }
 
         return true;
-    }
+        }
 
-    /// Actualiza el root de cumplimiento (Gobernanza)
-    pub fn updateRoot(self: *ComplianceEngine, new_root: [32]u8) void {
+        /// Actualiza el root de cumplimiento (Gobernanza)
+        pub fn updateRoot(self: *ComplianceEngine, new_root: [32]u8) void {
         self.sanctions_merkle_root = new_root;
-        std.debug.print("[Shield] Constitution Updated. New Merkle Root: {x}\n", .{new_root[0..4].*});
-    }
-};
+        std.debug.print("[Shield] Constitution Updated. New Merkle Root: {x}\n", .{new_root[0..4]});
+        }
+        };
+
+        /// RiskScorer: Evaluates transaction risk before dispatching to the network.
+        pub const RiskScorer = struct {
+        allocator: std.mem.Allocator,
+
+        pub const Recipient = union(enum) {
+        sol: [32]u8,
+        evm: [20]u8,
+        };
+
+        pub const RiskReport = struct {
+        passed: bool,
+        score: f32,
+        flags: [][]const u8,
+        allocator: std.mem.Allocator,
+
+        pub fn deinit(self: *RiskReport) void {
+            for (self.flags) |f| self.allocator.free(f);
+            self.allocator.free(self.flags);
+        }
+        };
+
+        pub fn init(allocator: std.mem.Allocator) RiskScorer {
+        return .{ .allocator = allocator };
+        }
+
+        pub fn assess(self: RiskScorer, recipient: Recipient, amount: u64) !RiskReport {
+            _ = recipient;
+            var score: f32 = 0.0;
+            var flags = std.ArrayListUnmanaged([]const u8){};
+            errdefer {
+                for (flags.items) |f| self.allocator.free(f);
+                flags.deinit(self.allocator);
+            }
+
+            // Amount-based risk
+            if (amount > 10_000_000_000) { // > 10 SOL
+                score += 0.4;
+                try flags.append(self.allocator, try self.allocator.dupe(u8, "HIGH_VOLUME"));
+            }
+
+            return RiskReport{
+                .passed = score < 0.8,
+                .score = score,
+                .flags = try flags.toOwnedSlice(self.allocator),
+                .allocator = self.allocator,
+            };
+        }
+        /// Static assessment for real-time events
+        pub fn assessTx(tx: yellowstone.TransactionData) f32 {
+        var score: f32 = 0.1;
+        if (tx.amount > 5_000_000_000) score += 0.3;
+        return score;
+        }
+        };
+

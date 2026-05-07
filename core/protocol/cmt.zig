@@ -1,7 +1,7 @@
 const std = @import("std");
-const bn254 = @import("../crypto/bn254.zig");
-const poseidon = @import("../crypto/poseidon.zig");
-const crypto = @import("../crypto/crypto.zig");
+const bn254 = @import("../security/bn254.zig");
+const poseidon = @import("../security/poseidon.zig");
+const crypto = @import("../security/crypto.zig");
 const Fr = bn254.Fr;
 const Poseidon = poseidon.Poseidon;
 
@@ -305,58 +305,69 @@ pub const ConcurrentMerkleTree = struct {
         return std.mem.eql(u8, &current, &root);
     }
 
-    /// Exporta los datos de una transición al formato Prover.toml de Noir
-    pub fn exportTransitionToNoir(
+    /// Exporta un lote de 5 transiciones al formato Prover.toml de Noir
+    pub fn exportBatchToNoir(
         self: *const ConcurrentMerkleTree, 
-        log_index: usize, 
-        old_leaf: [32]u8, 
-        old_root: [32]u8, 
-        new_root: [32]u8, 
-        amount: u64,
-        entry_type: u8,
-        tx_hash_preimage: [32]u8,
-        tax_collected: u64,
+        log_indices: [5]usize, 
+        amounts: [5]u64,
+        entry_types: [5]u8,
+        tx_hashes: [5][32]u8,
+        initial_root: [32]u8, 
+        final_root: [32]u8, 
+        total_tax: u64,
         file_writer: anytype
     ) !void {
-        const log = self.change_logs.items[log_index];
-        
         var list = std.ArrayListUnmanaged(u8){};
         defer list.deinit(self.allocator);
         const w = list.writer(self.allocator);
 
-        // old_root
-        const old_root_hex = try crypto.bytesToHex(self.allocator, &old_root);
-        defer self.allocator.free(old_root_hex);
-        try w.print("old_root = \"0x{s}\"\n", .{old_root_hex});
+        const initial_root_hex = try crypto.bytesToHex(self.allocator, &initial_root);
+        defer self.allocator.free(initial_root_hex);
+        try w.print("initial_root = \"0x{s}\"\n", .{initial_root_hex});
 
-        // new_root
-        const new_root_hex = try crypto.bytesToHex(self.allocator, &new_root);
-        defer self.allocator.free(new_root_hex);
-        try w.print("new_root = \"0x{s}\"\n", .{new_root_hex});
+        const final_root_hex = try crypto.bytesToHex(self.allocator, &final_root);
+        defer self.allocator.free(final_root_hex);
+        try w.print("final_root = \"0x{s}\"\n", .{final_root_hex});
 
-        try w.print("index = {d}\n", .{log.index});
+        try w.print("total_tax_collected = {d}\n", .{total_tax});
 
-        // old_leaf
-        const old_leaf_hex = try crypto.bytesToHex(self.allocator, &old_leaf);
-        defer self.allocator.free(old_leaf_hex);
-        try w.print("old_leaf = \"0x{s}\"\n", .{old_leaf_hex});
-        
-        try w.print("amount = {d}\n", .{amount});
-        try w.print("entry_type = {d}\n", .{entry_type});
+        // Arrays de 5
+        try w.print("indices = [", .{});
+        for (log_indices, 0..) |idx, i| {
+            try w.print("{d}{s}", .{ self.change_logs.items[idx].index, if (i == 4) "" else ", " });
+        }
+        try w.print("]\n", .{});
 
-        const tx_hash_hex = try crypto.bytesToHex(self.allocator, &tx_hash_preimage);
-        defer self.allocator.free(tx_hash_hex);
-        try w.print("tx_hash_preimage = \"0x{s}\"\n", .{tx_hash_hex});
-        try w.print("tax_collected = {d}\n", .{tax_collected});
+        try w.print("amounts = [", .{});
+        for (amounts, 0..) |amt, i| {
+            try w.print("{d}{s}", .{ amt, if (i == 4) "" else ", " });
+        }
+        try w.print("]\n", .{});
+
+        try w.print("entry_types = [", .{});
+        for (entry_types, 0..) |t, i| {
+            try w.print("{d}{s}", .{ t, if (i == 4) "" else ", " });
+        }
+        try w.print("]\n", .{});
+
+        try w.print("tx_hashes = [\n", .{});
+        for (tx_hashes, 0..) |h, i| {
+            const h_hex = try crypto.bytesToHex(self.allocator, &h);
+            defer self.allocator.free(h_hex);
+            try w.print("  \"0x{s}\"{s}\n", .{ h_hex, if (i == 4) "" else "," });
+        }
+        try w.print("]\n", .{});
 
         try w.print("siblings = [\n", .{});
-        for (log.siblings, 0..) |p, i| {
-            const p_hex = try crypto.bytesToHex(self.allocator, &p);
-            defer self.allocator.free(p_hex);
-            try w.print("  \"0x{s}\"{s}\n", .{
-                p_hex,
-                if (i == log.siblings.len - 1) "" else ","
-            });
+        for (log_indices, 0..) |idx, i| {
+            const log = self.change_logs.items[idx];
+            try w.print("  [\n", .{});
+            for (log.siblings, 0..) |p, j| {
+                const p_hex = try crypto.bytesToHex(self.allocator, &p);
+                defer self.allocator.free(p_hex);
+                try w.print("    \"0x{s}\"{s}\n", .{ p_hex, if (j == log.siblings.len - 1) "" else "," });
+            }
+            try w.print("  ]{s}\n", .{ if (i == 4) "" else "," });
         }
         try w.print("]\n", .{});
 

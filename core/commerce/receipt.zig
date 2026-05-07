@@ -1,7 +1,7 @@
 const std = @import("std");
 const types = @import("../protocol/types.zig");
-const crypto = @import("../crypto/crypto.zig");
-const poseidon = @import("../crypto/poseidon.zig");
+const crypto = @import("../security/crypto.zig");
+const poseidon = @import("../security/poseidon.zig");
 
 pub const ZkReceipt = struct {
     amount: u64,

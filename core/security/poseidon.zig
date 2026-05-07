@@ -1,7 +1,7 @@
 const std = @import("std");
-pub const bn254 = @import("../crypto/bn254.zig");
+pub const bn254 = @import("../security/bn254.zig");
 const Fr = bn254.Fr;
-const constants = @import("../crypto/poseidon_constants.zig");
+const constants = @import("../security/poseidon_constants.zig");
 
 pub const Poseidon = struct {
     pub const T = 3;
