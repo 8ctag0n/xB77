@@ -30,23 +30,29 @@ test "The Ghost Proof: Zig to Noir State Anchor" {
     var content_list = std.ArrayListUnmanaged(u8){};
     defer content_list.deinit(allocator);
 
-    const old_root = try s.tree.computeEmptyNode(s.tree.depth);
-    const old_leaf = try s.tree.computeEmptyNode(0);
-    const tax = (entry.amount * 2011) / 100000;
-    
-    var tx_hash_preimage: [32]u8 = [_]u8{0} ** 32;
-    @memcpy(tx_hash_preimage[0..@min(entry.tx_hash.len, 32)], entry.tx_hash[0..@min(entry.tx_hash.len, 32)]);
+    // 2. Exportar Batch de 5 (simulados)
+    const log_indices: [5]usize = [_]usize{0} ** 5;
+    const amounts: [5]u64 = [_]u64{entry.amount} ** 5;
+    const entry_types: [5]u8 = [_]u8{@intFromEnum(entry.entry_type)} ** 5;
+
+    var tx_hashes: [5][32]u8 = undefined;
+    for (0..5) |i| {
+        tx_hashes[i] = [_]u8{0} ** 32;
+        @memcpy(tx_hashes[i][0..@min(entry.tx_hash.len, 32)], entry.tx_hash[0..@min(entry.tx_hash.len, 32)]);
+    }
+
+    const initial_root = try s.tree.computeEmptyNode(s.tree.depth);
+    const total_tax = (entry.amount * 2011 * 5) / 100000;
 
     var writer = content_list.writer(allocator);
-    try s.tree.exportTransitionToNoir(
-        0, 
-        old_leaf, 
-        old_root, 
-        s.tree.getRoot(), 
-        entry.amount, 
-        @intFromEnum(entry.entry_type),
-        tx_hash_preimage,
-        tax,
+    try s.tree.exportBatchToNoir(
+        log_indices,
+        amounts,
+        entry_types,
+        tx_hashes,
+        initial_root,
+        s.tree.getRoot(),
+        total_tax,
         &writer
     );
 
@@ -54,16 +60,16 @@ test "The Ghost Proof: Zig to Noir State Anchor" {
     defer file.close();
     try file.writeAll(content_list.items);
 
-    std.debug.print("\n[GHOST ]  Prover.toml exported to {s}", .{prover_path});
+    std.debug.print("\n[GHOST ]  Prover.toml (Batch) exported to {s}", .{prover_path});
 
-    // 3. Verificar que el archivo existe y tiene el formato correcto
+    // 3. Verificar que el archivo existe y tiene el formato de batch
     const content = try std.fs.cwd().readFileAlloc(allocator, prover_path, 1024 * 10);
     defer allocator.free(content);
 
-    try std.testing.expect(std.mem.indexOf(u8, content, "old_root = \"0x") != null);
-    try std.testing.expect(std.mem.indexOf(u8, content, "new_root = \"0x") != null);
-    try std.testing.expect(std.mem.indexOf(u8, content, "index = ") != null);
-    try std.testing.expect(std.mem.indexOf(u8, content, "amount = ") != null);
-    try std.testing.expect(std.mem.indexOf(u8, content, "tax_collected = ") != null);
+    try std.testing.expect(std.mem.indexOf(u8, content, "initial_root = \"0x") != null);
+    try std.testing.expect(std.mem.indexOf(u8, content, "final_root = \"0x") != null);
+    try std.testing.expect(std.mem.indexOf(u8, content, "indices = [") != null);
+    try std.testing.expect(std.mem.indexOf(u8, content, "amounts = [") != null);
+    try std.testing.expect(std.mem.indexOf(u8, content, "total_tax_collected = ") != null);
     try std.testing.expect(std.mem.indexOf(u8, content, "siblings = [") != null);
 }

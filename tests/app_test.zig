@@ -33,6 +33,7 @@ test "APP: Complete Flow (Quote -> Hire -> Escrow)" {
         allocator,
         &ctx.sol_client,
         &ctx.evm_client,
+        &ctx.mb_client,
         &ctx.vaults,
         &ctx.store,
         &ctx.constitution,

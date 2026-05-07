@@ -34,54 +34,56 @@ test "Ghost Payment E2E: Settlement and ZK Anchoring" {
         allocator,
         &ctx.sol_client,
         &ctx.evm_client,
+        &ctx.mb_client,
         &ctx.vaults,
         &ctx.store,
         &ctx.constitution,
         null,
     );
 
+    // Activar ShadowWire para el test
+    ctx.router.mb_session = try ctx.mb_client.openSovereignSession(&ctx.vaults.ops.sol_kp);
+
     // Give some credits to the agent so it can operate
     try ctx.orchestrator.creditDeposit(ctx.vaults.ops.sol_kp.public, 1_000_000_000);
 
-    // Increase Vault limits for the test
+    // Increase Vault limits for the test (20 SOL daily to allow 10 SOL + taxes)
     ctx.vaults.ops.policy.per_tx_limit = 5_000_000_000;
-    ctx.vaults.ops.policy.daily_limit = 10_000_000_000;
+    ctx.vaults.ops.policy.daily_limit = 20_000_000_000;
 
     const initial_root = ctx.store.tree.getRoot();
     std.debug.print("\n[TEST] Initial Root: {x}", .{initial_root[0..4]});
 
-    // 3. Execute Ghost Payment
+    // 3. Execute 5 Ghost Payments to trigger the Batcher
     const recipient_pk = [_]u8{0x77} ** 32;
 
-    // Force 'ghost' strategy by setting a high amount or mocking selectStrategy
-    // In our implementation, > 1,000,000,000 triggers ghost. Let's use that.
-    const ghost_req = pay.PaymentRequest{
-        .amount = 2_000_000_000,
-        .asset = .{ .chain = .solana, .symbol = "SOL" },
-        .recipient = .{ .sol = recipient_pk },
-    };
+    var i: usize = 0;
+    while (i < 5) : (i += 1) {
+        std.debug.print("\n[TEST] Executing Ghost Payment {d}/5...", .{i + 1});
+        const ghost_req = pay.PaymentRequest{
+            .amount = 2_000_000_000,
+            .asset = .{ .chain = .solana, .symbol = "SOL" },
+            .recipient = .{ .sol = recipient_pk },
+        };
 
-    const res = try ctx.router.pay(ghost_req);
-    try std.testing.expectEqual(pay.PaymentStrategy.ghost, res.strategy);
-    try std.testing.expect(std.mem.eql(u8, res.tx_signature, "ghost_settlement_queued"));
+        const res = try ctx.router.pay(ghost_req);
+        try std.testing.expectEqual(pay.PaymentStrategy.ghost, res.strategy);
+    }
 
     const post_payment_root = ctx.store.tree.getRoot();
-    std.debug.print("\n[TEST] Post-Payment Root: {x}", .{post_payment_root[0..4]});
+    std.debug.print("\n[TEST] Post-Batch Root: {x}", .{post_payment_root[0..4]});
     try std.testing.expect(!std.mem.eql(u8, &initial_root, &post_payment_root));
 
-    // 4. Trigger Prover (ZK Anchoring)
+    // 4. Trigger Prover (ZK-Batch Anchoring)
     var prover = prover_mod.SovereignProver.init(allocator, &ctx.store, &ctx.sol_client);
-    // Set anchor_threshold to 1 already in code, but let's be sure
-    prover.anchor_threshold = 1;
+    // Set anchor_threshold to 5
+    prover.anchor_threshold = 5;
 
-    std.debug.print("\n[TEST] Triggering ZK Anchoring...", .{});
+    std.debug.print("\n[TEST] Triggering ZK Batch Anchoring (N=5)...", .{});
     
-    // We expect this to try calling nargo.sh
-    // Since we are in a test environment, it might fail if podman/docker isn't there,
-    // but the code has a fallback to generateHighFidelityMockProof.
-    
+    // This will try to call nargo.sh prove
     try prover.checkAndAnchor(&ctx.vaults.ops.sol_kp);
 
     try std.testing.expectEqual(ctx.store.tree.rightmost_index, prover.last_anchored_index);
-    std.debug.print("\n[TEST] Anchoring successful! 🟢", .{});
+    std.debug.print("\n[TEST] Batch Anchoring successful! 🟢", .{});
 }
