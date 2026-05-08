@@ -70,9 +70,8 @@ fn test_core_payment_logic() {
         amount: payment_amount,
         vendor: [7u8; 32],
         memo_hash: [8u8; 32],
-        proof: vec![0; 64], // Dummy proof
-        address_tree_info: vec![0; 32], // Dummy tree info
-        output_state_tree_index: 0,
+        zk_proof: vec![0; 64], // Dummy proof
+        current_root: [0; 32], // Dummy tree info
     };
 
     let instruction = Instruction::new_with_bytes(

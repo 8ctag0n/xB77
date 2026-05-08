@@ -29,7 +29,7 @@ light-poseidon = "0.4.0"
 
 [dev-dependencies]
 mollusk-svm = "*"
-solana-account = "*"
-solana-instruction = "*"
-solana-program-error = "*"
-solana-pubkey = "*"
+solana-account = "=3.4.0"
+solana-instruction = "=3.4.0"
+solana-program-error = "=3.0.1"
+solana-pubkey = "=4.2.0"

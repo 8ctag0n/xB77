@@ -26,16 +26,47 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    let instruction: CoreInstruction = wincode::deserialize(instruction_data)
-        .map_err(|_| ProgramError::InvalidInstructionData)?;
+    if instruction_data.len() < 4 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+    let (tag_bytes, rest) = instruction_data.split_at(4);
+    let tag = u32::from_le_bytes(tag_bytes.try_into().unwrap());
 
-    match instruction {
-        CoreInstruction::InitCore(payload) => process_init_core(program_id, accounts, payload),
-        CoreInstruction::RegisterAgent(payload) => process_register_agent(program_id, accounts, payload),
-        CoreInstruction::VerifyAndCredit(payload) => process_verify_and_credit(program_id, accounts, payload),
-        CoreInstruction::RequestPayment(payload) => process_request_payment(program_id, accounts, payload),
-        CoreInstruction::AnchorStateZk(payload) => process_anchor_state_zk(program_id, accounts, payload),
-        CoreInstruction::OpenPerSession(payload) => process_open_per_session(program_id, accounts, payload),
+    match tag {
+        0 => {
+            let payload: InitCorePayload = wincode::deserialize(rest)
+                .map_err(|_| ProgramError::InvalidInstructionData)?;
+            process_init_core(program_id, accounts, payload)
+        }
+        1 => {
+            let payload: RegisterAgentPayload = wincode::deserialize(rest)
+                .map_err(|_| ProgramError::InvalidInstructionData)?;
+            process_register_agent(program_id, accounts, payload)
+        }
+        2 => {
+            let payload: VerifyAndCreditPayload = wincode::deserialize(rest)
+                .map_err(|_| ProgramError::InvalidInstructionData)?;
+            process_verify_and_credit(program_id, accounts, payload)
+        }
+        3 => {
+            let payload: RequestPaymentPayload = wincode::deserialize(rest)
+                .map_err(|_| ProgramError::InvalidInstructionData)?;
+            process_request_payment(program_id, accounts, payload)
+        }
+        4 => {
+            // AnchorStateZkPayload is huge (2.5KB). To avoid stack overflow during
+            // local function execution, we parse it and pass it by reference or box.
+            // Since `wincode::deserialize` places it on the stack, we wrap it in a Box.
+            let payload: alloc::boxed::Box<AnchorStateZkPayload> = wincode::deserialize(rest)
+                .map_err(|_| ProgramError::InvalidInstructionData)?;
+            process_anchor_state_zk(program_id, accounts, &payload)
+        }
+        5 => {
+            let payload: OpenPerSessionPayload = wincode::deserialize(rest)
+                .map_err(|_| ProgramError::InvalidInstructionData)?;
+            process_open_per_session(program_id, accounts, payload)
+        }
+        _ => Err(ProgramError::InvalidInstructionData),
     }
 }
 
@@ -108,7 +139,7 @@ fn process_open_per_session(
 fn process_anchor_state_zk(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    payload: crate::instruction::AnchorStateZkPayload,
+    payload: &crate::instruction::AnchorStateZkPayload,
 ) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
     let agent_state_account = next_account_info(account_info_iter)?;

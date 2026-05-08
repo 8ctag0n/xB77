@@ -21,7 +21,7 @@ fn test_core_full_flow() {
     let treasury_mint = Pubkey::new_unique();
 
     // --- 1. Init Core ---
-    let (config_pda, _bump) = Pubkey::find_program_address(&[b"config"], &program_id);
+    let (config_pda, _bump) = Pubkey::find_program_address(&[b"config_v3"], &program_id);
 
     let init_payload = InitCorePayload {
         admin: admin.to_bytes(),
@@ -30,24 +30,18 @@ fn test_core_full_flow() {
         treasury_mint: treasury_mint.to_bytes(),
     };
 
+    let system_program = solana_pubkey::Pubkey::default(); // system program ID is 11111111111111111111111111111111
+
     let instruction = Instruction::new_with_bytes(
         program_id,
         &wincode::serialize(&CoreInstruction::InitCore(init_payload)).unwrap(),
         vec![
             AccountMeta::new(config_pda, false),
             AccountMeta::new(admin, true),
+            AccountMeta::new_readonly(system_program, false),
         ],
     );
 
-    // Mollusk expects accounts to be initialized if we want to pass them with specific state
-    // but Account::default() is fine for uninitialized/lamport-only accounts.
-    // For the config account, it's a PDA that will be initialized. We pass it as default (empty).
-    
-    // We need to give it lamports/space? 
-    // The processor does `try_borrow_mut_data`. If the account data is empty (len 0), writing fails?
-    // "Simple copy, assume account is pre-allocated". YES.
-    // So we MUST allocate it in the test harness.
-    
     let config_space = 200; // Enough for config
     let mut config_account = Account {
         lamports: 1_000_000,
@@ -62,6 +56,7 @@ fn test_core_full_flow() {
         &[
             (config_pda, config_account.clone()), 
             (admin, Account::default()),
+            (system_program, Account::default()),
         ],
         &[],
     );
@@ -94,6 +89,7 @@ fn test_core_full_flow() {
             AccountMeta::new_readonly(config_pda, false),
             AccountMeta::new(credit_pda, false),
             AccountMeta::new(admin, true),
+            AccountMeta::new_readonly(system_program, false),
         ],
     );
 
@@ -112,6 +108,7 @@ fn test_core_full_flow() {
             (config_pda, config_account.clone()),
             (credit_pda, credit_account.clone()),
             (admin, Account::default()),
+            (system_program, Account::default()),
         ],
         &[],
     );
@@ -158,12 +155,23 @@ fn test_core_full_flow() {
 
 
     // --- 4. Request Payment ---
+    let (agent_state_pda, _) = Pubkey::find_program_address(&[b"agent_state", agent.as_ref()], &program_id);
+    let agent_state_account = Account {
+        lamports: 1_000_000,
+        data: vec![0u8; 100], // Needs to be >64 for the anchored root
+        owner: program_id,
+        executable: false,
+        rent_epoch: 0,
+    };
+    
     let payment_amount = 200;
     let payment_payload = RequestPaymentPayload {
         request_id: 1,
         amount: payment_amount,
         vendor: [2u8; 32],
         memo_hash: [0u8; 32],
+        zk_proof: vec![0; 64],
+        current_root: [0; 32],
     };
 
     let instruction = Instruction::new_with_bytes(
@@ -172,7 +180,9 @@ fn test_core_full_flow() {
         vec![
             AccountMeta::new_readonly(config_pda, false),
             AccountMeta::new(credit_pda, false),
+            AccountMeta::new_readonly(agent_state_pda, false),
             AccountMeta::new(agent, true), // Agent signs
+            AccountMeta::new_readonly(system_program, false),
         ],
     );
 
@@ -181,7 +191,9 @@ fn test_core_full_flow() {
         &[
             (config_pda, config_account.clone()),
             (credit_pda, credit_account.clone()),
+            (agent_state_pda, agent_state_account.clone()),
             (agent, Account::default()),
+            (system_program, Account::default()),
         ],
         &[],
     );
