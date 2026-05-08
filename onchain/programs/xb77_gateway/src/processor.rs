@@ -9,7 +9,6 @@ use solana_program::{
     program_error::ProgramError,
     pubkey::Pubkey,
     rent::Rent,
-    system_instruction, system_program,
     sysvar::{instructions, Sysvar},
 };
 use alloc::vec;
@@ -292,7 +291,7 @@ fn process_verify_badge(
     // For this design, we'll verify the proof via CPI.
 
     // --- CPI to Standalone Verifier ---
-    if config_verifier_is_zero || verifier_is_zero || verifier_program.key == &system_program::ID {
+    if config_verifier_is_zero || verifier_is_zero || verifier_program.key == &Pubkey::default() {
         msg!("verify_badge: verifier not configured, skipping CPI");
     } else {
         msg!("verify_badge: invoking standalone verifier");
@@ -311,7 +310,7 @@ fn process_verify_badge(
     cpi_data.extend_from_slice(&payload.proof);
     cpi_data.extend_from_slice(&payload.public_witness);
 
-    if !config_verifier_is_zero && !verifier_is_zero && verifier_program.key != &system_program::ID {
+    if !config_verifier_is_zero && !verifier_is_zero && verifier_program.key != &Pubkey::default() {
         let verifier_ix = Instruction {
             program_id: *verifier_program.key,
             accounts: vec![
@@ -463,7 +462,7 @@ fn process_submit_private_order(
         return Err(GatewayError::InvalidGatewayStateOwner.into());
     }
 
-    if system_program_account.key != &system_program::ID {
+    if system_program_account.key != &Pubkey::default() {
         return Err(GatewayError::InvalidSystemProgram.into());
     }
 
@@ -495,7 +494,7 @@ fn process_submit_private_order(
         return Err(GatewayError::InvalidNullifierPda.into());
     }
 
-    if nullifier_account.owner != &system_program::ID
+    if nullifier_account.owner != &Pubkey::default()
         && nullifier_account.owner != program_id
     {
         return Err(GatewayError::InvalidNullifierPda.into());
@@ -508,7 +507,7 @@ fn process_submit_private_order(
     let space = 1usize;
     let rent = Rent::get()?;
     let lamports = rent.minimum_balance(space);
-    let create_ix = system_instruction::create_account(
+    let create_ix = solana_system_interface::instruction::create_account(
         payer.key,
         nullifier_account.key,
         lamports,
@@ -604,7 +603,7 @@ fn process_init_gateway(
         return Err(GatewayError::GatewayStateNotWritable.into());
     }
 
-    if system_program_account.key != &system_program::ID {
+    if system_program_account.key != &Pubkey::default() {
         return Err(GatewayError::InvalidSystemProgram.into());
     }
 
@@ -637,7 +636,7 @@ fn process_init_gateway(
     let lamports = rent.minimum_balance(space);
 
     if gateway_state.owner != program_id {
-        let create_ix = system_instruction::create_account(
+        let create_ix = solana_system_interface::instruction::create_account(
             payer.key,
             gateway_state.key,
             lamports,

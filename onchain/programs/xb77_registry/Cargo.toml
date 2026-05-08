@@ -11,6 +11,7 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 solana-program = "~3.0"
+solana-system-interface = { version = "*", features = ["bincode"] }
 wincode = { version = "0.2.5", default-features = false, features = ["alloc", "derive", "solana-short-vec"] }
 getrandom = { version = "0.2", default-features = false, features = ["custom"] }
 

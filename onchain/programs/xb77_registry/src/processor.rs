@@ -6,7 +6,6 @@ use solana_program::{
     program_error::ProgramError,
     pubkey::Pubkey,
     rent::Rent,
-    system_instruction, system_program,
     sysvar::{clock::Clock, Sysvar},
 };
 
@@ -96,7 +95,7 @@ fn process_init_merchant(
     if !payer.is_signer {
         return Err(RegistryError::MissingSigner.into());
     }
-    if system_program_info.key != &system_program::id() {
+    if system_program_info.key != &Pubkey::default() {
         return Err(RegistryError::InvalidSystemProgram.into());
     }
 
@@ -127,7 +126,7 @@ fn process_init_merchant(
     let lamports = rent.minimum_balance(serialized.len());
 
     invoke_signed(
-        &system_instruction::create_account(
+        &solana_system_interface::instruction::create_account(
             payer.key,
             merchant_account.key,
             lamports,
@@ -213,7 +212,7 @@ fn process_add_catalog(
     if !payer.is_signer {
         return Err(RegistryError::MissingSigner.into());
     }
-    if system_program_info.key != &system_program::id() {
+    if system_program_info.key != &Pubkey::default() {
         return Err(RegistryError::InvalidSystemProgram.into());
     }
 
@@ -261,7 +260,7 @@ fn process_add_catalog(
     let lamports = rent.minimum_balance(serialized.len());
 
     invoke_signed(
-        &system_instruction::create_account(
+        &solana_system_interface::instruction::create_account(
             payer.key,
             catalog_account.key,
             lamports,

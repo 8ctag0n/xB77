@@ -10,7 +10,11 @@ use solana_program::{
     declare_id,
 };
 use wincode::{SchemaRead, SchemaWrite};
-use light_poseidon::{Poseidon, PoseidonHasher, bn254::FieldElement};
+use ark_bn254::Fr;
+use ark_ff::{BigInteger, PrimeField};
+
+mod poseidon;
+use poseidon::Poseidon;
 
 declare_id!("Comp111111111111111111111111111111111111111");
 
@@ -62,36 +66,25 @@ pub fn verify_transition(payload: &VerifyTransitionPayload) -> bool {
     // amount_combined = (amount << 8) | type
     let amount_combined = ((payload.leaf_preimage_amount as u128) << 8) | (payload.leaf_preimage_type as u128);
     
-    let mut hasher = Poseidon::new_v1();
-    
     // Hash2: [amount_combined, tx_hash]
     let input = [
-        FieldElement::from_u128(amount_combined),
-        FieldElement::from_be_bytes_mod_order(&payload.leaf_preimage_tx_hash),
+        Fr::from(amount_combined),
+        Fr::from_be_bytes_mod_order(&payload.leaf_preimage_tx_hash),
     ];
-    
-    let new_leaf = match hasher.hash(&input) {
-        Ok(h) => h.to_be_bytes(),
-        Err(_) => return false,
-    };
+
+    let mut hasher = Poseidon::new(input);
+    let new_leaf = hasher.hash().into_bigint().to_bytes_be();
 
     // 2. Verificar Merkle Proof
     let mut current = new_leaf;
     for (i, sibling) in payload.siblings.iter().enumerate() {
         let node_is_right = (payload.index >> i) & 1 == 1;
         
-        let left = if node_is_right { sibling } else { &current };
-        let right = if node_is_right { &current } else { sibling };
+        let left = if node_is_right { Fr::from_be_bytes_mod_order(sibling) } else { Fr::from_be_bytes_mod_order(&current) };
+        let right = if node_is_right { Fr::from_be_bytes_mod_order(&current) } else { Fr::from_be_bytes_mod_order(sibling) };
         
-        let hash_input = [
-            FieldElement::from_be_bytes_mod_order(left),
-            FieldElement::from_be_bytes_mod_order(right),
-        ];
-        
-        current = match hasher.hash(&hash_input) {
-            Ok(h) => h.to_be_bytes(),
-            Err(_) => return false,
-        };
+        let mut hasher = Poseidon::new([left, right]);
+        current = hasher.hash().into_bigint().to_bytes_be();
     }
     
     current == payload.new_root
