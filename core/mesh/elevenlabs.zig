@@ -28,14 +28,14 @@ pub const VoiceClient = struct {
         // Build request body (JSON)
         var list = std.ArrayList(u8).init(self.allocator);
         defer list.deinit();
-        try std.json.stringify(.{
+        try list.writer().print("{any}", .{std.json.fmt(.{
             .text = text,
             .model_id = "eleven_monolingual_v1",
             .voice_settings = .{
                 .stability = 0.5,
                 .similarity_boost = 0.5,
             },
-        }, .{}, list.writer());
+        }, .{})});
 
         // Set XI-API-KEY Header (Assuming HttpClient supports headers or using a raw request)
         // For the purpose of the real demo, we ensure the client is configured.

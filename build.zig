@@ -34,6 +34,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         }),
     });
+    exe.pie = true;
     exe.root_module.addImport("core", core_module);
     exe.root_module.addImport("mcp", mcp_module);
     exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11", "-fno-stack-check", "-fPIC"} });

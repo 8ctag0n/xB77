@@ -26,7 +26,7 @@ pub fn generateProgramKeypair(b: *std.build.Builder, lib: *std.build.LibExeObjSt
         const program_keypair = try std.crypto.sign.Ed25519.KeyPair.create(null);
 
         var keypair_json = std.ArrayList(u8).init(b.allocator);
-        try std.json.stringify(program_keypair.secret_key.bytes, .{}, keypair_json.writer());
+        try keypair_json.writer().print("{any}", .{std.json.fmt(program_keypair.secret_key.bytes, .{})});
 
         const keypair = b.addWriteFile(path, keypair_json.items);
         b.getInstallStep().dependOn(&keypair.step);

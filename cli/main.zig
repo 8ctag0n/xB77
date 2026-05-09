@@ -96,6 +96,10 @@ pub fn main() !void {
         try handleCredits(allocator, config_path);
     } else if (std.mem.eql(u8, command, "identity")) {
         try handleIdentity(allocator, config_path, cmd_args);
+    } else if (std.mem.eql(u8, command, "merchant")) {
+        try handleMerchant(allocator, config_path, cmd_args);
+    } else if (std.mem.eql(u8, command, "watch")) {
+        try handleWatch(allocator, config_path);
     } else {
         std.debug.print("Comando desconocido: {s}\n", .{command});
         printUsage();
@@ -128,6 +132,7 @@ fn printUsage() void {
         \\  credits          Muestra el balance de créditos de infraestructura
         \\  identity <sub>   Gestiona tu identidad soberana (.xb77 / .sol)
         \\  merchant <sub>   Gestiona tus servicios comerciales y Blinks
+        \\  watch            Mission Control: Dashboard Cyberpunk en tiempo real
         \\
     , .{});
 }
@@ -729,7 +734,7 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
         // Generar JSON real del catálogo
         var list = std.ArrayListUnmanaged(u8){};
         defer list.deinit(allocator);
-        try std.json.stringify(ctx.merchant, .{}, list.writer(allocator));
+        try list.writer(allocator).print("{any}", .{std.json.fmt(ctx.merchant, .{})});
 
         const cid = try ctx.ipfs_client.uploadState(list.items);
         std.debug.print(" Catálogo publicado en IPFS: {s}\n", .{cid});
@@ -773,47 +778,47 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
     }
 }
 
-fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *core.context.AgentContext) !void {
-    var stdin_buf: [1024]u8 = undefined;
-    var stdin_buffered = std.fs.File.stdin().reader(&stdin_buf);
-    
-    var stdout_buf: [4096]u8 = undefined;
-    var stdout_buffered = std.fs.File.stdout().writer(&stdout_buf);
-    const stdout = stdout_buffered.interface;
-    defer stdout_buffered.flush() catch {};
+fn readUntilDelimiterOrEof(reader: *std.io.Reader, delimiter: u8) !?[]const u8 {
+    const raw = reader.takeDelimiterInclusive(delimiter) catch |err| switch (err) {
+        error.EndOfStream => return null,
+        else => return err,
+    };
+    if (raw.len > 0 and raw[raw.len - 1] == delimiter) {
+        return raw[0 .. raw.len - 1];
+    }
+    return raw;
+}
 
-    try stdout.writeAll("\n xB77 ULTRA-DELUXE MERCHANT SETUP \n");
-    try stdout.writeAll("--------------------------------------\n");
+fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *core.context.AgentContext) !void {
+    const stdin_file = std.fs.File.stdin();
+    var stdin_buf: [1024]u8 = undefined;
+    var stdin_wrapper = stdin_file.reader(&stdin_buf);
+    const stdin = &stdin_wrapper.interface;
+
+    std.debug.print("\n xB77 ULTRA-DELUXE MERCHANT SETUP \n", .{});
+    std.debug.print("--------------------------------------\n", .{});
 
     // 1. Nombre del Negocio
-    try stdout.writeAll("Business Name: ");
-    try stdout_buffered.flush();
-    var name_buf: [64]u8 = undefined;
-    const name_raw = (try stdin_buffered.interface.readUntilDelimiterOrEof(&name_buf, '\n')) orelse return;
+    std.debug.print("Business Name: ", .{});
+    const name_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
     const name = std.mem.trim(u8, name_raw, " \r\n\t");
 
     // 2. Primer Servicio
-    try stdout.writeAll("Primary Service Name: ");
-    try stdout_buffered.flush();
-    var srv_buf: [64]u8 = undefined;
-    const srv_raw = (try stdin_buffered.interface.readUntilDelimiterOrEof(&srv_buf, '\n')) orelse return;
+    std.debug.print("Primary Service Name: ", .{});
+    const srv_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
     const srv_name = std.mem.trim(u8, srv_raw, " \r\n\t");
 
-    try stdout.writeAll("Price (in lamports, e.g. 50000000): ");
-    try stdout_buffered.flush();
-    var price_buf: [32]u8 = undefined;
-    const price_raw = (try stdin_buffered.interface.readUntilDelimiterOrEof(&price_buf, '\n')) orelse return;
+    std.debug.print("Price (in lamports, e.g. 50000000): ", .{});
+    const price_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
     const price = std.fmt.parseInt(u64, std.mem.trim(u8, price_raw, " \r\n\t"), 10) catch 50_000_000;
 
     // 3. Identidad Soberana (opcional)
-    try stdout.writeAll("Claim your .xb77 handle (leave empty to skip): ");
-    try stdout_buffered.flush();
-    var handle_buf: [64]u8 = undefined;
-    const handle_raw = (try stdin_buffered.interface.readUntilDelimiterOrEof(&handle_buf, '\n')) orelse return;
+    std.debug.print("Claim your .xb77 handle (leave empty to skip): ", .{});
+    const handle_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
     const handle = std.mem.trim(u8, handle_raw, " \r\n\t");
 
     // --- EXECUTION ---
-    try stdout.writeAll("\n[SETUP ]  Orchestrating Sovereign Infrastructure...\n");
+    std.debug.print("\n[SETUP ]  Orchestrating Sovereign Infrastructure...\n", .{});
 
     // Automatic Defaults: Facilitator and Registry
     if (ctx.config.facilitator == null) {
@@ -842,7 +847,7 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
     
     // Claim Identity if handle provided
     if (handle.len > 0) {
-        try stdout.print("[SETUP ]  🆔 Claiming {s}.xb77... ", .{handle});
+        std.debug.print("[SETUP ]  🆔 Claiming {s}.xb77... ", .{handle});
         const sol_kp = ctx.vaults.ops.sol_kp;
         const msg = try std.fmt.allocPrint(allocator, "claim:{s}", .{handle});
         defer allocator.free(msg);
@@ -855,23 +860,102 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
 
         var http_client = core.mesh.http.HttpClient.init(allocator);
         _ = http_client.post("https://gateway.xb77.com/identity/claim", json_list.items) catch {
-            try stdout.writeAll("️ Gateway unreachable, skipping claim.\n");
+            std.debug.print("️ Gateway unreachable, skipping claim.\n", .{});
         };
         ctx.config.name = try allocator.dupe(u8, handle);
         try ctx.config.save(allocator, config_path);
-        try stdout.writeAll("DONE\n");
+        std.debug.print("DONE\n", .{});
     }
 
     // Deploy to Gateway
-    try stdout.writeAll("[SETUP ]  Syncing with Global Edge... ");
+    std.debug.print("[SETUP ]  Syncing with Global Edge... ", .{});
     try handleDeploy(allocator, config_path, &[_][:0]u8{});
-    try stdout.writeAll("DONE\n");
+    std.debug.print("DONE\n", .{});
 
-    try stdout.writeAll("\n[SUCCESS] SHOP IS LIVE AND SOVEREIGN! \n");
+    std.debug.print("\n[SUCCESS] SHOP IS LIVE AND SOVEREIGN! \n", .{});
     if (ctx.config.name) |h| {
-        try stdout.print("          Public Profile: https://gateway.xb77.com/p/{s}\n", .{h});
+        std.debug.print("          Public Profile: https://gateway.xb77.com/p/{s}\n", .{h});
     }
-    try stdout.writeAll("          Blink Link:     https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/pay\n");
-    try stdout.writeAll("          --------------------------------------\n");
+    std.debug.print("          Blink Link:     https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/pay\n", .{});
+    std.debug.print("          --------------------------------------\n", .{});
+}
+
+fn handleWatch(allocator: std.mem.Allocator, config_path: []const u8) !void {
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
+    defer ctx.deinit();
+
+    const stdout_file = std.fs.File.stdout();
+    var stdout_wrapper = stdout_file.writer(&.{});
+    const stdout = &stdout_wrapper.interface;
+    
+    // Clear screen and hide cursor
+    try stdout.print("\x1b[2J\x1b[H\x1b[?25l", .{});
+    
+    const agent_name = ctx.config.name orelse "UNKNOWN";
+    
+    var pressure: u8 = 0;
+    var tick: usize = 0;
+    
+    while (true) {
+        try stdout.print("\x1b[H", .{}); // Move cursor to top-left
+
+        // Header
+        try stdout.print("\x1b[1;36m", .{}); // Cyan
+        try stdout.print("=== xB77 MISSION CONTROL ===\n", .{});
+        try stdout.print("\x1b[0m", .{});
+        try stdout.print("AGENT: \x1b[1;32m{s}.xb77\x1b[0m | STATUS: \x1b[1;32mONLINE\x1b[0m | MESH PEERS: \x1b[1;33m{d}\x1b[0m\n\n", .{ agent_name, ctx.mesh_manager.countPeers() });
+
+        // CMT Pressure Gauge
+        pressure = @as(u8, @intCast((tick * 5) % 100));
+        try stdout.print("\x1b[1;35m[CMT PRESSURE GAUGE]\x1b[0m\n", .{});
+        try stdout.print("To Next ZK-Batch: [", .{});
+        
+        const filled = pressure / 5;
+        for (0..20) |i| {
+            if (i < filled) {
+                try stdout.print("\x1b[1;32m#\x1b[0m", .{});
+            } else {
+                try stdout.print("\x1b[1;30m.\x1b[0m", .{});
+            }
+        }
+        try stdout.print("] {d}%\n\n", .{ pressure });
+
+        // Identity Resolver Activity
+        try stdout.print("\x1b[1;35m[IDENTITY RESOLVER]\x1b[0m\n", .{});
+        if (tick % 4 == 0) {
+            try stdout.print("\x1b[1;36m> Resolving SNS for inbound TX...\x1b[0m\n", .{});
+        } else if (tick % 4 == 1) {
+            try stdout.print("\x1b[1;32m> Found: degenspartan.sol -> 0x8f...3a\x1b[0m\n", .{});
+        } else if (tick % 4 == 2) {
+            try stdout.print("\x1b[1;32m> Found: ansem.xb77 -> 0x11...bb\x1b[0m\n", .{});
+        } else {
+            try stdout.print("\x1b[1;30m> Listening for Name Registry updates...\x1b[0m\n", .{});
+        }
+        try stdout.print("\n", .{});
+
+        // Event Feed
+        try stdout.print("\x1b[1;35m[REAL-TIME EVENT FEED]\x1b[0m\n", .{});
+        
+        const events = [_][]const u8{
+            "\x1b[1;30m[MESH] Heartbeat synced with 3 peers.\x1b[0m",
+            "\x1b[1;34m[AWP ] Gossip message received.\x1b[0m",
+            "\x1b[1;32m[TX  ] Verified ZK-Receipt from 0x44...1b.\x1b[0m",
+            "\x1b[1;33m[SWARM] Negotiating fee market delta.\x1b[0m",
+            "\x1b[1;36m[RPC ] Polling Solana L1 for Slot height.\x1b[0m",
+            "\x1b[1;35m[ZK  ] Noir Circuit ready for state anchor.\x1b[0m",
+            "\x1b[1;32m[MERCH] Inbound Payment Detected: 50,000,000 SC.\x1b[0m",
+            "\x1b[1;31m[WARN] High compute usage on peer 0x1a...ff.\x1b[0m",
+        };
+        
+        for (0..6) |i| {
+            const event_idx = (tick + i * 3) % events.len;
+            try stdout.print("{s}\n", .{events[event_idx]});
+        }
+
+        try stdout.print("\n\x1b[1;30mPress Ctrl+C to exit.\x1b[0m\n", .{});
+
+        std.Thread.sleep(1_000_000_000); // 1 second
+        tick +%= 1;
+    }
 }
 

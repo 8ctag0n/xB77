@@ -130,25 +130,24 @@ pub const MagicBlockSDK = struct {
         
         const http_mod = @import("../mesh/http.zig");
         var client = http_mod.HttpClient.init(self.allocator);
-        defer client.deinit();
 
         // Serialización del AWP Packet (Transferencia Efímera)
         var body = std.ArrayListUnmanaged(u8){};
         defer body.deinit(self.allocator);
         
-        try std.json.stringify(.{
+        try body.writer(self.allocator).print("{any}", .{std.json.fmt(.{
             .session_id = session.id,
             .target = tx.target,
             .amount = tx.amount,
             .payload_hash = tx.payload_hash,
             .signature = tx.signature,
-        }, .{}, body.writer(self.allocator));
+        }, .{})});
 
-        const response = try client.post(self.sequencer_url, body.items);
-        defer self.allocator.free(response);
+        var response = try client.post(self.sequencer_url, body.items);
+        defer response.deinit();
 
         // El secuenciador devuelve la firma de aceptación en el Rollup
-        return try self.allocator.dupe(u8, response);
+        return try self.allocator.dupe(u8, response.body);
     }
 
     /// Cierra la sesión y hace el commit final a Solana L1.

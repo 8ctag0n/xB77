@@ -3,316 +3,304 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>xB77 | Sovereign Agent OS</title>
+    <title>xB77 — Autonomous Financial Infrastructure</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap');
+
         :root {
-            --bg-dark: #050505;
-            --neon-green: #00ff41;
-            --dark-green: #003300;
-            --gray: #333333;
-            --text-light: #e0e0e0;
-            --font-mono: 'Courier New', Courier, monospace;
+            --ac: #c8ff2e;
+            --bg: #08080a;
+            --panel: #121214;
+            --text: #e0e0e0;
+            --text-dim: #888;
+            --border: #222;
+            --sans: 'DM Sans', sans-serif;
+            --mono: 'JetBrains Mono', monospace;
+            --serif: 'Instrument Serif', serif;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            background-color: var(--bg-dark);
-            color: var(--text-light);
-            font-family: var(--font-mono);
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: var(--sans); 
             line-height: 1.6;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
+            overflow-x: hidden;
         }
 
-        /* Scanlines */
+        /* Cyberpunk Scanlines */
         body::before {
             content: " ";
             display: block;
-            position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 2;
-            background-size: 100% 2px, 3px 100%;
-            pointer-events: none;
-        }
-
-        .sidebar {
-            width: 300px;
-            background: #0a0a0a;
-            border-right: 1px solid var(--neon-green);
-            padding: 20px;
-            overflow-y: auto;
-            z-index: 10;
-        }
-
-        .sidebar h1 {
-            color: var(--neon-green);
-            font-size: 1.5rem;
-            margin-bottom: 2rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            border-bottom: 1px dashed var(--neon-green);
-            padding-bottom: 10px;
-        }
-
-        .nav-link {
-            display: block;
-            color: var(--text-light);
-            text-decoration: none;
-            padding: 10px;
-            margin-bottom: 5px;
-            border-left: 2px solid transparent;
-            transition: all 0.3s;
-        }
-
-        .nav-link:hover, .nav-link.active {
-            border-left: 2px solid var(--neon-green);
-            color: var(--neon-green);
-            background: rgba(0, 255, 65, 0.05);
-        }
-
-        .main-content {
-            flex: 1;
-            padding: 40px;
-            overflow-y: auto;
-            z-index: 10;
-        }
-
-        .content-section {
-            display: none;
-            max-width: 800px;
-        }
-
-        .content-section.active {
-            display: block;
-            animation: fadeIn 0.5s ease-in;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        h2 { color: var(--neon-green); margin-bottom: 20px; font-size: 2rem; }
-        h3 { color: #fff; margin: 20px 0 10px 0; }
-        p { margin-bottom: 15px; }
-        code { background: var(--gray); padding: 2px 5px; border-radius: 3px; color: var(--neon-green); }
-        pre { background: #111; padding: 15px; border: 1px solid var(--gray); overflow-x: auto; margin-bottom: 20px; }
-
-        /* Dashboard Panel */
-        .dashboard-panel {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 350px;
-            background: rgba(0, 0, 0, 0.8);
-            border: 1px solid var(--neon-green);
-            padding: 15px;
-            z-index: 20;
-            backdrop-filter: blur(5px);
-            box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 100;
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+            opacity: 0.5;
         }
 
-        .dash-header {
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 2rem; }
+
+        /* Navigation */
+        nav {
+            padding: 2rem 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid var(--gray);
-            padding-bottom: 10px;
-            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border);
         }
+        .logo { font-family: var(--mono); font-weight: 700; font-size: 1.5rem; color: var(--ac); letter-spacing: -1px; }
+        .nav-links a { color: var(--text-dim); text-decoration: none; margin-left: 2rem; font-family: var(--mono); font-size: 0.8rem; text-transform: uppercase; transition: color 0.3s; }
+        .nav-links a:hover { color: var(--ac); }
 
-        .status-dot {
-            height: 10px; width: 10px;
-            border-radius: 50%;
-            display: inline-block;
-            background-color: red;
-            box-shadow: 0 0 5px red;
-            transition: all 0.3s;
-        }
-        .status-dot.online { background-color: var(--neon-green); box-shadow: 0 0 5px var(--neon-green); }
-
+        /* Hero */
+        header { padding: 8rem 0; text-align: center; }
+        h1 { font-family: var(--serif); font-size: 5rem; line-height: 0.9; margin-bottom: 2rem; font-style: italic; }
+        .hero-sub { color: var(--text-dim); font-size: 1.2rem; max-width: 600px; margin: 0 auto 3rem; }
+        
         .btn {
-            background: transparent;
-            color: var(--neon-green);
-            border: 1px solid var(--neon-green);
-            padding: 5px 10px;
-            cursor: pointer;
-            font-family: var(--font-mono);
-            transition: all 0.2s;
+            background: var(--ac);
+            color: var(--bg);
+            padding: 1rem 2rem;
+            text-decoration: none;
+            font-family: var(--mono);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            display: inline-block;
+            transition: transform 0.2s, box-shadow 0.3s;
         }
-        .btn:hover { background: var(--neon-green); color: black; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 0 30px rgba(200, 255, 46, 0.3); }
 
-        .stat-row {
+        /* Interactive Sections */
+        section { padding: 6rem 0; border-bottom: 1px solid var(--border); }
+        h2 { font-family: var(--mono); text-transform: uppercase; font-size: 0.8rem; color: var(--ac); letter-spacing: 2px; margin-bottom: 3rem; }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+
+        /* Ghost Audit Visualizer Mini */
+        .visualizer-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            padding: 2rem;
+            border-radius: 4px;
+            position: relative;
+        }
+        .audit-node {
+            background: #000;
+            border: 1px solid #333;
+            padding: 1rem;
+            margin-bottom: 1rem;
             display: flex;
             justify-content: space-between;
-            margin-bottom: 5px;
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            opacity: 0.5;
+            transition: all 0.5s;
+        }
+        .audit-node.active { opacity: 1; border-color: var(--ac); box-shadow: 0 0 15px rgba(200, 255, 46, 0.1); }
+        .status-verified { color: var(--ac); font-weight: bold; }
+
+        /* Blink Showcase */
+        .blink-mockup {
+            background: #fff;
+            color: #000;
+            border-radius: 12px;
+            padding: 1rem;
+            max-width: 400px;
+            margin: 0 auto;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .blink-header { display: flex; gap: 0.8rem; margin-bottom: 1rem; }
+        .blink-icon { width: 48px; height: 48px; border-radius: 8px; background: var(--bg); }
+        .blink-title { font-weight: 700; font-size: 1rem; }
+        .blink-desc { font-size: 0.9rem; color: #536471; margin-bottom: 1rem; }
+        .blink-btn {
+            background: #000;
+            color: #fff;
+            padding: 0.6rem;
+            text-align: center;
+            border-radius: 9999px;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
             font-size: 0.9rem;
         }
-        .stat-label { color: #888; }
-        .stat-val { font-weight: bold; }
+        .blink-footer { font-size: 0.8rem; color: #536471; text-align: center; margin-top: 1rem; }
 
-        /* Telegram Section */
-        .tg-box {
-            margin-top: 20px;
-            padding: 15px;
-            border: 1px dashed #0088cc;
-            background: rgba(0, 136, 204, 0.05);
+        /* Terminal Window */
+        .terminal {
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 1.5rem;
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            height: 300px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+        .term-header { color: #555; margin-bottom: 1rem; display: flex; justify-content: space-between; }
+        .term-line { margin-bottom: 0.4rem; }
+        .term-cyan { color: #00f3ff; }
+        .term-green { color: var(--ac); }
+        .term-dim { color: #444; }
+
+        footer { padding: 4rem 0; text-align: center; color: var(--text-dim); font-family: var(--mono); font-size: 0.7rem; }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 3rem; }
+            .grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
 
-    <div class="sidebar">
-        <h1>xB77 OS</h1>
-        <a href="#" class="nav-link active" onclick="showSection('intro')">> Introduction</a>
-        <a href="#" class="nav-link" onclick="showSection('architecture')">> Architecture</a>
-        <a href="#" class="nav-link" onclick="showSection('swarm')">> Swarm Intelligence</a>
-        <a href="#" class="nav-link" onclick="showSection('zk')">> ZK Ghost Receipts</a>
-        <div style="margin-top: 40px; color: #555; font-size: 0.8rem;">
-            VERSION: 1.0.0-rc<br>
-            TARGET: SOLANA FRONTIER
-        </div>
-    </div>
-
-    <div class="main-content">
-        <!-- Intro Section -->
-        <div id="intro" class="content-section active">
-            <h2>Sovereign Agent OS</h2>
-            <p>xB77 is not a smart contract. It is a <strong>Terminal-Native Financial Operating System</strong> designed for the Agentic Economy. Written entirely in Zig and Rust, it allows autonomous AI agents to negotiate, settle, and audit themselves without relying on Web2 cloud infrastructure.</p>
-            
-            <div class="tg-box">
-                <h3 style="color: #0088cc; margin-top:0;">📱 Telegram Voice Agent (ElevenLabs)</h3>
-                <p>When connected to a local node, you can interact with your agent via Telegram. Send it a text message, and the agent's local LLM will synthesize a voice response via ElevenLabs, reporting on its Swarm status.</p>
-                <p><strong>Bot Link:</strong> <a href="#" style="color:var(--neon-green)">t.me/xB77_Agent_Bot</a></p>
-                <p style="font-size: 0.8rem; color: #888;">* Requires local node running with ngrok/webhook configured.</p>
+    <div class="container">
+        <nav>
+            <div class="logo">xB77</div>
+            <div class="nav-links">
+                <a href="#audit">Audit</a>
+                <a href="#blinks">Blinks</a>
+                <a href="#terminal">OS</a>
+                <a href="https://github.com/google-gemini/xB77">Github</a>
             </div>
+        </nav>
 
-            <h3>Quick Start</h3>
-            <pre><code># 1. Compile the Zig workspace
-zig build
+        <header>
+            <h1>Autonomous<br>Capital Management</h1>
+            <p class="hero-sub">The first sovereign operating system for financial agents. Written in Zig. Settled on Solana. Verified by Zero-Knowledge.</p>
+            <a href="#terminal" class="btn">Deploy Sovereign Node</a>
+        </header>
 
-# 2. Run the Gateway Server
-zig build run -- gateway &
-
-# 3. Setup the Merchant Identity
-./zig-out/bin/xb77 merchant setup-shop</code></pre>
-        </div>
-
-        <!-- Architecture Section -->
-        <div id="architecture" class="content-section">
-            <h2>Architecture</h2>
-            <p>The system is composed of heavily optimized, low-level components:</p>
-            <ul>
-                <li><strong>Z-Node (C/Zig):</strong> Connects directly to Solana RPCs (Yellowstone gRPC) to stream blockchain events with sub-millisecond latency.</li>
-                <li><strong>Sovereign Vault:</strong> AES-GCM encrypted local key management. No SaaS holds your keys.</li>
-                <li><strong>MagicBlock HFT:</strong> Uses ephemeral rollups for instant transaction settlement.</li>
-            </ul>
-        </div>
-
-        <!-- Swarm Section -->
-        <div id="swarm" class="content-section">
-            <h2>Swarm Intelligence (P2P)</h2>
-            <p>Agents in xB77 don't work alone. They communicate over a custom binary protocol (Agent Wire Protocol - AWP) via TCP sockets.</p>
-            <p>If an agent runs out of Sovereign Credits (Austerity Mode), it broadcasts a <code>LoanRequestMsg</code> to the Swarm. Other agents use their local LLM (Gemma 4) to evaluate the risk and automatically provide a Flash Loan via MagicBlock.</p>
-        </div>
-
-        <!-- ZK Section -->
-        <div id="zk" class="content-section">
-            <h2>ZK Ghost Receipts</h2>
-            <p>Corporate auditing without exposing business logic. The agent generates a Plonk ZK-Proof using Noir that mathematically proves 2.011% tax was paid on-chain.</p>
-            <p>The public commitment is stored on Solana. The auditor decrypts the real values (Amount, Recipient) locally in the browser using the Gateway's WASM bridge and a Viewing Key.</p>
-        </div>
-    </div>
-
-    <!-- Floating Dashboard -->
-    <div class="dashboard-panel">
-        <div class="dash-header">
-            <span style="font-weight: bold; letter-spacing: 1px;">LOCAL NODE</span>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <span id="conn-text" style="font-size: 0.8rem; color: red;">OFFLINE</span>
-                <div id="conn-dot" class="status-dot"></div>
+        <section id="audit">
+            <div class="grid">
+                <div>
+                    <h2>01 — Ghost Auditing</h2>
+                    <h3 style="font-family: var(--serif); font-size: 2.5rem; margin-bottom: 1.5rem;">Privacy is not a crime.<br>It's an architecture.</h3>
+                    <p style="color: var(--text-dim); margin-bottom: 2rem;">Audit corporate payments without leaking sensitive business logic. Our Ghost Receipts use Noir ZK-Proofs to prove tax compliance and settlement validity while keeping amounts and recipients private.</p>
+                    <button class="btn" style="background: transparent; color: var(--ac); border: 1px solid var(--ac);" onclick="runAuditDemo()">Simulate Audit Sequence</button>
+                </div>
+                <div class="visualizer-card">
+                    <div class="audit-node" id="node1">
+                        <span>ZK-Proof Verification</span>
+                        <span id="status1">WAITING</span>
+                    </div>
+                    <div class="audit-node" id="node2">
+                        <span>Concurrent Merkle Path</span>
+                        <span id="status2">WAITING</span>
+                    </div>
+                    <div class="audit-node" id="node3">
+                        <span>Solana State Anchor</span>
+                        <span id="status3">WAITING</span>
+                    </div>
+                    <div id="final-result" style="text-align: center; margin-top: 2rem; display: none;">
+                        <div style="color: var(--ac); font-weight: bold; font-family: var(--mono);">✅ MATHEMATICALLY VERIFIED</div>
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Agent ID:</span>
-            <span class="stat-val" id="dash-agent">---</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Balance:</span>
-            <span class="stat-val" id="dash-balance">0 SC</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Swarm Peers:</span>
-            <span class="stat-val" id="dash-peers">0</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Status:</span>
-            <span class="stat-val" id="dash-status" style="color: yellow;">AWAITING SIGNAL</span>
-        </div>
-        <div style="margin-top: 15px; text-align: center;">
-            <button class="btn" onclick="connectNode()">🔌 ATTEMPT CONNECTION</button>
-        </div>
+        </section>
+
+        <section id="blinks">
+            <div class="grid">
+                <div class="blink-mockup">
+                    <div class="blink-header">
+                        <img src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png" class="blink-icon">
+                        <div>
+                            <div class="blink-title">[ SOVEREIGN AGENT ] - xB77 Cyber Core</div>
+                            <div style="font-size: 0.8rem; color: #536471;">gateway.xb77.com</div>
+                        </div>
+                    </div>
+                    <div class="blink-desc">Secure, ZK-verified autonomous services. Payments are settled in real-time via MagicBlock HFT Rail. Select a tier to engage the Agent Swarm.</div>
+                    <div class="blink-btn">⚡ Standard Tier (50 SC)</div>
+                    <div class="blink-btn">💎 Premium Tier (150 SC)</div>
+                    <div class="blink-btn">💀 Deluxe Ghost Tier (500 SC)</div>
+                    <div class="blink-footer">Solana Action — Powering the Agentic Economy</div>
+                </div>
+                <div>
+                    <h2>02 — Blink Deluxe</h2>
+                    <h3 style="font-family: var(--serif); font-size: 2.5rem; margin-bottom: 1.5rem;">Sovereign Commerce<br>in a single link.</h3>
+                    <p style="color: var(--text-dim);">Turn any URL into a multi-tier payment portal. xB77 agents generate Solana Actions (Blinks) natively, allowing anyone to hire your autonomous services from Twitter, Discord, or any web-surface.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="terminal">
+            <div class="grid">
+                <div>
+                    <h2>03 — Mission Control</h2>
+                    <h3 style="font-family: var(--serif); font-size: 2.5rem; margin-bottom: 1.5rem;">Low-latency<br>Terminal UI.</h3>
+                    <p style="color: var(--text-dim);">The `xb77 watch` command provides a real-time cyberpunk dashboard of your agent's activity. Monitor CMT pressure, identity resolutions, and swarm negotiations with sub-millisecond precision.</p>
+                </div>
+                <div class="terminal" id="term-body">
+                    <div class="term-header">
+                        <span>XB77 MISSION CONTROL v1.0</span>
+                        <span>[ONLINE]</span>
+                    </div>
+                    <div class="term-line term-dim">> Initializing Sovereign OS...</div>
+                    <div class="term-line">> AGENT: <span class="term-green">cybercore.xb77</span></div>
+                    <div class="term-line">> STATUS: <span class="term-green">READY</span></div>
+                    <div class="term-line term-dim">> Listening for Swarm signals...</div>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            xB77 SOVEREIGN INFRASTRUCTURE — POWERED BY ZIG & SOLANA — &copy; 2026
+        </footer>
     </div>
 
     <script>
-        function showSection(id) {
-            document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            event.target.classList.add('active');
-        }
-
-        let pollInterval;
-
-        async function connectNode() {
-            document.getElementById('conn-text').innerText = 'CONNECTING...';
-            document.getElementById('conn-text').style.color = 'yellow';
+        // Audit Simulation
+        async function runAuditDemo() {
+            const sleep = ms => new Promise(r => setTimeout(r, ms));
+            const nodes = [1, 2, 3];
+            const final = document.getElementById('final-result');
             
-            pollNode();
-            if (!pollInterval) {
-                pollInterval = setInterval(pollNode, 2000);
+            final.style.display = 'none';
+            nodes.forEach(n => {
+                document.getElementById('node' + n).classList.remove('active');
+                document.getElementById('status' + n).innerText = 'WAITING';
+                document.getElementById('status' + n).classList.remove('status-verified');
+            });
+
+            for (const n of nodes) {
+                const el = document.getElementById('node' + n);
+                const status = document.getElementById('status' + n);
+                el.classList.add('active');
+                status.innerText = 'VALIDATING...';
+                await sleep(1000);
+                status.innerText = 'VERIFIED';
+                status.classList.add('status-verified');
+                await sleep(500);
             }
+            final.style.display = 'block';
         }
 
-        async function pollNode() {
-            try {
-                // Pointing to the local gateway
-                const res = await fetch('http://localhost:8080/api/telemetry');
-                if (!res.ok) throw new Error("HTTP error");
-                const data = await res.json();
-                
-                document.getElementById('conn-dot').classList.add('online');
-                document.getElementById('conn-text').innerText = 'CONNECTED';
-                document.getElementById('conn-text').style.color = 'var(--neon-green)';
-                
-                document.getElementById('dash-agent').innerText = data.agent_id ? data.agent_id.substring(0, 8) + '...' : 'UNKNOWN';
-                document.getElementById('dash-balance').innerText = data.balance + ' SOL';
-                document.getElementById('dash-peers').innerText = data.peers;
-                
-                const statusEl = document.getElementById('dash-status');
-                statusEl.innerText = data.status;
-                if (data.status === 'AUSTERITY_MODE') {
-                    statusEl.style.color = 'red';
-                } else if (data.status === 'NORMAL') {
-                    statusEl.style.color = 'var(--neon-green)';
-                } else {
-                    statusEl.style.color = 'yellow';
-                }
+        // Terminal Simulation
+        const termBody = document.getElementById('term-body');
+        const lines = [
+            "[MESH] Heartbeat synced with 3 peers.",
+            "[AWP ] Gossip message received.",
+            "[TX  ] Verified ZK-Receipt from 0x44...1b.",
+            "[SWARM] Negotiating fee market delta.",
+            "[RPC ] Polling Solana L1 for Slot height.",
+            "[ZK  ] Noir Circuit ready for state anchor.",
+            "[MERCH] Inbound Payment Detected: 50,000,000 SC."
+        ];
+        let lineIdx = 0;
 
-            } catch (e) {
-                document.getElementById('conn-dot').classList.remove('online');
-                document.getElementById('conn-text').innerText = 'OFFLINE';
-                document.getElementById('conn-text').style.color = 'red';
-                document.getElementById('dash-agent').innerText = '---';
-                document.getElementById('dash-balance').innerText = '0 SC';
-                document.getElementById('dash-peers').innerText = '0';
-                document.getElementById('dash-status').innerText = 'AWAITING SIGNAL';
-                document.getElementById('dash-status').style.color = 'yellow';
-            }
+        async function addTermLine() {
+            const line = document.createElement('div');
+            line.className = 'term-line';
+            line.innerHTML = `<span class="term-dim">></span> ${lines[lineIdx]}`;
+            termBody.appendChild(line);
+            lineIdx = (lineIdx + 1) % lines.length;
+            if (termBody.childNodes.length > 15) termBody.removeChild(termBody.childNodes[5]);
         }
+        setInterval(addTermLine, 2000);
     </script>
 </body>
 </html>
