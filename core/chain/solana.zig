@@ -150,7 +150,7 @@ pub const SolanaClient = struct {
         );
         defer self.allocator.free(ix_data);
         // 3. Definir el Programa (xB77 Core) y Cuentas
-        const program_id = try crypto.stringToPubkey(self.allocator, "FpWZN1FB9yMfip3vYQhsZhgT4fCB3US9BqAv5kh5uDxv");
+        const program_id = try crypto.stringToPubkey(self.allocator, "73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3");
 
         // 4. Construir la Transacción (Genérica con Priority Fee)
         // Usaremos un constructor genérico o adaptaremos el multi-transfer

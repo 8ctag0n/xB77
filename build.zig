@@ -36,7 +36,10 @@ pub fn build(b: *std.Build) void {
     });
     exe.root_module.addImport("core", core_module);
     exe.root_module.addImport("mcp", mcp_module);
-    exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11", "-fno-stack-check", "-fPIC"} });
+    exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11", "-fno-stack-check", "-fPIC", "-fno-sanitize=all", "-fno-asynchronous-unwind-tables", "-fno-unwind-tables"} });
+    exe.root_module.strip = true;
+    exe.root_module.omit_frame_pointer = true;
+    exe.root_module.stack_check = false;
     exe.addIncludePath(b.path("deps"));
     exe.linkLibC();
 
@@ -56,6 +59,7 @@ pub fn build(b: *std.Build) void {
     znode_exe.addIncludePath(b.path("deps"));
     znode_exe.addIncludePath(.{ .cwd_relative = "/usr/include" });
     znode_exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
+    znode_exe.root_module.strip = true;
     znode_exe.linkLibC();
     znode_exe.linkSystemLibrary("curl");
 
@@ -71,7 +75,10 @@ pub fn build(b: *std.Build) void {
         }),
     });
     e2e_exe.root_module.addImport("core", core_module);
-    e2e_exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    e2e_exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11", "-fno-stack-check", "-fPIC", "-fno-sanitize=all", "-fno-asynchronous-unwind-tables", "-fno-unwind-tables"} });
+    e2e_exe.root_module.strip = true;
+    e2e_exe.root_module.omit_frame_pointer = true;
+    e2e_exe.root_module.stack_check = false;
     e2e_exe.addIncludePath(b.path("deps"));
     e2e_exe.linkLibC();
     b.installArtifact(e2e_exe);

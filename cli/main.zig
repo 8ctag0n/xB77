@@ -729,7 +729,7 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
         // Generar JSON real del catálogo
         var list = std.ArrayListUnmanaged(u8){};
         defer list.deinit(allocator);
-        try std.json.stringify(ctx.merchant, .{}, list.writer(allocator));
+        try list.writer(allocator).print("{any}", .{std.json.fmt(ctx.merchant, .{})});
 
         const cid = try ctx.ipfs_client.uploadState(list.items);
         std.debug.print(" Catálogo publicado en IPFS: {s}\n", .{cid});

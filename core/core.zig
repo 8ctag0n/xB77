@@ -78,6 +78,19 @@ pub const brain = intelligence.brain_mod;
 pub const crypto = security.crypto;
 pub const net = mesh;
 pub const engine = kernel;
+pub const core_engine = kernel;
+pub const compression = protocol.compression;
+pub const cmt = protocol.cmt;
+
+// Re-export specific functions to core root for tests
+pub const encodeBase58 = security.crypto.encodeBase58;
+pub const decodeBase58 = security.crypto.decodeBase58;
+pub const generateKeypair = security.crypto.generateKeypair;
+pub const generateEthKeypair = security.crypto.generateEthKeypair;
+pub const sign = security.crypto.sign;
+pub const verify = security.crypto.verify;
+pub const signEthMessage = security.crypto.signEthMessage;
+pub const recoverEthPublicKey = security.crypto.recoverEthPublicKey;
 
 // Extra legacy mapping for deep business/state imports
 pub const business = struct {
@@ -88,6 +101,7 @@ pub const business = struct {
     pub const identity = security.identity;
     pub const app = kernel.app;
     pub const registry = commerce.registry;
+    pub const constitution = security.constitution;
 };
 
 pub const state = struct {
