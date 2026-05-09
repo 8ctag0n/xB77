@@ -84,6 +84,18 @@ pub const MerchantConfig = struct {
         };
     }
 
+    pub fn deinit(self: *MerchantConfig, allocator: std.mem.Allocator) void {
+        allocator.free(self.business_name);
+        allocator.free(self.contact);
+        for (self.services) |s| {
+            allocator.free(s.name);
+            // description is a literal "Imported Service" or "Sovereign Service" usually, 
+            // but if it was allocated we should free it.
+            // In handleSetupShop it is a literal. In load it is a literal.
+        }
+        allocator.free(self.services);
+    }
+
     pub fn generateBlink(self: *const MerchantConfig, allocator: std.mem.Allocator, base_url: []const u8) ![]u8 {
         var buf = std.ArrayListUnmanaged(u8){};
         errdefer buf.deinit(allocator);
