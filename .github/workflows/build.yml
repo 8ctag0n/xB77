@@ -1,0 +1,180 @@
+name: Build
+
+on:
+  push:
+    branches: ["bedrock", "main", "merge/**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel earlier runs of the same ref when a new push lands.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # required by the release job
+  packages: read    # required to pull the toolchain images from GHCR
+
+jobs:
+  # ─────────────────────────────────────────────────────────
+  # Zig host build — produces xb77 CLI, e2e runners, gateway.wasm
+  # Stays on the GHA-hosted runner with `mlugg/setup-zig` because Zig is
+  # cheap to install and we don't gain much from a custom container here.
+  # ─────────────────────────────────────────────────────────
+  zig-build:
+    name: Zig (host + wasm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mlugg/setup-zig@v1
+        with:
+          version: 0.15.2
+
+      - name: Cache zig artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            .zig-cache
+            zig-out
+          key: zig-${{ runner.os }}-${{ hashFiles('build.zig', 'core/**/*.zig', 'cli/**/*.zig', 'gateway/**/*.zig') }}
+          restore-keys: |
+            zig-${{ runner.os }}-
+
+      - name: Build host targets (xb77 + e2e runners)
+        run: zig build install
+
+      - name: Build gateway WASM
+        run: zig build wasm
+
+      - name: Verify wasm produced is real (>50 KB, not the 120 B stub)
+        run: |
+          size=$(stat -c%s zig-out/bin/gateway.wasm)
+          echo "gateway.wasm size: $size bytes"
+          test "$size" -gt 50000 || (echo "::error::gateway.wasm regressed to a stub" && exit 1)
+
+      - name: Upload host artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zig-binaries
+          path: |
+            zig-out/bin/xb77
+            zig-out/bin/gateway.wasm
+            zig-out/bin/zk-upload-e2e
+          if-no-files-found: error
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────
+  # Onchain BPF — runs INSIDE ghcr.io/<owner>/xb77-solana for cargo-build-sbf.
+  # Matrix one per program so failures are isolated.
+  # ─────────────────────────────────────────────────────────
+  onchain-build:
+    name: BPF / ${{ matrix.program }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/xb77-solana:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        program:
+          - xb77_core
+          - xb77_gateway
+          - xb77_registry
+          - xb77_compression
+          - xb77_zk_verifier
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo + sbf artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            onchain/programs/${{ matrix.program }}/target
+          key: bpf-${{ matrix.program }}-${{ hashFiles(format('onchain/programs/{0}/Cargo.lock', matrix.program)) }}
+
+      - name: Build BPF program
+        working-directory: onchain/programs/${{ matrix.program }}
+        run: cargo build-sbf
+
+      - name: Assert .so artifact exists
+        run: |
+          so_path="onchain/programs/${{ matrix.program }}/target/deploy/${{ matrix.program }}.so"
+          test -f "$so_path" || (echo "::error::Missing $so_path" && exit 1)
+          echo "$so_path: $(stat -c%s "$so_path") bytes"
+
+      - name: Upload BPF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bpf-${{ matrix.program }}
+          path: onchain/programs/${{ matrix.program }}/target/deploy/${{ matrix.program }}.so
+          if-no-files-found: error
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────
+  # Noir circuit — compile only (prove is too heavy for default CI).
+  # Runs INSIDE ghcr.io/<owner>/xb77-zk so Noir 0.36 + bb 0.58 are pinned.
+  # ─────────────────────────────────────────────────────────
+  zk-circuit:
+    name: Noir circuit (compile only)
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/xb77-zk:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile circuit
+        working-directory: circuits/zk_receipt
+        run: nargo compile
+
+      - name: Upload compiled circuit
+        uses: actions/upload-artifact@v4
+        with:
+          name: zk-circuit
+          path: circuits/zk_receipt/target/zk_receipt.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────
+  # Release — runs ONLY on tag push (v*). Pulls the artifacts from the
+  # build jobs above and attaches them to the GitHub Release.
+  # ─────────────────────────────────────────────────────────
+  release:
+    name: Attach artifacts to Release
+    needs: [zig-build, onchain-build, zk-circuit]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Stage release files
+        run: |
+          mkdir -p release
+          cp dist/zig-binaries/xb77             release/xb77 || true
+          cp dist/zig-binaries/gateway.wasm     release/gateway.wasm || true
+          cp dist/zig-binaries/zk-upload-e2e    release/zk-upload-e2e || true
+          for prog in xb77_core xb77_gateway xb77_registry xb77_compression xb77_zk_verifier; do
+            cp "dist/bpf-${prog}/${prog}.so" "release/${prog}.so" || true
+          done
+          cp dist/zk-circuit/zk_receipt.json    release/zk_receipt.json || true
+          ls -la release/
+
+      - name: Publish release with artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+          fail_on_unmatched_files: false

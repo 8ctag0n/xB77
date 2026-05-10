@@ -61,6 +61,26 @@ zig build run -- gateway &
 
 ---
 
+## 🛠️ Build & CI
+
+The CI pipeline runs the heavy toolchain jobs (BPF compile, Noir compile) **inside our pinned container images** published to GHCR. This keeps `Noir 0.36.0`, `bb 0.58.0`, and `Agave 3.1.14` byte-identical between local development and CI — no version drift.
+
+**First-time setup** after cloning to a new GitHub org/repo:
+
+1. Push the code to your repo.
+2. Go to **Actions → Infra Images → Run workflow** (`workflow_dispatch`). This builds and pushes `xb77-zk` and `xb77-solana` to `ghcr.io/<owner>/...`. ~5–10 min.
+3. From there on, every push runs `Build` (Zig host + 5 BPF programs + Noir circuit) automatically using those images.
+
+**Tagging a release** (`git tag v0.x.y && git push --tags`) triggers the full build plus a **GitHub Release** with attached artifacts:
+- `xb77` (CLI binary, Linux x86_64)
+- `gateway.wasm` (Cloudflare Worker bundle)
+- `xb77_*.so` (5 BPF programs ready to deploy)
+- `zk_receipt.json` (compiled Noir circuit)
+
+Program keypairs (`*-keypair.json`) intentionally stay out of releases — they determine the on-chain program ID and must remain private.
+
+---
+
 <div align="center">
   <p><i>xB77: True sovereignty for the agentic economy. Built for Solana Frontier & Dev3Pack.</i></p>
 </div>

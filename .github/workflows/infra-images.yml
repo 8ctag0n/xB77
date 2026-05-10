@@ -1,0 +1,74 @@
+name: Infra Images
+
+# Builds the toolchain container images and pushes them to GHCR. The CI
+# build pipeline (build.yml) consumes these images via the `container:`
+# directive so heavy installs (Noir, bb, Agave) don't run on every push.
+#
+# Triggers:
+#   · push touching infra/Containerfile.* on protected branches
+#   · workflow_dispatch (one-click bootstrap from the Actions tab)
+on:
+  push:
+    branches: ["bedrock", "main", "merge/**"]
+    paths:
+      - "infra/Containerfile.*"
+      - ".github/workflows/infra-images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: infra-images-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    name: ${{ matrix.image }} → GHCR
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: xb77-zk
+            file: infra/Containerfile.zk
+          - image: xb77-solana
+            file: infra/Containerfile.solana_slim
+          # Agent runtime images — uncomment if/when needed by deploy targets.
+          # - image: xb77-agent
+          #   file: infra/Containerfile.agent
+          # - image: xb77-agent-tiny
+          #   file: infra/Containerfile.agent.tiny
+          # - image: xb77-infra
+          #   file: infra/Containerfile.infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tag (lowercase repo owner)
+        id: tag
+        run: |
+          owner_lc=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "image=ghcr.io/${owner_lc}/${{ matrix.image }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          push: true
+          tags: |
+            ${{ steps.tag.outputs.image }}:latest
+            ${{ steps.tag.outputs.image }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
