@@ -16,7 +16,7 @@ use ark_ff::{BigInteger, PrimeField};
 mod poseidon;
 use poseidon::Poseidon;
 
-declare_id!("Comp111111111111111111111111111111111111111");
+declare_id!("6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN");
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
 pub struct VerifyTransitionPayload {

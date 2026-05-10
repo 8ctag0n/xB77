@@ -15,7 +15,7 @@ pub mod state;
 use processor::process_instruction;
 
 use solana_program::declare_id;
-declare_id!("FpWZN1FB9yMfip3vYQhsZhgT4fCB3US9BqAv5kh5uDxv");
+declare_id!("73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3");
 
 #[cfg(not(feature = "no-entrypoint"))]
 entrypoint!(process_instruction);
