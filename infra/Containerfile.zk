@@ -4,6 +4,11 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     bash \
+    jq \
+    xxd \
+    libc++1 \
+    libc++abi1 \
+    libstdc++6 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
@@ -16,24 +21,59 @@ ENV PATH="/root/.nargo/bin:$PATH"
 # Pin Noir to 0.36.0 to match SDK
 RUN /root/.nargo/bin/noirup -v 0.36.0
 
-# Install bbup and Barretenberg (bb)
+# Install bbup (Barretenberg version manager) and pin bb to a Noir 0.36-compatible version
 RUN curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/master/barretenberg/cpp/installation/install | bash
-ENV PATH="/root/.bb:$PATH"
+ENV PATH="/root/.bb:/usr/local/bin:$PATH"
+# bb 0.55.x is the canonical pair for Noir 0.36.0
+RUN bash -lc "bbup -v 0.58.0 || bbup -v 0.57.0 || bbup -nv 0.36.0"
+RUN bb --version || (echo 'bb install failed' && exit 1)
 
 WORKDIR /app
 
 # Wrapper script to handle nargo + bb (The ZK-Bridge)
-RUN echo '#!/bin/bash\n\
-if [ "$1" == "prove" ]; then\n\
-  # 1. Compile\n\
-  nargo compile\n\
-  # 2. Execute (Witness generation)\n\
-  nargo execute witness\n\
-  # 3. Prove with bb\n\
-  # Note: This assumes package name and typical folder structure\n\
-  bb prove -b ./target/state_anchor.json -w ./target/witness.tr -o ./proofs/state_anchor.proof\n\
-else\n\
-  nargo "$@"\n\
-fi' > /usr/local/bin/zk-bridge && chmod +x /usr/local/bin/zk-bridge
+RUN cat > /usr/local/bin/zk-bridge <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+if [ "${1:-}" == "prove" ]; then
+  # Detect package name from Nargo.toml
+  PKG=$(grep -E '^name\s*=' Nargo.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+  echo "[zk-bridge] package: $PKG"
+
+  mkdir -p ./target ./proofs
+
+  # 1. Compile
+  echo "[zk-bridge] compiling..."
+  nargo compile
+
+  # 2. Witness generation
+  echo "[zk-bridge] generating witness..."
+  nargo execute witness
+
+  # 3. Locate artifacts (Noir 0.36 emits .gz witness)
+  CIRCUIT="./target/${PKG}.json"
+  WITNESS=""
+  for cand in "./target/witness.gz" "./target/${PKG}.gz" "./target/witness.tr"; do
+    if [ -f "$cand" ]; then WITNESS="$cand"; break; fi
+  done
+  if [ -z "$WITNESS" ]; then
+    echo "[zk-bridge] ERROR: witness file not found in ./target" >&2
+    ls -la ./target >&2
+    exit 1
+  fi
+  echo "[zk-bridge] circuit: $CIRCUIT"
+  echo "[zk-bridge] witness: $WITNESS"
+
+  # 4. Prove with bb
+  echo "[zk-bridge] proving with bb..."
+  bb prove -b "$CIRCUIT" -w "$WITNESS" -o "./proofs/${PKG}.proof"
+  bb write_vk -b "$CIRCUIT" -o "./proofs/${PKG}.vk" || true
+  echo "[zk-bridge] proof generated: ./proofs/${PKG}.proof"
+  ls -la ./proofs
+else
+  exec nargo "$@"
+fi
+EOF
+RUN chmod +x /usr/local/bin/zk-bridge
 
 ENTRYPOINT ["zk-bridge"]

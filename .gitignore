@@ -32,3 +32,8 @@ demo/keys/*.json
 demo/logs/
 demo/data/
 round2/
+
+# ZK artifacts (regenerable via `podman run --rm xb77-zk:latest prove`)
+circuits/zk_receipt/proofs/
+circuits/zk_receipt/target/
+*.tr
