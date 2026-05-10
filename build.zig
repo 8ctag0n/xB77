@@ -1,7 +1,9 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{});
+    const target = b.standardTargetOptions(.{
+        .default_target = .{ .abi = .gnu, .os_tag = .linux },
+    });
     const optimize = b.standardOptimizeOption(.{});
 
     // --- AWP Universal Module ---
@@ -34,6 +36,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         }),
     });
+    exe.pie = false;
     exe.root_module.addImport("core", core_module);
     exe.root_module.addImport("mcp", mcp_module);
     exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11", "-fno-stack-check", "-fPIC", "-fno-sanitize=all", "-fno-asynchronous-unwind-tables", "-fno-unwind-tables"} });

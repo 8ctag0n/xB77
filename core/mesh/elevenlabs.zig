@@ -22,9 +22,9 @@ pub const VoiceClient = struct {
         defer self.allocator.free(url);
 
         // Build request body (JSON)
-        var body = std.ArrayList(u8).init(self.allocator);
-        defer body.deinit();
-        try body.writer().print("{any}", .{std.json.fmt(.{
+        var list = std.ArrayList(u8).init(self.allocator);
+        defer list.deinit();
+        try list.writer().print("{any}", .{std.json.fmt(.{
             .text = text,
             .model_id = "eleven_monolingual_v1",
             .voice_settings = .{
@@ -35,7 +35,7 @@ pub const VoiceClient = struct {
 
         std.debug.print("[VOICE]  Generating sovereign voice for: \"{s}\" (ElevenLabs)...\n", .{text});
         
-        var response = try client.post(url, body.items);
+        var response = try client.post(url, list.items);
         defer response.deinit();
 
         return try self.allocator.dupe(u8, response.body);

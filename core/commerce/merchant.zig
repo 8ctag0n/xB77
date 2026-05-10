@@ -84,29 +84,44 @@ pub const MerchantConfig = struct {
         };
     }
 
+    pub fn deinit(self: *MerchantConfig, allocator: std.mem.Allocator) void {
+        allocator.free(self.business_name);
+        allocator.free(self.contact);
+        for (self.services) |s| {
+            allocator.free(s.name);
+            // description is a literal "Imported Service" or "Sovereign Service" usually, 
+            // but if it was allocated we should free it.
+            // In handleSetupShop it is a literal. In load it is a literal.
+        }
+        allocator.free(self.services);
+    }
+
     pub fn generateBlink(self: *const MerchantConfig, allocator: std.mem.Allocator, base_url: []const u8) ![]u8 {
         var buf = std.ArrayListUnmanaged(u8){};
         errdefer buf.deinit(allocator);
         const writer = buf.writer(allocator);
 
         try writer.writeAll("{\n");
-        try writer.writeAll("  \"icon\": \"https://xb77.app/logo.png\",\n");
-        try writer.print("  \"title\": \"{s}\",\n", .{self.business_name});
-        try writer.writeAll("  \"description\": \"Sovereign Agent Service - Machine Verified\",\n");
-        try writer.writeAll("  \"label\": \"Purchase\",\n");
+        try writer.print("  \"icon\": \"{s}/api/brand/blink-icon.svg\",\n", .{base_url});
+        try writer.print("  \"title\": \"[ SOVEREIGN AGENT ] {s}\",\n", .{self.business_name});
+        try writer.writeAll("  \"description\": \"ZK-verified autonomous commerce on Solana.\\nPayments settle in real-time via the xB77 MagicBlock HFT rail.\\nEvery receipt is mathematically auditable. Pick a tier to engage.\",\n");
+        try writer.writeAll("  \"label\": \"Hire Agent\",\n");
         try writer.writeAll("  \"links\": {\n");
         try writer.writeAll("    \"actions\": [\n");
 
-        for (self.services, 0..) |s, i| {
-            try writer.print("      {{\n        \"label\": \"{s}\",\n        \"href\": \"{s}/api/actions/pay?service={s}&amount={d}\"\n      }}{s}\n", .{
+        for (self.services) |s| {
+            try writer.print("      {{\n        \"type\": \"transaction\",\n        \"label\": \"{s} - {d} SOL\",\n        \"href\": \"{s}/api/actions/pay?service={s}&amount={d}\"\n      }},\n", .{
                 s.name,
+                s.price_lamports / 1000000,
                 base_url,
                 s.name,
                 s.price_lamports,
-                if (i < self.services.len - 1) "," else "",
             });
         }
-
+        try writer.print(
+            "      {{\n        \"type\": \"transaction\",\n        \"label\": \"Custom Tip\",\n        \"href\": \"{s}/api/actions/tip?amount={{amount}}\",\n        \"parameters\": [\n          {{ \"name\": \"amount\", \"label\": \"SOL amount\", \"required\": true }}\n        ]\n      }}\n",
+            .{base_url},
+        );
         try writer.writeAll("    ]\n");
         try writer.writeAll("  }\n");
         try writer.writeAll("}");

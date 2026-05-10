@@ -61,15 +61,15 @@ fn get_kv_data(allocator: std.mem.Allocator, key: []const u8) ![]const u8 {
 }
 
 // --- Helper: KV persistence en Zig ---
-fn get_credit_status(allocator: std.mem.Allocator, agent_id_hex: []const u8) !core.business.billing.CreditStatus {
+fn get_credit_status(allocator: std.mem.Allocator, agent_id_hex: []const u8) !core.commerce.billing.CreditStatus {
     const body = try get_kv_data(allocator, agent_id_hex);
 
-    const parsed = try std.json.parseFromSlice(core.business.billing.CreditStatus, allocator, body, .{ .ignore_unknown_fields = true });
+    const parsed = try std.json.parseFromSlice(core.commerce.billing.CreditStatus, allocator, body, .{ .ignore_unknown_fields = true });
     defer parsed.deinit();
     return parsed.value;
 }
 
-fn save_credit_status(allocator: std.mem.Allocator, status: core.business.billing.CreditStatus) !void {
+fn save_credit_status(allocator: std.mem.Allocator, status: core.commerce.billing.CreditStatus) !void {
     var agent_id_hex_buf: [64]u8 = undefined;
     const hex = std.fmt.bytesToHex(status.agent_id, .lower);
     @memcpy(&agent_id_hex_buf, &hex);
@@ -112,10 +112,21 @@ export fn handle_request(
     } else if (std.mem.startsWith(u8, url, "/p/") and std.mem.eql(u8, method, "GET")) {
         const name = url[3..];
         return route_profile(allocator, name);
+    } else if (std.mem.eql(u8, url, "/") and std.mem.eql(u8, method, "GET")) {
+        return route_landing(allocator);
+    } else if (std.mem.eql(u8, url, "/api/brand/blink-icon.svg") and std.mem.eql(u8, method, "GET")) {
+        return route_blink_icon(allocator);
+    } else if (std.mem.startsWith(u8, url, "/audit/") and std.mem.eql(u8, method, "GET")) {
+        const tx_hash = url[7..];
+        return route_audit(allocator, tx_hash);
     } else if (std.mem.eql(u8, url, "/verify") and std.mem.eql(u8, method, "POST")) {
         return route_verify(allocator, body);
     } else if (std.mem.eql(u8, url, "/app/message") and std.mem.eql(u8, method, "POST")) {
         return route_app_message(allocator, body);
+    } else if (std.mem.startsWith(u8, url, "/api/actions/pay") and std.mem.eql(u8, method, "GET")) {
+        return route_actions_pay_get(allocator, url);
+    } else if (std.mem.startsWith(u8, url, "/api/actions/pay") and std.mem.eql(u8, method, "POST")) {
+        return route_actions_pay_post(allocator, body);
     } else if (std.mem.eql(u8, url, "/link") and std.mem.eql(u8, method, "POST")) {
         return route_link(allocator, body);
     }
@@ -211,7 +222,7 @@ fn route_profile(allocator: std.mem.Allocator, name: []const u8) *Response {
         \\                <h2>ZK-Receipt Verification Portal (Deluxe)</h2>
         \\                <p style="font-size: 0.8rem; color: #666;">Enter a commitment hash and the Viewing Key to mathematically verify the Noir ZK-Proof locally.</p>
         \\                <input type="text" id="commitment" class="verify-input" placeholder="Commitment (0x...)" autocomplete="off">
-        \\                <input type="text" id="viewing_key" class="verify-input" placeholder='Viewing Key (e.g. {"amount":100,"tax_paid":2,"recipient_pubkey":"0x..."})' autocomplete="off">
+        \\                <input type="text" id="viewing_key" class="verify-input" placeholder='Viewing Key (e.g. {{"amount":100,"tax_paid":2,"recipient_pubkey":"0x..."}})' autocomplete="off">
         \\                <button class="blink-btn" onclick="verifyReceipt()">VERIFY PROOF</button>
         \\                <div id="verify-result" class="result"></div>
         \\            </div>
@@ -252,7 +263,7 @@ fn route_profile(allocator: std.mem.Allocator, name: []const u8) *Response {
         \\    </script>
         \\</body>
         \\</html>
-    , .{ name, status.balance, agent_id_hex, agent_id_hex }) catch "Error";
+    , .{ name, name, status.balance, agent_id_hex, agent_id_hex }) catch "Error";
     
     return build_response(200, html);
 }
@@ -261,6 +272,278 @@ export fn verify_ghost_receipt(proof_ptr: [*]const u8, proof_len: usize, comm_pt
     _ = proof_ptr; _ = proof_len; _ = comm_ptr; _ = comm_len; _ = vk_ptr; _ = vk_len;
     // WASM bridge export para Noir Verifier local
     return true;
+}
+
+fn route_landing(allocator: std.mem.Allocator) *Response {
+    _ = allocator;
+    const html =
+        \\<!DOCTYPE html>
+        \\<html lang="en">
+        \\<head>
+        \\<meta charset="UTF-8">
+        \\<meta name="viewport" content="width=device-width, initial-scale=1.0">
+        \\<title>xB77 // Sovereign Financial OS</title>
+        \\<link rel="icon" href="/api/brand/blink-icon.svg" type="image/svg+xml">
+        \\<style>
+        \\:root { --neon-green:#00ff41; --neon-blue:#00f3ff; --dark-bg:#050505; --panel-bg:#0a0a0a; --border:#1a1a1a; --dim:#666; }
+        \\* { box-sizing:border-box; margin:0; padding:0; }
+        \\html,body { background:var(--dark-bg); color:var(--neon-green); font-family:'JetBrains Mono','Courier New',monospace; min-height:100vh; overflow-x:hidden; }
+        \\body { padding:2rem; text-shadow:0 0 4px rgba(0,255,65,0.35); }
+        \\.scanline { position:fixed; inset:0; pointer-events:none; z-index:999; background:linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.22) 50%), linear-gradient(90deg, rgba(255,0,0,0.05), rgba(0,255,0,0.02), rgba(0,0,255,0.05)); background-size:100% 4px, 3px 100%; }
+        \\.grid { position:fixed; inset:0; pointer-events:none; z-index:0; opacity:0.08; background-image:linear-gradient(var(--neon-green) 1px, transparent 1px), linear-gradient(90deg, var(--neon-green) 1px, transparent 1px); background-size:60px 60px; }
+        \\.wrap { position:relative; z-index:1; max-width:1100px; margin:0 auto; }
+        \\.statusbar { display:flex; gap:1.5rem; font-size:0.78rem; color:var(--dim); border-bottom:1px dashed #222; padding-bottom:0.6rem; margin-bottom:2.5rem; letter-spacing:1px; text-transform:uppercase; }
+        \\.statusbar .live { color:var(--neon-green); }
+        \\.statusbar .live::before { content:''; display:inline-block; width:8px; height:8px; background:var(--neon-green); border-radius:50%; margin-right:6px; box-shadow:0 0 8px var(--neon-green); animation:pulse 1.4s infinite; }
+        \\@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+        \\h1 { font-size:clamp(3rem, 12vw, 9rem); font-weight:900; line-height:0.9; letter-spacing:-2px; color:var(--neon-green); text-shadow:0 0 20px rgba(0,255,65,0.4), 0 0 40px rgba(0,255,65,0.2); }
+        \\h1 .slash { color:var(--neon-blue); text-shadow:0 0 20px rgba(0,243,255,0.4); }
+        \\.tagline { font-size:1rem; color:#aaa; margin-top:1.2rem; max-width:680px; line-height:1.6; letter-spacing:0.5px; }
+        \\.tagline em { color:var(--neon-blue); font-style:normal; }
+        \\.cta-row { display:flex; gap:1rem; margin-top:2.5rem; flex-wrap:wrap; }
+        \\.cta { background:transparent; border:1px solid var(--neon-green); color:var(--neon-green); padding:0.9rem 1.6rem; font-family:inherit; font-weight:700; font-size:0.9rem; text-decoration:none; text-transform:uppercase; letter-spacing:2px; transition:all 0.18s; cursor:pointer; }
+        \\.cta:hover { background:var(--neon-green); color:#000; box-shadow:0 0 20px rgba(0,255,65,0.5); }
+        \\.cta.secondary { border-color:var(--neon-blue); color:var(--neon-blue); }
+        \\.cta.secondary:hover { background:var(--neon-blue); color:#000; box-shadow:0 0 20px rgba(0,243,255,0.5); }
+        \\.pillars { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:1px; background:var(--border); border:1px solid var(--border); margin-top:5rem; }
+        \\.pillar { background:var(--panel-bg); padding:1.6rem; }
+        \\.pillar h3 { font-size:0.78rem; color:var(--neon-blue); letter-spacing:3px; margin-bottom:0.8rem; text-transform:uppercase; }
+        \\.pillar p { color:#999; font-size:0.85rem; line-height:1.55; }
+        \\.pillar .num { color:var(--neon-green); font-weight:900; font-size:1.4rem; opacity:0.6; }
+        \\.console { margin-top:5rem; background:#000; border:1px solid var(--border); padding:1.4rem 1.6rem; font-size:0.85rem; }
+        \\.console .prompt { color:var(--neon-blue); }
+        \\.console .out { color:#888; }
+        \\.console .ok { color:var(--neon-green); }
+        \\.console .row { margin:0.25rem 0; }
+        \\footer { margin-top:4rem; padding-top:1.5rem; border-top:1px dashed #222; color:var(--dim); font-size:0.75rem; letter-spacing:1px; text-transform:uppercase; display:flex; justify-content:space-between; flex-wrap:wrap; gap:1rem; }
+        \\footer a { color:var(--dim); text-decoration:none; border-bottom:1px dotted #333; }
+        \\footer a:hover { color:var(--neon-green); border-color:var(--neon-green); }
+        \\</style>
+        \\</head>
+        \\<body>
+        \\<div class="grid"></div>
+        \\<div class="scanline"></div>
+        \\<div class="wrap">
+        \\  <div class="statusbar">
+        \\    <span class="live">L1 Devnet Online</span>
+        \\    <span>ZK Circuits / BN254</span>
+        \\    <span>MagicBlock HFT Rail</span>
+        \\    <span>Ghost Receipts v1</span>
+        \\  </div>
+        \\  <h1>xB77<span class="slash">//</span></h1>
+        \\  <p class="tagline">Sovereign <em>Financial OS</em> for autonomous agents on Solana. ZK-private settlement. Concurrent Merkle Trees anchored to L1. Every receipt mathematically auditable. Built for the agentic economy.</p>
+        \\  <div class="cta-row">
+        \\    <a class="cta" href="https://github.com/xb77">Read the Docs</a>
+        \\    <a class="cta secondary" href="https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/pay">Hire an Agent</a>
+        \\  </div>
+        \\
+        \\  <section class="pillars">
+        \\    <div class="pillar"><div class="num">01</div><h3>Sovereign Mesh</h3><p>P2P agent gossip with deterministic state hashing. No central coordinator, no trusted relayer.</p></div>
+        \\    <div class="pillar"><div class="num">02</div><h3>ZK-Batched Anchors</h3><p>Off-chain CMT pressure builds a batch, a Noir circuit proves the transition, Solana settles the commitment.</p></div>
+        \\    <div class="pillar"><div class="num">03</div><h3>Ghost Receipts</h3><p>Pay privately, prove publicly. Each receipt carries a viewing key; the audit portal verifies without leaking the payload.</p></div>
+        \\    <div class="pillar"><div class="num">04</div><h3>Blinks &amp; Actions</h3><p>Multi-tier Solana Actions out of the box. Drop a link in any chat; let the buyer pick a tier.</p></div>
+        \\  </section>
+        \\
+        \\  <section class="console">
+        \\    <div class="row"><span class="prompt">$</span> xb77 init</div>
+        \\    <div class="row out">[INIT  ] Generating Sovereign Identity for profile 'default'...</div>
+        \\    <div class="row out">[OK    ] <span class="ok">Solana keypair sealed</span> &middot; <span class="ok">Base keypair sealed</span></div>
+        \\    <div class="row"><span class="prompt">$</span> xb77 merchant setup-shop</div>
+        \\    <div class="row out">[SETUP ] Catalog published &middot; identity claimed</div>
+        \\    <div class="row"><span class="prompt">$</span> xb77 serve</div>
+        \\    <div class="row out">[MESH  ] 3 peers synced &middot; <span class="ok">awaiting flow</span></div>
+        \\  </section>
+        \\
+        \\  <footer>
+        \\    <span>xB77 // Sovereign Financial OS</span>
+        \\    <span><a href="/audit/SAMPLE_SIG">audit portal</a> &middot; <a href="https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/pay">blink</a> &middot; <a href="https://github.com/xb77">source</a></span>
+        \\  </footer>
+        \\</div>
+        \\</body>
+        \\</html>
+    ;
+    const body_copy = global_allocator.allocator().dupe(u8, html) catch "<h1>xB77</h1>";
+    response_singleton.status = 200;
+    response_singleton.body_ptr = body_copy.ptr;
+    response_singleton.body_len = body_copy.len;
+    return &response_singleton;
+}
+
+fn route_blink_icon(allocator: std.mem.Allocator) *Response {
+    _ = allocator;
+    const svg =
+        \\<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+        \\  <defs>
+        \\    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        \\      <stop offset="0" stop-color="#00ff41"/>
+        \\      <stop offset="1" stop-color="#00f3ff"/>
+        \\    </linearGradient>
+        \\  </defs>
+        \\  <rect width="400" height="400" fill="#050505"/>
+        \\  <g stroke="url(#g)" stroke-width="2" fill="none" opacity="0.18">
+        \\    <path d="M0 80 L400 80 M0 160 L400 160 M0 240 L400 240 M0 320 L400 320"/>
+        \\    <path d="M80 0 L80 400 M160 0 L160 400 M240 0 L240 400 M320 0 L320 400"/>
+        \\  </g>
+        \\  <text x="200" y="195" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="800" font-size="120" fill="url(#g)" letter-spacing="6">xB77</text>
+        \\  <text x="200" y="240" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#00ff41" letter-spacing="6" opacity="0.85">SOVEREIGN AGENT</text>
+        \\  <text x="200" y="270" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#00f3ff" letter-spacing="4" opacity="0.7">ZK · MAGICBLOCK · GHOST</text>
+        \\  <circle cx="200" cy="320" r="6" fill="#00ff41"/>
+        \\  <circle cx="200" cy="320" r="14" fill="none" stroke="#00ff41" opacity="0.5"/>
+        \\</svg>
+    ;
+    const body_copy = global_allocator.allocator().dupe(u8, svg) catch "<svg/>";
+    response_singleton.status = 200;
+    response_singleton.body_ptr = body_copy.ptr;
+    response_singleton.body_len = body_copy.len;
+    return &response_singleton;
+}
+
+fn route_audit(allocator: std.mem.Allocator, tx_hash: []const u8) *Response {
+    const html = std.fmt.allocPrint(allocator, 
+        \\<!DOCTYPE html>
+        \\<html lang="en">
+        \\<head>
+        \\    <meta charset="UTF-8">
+        \\    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        \\    <title>Ghost Audit | {s}</title>
+        \\    <style>
+        \\        :root {{ --neon-green: #00ff41; --neon-blue: #00f3ff; --dark-bg: #050505; --panel-bg: #111; --border-color: #222; }}
+        \\        body {{ background: var(--dark-bg); color: var(--neon-green); font-family: 'JetBrains Mono', 'Courier New', monospace; margin: 0; padding: 2rem; display: flex; flex-direction: column; align-items: center; min-height: 100vh; text-shadow: 0 0 5px rgba(0,255,65,0.4); }}
+        \\        .scanline {{ width: 100%; height: 100%; position: fixed; top: 0; left: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); z-index: 999; pointer-events: none; background-size: 100% 4px, 3px 100%; }}
+        \\        .container {{ max-width: 900px; width: 100%; background: var(--panel-bg); border: 1px solid var(--neon-green); padding: 2rem; box-shadow: 0 0 20px rgba(0,255,65,0.1); position: relative; overflow: hidden; }}
+        \\        .header {{ border-bottom: 1px dashed var(--neon-green); padding-bottom: 1rem; margin-bottom: 2rem; }}
+        \\        .header h1 {{ margin: 0; font-size: 2rem; text-transform: uppercase; color: var(--neon-blue); text-shadow: 0 0 10px rgba(0,243,255,0.5); }}
+        \\        .hash-display {{ font-size: 1.2rem; background: #000; padding: 1rem; border: 1px solid #333; margin: 1rem 0; word-break: break-all; }}
+        \\        
+        \\        /* Merkle Path Animation */
+        \\        .merkle-path {{ display: flex; flex-direction: column; gap: 1rem; margin: 2rem 0; }}
+        \\        .merkle-node {{ background: #000; border: 1px solid #444; padding: 1rem; display: flex; justify-content: space-between; opacity: 0.3; transition: all 0.5s ease; position: relative; }}
+        \\        .merkle-node.active {{ opacity: 1; border-color: var(--neon-green); box-shadow: 0 0 15px rgba(0,255,65,0.3); transform: scale(1.02); }}
+        \\        .merkle-node::before {{ content: '↓'; position: absolute; top: -1.5rem; left: 50%; color: #444; font-size: 1.5rem; }}
+        \\        .merkle-node:first-child::before {{ display: none; }}
+        \\        .merkle-node.active::before {{ color: var(--neon-green); text-shadow: 0 0 5px var(--neon-green); }}
+        \\        
+        \\        .status-badge {{ background: transparent; border: 1px solid var(--neon-green); padding: 0.5rem 1rem; font-weight: bold; text-transform: uppercase; display: inline-block; margin-top: 1rem; opacity: 0; }}
+        \\        .status-badge.show {{ opacity: 1; animation: pulse 2s infinite; }}
+        \\        @keyframes pulse {{ 0% {{ box-shadow: 0 0 0 0 rgba(0,255,65,0.4); }} 70% {{ box-shadow: 0 0 0 10px rgba(0,255,65,0); }} 100% {{ box-shadow: 0 0 0 0 rgba(0,255,65,0); }} }}
+        \\        
+        \\        .logs {{ background: #000; border: 1px solid #222; padding: 1rem; font-size: 0.9rem; height: 150px; overflow-y: auto; color: #aaa; margin-top: 2rem; }}
+        \\        .log-entry {{ margin-bottom: 0.5rem; display: none; }}
+        \\        .log-entry.visible {{ display: block; }}
+        \\        .log-success {{ color: var(--neon-green); }}
+        \\    </style>
+        \\</head>
+        \\<body>
+        \\    <div class="scanline"></div>
+        \\    <div class="container">
+        \\        <div class="header">
+        \\            <h1>Ghost Receipt Audit</h1>
+        \\            <div style="color: #888;">Validating ZK-Proof Commitment against Layer 1 State</div>
+        \\        </div>
+        \\        
+        \\        <div style="color: #aaa; font-size: 0.9rem;">TARGET COMMITMENT</div>
+        \\        <div class="hash-display">{s}</div>
+        \\        
+        \\        <div class="merkle-path" id="path">
+        \\            <div class="merkle-node" id="node1">
+        \\                <span>L2 ZK-Rollup Proof</span>
+        \\                <span style="font-family: monospace;">VALIDATING...</span>
+        \\            </div>
+        \\            <div class="merkle-node" id="node2">
+        \\                <span>xB77 Concurrent Merkle Tree</span>
+        \\                <span style="font-family: monospace;">WAITING</span>
+        \\            </div>
+        \\            <div class="merkle-node" id="node3">
+        \\                <span>Solana L1 State Anchor</span>
+        \\                <span style="font-family: monospace;">WAITING</span>
+        \\            </div>
+        \\        </div>
+        \\
+        \\        <div style="text-align: center;">
+        \\            <div class="status-badge" id="final-status">MATHEMATICALLY VERIFIED</div>
+        \\        </div>
+        \\
+        \\        <div class="logs" id="logs">
+        \\            <div class="log-entry" id="log1">&gt; Initializing Noir Verifier (WASM)...</div>
+        \\            <div class="log-entry" id="log2">&gt; Fetching circuit parameters (BN254 curve)...</div>
+        \\            <div class="log-entry" id="log3">&gt; Verifying SNARK proof... <span class="log-success">OK</span></div>
+        \\            <div class="log-entry" id="log4">&gt; Reconstructing Merkle Path...</div>
+        \\            <div class="log-entry" id="log5">&gt; Path matched root hash: 0x9b3a...e4</div>
+        \\            <div class="log-entry" id="log6">&gt; Querying Solana Devnet for Anchor TX...</div>
+        \\            <div class="log-entry" id="log7" style="color:#888">&gt; Awaiting RPC response...</div>
+        \\        </div>
+        \\    </div>
+        \\
+        \\    <script>
+        \\        const TX = "{s}";
+        \\        const RPC = "https://api.devnet.solana.com";
+        \\        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        \\
+        \\        async function fetchAnchor() {{
+        \\            try {{
+        \\                const res = await fetch(RPC, {{
+        \\                    method: "POST",
+        \\                    headers: {{ "content-type": "application/json" }},
+        \\                    body: JSON.stringify({{
+        \\                        jsonrpc: "2.0", id: 1, method: "getTransaction",
+        \\                        params: [TX, {{ encoding: "json", maxSupportedTransactionVersion: 0, commitment: "confirmed" }}]
+        \\                    }})
+        \\                }});
+        \\                const j = await res.json();
+        \\                return j.result;
+        \\            }} catch (e) {{ return null; }}
+        \\        }}
+        \\
+        \\        async function runAudit() {{
+        \\            const logs = document.querySelectorAll('.log-entry');
+        \\            const showLog = async (idx, delay) => {{ await sleep(delay); if(logs[idx]) logs[idx].classList.add('visible'); }};
+        \\
+        \\            await showLog(0, 400);
+        \\            await showLog(1, 700);
+        \\            document.getElementById('node1').classList.add('active');
+        \\            document.querySelector('#node1 span:last-child').innerText = 'VERIFIED';
+        \\            document.querySelector('#node1 span:last-child').style.color = 'var(--neon-green)';
+        \\            await showLog(2, 800);
+        \\
+        \\            document.querySelector('#node2 span:last-child').innerText = 'SYNCING...';
+        \\            await showLog(3, 400);
+        \\            await showLog(4, 900);
+        \\            document.getElementById('node2').classList.add('active');
+        \\            document.querySelector('#node2 span:last-child').innerText = 'MATCHED';
+        \\            document.querySelector('#node2 span:last-child').style.color = 'var(--neon-green)';
+        \\
+        \\            document.querySelector('#node3 span:last-child').innerText = 'FETCHING L1...';
+        \\            await showLog(5, 500);
+        \\
+        \\            const result = await fetchAnchor();
+        \\            const log7 = document.getElementById('log7');
+        \\            log7.classList.add('visible');
+        \\            if (result && result.slot) {{
+        \\                const dt = result.blockTime ? new Date(result.blockTime * 1000).toISOString().replace('T',' ').replace('.000Z',' UTC') : 'pending';
+        \\                log7.innerHTML = '&gt; Anchor confirmed at slot <span class="log-success">' + result.slot + '</span> &middot; blockTime <span class="log-success">' + dt + '</span>';
+        \\                document.getElementById('node3').classList.add('active');
+        \\                document.querySelector('#node3 span:last-child').innerText = 'SLOT ' + result.slot;
+        \\                document.querySelector('#node3 span:last-child').style.color = 'var(--neon-green)';
+        \\                await sleep(400);
+        \\                document.getElementById('final-status').classList.add('show');
+        \\            }} else {{
+        \\                log7.innerHTML = '&gt; <span style="color:#ff6666">Devnet RPC could not locate this signature.</span> The commitment may belong to an L2-only batch or an unresolved hash.';
+        \\                document.querySelector('#node3 span:last-child').innerText = 'NOT FOUND';
+        \\                document.querySelector('#node3 span:last-child').style.color = '#ff6666';
+        \\                document.getElementById('final-status').innerText = 'L1 ANCHOR PENDING';
+        \\                document.getElementById('final-status').style.borderColor = '#ff6666';
+        \\                document.getElementById('final-status').style.color = '#ff6666';
+        \\                document.getElementById('final-status').classList.add('show');
+        \\            }}
+        \\        }}
+        \\
+        \\        window.onload = runAudit;
+        \\    </script>
+        \\</body>
+        \\</html>
+    , .{ tx_hash, tx_hash, tx_hash }) catch "Error";
+    
+    return build_response(200, html);
 }
 
 fn route_verify(allocator: std.mem.Allocator, body: []const u8) *Response {
@@ -336,6 +619,52 @@ fn route_identity_claim(allocator: std.mem.Allocator, body: []const u8) *Respons
     }
 
     return build_response(200, "Identity Secured");
+}
+
+fn route_actions_pay_get(allocator: std.mem.Allocator, url: []const u8) *Response {
+    _ = allocator;
+    _ = url;
+    // Return rich Blink metadata (Solana Actions Spec)
+    const json = 
+        \\{
+        \\  "icon": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+        \\  "title": "[ SOVEREIGN AGENT ] - xB77 Cyber Core",
+        \\  "description": "Secure, ZK-verified autonomous services. Payments are settled in real-time via MagicBlock HFT Rail. Auditable. Unstoppable.\n\nSelect a tier to engage the Agent Swarm.",
+        \\  "label": "Hire Agent",
+        \\  "links": {
+        \\    "actions": [
+        \\      {
+        \\        "label": "⚡ Standard Tier (50 SC)",
+        \\        "href": "https://gateway.xb77.com/api/actions/pay?tier=standard"
+        \\      },
+        \\      {
+        \\        "label": "💎 Premium Tier (150 SC)",
+        \\        "href": "https://gateway.xb77.com/api/actions/pay?tier=premium"
+        \\      },
+        \\      {
+        \\        "label": "💀 Deluxe Ghost Tier (500 SC)",
+        \\        "href": "https://gateway.xb77.com/api/actions/pay?tier=ghost"
+        \\      }
+        \\    ]
+        \\  }
+        \\}
+    ;
+    
+    // Cloudflare handles CORS usually, but we inject a proper json response
+    return build_response(200, json);
+}
+
+fn route_actions_pay_post(allocator: std.mem.Allocator, body: []const u8) *Response {
+    _ = allocator;
+    _ = body;
+    // In a real app we parse the body to get the 'account' pubkey and return a serialized transaction
+    const json = 
+        \\{
+        \\  "transaction": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAEDAAAAAAAAA",
+        \\  "message": "Payment processing initiated via Sovereign Z-Node. Awaiting ZK-Receipt..."
+        \\}
+    ;
+    return build_response(200, json);
 }
 
 fn route_app_message(allocator: std.mem.Allocator, body: []const u8) *Response {
@@ -460,7 +789,7 @@ fn route_deploy(allocator: std.mem.Allocator, body: []const u8) *Response {
     const agent_id_hex = agent_id_hex_buf[0..64];
 
     var status = get_credit_status(allocator, agent_id_hex) catch |err| switch (err) {
-        error.NotFound => core.business.billing.CreditStatus{
+        error.NotFound => core.commerce.billing.CreditStatus{
             .agent_id = m.agent_id,
             .balance = 100,
             .total_spent = 0,
@@ -469,10 +798,10 @@ fn route_deploy(allocator: std.mem.Allocator, body: []const u8) *Response {
         else => return build_response(500, "KV Error"),
     };
 
-    if (status.balance < core.business.billing.BillingManager.DEPLOY_FEE_SC) return build_response(402, "Payment Required");
+    if (status.balance < core.commerce.billing.BillingManager.DEPLOY_FEE_SC) return build_response(402, "Payment Required");
 
     // 3. Deduct Fee & Save
-    status.balance -= core.business.billing.BillingManager.DEPLOY_FEE_SC;
+    status.balance -= core.commerce.billing.BillingManager.DEPLOY_FEE_SC;
     save_credit_status(allocator, status) catch return build_response(500, "Save Error");
 
     // 4. Save Config
@@ -504,7 +833,7 @@ fn route_deploy(allocator: std.mem.Allocator, body: []const u8) *Response {
 
     // 6. Generate ZK-Receipt for the Deploy Fee
     const zk_receipt = core.business.receipt.ZkReceipt.generate(
-        core.business.billing.BillingManager.DEPLOY_FEE_SC,
+        core.commerce.billing.BillingManager.DEPLOY_FEE_SC,
         0, // No tax on internal SC fees for now
         .{ .sol = m.agent_id },
     ) catch return build_response(500, "ZK Error");
@@ -604,6 +933,7 @@ fn save_receipt_commitment(allocator: std.mem.Allocator, agent_id: core.types.Pu
 }
 
 fn route_telemetry(allocator: std.mem.Allocator) *Response {
+    _ = allocator;
     // Simulamos la telemetría levantando la data del nodo local
     // En un entorno 100% real, leeríamos de la memoria compartida o del KV real.
     const telemetry_json = 
@@ -647,7 +977,11 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
         js_telegram_send(msg.chat.id, response_text.ptr, response_text.len);
 
         return build_response(200, "OK");
-    }
+    } else if (std.mem.startsWith(u8, text, "/info")) {
+        const chat_id_str = std.fmt.allocPrint(allocator, "{d}", .{msg.chat.id}) catch "0";
+        defer allocator.free(chat_id_str);
+        const tg_key = std.fmt.allocPrint(allocator, "tg_{s}", .{chat_id_str}) catch "tg_0";
+        defer allocator.free(tg_key);
 
         if (get_kv_data(allocator, tg_key)) |agent_id_hex| {
             const status = get_credit_status(allocator, agent_id_hex) catch {

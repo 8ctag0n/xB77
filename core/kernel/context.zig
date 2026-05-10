@@ -184,6 +184,8 @@ pub const AgentContext = struct {
         }
         self.active_agents.deinit(self.allocator);
         _ = self.telemetry.endSession();
+        self.merchant.deinit(self.allocator);
+        self.mb_client.deinit();
         self.app_manager.deinit();
         self.orchestrator.deinit();
         self.brain.deinit();

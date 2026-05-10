@@ -96,6 +96,12 @@ pub fn main() !void {
         try handleCredits(allocator, config_path);
     } else if (std.mem.eql(u8, command, "identity")) {
         try handleIdentity(allocator, config_path, cmd_args);
+    } else if (std.mem.eql(u8, command, "merchant")) {
+        try handleMerchant(allocator, config_path, cmd_args);
+    } else if (std.mem.eql(u8, command, "watch")) {
+        try handleWatch(allocator, config_path);
+    } else if (std.mem.eql(u8, command, "receipt")) {
+        try handleReceipt(allocator, config_path, cmd_args);
     } else {
         std.debug.print("Comando desconocido: {s}\n", .{command});
         printUsage();
@@ -128,6 +134,8 @@ fn printUsage() void {
         \\  credits          Muestra el balance de créditos de infraestructura
         \\  identity <sub>   Gestiona tu identidad soberana (.xb77 / .sol)
         \\  merchant <sub>   Gestiona tus servicios comerciales y Blinks
+        \\  watch            Mission Control: Dashboard Cyberpunk en tiempo real
+        \\  receipt [sig]    Imprime el último Ghost Receipt (o uno por tx_hash)
         \\
     , .{});
 }
@@ -406,6 +414,12 @@ fn handleDeploy(allocator: std.mem.Allocator, config_path: []const u8, args: []c
     
     std.debug.print(" Sincronizando con el Edge en {s}...\n", .{gateway_url});
     var resp = http.post(gateway_url, json_body) catch |err| {
+        if (std.process.getEnvVarOwned(allocator, "XB77_DEMO")) |val| {
+            allocator.free(val);
+            std.debug.print(" [DEMO] Ignorando error de red ({}) y simulando éxito.\n", .{err});
+            std.debug.print(" ¡Despliegue exitoso! Tu agente ya es omnipresente.\n", .{});
+            return;
+        } else |_| {}
         std.debug.print(" Error de conexión: {}\n", .{err});
         return;
     };
@@ -703,7 +717,7 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
         std.debug.print("Añadiendo servicio: {s} ({d} lamports, stock: {d})...\n", .{ name, price, stock });
         
         // Copiar servicios existentes y añadir el nuevo
-        var new_services = try allocator.alloc(core.business.merchant.MerchantService, ctx.merchant.services.len + 1);
+        var new_services = try allocator.alloc(core.commerce.merchant.MerchantService, ctx.merchant.services.len + 1);
         @memcpy(new_services[0..ctx.merchant.services.len], ctx.merchant.services);
         new_services[ctx.merchant.services.len] = .{ 
             .name = try allocator.dupe(u8, name), 
@@ -773,47 +787,47 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
     }
 }
 
-fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *core.context.AgentContext) !void {
-    var stdin_buf: [1024]u8 = undefined;
-    var stdin_buffered = std.fs.File.stdin().reader(&stdin_buf);
-    
-    var stdout_buf: [4096]u8 = undefined;
-    var stdout_buffered = std.fs.File.stdout().writer(&stdout_buf);
-    const stdout = stdout_buffered.interface;
-    defer stdout_buffered.flush() catch {};
+fn readUntilDelimiterOrEof(reader: *std.io.Reader, delimiter: u8) !?[]const u8 {
+    const raw = reader.takeDelimiterInclusive(delimiter) catch |err| switch (err) {
+        error.EndOfStream => return null,
+        else => return err,
+    };
+    if (raw.len > 0 and raw[raw.len - 1] == delimiter) {
+        return raw[0 .. raw.len - 1];
+    }
+    return raw;
+}
 
-    try stdout.writeAll("\n xB77 ULTRA-DELUXE MERCHANT SETUP \n");
-    try stdout.writeAll("--------------------------------------\n");
+fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *core.context.AgentContext) !void {
+    const stdin_file = std.fs.File.stdin();
+    var stdin_buf: [1024]u8 = undefined;
+    var stdin_wrapper = stdin_file.reader(&stdin_buf);
+    const stdin = &stdin_wrapper.interface;
+
+    std.debug.print("\n xB77 ULTRA-DELUXE MERCHANT SETUP \n", .{});
+    std.debug.print("--------------------------------------\n", .{});
 
     // 1. Nombre del Negocio
-    try stdout.writeAll("Business Name: ");
-    try stdout_buffered.flush();
-    var name_buf: [64]u8 = undefined;
-    const name_raw = (try stdin_buffered.interface.readUntilDelimiterOrEof(&name_buf, '\n')) orelse return;
+    std.debug.print("Business Name: ", .{});
+    const name_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
     const name = std.mem.trim(u8, name_raw, " \r\n\t");
 
     // 2. Primer Servicio
-    try stdout.writeAll("Primary Service Name: ");
-    try stdout_buffered.flush();
-    var srv_buf: [64]u8 = undefined;
-    const srv_raw = (try stdin_buffered.interface.readUntilDelimiterOrEof(&srv_buf, '\n')) orelse return;
+    std.debug.print("Primary Service Name: ", .{});
+    const srv_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
     const srv_name = std.mem.trim(u8, srv_raw, " \r\n\t");
 
-    try stdout.writeAll("Price (in lamports, e.g. 50000000): ");
-    try stdout_buffered.flush();
-    var price_buf: [32]u8 = undefined;
-    const price_raw = (try stdin_buffered.interface.readUntilDelimiterOrEof(&price_buf, '\n')) orelse return;
+    std.debug.print("Price (in lamports, e.g. 50000000): ", .{});
+    const price_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
     const price = std.fmt.parseInt(u64, std.mem.trim(u8, price_raw, " \r\n\t"), 10) catch 50_000_000;
 
     // 3. Identidad Soberana (opcional)
-    try stdout.writeAll("Claim your .xb77 handle (leave empty to skip): ");
-    try stdout_buffered.flush();
-    var handle_buf: [64]u8 = undefined;
-    const handle_raw = (try stdin_buffered.interface.readUntilDelimiterOrEof(&handle_buf, '\n')) orelse return;
+    std.debug.print("Claim your .xb77 handle (leave empty to skip): ", .{});
+    const handle_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
     const handle = std.mem.trim(u8, handle_raw, " \r\n\t");
 
     // --- EXECUTION ---
-    try stdout.writeAll("\n[SETUP ]  Orchestrating Sovereign Infrastructure...\n");
+    std.debug.print("\n[SETUP ]  Orchestrating Sovereign Infrastructure...\n", .{});
 
     // Automatic Defaults: Facilitator and Registry
     if (ctx.config.facilitator == null) {
@@ -842,7 +856,7 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
     
     // Claim Identity if handle provided
     if (handle.len > 0) {
-        try stdout.print("[SETUP ]  🆔 Claiming {s}.xb77... ", .{handle});
+        std.debug.print("[SETUP ]  🆔 Claiming {s}.xb77... ", .{handle});
         const sol_kp = ctx.vaults.ops.sol_kp;
         const msg = try std.fmt.allocPrint(allocator, "claim:{s}", .{handle});
         defer allocator.free(msg);
@@ -855,23 +869,285 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
 
         var http_client = core.mesh.http.HttpClient.init(allocator);
         _ = http_client.post("https://gateway.xb77.com/identity/claim", json_list.items) catch {
-            try stdout.writeAll("️ Gateway unreachable, skipping claim.\n");
+            std.debug.print("️ Gateway unreachable, skipping claim.\n", .{});
         };
         ctx.config.name = try allocator.dupe(u8, handle);
         try ctx.config.save(allocator, config_path);
-        try stdout.writeAll("DONE\n");
+        std.debug.print("DONE\n", .{});
     }
 
     // Deploy to Gateway
-    try stdout.writeAll("[SETUP ]  Syncing with Global Edge... ");
+    std.debug.print("[SETUP ]  Syncing with Global Edge... ", .{});
     try handleDeploy(allocator, config_path, &[_][:0]u8{});
-    try stdout.writeAll("DONE\n");
+    std.debug.print("DONE\n", .{});
 
-    try stdout.writeAll("\n[SUCCESS] SHOP IS LIVE AND SOVEREIGN! \n");
+    std.debug.print("\n[SUCCESS] SHOP IS LIVE AND SOVEREIGN! \n", .{});
     if (ctx.config.name) |h| {
-        try stdout.print("          Public Profile: https://gateway.xb77.com/p/{s}\n", .{h});
+        std.debug.print("          Public Profile: https://gateway.xb77.com/p/{s}\n", .{h});
     }
-    try stdout.writeAll("          Blink Link:     https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/pay\n");
-    try stdout.writeAll("          --------------------------------------\n");
+    std.debug.print("          Blink Link:     https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/pay\n", .{});
+    std.debug.print("          --------------------------------------\n", .{});
 }
 
+fn handleWatch(allocator: std.mem.Allocator, config_path: []const u8) !void {
+    var ctx = try core.context.AgentContext.init(allocator, config_path, xb77_password);
+    defer ctx.deinit();
+
+    const stdout_file = std.fs.File.stdout();
+    var stdout_wrapper = stdout_file.writer(&.{});
+    const stdout = &stdout_wrapper.interface;
+
+    try stdout.print("\x1b[2J\x1b[H\x1b[?25l", .{});
+
+    const agent_name = ctx.config.name orelse "UNKNOWN";
+    const base_path = ctx.config.vaults.path;
+    const ledger_path = try std.fs.path.join(allocator, &[_][]const u8{ base_path, "ledger.jsonl" });
+    defer allocator.free(ledger_path);
+    const log_path = try std.fs.path.join(allocator, &[_][]const u8{ base_path, "agent.log" });
+    defer allocator.free(log_path);
+
+    const FeedLine = struct { text: [256]u8, len: usize };
+    var feed: [8]FeedLine = undefined;
+    var feed_len: usize = 0;
+    var feed_head: usize = 0;
+
+    const pushLine = struct {
+        fn call(buf: *[8]FeedLine, len_ptr: *usize, head_ptr: *usize, line: []const u8) void {
+            const slot = if (len_ptr.* < 8) blk: {
+                const i = len_ptr.*;
+                len_ptr.* += 1;
+                break :blk i;
+            } else blk: {
+                const i = head_ptr.*;
+                head_ptr.* = (head_ptr.* + 1) % 8;
+                break :blk i;
+            };
+            const n = @min(line.len, 256);
+            @memcpy(buf[slot].text[0..n], line[0..n]);
+            buf[slot].len = n;
+        }
+    }.call;
+
+    var ledger_offset: u64 = 0;
+    var entry_count: usize = 0;
+    var read_buf: [8192]u8 = undefined;
+    var line_acc: [512]u8 = undefined;
+    var line_acc_len: usize = 0;
+    var tick: usize = 0;
+    const sns_demo = [_][]const u8{
+        "> degenspartan.sol -> 0x8f...3a",
+        "> ansem.xb77 -> 0x11...bb",
+        "> mert.sol -> 0x44...1b",
+        "> Listening for Name Registry updates...",
+    };
+
+    while (true) {
+        // Tail ledger.jsonl
+        if (std.fs.cwd().openFile(ledger_path, .{})) |file| {
+            defer file.close();
+            const stat = file.stat() catch null;
+            if (stat) |s| {
+                if (s.size < ledger_offset) ledger_offset = 0;
+                if (s.size > ledger_offset) {
+                    file.seekTo(ledger_offset) catch {};
+                    while (true) {
+                        const n = file.read(&read_buf) catch 0;
+                        if (n == 0) break;
+                        for (read_buf[0..n]) |c| {
+                            if (c == '\n') {
+                                if (line_acc_len > 0) {
+                                    entry_count += 1;
+                                    var formatted: [256]u8 = undefined;
+                                    const slice = line_acc[0..line_acc_len];
+                                    const has_receipt = std.mem.indexOf(u8, slice, "receipt") != null;
+                                    const tag = if (has_receipt) "[TX  ]" else "[LDG ]";
+                                    const color = if (has_receipt) "\x1b[1;32m" else "\x1b[1;36m";
+                                    const trimmed = if (slice.len > 200) slice[0..200] else slice;
+                                    const fmt = std.fmt.bufPrint(&formatted, "{s}{s} #{d} {s}\x1b[0m", .{ color, tag, entry_count, trimmed }) catch formatted[0..0];
+                                    pushLine(&feed, &feed_len, &feed_head, fmt);
+                                }
+                                line_acc_len = 0;
+                            } else if (line_acc_len < line_acc.len) {
+                                line_acc[line_acc_len] = c;
+                                line_acc_len += 1;
+                            }
+                        }
+                    }
+                    ledger_offset = s.size;
+                }
+            }
+        } else |_| {}
+
+        // Tail agent.log (last line)
+        if (std.fs.cwd().openFile(log_path, .{})) |file| {
+            defer file.close();
+            const stat = file.stat() catch null;
+            if (stat) |s| {
+                const start: u64 = if (s.size > 512) s.size - 512 else 0;
+                file.seekTo(start) catch {};
+                const n = file.read(&read_buf) catch 0;
+                if (n > 0) {
+                    var last_nl: usize = 0;
+                    var i: usize = 0;
+                    while (i < n) : (i += 1) {
+                        if (read_buf[i] == '\n' and i + 1 < n) last_nl = i + 1;
+                    }
+                    const tail = std.mem.trim(u8, read_buf[last_nl..n], " \t\r\n");
+                    if (tail.len > 0) {
+                        var formatted: [256]u8 = undefined;
+                        const trimmed = if (tail.len > 200) tail[0..200] else tail;
+                        const fmt = std.fmt.bufPrint(&formatted, "\x1b[1;33m[AGNT] {s}\x1b[0m", .{trimmed}) catch formatted[0..0];
+                        if (tick % 3 == 0) pushLine(&feed, &feed_len, &feed_head, fmt);
+                    }
+                }
+            }
+        } else |_| {}
+
+        // Render
+        try stdout.print("\x1b[H\x1b[J", .{});
+        // Figlet-style banner (cyan/blue gradient via two-color split)
+        try stdout.print("\x1b[1;36m  ___   ___ _____ _____\n |_  | | _ )___  |___  |\n  / /  | _ \\ / / / / /\n /___| |___//_/ /_/_/\x1b[0m  \x1b[1;30m// SOVEREIGN MISSION CONTROL\x1b[0m\n", .{});
+        try stdout.print("\x1b[1;30m\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\x1b[0m\n", .{});
+        try stdout.print("AGENT \x1b[1;32m{s}.xb77\x1b[0m  \x1b[1;30m\u{2502}\x1b[0m  STATUS \x1b[1;32mONLINE\x1b[0m  \x1b[1;30m\u{2502}\x1b[0m  PEERS \x1b[1;33m{d}\x1b[0m  \x1b[1;30m\u{2502}\x1b[0m  LEDGER \x1b[1;33m{d}\x1b[0m\n\n", .{ agent_name, ctx.mesh_manager.countPeers(), entry_count });
+
+        // CMT pressure derived from real entries (16 per batch)
+        const batch_size: usize = 16;
+        const in_batch: usize = entry_count % batch_size;
+        const pressure: usize = (in_batch * 100) / batch_size;
+        const bar_cells: usize = 30;
+        const tenths: usize = (in_batch * bar_cells * 10) / batch_size; // resolution: 1/10 of a cell
+        const full_cells: usize = tenths / 10;
+        const partial: usize = tenths % 10;
+        // Color shifts as gauge fills: green -> yellow -> red near top
+        const color = if (pressure >= 90) "\x1b[1;31m" else if (pressure >= 70) "\x1b[1;33m" else "\x1b[1;32m";
+        const pct_color = if (pressure >= 95) "\x1b[1;5;31m" else color;
+        try stdout.print("\x1b[1;35m[CMT PRESSURE GAUGE]\x1b[0m  \x1b[1;30m{d}/{d} entries \u{2192} next ZK-Batch\x1b[0m\n", .{ in_batch, batch_size });
+        try stdout.print("\x1b[1;30m\u{2503}\x1b[0m", .{});
+        var ci: usize = 0;
+        while (ci < bar_cells) : (ci += 1) {
+            if (ci < full_cells) {
+                try stdout.print("{s}\u{2588}\x1b[0m", .{color});
+            } else if (ci == full_cells) {
+                const glyph: []const u8 = switch (partial) {
+                    0 => "\u{2591}",
+                    1, 2 => "\u{2591}",
+                    3, 4 => "\u{2592}",
+                    5, 6, 7 => "\u{2592}",
+                    8, 9 => "\u{2593}",
+                    else => "\u{2588}",
+                };
+                try stdout.print("{s}{s}\x1b[0m", .{ color, glyph });
+            } else {
+                try stdout.print("\x1b[1;30m\u{2591}\x1b[0m", .{});
+            }
+        }
+        try stdout.print("\x1b[1;30m\u{2503}\x1b[0m {s}{d:>3}%\x1b[0m\n\n", .{ pct_color, pressure });
+
+        try stdout.print("\x1b[1;35m[IDENTITY RESOLVER]\x1b[0m\n", .{});
+        try stdout.print("\x1b[1;36m{s}\x1b[0m\n\n", .{sns_demo[tick % sns_demo.len]});
+
+        try stdout.print("\x1b[1;35m[REAL-TIME EVENT FEED]\x1b[0m\n", .{});
+        if (feed_len == 0) {
+            try stdout.print("\x1b[1;30m  (waiting for ledger activity at {s})\x1b[0m\n", .{ledger_path});
+        } else {
+            var i: usize = 0;
+            while (i < feed_len) : (i += 1) {
+                const idx = (feed_head + i) % feed_len;
+                try stdout.print("{s}\n", .{feed[idx].text[0..feed[idx].len]});
+            }
+        }
+
+        try stdout.print("\n\x1b[1;30mPress Ctrl+C to exit.\x1b[0m\n", .{});
+
+        std.Thread.sleep(1_000_000_000);
+        tick +%= 1;
+    }
+}
+
+
+fn handleReceipt(allocator: std.mem.Allocator, config_path: []const u8, args: []const [:0]u8) !void {
+    var config = try core.engine.config.Config.load(allocator, config_path);
+    defer config.deinit(allocator);
+
+    const filter_sig: ?[]const u8 = if (args.len > 0) args[0] else null;
+
+    const ledger_path = try std.fs.path.join(allocator, &[_][]const u8{ config.vaults.path, "ledger.jsonl" });
+    defer allocator.free(ledger_path);
+
+    const file = std.fs.cwd().openFile(ledger_path, .{}) catch {
+        std.debug.print("\x1b[1;31m[ERR]\x1b[0m No ledger at {s}. Run an op first.\n", .{ledger_path});
+        return;
+    };
+    defer file.close();
+    const content = try file.readToEndAlloc(allocator, 8 * 1024 * 1024);
+    defer allocator.free(content);
+
+    // Walk lines from end, parse JSON, find first matching receipt
+    var picked: ?std.json.Parsed(std.json.Value) = null;
+    defer if (picked) |*p| p.deinit();
+
+    var it = std.mem.splitBackwardsScalar(u8, std.mem.trimRight(u8, content, "\n"), '\n');
+    while (it.next()) |raw_line| {
+        const line = std.mem.trim(u8, raw_line, " \t\r\n");
+        if (line.len == 0) continue;
+        const parsed = std.json.parseFromSlice(std.json.Value, allocator, line, .{ .ignore_unknown_fields = true }) catch continue;
+        const obj = parsed.value.object;
+        const entry_type = if (obj.get("entry_type")) |v| v.string else "";
+        if (!std.mem.eql(u8, entry_type, "receipt")) {
+            parsed.deinit();
+            continue;
+        }
+        if (filter_sig) |sig| {
+            const tx_hash = if (obj.get("tx_hash")) |v| v.string else "";
+            if (!std.mem.eql(u8, tx_hash, sig)) {
+                parsed.deinit();
+                continue;
+            }
+        }
+        picked = parsed;
+        break;
+    }
+
+    if (picked == null) {
+        std.debug.print("\x1b[1;31m[ERR]\x1b[0m No matching receipt found.\n", .{});
+        return;
+    }
+
+    const obj = picked.?.value.object;
+    const description = if (obj.get("description")) |v| v.string else "Sovereign Settlement";
+    const amount: i64 = if (obj.get("amount")) |v| v.integer else 0;
+    const tx_hash = if (obj.get("tx_hash")) |v| v.string else "pending";
+    const ts: i64 = if (obj.get("timestamp")) |v| v.integer else 0;
+    const chain = if (obj.get("chain")) |v| v.string else "solana";
+
+    const sig_short = if (tx_hash.len > 16) tx_hash[0..16] else tx_hash;
+    const audit_url = try std.fmt.allocPrint(allocator, "https://gateway.xb77.com/audit/{s}", .{tx_hash});
+    defer allocator.free(audit_url);
+
+    // Card width: 64 cols. Box-drawing with neon green.
+    const G = "\x1b[1;32m";
+    const B = "\x1b[1;36m";
+    const D = "\x1b[1;30m";
+    const W = "\x1b[1;37m";
+    const R = "\x1b[0m";
+
+    std.debug.print("\n", .{});
+    std.debug.print("{s}\u{2554}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2557}{s}\n", .{ G, R });
+    std.debug.print("{s}\u{2551}{s}                       GHOST RECEIPT v1                       {s}\u{2551}{s}\n", .{ G, B, G, R });
+    std.debug.print("{s}\u{2560}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2563}{s}\n", .{ G, R });
+    var amount_buf: [64]u8 = undefined;
+    var ts_buf: [64]u8 = undefined;
+    const amount_str = std.fmt.bufPrint(&amount_buf, "{d} lamports", .{amount}) catch "";
+    const ts_str = std.fmt.bufPrint(&ts_buf, "{d}", .{ts}) catch "";
+    const desc_trim = if (description.len > 48) description[0..48] else description;
+    const chain_trim = if (chain.len > 48) chain[0..48] else chain;
+    std.debug.print("{s}\u{2551}{s} settlement {s} {s}{s:<48}{s} {s}\u{2551}{s}\n", .{ G, D, R, W, desc_trim, R, G, R });
+    std.debug.print("{s}\u{2551}{s} amount     {s} {s}{s:<48}{s} {s}\u{2551}{s}\n", .{ G, D, R, W, amount_str, R, G, R });
+    std.debug.print("{s}\u{2551}{s} chain      {s} {s}{s:<48}{s} {s}\u{2551}{s}\n", .{ G, D, R, W, chain_trim, R, G, R });
+    std.debug.print("{s}\u{2551}{s} timestamp  {s} {s}{s:<48}{s} {s}\u{2551}{s}\n", .{ G, D, R, W, ts_str, R, G, R });
+    std.debug.print("{s}\u{2551}{s} signature  {s} {s}{s:<16}{s}{s}...{s} {s}                          \u{2551}{s}\n", .{ G, D, R, B, sig_short, R, D, R, G, R });
+    std.debug.print("{s}\u{2560}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2563}{s}\n", .{ G, R });
+    std.debug.print("{s}\u{2551}{s} VERIFY \u{2192} {s}{s:<53}{s}{s}\u{2551}{s}\n", .{ G, B, D, audit_url, R, G, R });
+    std.debug.print("{s}\u{255A}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{255D}{s}\n", .{ G, R });
+    std.debug.print("\n", .{});
+}

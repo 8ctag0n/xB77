@@ -146,7 +146,8 @@ pub const MagicBlockSDK = struct {
 
         var response = try client.post(self.sequencer_url, body.items);
         defer response.deinit();
-        
+
+        // El secuenciador devuelve la firma de aceptación en el Rollup
         return try self.allocator.dupe(u8, response.body);
     }
 
