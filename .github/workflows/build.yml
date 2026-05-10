@@ -29,6 +29,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # znode-server links against -lcurl (see znode/main.c). The hosted
+      # ubuntu-latest image does not ship libcurl headers, so install them
+      # before invoking the Zig build.
+      - name: Install libcurl headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev
+
       - uses: mlugg/setup-zig@v2
         with:
           # 0.15.2 was a dev snapshot that was un-published from

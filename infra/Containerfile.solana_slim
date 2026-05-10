@@ -12,9 +12,11 @@ RUN apt-get update && apt-get install -y \
 # "rustup could not choose a version of cargo to run, no default configured".
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
+    RUSTUP_TOOLCHAIN=stable \
     PATH=/usr/local/cargo/bin:${PATH}
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
         sh -s -- -y --default-toolchain stable --no-modify-path \
+    && /usr/local/cargo/bin/rustup default stable \
     && chmod -R a+w "$RUSTUP_HOME" "$CARGO_HOME"
 
 # Instalamos Agave (Solana) v3.1.14
