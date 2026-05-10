@@ -236,5 +236,55 @@ fn buildAndSend(
     const signature = crypto.sign(message, payer_kp);
     @memcpy(buf.items[1..65], &signature);
 
-    return try client.sendTransaction(buf.items);
+    const sig = try client.sendTransaction(buf.items);
+    // Poll until the validator has actually applied the tx; otherwise the
+    // next ix's preflight simulates against stale state (e.g. the buffer
+    // PDA created by INIT looks "not yet existing" to WRITE preflight, and
+    // the program returns AccountDataTooSmall).
+    try waitForConfirmation(client, sig);
+    return sig;
+}
+
+const CONFIRM_POLL_MS: u64 = 250;
+const CONFIRM_TIMEOUT_MS: u64 = 30_000;
+
+fn waitForConfirmation(client: *solana.SolanaClient, signature: []const u8) !void {
+    const allocator = client.allocator;
+    var elapsed: u64 = 0;
+    while (elapsed < CONFIRM_TIMEOUT_MS) {
+        const payload = try std.fmt.allocPrint(allocator,
+            \\{{"jsonrpc":"2.0","id":1,"method":"getSignatureStatuses","params":[["{s}"], {{"searchTransactionHistory":true}}]}}
+        , .{signature});
+        defer allocator.free(payload);
+
+        var response = try client.http_client.post(client.endpoint, payload);
+        defer response.deinit();
+
+        if (std.json.parseFromSlice(std.json.Value, allocator, response.body, .{ .ignore_unknown_fields = true })) |parsed| {
+            defer parsed.deinit();
+            if (parsed.value.object.get("result")) |result| {
+                if (result.object.get("value")) |value| {
+                    const arr = value.array;
+                    if (arr.items.len > 0 and arr.items[0] == .object) {
+                        const status = arr.items[0].object;
+                        if (status.get("err")) |err_v| {
+                            if (err_v != .null) {
+                                std.debug.print("\n[ZK-UP] tx {s} failed: {any}", .{ signature, err_v });
+                                return error.TransactionFailed;
+                            }
+                        }
+                        if (status.get("confirmationStatus")) |cs| {
+                            if (cs == .string and (std.mem.eql(u8, cs.string, "confirmed") or std.mem.eql(u8, cs.string, "finalized"))) {
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        } else |_| {}
+
+        std.Thread.sleep(CONFIRM_POLL_MS * std.time.ns_per_ms);
+        elapsed += CONFIRM_POLL_MS;
+    }
+    return error.ConfirmationTimeout;
 }
