@@ -1,0 +1,163 @@
+name: Release
+
+# Independent release pipeline. Triggers exclusively from explicit tags
+# (`git tag v*` + push) or a manual re-run via workflow_dispatch with a
+# tag input — never from regular branch/PR pushes. This keeps releases
+# decoupled from day-to-day CI:
+#
+#   · A flaky CI run on main can't block a release.
+#   · A failed release (network blip, registry hiccup) is replayed by
+#     re-triggering the workflow against the same tag — no new tag
+#     needed, no scrambling for a v0.x.y-rc2.
+#
+# Artifacts attached to the GitHub Release:
+#   xb77 (CLI binary, Linux x86_64)
+#   gateway.wasm (Cloudflare Worker bundle)
+#   zk-upload-e2e (devnet driver)
+#   xb77_core.so / xb77_gateway.so / xb77_registry.so /
+#     xb77_compression.so / xb77_zk_verifier.so
+#   zk_receipt.json (compiled Noir circuit)
+#
+# Program *-keypair.json files are intentionally NOT attached. They
+# define the on-chain program ID and must remain private.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re-)release (e.g. v0.2.0-deluxe-rc1)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: read
+
+concurrency:
+  # Keyed on the tag so a manual re-run of the same tag supersedes the
+  # previous attempt instead of running in parallel.
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  zig:
+    name: Zig host + WASM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: mlugg/setup-zig@v1
+        with:
+          version: 0.15.2
+
+      - name: Build host targets
+        run: zig build install
+
+      - name: Build gateway WASM
+        run: zig build wasm
+
+      - name: Verify wasm is real
+        run: |
+          size=$(stat -c%s zig-out/bin/gateway.wasm)
+          test "$size" -gt 50000 || (echo "::error::gateway.wasm regressed to a stub" && exit 1)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zig-binaries
+          path: |
+            zig-out/bin/xb77
+            zig-out/bin/gateway.wasm
+            zig-out/bin/zk-upload-e2e
+          if-no-files-found: error
+
+  bpf:
+    name: BPF / ${{ matrix.program }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/xb77-solana:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        program:
+          - xb77_core
+          - xb77_gateway
+          - xb77_registry
+          - xb77_compression
+          - xb77_zk_verifier
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Build BPF program
+        working-directory: onchain/programs/${{ matrix.program }}
+        run: cargo build-sbf
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bpf-${{ matrix.program }}
+          path: onchain/programs/${{ matrix.program }}/target/deploy/${{ matrix.program }}.so
+          if-no-files-found: error
+
+  zk:
+    name: Noir circuit
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/xb77-zk:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Compile circuit
+        working-directory: circuits/zk_receipt
+        run: nargo compile
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zk-circuit
+          path: circuits/zk_receipt/target/zk_receipt.json
+          if-no-files-found: error
+
+  publish:
+    name: Attach artifacts to Release
+    needs: [zig, bpf, zk]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Stage release files
+        run: |
+          mkdir -p release
+          cp dist/zig-binaries/xb77            release/xb77
+          cp dist/zig-binaries/gateway.wasm    release/gateway.wasm
+          cp dist/zig-binaries/zk-upload-e2e   release/zk-upload-e2e
+          for prog in xb77_core xb77_gateway xb77_registry xb77_compression xb77_zk_verifier; do
+            cp "dist/bpf-${prog}/${prog}.so" "release/${prog}.so"
+          done
+          cp dist/zk-circuit/zk_receipt.json   release/zk_receipt.json
+          ls -la release/
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          files: release/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
