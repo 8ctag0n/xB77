@@ -37,3 +37,6 @@ round2/
 circuits/zk_receipt/proofs/
 circuits/zk_receipt/target/
 *.tr
+
+# Session briefs (ad-hoc handoff notes, not source of truth)
+BRIEF_*.md
