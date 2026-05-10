@@ -61,6 +61,7 @@ pub const chain = struct {
     pub const evm = @import("chain/evm.zig");
     pub const anchor = @import("chain/anchor.zig");
     pub const magicblock = @import("chain/magicblock.zig");
+    pub const zk_uploader = @import("chain/zk_uploader.zig");
 };
 
 // --- LEGACY COMPATIBILITY LAYER (The "Designer's API") ---
