@@ -50,6 +50,14 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
+      # znode-server links against -lcurl. The hosted ubuntu-latest image
+      # does not ship libcurl headers/lib by default, so install them
+      # before invoking the Zig build (mirrors build.yml).
+      - name: Install libcurl headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev
+
       - uses: mlugg/setup-zig@v2
         with:
           # 0.15.2 was a dev snapshot that was un-published from
