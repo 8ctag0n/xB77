@@ -50,9 +50,12 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - uses: mlugg/setup-zig@v1
+      - uses: mlugg/setup-zig@v2
         with:
-          version: 0.15.2
+          # 0.15.2 was a dev snapshot that was un-published from
+          # ziglang.org/builds; mlugg's mirrors return 404 for it.
+          # Pin to the last stable 0.15.x release.
+          version: 0.15.1
 
       - name: Build host targets
         run: zig build install

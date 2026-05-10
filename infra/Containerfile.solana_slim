@@ -5,9 +5,17 @@ RUN apt-get update && apt-get install -y \
     curl bzip2 ca-certificates libssl-dev pkg-config build-essential git \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalamos Rust STABLE (Para soportar Edition 2024 y dependencias de 2026)
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-ENV PATH="/root/.cargo/bin:${PATH}"
+# Rust STABLE — instalado en /usr/local para que funcione con cualquier
+# usuario. GitHub Actions corre containers con un user distinto a root,
+# y rustup busca su settings.toml bajo $HOME; instalando con
+# RUSTUP_HOME y CARGO_HOME globales evitamos el clásico
+# "rustup could not choose a version of cargo to run, no default configured".
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:${PATH}
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+        sh -s -- -y --default-toolchain stable --no-modify-path \
+    && chmod -R a+w "$RUSTUP_HOME" "$CARGO_HOME"
 
 # Instalamos Agave (Solana) v3.1.14
 RUN sh -c "$(curl -sSfL https://release.anza.xyz/v3.1.14/install)"

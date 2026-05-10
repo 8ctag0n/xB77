@@ -29,9 +29,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: mlugg/setup-zig@v1
+      - uses: mlugg/setup-zig@v2
         with:
-          version: 0.15.2
+          # 0.15.2 was a dev snapshot that was un-published from
+          # ziglang.org/builds; mlugg's mirrors return 404 for it.
+          # 0.15.1 is the last stable release in the 0.15 series and
+          # has the same std API surface our code targets.
+          version: 0.15.1
 
       - name: Cache zig artifacts
         uses: actions/cache@v4
