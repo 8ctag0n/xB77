@@ -100,6 +100,8 @@ pub fn main() !void {
         try handleMerchant(allocator, config_path, cmd_args);
     } else if (std.mem.eql(u8, command, "watch")) {
         try handleWatch(allocator, config_path);
+    } else if (std.mem.eql(u8, command, "receipt")) {
+        try handleReceipt(allocator, config_path, cmd_args);
     } else {
         std.debug.print("Comando desconocido: {s}\n", .{command});
         printUsage();
@@ -133,6 +135,7 @@ fn printUsage() void {
         \\  identity <sub>   Gestiona tu identidad soberana (.xb77 / .sol)
         \\  merchant <sub>   Gestiona tus servicios comerciales y Blinks
         \\  watch            Mission Control: Dashboard Cyberpunk en tiempo real
+        \\  receipt [sig]    Imprime el último Ghost Receipt (o uno por tx_hash)
         \\
     , .{});
 }
@@ -1002,20 +1005,43 @@ fn handleWatch(allocator: std.mem.Allocator, config_path: []const u8) !void {
 
         // Render
         try stdout.print("\x1b[H\x1b[J", .{});
-        try stdout.print("\x1b[1;36m=== xB77 MISSION CONTROL ===\x1b[0m\n", .{});
-        try stdout.print("AGENT: \x1b[1;32m{s}.xb77\x1b[0m | STATUS: \x1b[1;32mONLINE\x1b[0m | MESH PEERS: \x1b[1;33m{d}\x1b[0m | LEDGER: \x1b[1;33m{d}\x1b[0m\n\n", .{ agent_name, ctx.mesh_manager.countPeers(), entry_count });
+        // Figlet-style banner (cyan/blue gradient via two-color split)
+        try stdout.print("\x1b[1;36m  ___   ___ _____ _____\n |_  | | _ )___  |___  |\n  / /  | _ \\ / / / / /\n /___| |___//_/ /_/_/\x1b[0m  \x1b[1;30m// SOVEREIGN MISSION CONTROL\x1b[0m\n", .{});
+        try stdout.print("\x1b[1;30m\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\x1b[0m\n", .{});
+        try stdout.print("AGENT \x1b[1;32m{s}.xb77\x1b[0m  \x1b[1;30m\u{2502}\x1b[0m  STATUS \x1b[1;32mONLINE\x1b[0m  \x1b[1;30m\u{2502}\x1b[0m  PEERS \x1b[1;33m{d}\x1b[0m  \x1b[1;30m\u{2502}\x1b[0m  LEDGER \x1b[1;33m{d}\x1b[0m\n\n", .{ agent_name, ctx.mesh_manager.countPeers(), entry_count });
 
         // CMT pressure derived from real entries (16 per batch)
         const batch_size: usize = 16;
         const in_batch: usize = entry_count % batch_size;
         const pressure: usize = (in_batch * 100) / batch_size;
-        try stdout.print("\x1b[1;35m[CMT PRESSURE GAUGE]\x1b[0m\n", .{});
-        try stdout.print("To Next ZK-Batch ({d}/{d}): [", .{ in_batch, batch_size });
-        const filled = pressure / 5;
-        for (0..20) |i| {
-            if (i < filled) try stdout.print("\x1b[1;32m#\x1b[0m", .{}) else try stdout.print("\x1b[1;30m.\x1b[0m", .{});
+        const bar_cells: usize = 30;
+        const tenths: usize = (in_batch * bar_cells * 10) / batch_size; // resolution: 1/10 of a cell
+        const full_cells: usize = tenths / 10;
+        const partial: usize = tenths % 10;
+        // Color shifts as gauge fills: green -> yellow -> red near top
+        const color = if (pressure >= 90) "\x1b[1;31m" else if (pressure >= 70) "\x1b[1;33m" else "\x1b[1;32m";
+        const pct_color = if (pressure >= 95) "\x1b[1;5;31m" else color;
+        try stdout.print("\x1b[1;35m[CMT PRESSURE GAUGE]\x1b[0m  \x1b[1;30m{d}/{d} entries \u{2192} next ZK-Batch\x1b[0m\n", .{ in_batch, batch_size });
+        try stdout.print("\x1b[1;30m\u{2503}\x1b[0m", .{});
+        var ci: usize = 0;
+        while (ci < bar_cells) : (ci += 1) {
+            if (ci < full_cells) {
+                try stdout.print("{s}\u{2588}\x1b[0m", .{color});
+            } else if (ci == full_cells) {
+                const glyph: []const u8 = switch (partial) {
+                    0 => "\u{2591}",
+                    1, 2 => "\u{2591}",
+                    3, 4 => "\u{2592}",
+                    5, 6, 7 => "\u{2592}",
+                    8, 9 => "\u{2593}",
+                    else => "\u{2588}",
+                };
+                try stdout.print("{s}{s}\x1b[0m", .{ color, glyph });
+            } else {
+                try stdout.print("\x1b[1;30m\u{2591}\x1b[0m", .{});
+            }
         }
-        try stdout.print("] {d}%\n\n", .{pressure});
+        try stdout.print("\x1b[1;30m\u{2503}\x1b[0m {s}{d:>3}%\x1b[0m\n\n", .{ pct_color, pressure });
 
         try stdout.print("\x1b[1;35m[IDENTITY RESOLVER]\x1b[0m\n", .{});
         try stdout.print("\x1b[1;36m{s}\x1b[0m\n\n", .{sns_demo[tick % sns_demo.len]});
@@ -1038,3 +1064,90 @@ fn handleWatch(allocator: std.mem.Allocator, config_path: []const u8) !void {
     }
 }
 
+
+fn handleReceipt(allocator: std.mem.Allocator, config_path: []const u8, args: []const [:0]u8) !void {
+    var config = try core.engine.config.Config.load(allocator, config_path);
+    defer config.deinit(allocator);
+
+    const filter_sig: ?[]const u8 = if (args.len > 0) args[0] else null;
+
+    const ledger_path = try std.fs.path.join(allocator, &[_][]const u8{ config.vaults.path, "ledger.jsonl" });
+    defer allocator.free(ledger_path);
+
+    const file = std.fs.cwd().openFile(ledger_path, .{}) catch {
+        std.debug.print("\x1b[1;31m[ERR]\x1b[0m No ledger at {s}. Run an op first.\n", .{ledger_path});
+        return;
+    };
+    defer file.close();
+    const content = try file.readToEndAlloc(allocator, 8 * 1024 * 1024);
+    defer allocator.free(content);
+
+    // Walk lines from end, parse JSON, find first matching receipt
+    var picked: ?std.json.Parsed(std.json.Value) = null;
+    defer if (picked) |*p| p.deinit();
+
+    var it = std.mem.splitBackwardsScalar(u8, std.mem.trimRight(u8, content, "\n"), '\n');
+    while (it.next()) |raw_line| {
+        const line = std.mem.trim(u8, raw_line, " \t\r\n");
+        if (line.len == 0) continue;
+        const parsed = std.json.parseFromSlice(std.json.Value, allocator, line, .{ .ignore_unknown_fields = true }) catch continue;
+        const obj = parsed.value.object;
+        const entry_type = if (obj.get("entry_type")) |v| v.string else "";
+        if (!std.mem.eql(u8, entry_type, "receipt")) {
+            parsed.deinit();
+            continue;
+        }
+        if (filter_sig) |sig| {
+            const tx_hash = if (obj.get("tx_hash")) |v| v.string else "";
+            if (!std.mem.eql(u8, tx_hash, sig)) {
+                parsed.deinit();
+                continue;
+            }
+        }
+        picked = parsed;
+        break;
+    }
+
+    if (picked == null) {
+        std.debug.print("\x1b[1;31m[ERR]\x1b[0m No matching receipt found.\n", .{});
+        return;
+    }
+
+    const obj = picked.?.value.object;
+    const description = if (obj.get("description")) |v| v.string else "Sovereign Settlement";
+    const amount: i64 = if (obj.get("amount")) |v| v.integer else 0;
+    const tx_hash = if (obj.get("tx_hash")) |v| v.string else "pending";
+    const ts: i64 = if (obj.get("timestamp")) |v| v.integer else 0;
+    const chain = if (obj.get("chain")) |v| v.string else "solana";
+
+    const sig_short = if (tx_hash.len > 16) tx_hash[0..16] else tx_hash;
+    const audit_url = try std.fmt.allocPrint(allocator, "https://gateway.xb77.com/audit/{s}", .{tx_hash});
+    defer allocator.free(audit_url);
+
+    // Card width: 64 cols. Box-drawing with neon green.
+    const G = "\x1b[1;32m";
+    const B = "\x1b[1;36m";
+    const D = "\x1b[1;30m";
+    const W = "\x1b[1;37m";
+    const R = "\x1b[0m";
+
+    std.debug.print("\n", .{});
+    std.debug.print("{s}\u{2554}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2557}{s}\n", .{ G, R });
+    std.debug.print("{s}\u{2551}{s}                       GHOST RECEIPT v1                       {s}\u{2551}{s}\n", .{ G, B, G, R });
+    std.debug.print("{s}\u{2560}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2563}{s}\n", .{ G, R });
+    var amount_buf: [64]u8 = undefined;
+    var ts_buf: [64]u8 = undefined;
+    const amount_str = std.fmt.bufPrint(&amount_buf, "{d} lamports", .{amount}) catch "";
+    const ts_str = std.fmt.bufPrint(&ts_buf, "{d}", .{ts}) catch "";
+    const desc_trim = if (description.len > 48) description[0..48] else description;
+    const chain_trim = if (chain.len > 48) chain[0..48] else chain;
+    std.debug.print("{s}\u{2551}{s} settlement {s} {s}{s:<48}{s} {s}\u{2551}{s}\n", .{ G, D, R, W, desc_trim, R, G, R });
+    std.debug.print("{s}\u{2551}{s} amount     {s} {s}{s:<48}{s} {s}\u{2551}{s}\n", .{ G, D, R, W, amount_str, R, G, R });
+    std.debug.print("{s}\u{2551}{s} chain      {s} {s}{s:<48}{s} {s}\u{2551}{s}\n", .{ G, D, R, W, chain_trim, R, G, R });
+    std.debug.print("{s}\u{2551}{s} timestamp  {s} {s}{s:<48}{s} {s}\u{2551}{s}\n", .{ G, D, R, W, ts_str, R, G, R });
+    std.debug.print("{s}\u{2551}{s} signature  {s} {s}{s:<16}{s}{s}...{s} {s}                          \u{2551}{s}\n", .{ G, D, R, B, sig_short, R, D, R, G, R });
+    std.debug.print("{s}\u{2560}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2563}{s}\n", .{ G, R });
+    std.debug.print("{s}\u{2551}{s} VERIFY \u{2192} {s}{s:<53}{s}{s}\u{2551}{s}\n", .{ G, B, D, audit_url, R, G, R });
+    std.debug.print("{s}\u{255A}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{2550}\u{255D}{s}\n", .{ G, R });
+    std.debug.print("\n", .{});
+}

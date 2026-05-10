@@ -112,6 +112,8 @@ export fn handle_request(
     } else if (std.mem.startsWith(u8, url, "/p/") and std.mem.eql(u8, method, "GET")) {
         const name = url[3..];
         return route_profile(allocator, name);
+    } else if (std.mem.eql(u8, url, "/") and std.mem.eql(u8, method, "GET")) {
+        return route_landing(allocator);
     } else if (std.mem.eql(u8, url, "/api/brand/blink-icon.svg") and std.mem.eql(u8, method, "GET")) {
         return route_blink_icon(allocator);
     } else if (std.mem.startsWith(u8, url, "/audit/") and std.mem.eql(u8, method, "GET")) {
@@ -270,6 +272,101 @@ export fn verify_ghost_receipt(proof_ptr: [*]const u8, proof_len: usize, comm_pt
     _ = proof_ptr; _ = proof_len; _ = comm_ptr; _ = comm_len; _ = vk_ptr; _ = vk_len;
     // WASM bridge export para Noir Verifier local
     return true;
+}
+
+fn route_landing(allocator: std.mem.Allocator) *Response {
+    _ = allocator;
+    const html =
+        \\<!DOCTYPE html>
+        \\<html lang="en">
+        \\<head>
+        \\<meta charset="UTF-8">
+        \\<meta name="viewport" content="width=device-width, initial-scale=1.0">
+        \\<title>xB77 // Sovereign Financial OS</title>
+        \\<link rel="icon" href="/api/brand/blink-icon.svg" type="image/svg+xml">
+        \\<style>
+        \\:root { --neon-green:#00ff41; --neon-blue:#00f3ff; --dark-bg:#050505; --panel-bg:#0a0a0a; --border:#1a1a1a; --dim:#666; }
+        \\* { box-sizing:border-box; margin:0; padding:0; }
+        \\html,body { background:var(--dark-bg); color:var(--neon-green); font-family:'JetBrains Mono','Courier New',monospace; min-height:100vh; overflow-x:hidden; }
+        \\body { padding:2rem; text-shadow:0 0 4px rgba(0,255,65,0.35); }
+        \\.scanline { position:fixed; inset:0; pointer-events:none; z-index:999; background:linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.22) 50%), linear-gradient(90deg, rgba(255,0,0,0.05), rgba(0,255,0,0.02), rgba(0,0,255,0.05)); background-size:100% 4px, 3px 100%; }
+        \\.grid { position:fixed; inset:0; pointer-events:none; z-index:0; opacity:0.08; background-image:linear-gradient(var(--neon-green) 1px, transparent 1px), linear-gradient(90deg, var(--neon-green) 1px, transparent 1px); background-size:60px 60px; }
+        \\.wrap { position:relative; z-index:1; max-width:1100px; margin:0 auto; }
+        \\.statusbar { display:flex; gap:1.5rem; font-size:0.78rem; color:var(--dim); border-bottom:1px dashed #222; padding-bottom:0.6rem; margin-bottom:2.5rem; letter-spacing:1px; text-transform:uppercase; }
+        \\.statusbar .live { color:var(--neon-green); }
+        \\.statusbar .live::before { content:''; display:inline-block; width:8px; height:8px; background:var(--neon-green); border-radius:50%; margin-right:6px; box-shadow:0 0 8px var(--neon-green); animation:pulse 1.4s infinite; }
+        \\@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+        \\h1 { font-size:clamp(3rem, 12vw, 9rem); font-weight:900; line-height:0.9; letter-spacing:-2px; color:var(--neon-green); text-shadow:0 0 20px rgba(0,255,65,0.4), 0 0 40px rgba(0,255,65,0.2); }
+        \\h1 .slash { color:var(--neon-blue); text-shadow:0 0 20px rgba(0,243,255,0.4); }
+        \\.tagline { font-size:1rem; color:#aaa; margin-top:1.2rem; max-width:680px; line-height:1.6; letter-spacing:0.5px; }
+        \\.tagline em { color:var(--neon-blue); font-style:normal; }
+        \\.cta-row { display:flex; gap:1rem; margin-top:2.5rem; flex-wrap:wrap; }
+        \\.cta { background:transparent; border:1px solid var(--neon-green); color:var(--neon-green); padding:0.9rem 1.6rem; font-family:inherit; font-weight:700; font-size:0.9rem; text-decoration:none; text-transform:uppercase; letter-spacing:2px; transition:all 0.18s; cursor:pointer; }
+        \\.cta:hover { background:var(--neon-green); color:#000; box-shadow:0 0 20px rgba(0,255,65,0.5); }
+        \\.cta.secondary { border-color:var(--neon-blue); color:var(--neon-blue); }
+        \\.cta.secondary:hover { background:var(--neon-blue); color:#000; box-shadow:0 0 20px rgba(0,243,255,0.5); }
+        \\.pillars { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:1px; background:var(--border); border:1px solid var(--border); margin-top:5rem; }
+        \\.pillar { background:var(--panel-bg); padding:1.6rem; }
+        \\.pillar h3 { font-size:0.78rem; color:var(--neon-blue); letter-spacing:3px; margin-bottom:0.8rem; text-transform:uppercase; }
+        \\.pillar p { color:#999; font-size:0.85rem; line-height:1.55; }
+        \\.pillar .num { color:var(--neon-green); font-weight:900; font-size:1.4rem; opacity:0.6; }
+        \\.console { margin-top:5rem; background:#000; border:1px solid var(--border); padding:1.4rem 1.6rem; font-size:0.85rem; }
+        \\.console .prompt { color:var(--neon-blue); }
+        \\.console .out { color:#888; }
+        \\.console .ok { color:var(--neon-green); }
+        \\.console .row { margin:0.25rem 0; }
+        \\footer { margin-top:4rem; padding-top:1.5rem; border-top:1px dashed #222; color:var(--dim); font-size:0.75rem; letter-spacing:1px; text-transform:uppercase; display:flex; justify-content:space-between; flex-wrap:wrap; gap:1rem; }
+        \\footer a { color:var(--dim); text-decoration:none; border-bottom:1px dotted #333; }
+        \\footer a:hover { color:var(--neon-green); border-color:var(--neon-green); }
+        \\</style>
+        \\</head>
+        \\<body>
+        \\<div class="grid"></div>
+        \\<div class="scanline"></div>
+        \\<div class="wrap">
+        \\  <div class="statusbar">
+        \\    <span class="live">L1 Devnet Online</span>
+        \\    <span>ZK Circuits / BN254</span>
+        \\    <span>MagicBlock HFT Rail</span>
+        \\    <span>Ghost Receipts v1</span>
+        \\  </div>
+        \\  <h1>xB77<span class="slash">//</span></h1>
+        \\  <p class="tagline">Sovereign <em>Financial OS</em> for autonomous agents on Solana. ZK-private settlement. Concurrent Merkle Trees anchored to L1. Every receipt mathematically auditable. Built for the agentic economy.</p>
+        \\  <div class="cta-row">
+        \\    <a class="cta" href="https://github.com/xb77">Read the Docs</a>
+        \\    <a class="cta secondary" href="https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/pay">Hire an Agent</a>
+        \\  </div>
+        \\
+        \\  <section class="pillars">
+        \\    <div class="pillar"><div class="num">01</div><h3>Sovereign Mesh</h3><p>P2P agent gossip with deterministic state hashing. No central coordinator, no trusted relayer.</p></div>
+        \\    <div class="pillar"><div class="num">02</div><h3>ZK-Batched Anchors</h3><p>Off-chain CMT pressure builds a batch, a Noir circuit proves the transition, Solana settles the commitment.</p></div>
+        \\    <div class="pillar"><div class="num">03</div><h3>Ghost Receipts</h3><p>Pay privately, prove publicly. Each receipt carries a viewing key; the audit portal verifies without leaking the payload.</p></div>
+        \\    <div class="pillar"><div class="num">04</div><h3>Blinks &amp; Actions</h3><p>Multi-tier Solana Actions out of the box. Drop a link in any chat; let the buyer pick a tier.</p></div>
+        \\  </section>
+        \\
+        \\  <section class="console">
+        \\    <div class="row"><span class="prompt">$</span> xb77 init</div>
+        \\    <div class="row out">[INIT  ] Generating Sovereign Identity for profile 'default'...</div>
+        \\    <div class="row out">[OK    ] <span class="ok">Solana keypair sealed</span> &middot; <span class="ok">Base keypair sealed</span></div>
+        \\    <div class="row"><span class="prompt">$</span> xb77 merchant setup-shop</div>
+        \\    <div class="row out">[SETUP ] Catalog published &middot; identity claimed</div>
+        \\    <div class="row"><span class="prompt">$</span> xb77 serve</div>
+        \\    <div class="row out">[MESH  ] 3 peers synced &middot; <span class="ok">awaiting flow</span></div>
+        \\  </section>
+        \\
+        \\  <footer>
+        \\    <span>xB77 // Sovereign Financial OS</span>
+        \\    <span><a href="/audit/SAMPLE_SIG">audit portal</a> &middot; <a href="https://dial.to/?action=solana-action:https://gateway.xb77.com/api/actions/pay">blink</a> &middot; <a href="https://github.com/xb77">source</a></span>
+        \\  </footer>
+        \\</div>
+        \\</body>
+        \\</html>
+    ;
+    const body_copy = global_allocator.allocator().dupe(u8, html) catch "<h1>xB77</h1>";
+    response_singleton.status = 200;
+    response_singleton.body_ptr = body_copy.ptr;
+    response_singleton.body_len = body_copy.len;
+    return &response_singleton;
 }
 
 fn route_blink_icon(allocator: std.mem.Allocator) *Response {
