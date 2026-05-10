@@ -103,6 +103,9 @@ pause
 echo -e "${YELLOW}${BOLD}--- ACT 4: AUTONOMOUS SETTLEMENT ---${NC}"
 typewrite "Starting the Sovereign Engine in background..."
 touch .xb77/hack-demo/agent.log
+# Hard SNS Enforcement is activated via env var; it surfaces a one-line
+# Shield banner at startup that ties the SNS sponsor to running code.
+export XB77_SNS_NAMESPACE="cybercore.sol"
 ./zig-out/bin/xb77 -p hack-demo serve > .xb77/hack-demo/agent.log 2>&1 &
 AGENT_PID=$!
 

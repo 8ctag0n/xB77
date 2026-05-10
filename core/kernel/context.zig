@@ -133,6 +133,14 @@ pub const AgentContext = struct {
         ctx.compliance.sol_client = &ctx.sol_client;
         ctx.compliance.constitution = &ctx.constitution;
 
+        // Optional: opt into Hard SNS Enforcement via env var. Keeps the
+        // sovereign-identity gate visible in demos and audits without forcing
+        // it on every profile.
+        if (std.process.getEnvVarOwned(allocator, "XB77_SNS_NAMESPACE")) |ns| {
+            ctx.constitution.required_sns_namespace = ns;
+            std.debug.print("\n[Shield] 🆔 Hard SNS Enforcement: namespace '{s}' is now mandatory for non-trivial transfers.\n", .{ns});
+        } else |_| {}
+
         ctx.router = pay.PaymentRouter.init(
             allocator,
             &ctx.sol_client,
