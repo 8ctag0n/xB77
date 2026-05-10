@@ -62,6 +62,17 @@ pub fn build(b: *std.Build) void {
     znode_exe.addIncludePath(b.path("deps"));
     znode_exe.addIncludePath(.{ .cwd_relative = "/usr/include" });
     znode_exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
+    // Debian/Ubuntu place libcurl under a multi-arch path (e.g.
+    // /usr/lib/x86_64-linux-gnu). Only add it when it actually exists,
+    // otherwise Zig 0.15 errors with "unable to open library directory".
+    for ([_][]const u8{
+        "/usr/lib/x86_64-linux-gnu",
+        "/usr/lib/aarch64-linux-gnu",
+    }) |multiarch| {
+        if (std.fs.accessAbsolute(multiarch, .{})) |_| {
+            znode_exe.addLibraryPath(.{ .cwd_relative = multiarch });
+        } else |_| {}
+    }
     znode_exe.root_module.strip = true;
     znode_exe.linkLibC();
     znode_exe.linkSystemLibrary("curl");
