@@ -153,7 +153,9 @@ pub const AgentContext = struct {
         );
 
         ctx.router.mb_session = ctx.mb_client.openSovereignSession(&ctx.vaults.ops.sol_kp) catch |err| blk: {
-            std.debug.print("\n[MAGIC ] ⚠️ ShadowWire initialization failed: {s}. Using standard rails.", .{@errorName(err)});
+            if (!isQuietMode(allocator)) {
+                std.debug.print("\n[MAGIC ] ⚠️ ShadowWire initialization failed: {s}. Using standard rails.", .{@errorName(err)});
+            }
             break :blk null;
         };
 
@@ -207,3 +209,10 @@ pub const AgentContext = struct {
         self.config.deinit(self.allocator);
     }
 };
+
+fn isQuietMode(allocator: std.mem.Allocator) bool {
+    if (std.process.getEnvVarOwned(allocator, "XB77_DEMO")) |val| {
+        allocator.free(val);
+        return true;
+    } else |_| return false;
+}

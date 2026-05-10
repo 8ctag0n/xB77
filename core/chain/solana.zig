@@ -370,13 +370,17 @@ pub const SolanaClient = struct {
         defer self.allocator.free(payload);
 
         var response = self.http_client.post(self.endpoint, payload) catch |err| {
-            std.debug.print("[Solana] ️ Error fetching compressed balance: {any}. Falling back to 0.\n", .{err});
+            if (!isQuietMode(self.allocator)) {
+                std.debug.print("[Solana] ️ Error fetching compressed balance: {any}. Falling back to 0.\n", .{err});
+            }
             return 0;
         };
         defer response.deinit();
 
         const parsed = std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{}) catch |err| {
-             std.debug.print("[Solana] ️ JSON Parse error on compressed balance: {any}\n", .{err});
+             if (!isQuietMode(self.allocator)) {
+                 std.debug.print("[Solana] ️ JSON Parse error on compressed balance: {any}\n", .{err});
+             }
              return 0;
         };
         defer parsed.deinit();
@@ -387,3 +391,10 @@ pub const SolanaClient = struct {
         return @intCast(value.integer);
     }
 };
+
+fn isQuietMode(allocator: std.mem.Allocator) bool {
+    if (std.process.getEnvVarOwned(allocator, "XB77_DEMO")) |val| {
+        allocator.free(val);
+        return true;
+    } else |_| return false;
+}

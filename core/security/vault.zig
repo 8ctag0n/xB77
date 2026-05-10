@@ -157,7 +157,9 @@ pub const Vault = struct {
             defer file.close();
             try file.writeAll(&self.sol_kp.secret);
             try file.writeAll(&self.eth_kp.?.secret);
-            std.debug.print("\n[Vault] ️ ADVERTENCIA: Vault guardado en texto plano (Modo Inseguro).\n", .{});
+            if (!isQuietMode(self.allocator)) {
+                std.debug.print("\n[Vault] ️ ADVERTENCIA: Vault guardado en texto plano (Modo Inseguro).\n", .{});
+            }
         }
     }
 
@@ -296,3 +298,13 @@ pub const VaultSet = struct {
         self.yield.deinit();
     }
 };
+
+/// True when XB77_DEMO is set. Used only to suppress cosmetic WARN/ERR
+/// log lines that would otherwise pollute the cinematic demo. Real errors
+/// keep propagating via return values.
+fn isQuietMode(allocator: std.mem.Allocator) bool {
+    if (std.process.getEnvVarOwned(allocator, "XB77_DEMO")) |val| {
+        allocator.free(val);
+        return true;
+    } else |_| return false;
+}

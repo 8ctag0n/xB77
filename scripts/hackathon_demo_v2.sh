@@ -4,6 +4,12 @@
 
 set -e
 
+# Cosmetic noise suppression for the cinematic flow. Errors still propagate
+# via exit codes; this only mutes incidental WARN/ERR log lines that pollute
+# the audience view (vault plain-text warning, ShadowWire fail, compressed
+# balance fallback, etc.).
+export XB77_DEMO=1
+
 # ────────────────────────────── style ──────────────────────────────
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
