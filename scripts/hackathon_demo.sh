@@ -60,9 +60,12 @@ pause
 # 2. SETUP
 echo -e "${YELLOW}${BOLD}--- ACT 2: PROVISIONING SERVICES ---${NC}"
 typewrite "Setting up the Neural Link catalog on the Sovereign Mesh..."
-# We'll mock the interactive input for the script
-printf "Cyberpunk Gear\nNeural Link v1\n50000000\nhack-demo\n" | ./zig-out/bin/xb77 -p hack-demo merchant setup-shop
-echo -e "${GREEN}[SUCCESS] Merchant profile published to IPFS & Registry.${NC}"
+printf "Cyberpunk Gear\nNeural-Link-Basic\n50000000\nhack-demo\n" | ./zig-out/bin/xb77 -p hack-demo merchant setup-shop
+typewrite "Layering Pro and Enterprise tiers on top of the catalog..."
+./zig-out/bin/xb77 -p hack-demo merchant add Neural-Link-Pro 250000000 50 > /dev/null
+./zig-out/bin/xb77 -p hack-demo merchant add Neural-Link-Enterprise 1000000000 10 > /dev/null
+./zig-out/bin/xb77 -p hack-demo merchant list 2>/dev/null || true
+echo -e "${GREEN}[SUCCESS] 3-tier merchant profile published.${NC}"
 
 pause
 

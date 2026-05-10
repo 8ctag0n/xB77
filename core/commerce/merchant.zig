@@ -102,25 +102,26 @@ pub const MerchantConfig = struct {
         const writer = buf.writer(allocator);
 
         try writer.writeAll("{\n");
-        // A cyberpunk/solana placeholder icon
-        try writer.writeAll("  \"icon\": \"https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png\",\n");
-        try writer.print("  \"title\": \"[ SOVEREIGN AGENT ] - {s}\",\n", .{self.business_name});
-        try writer.writeAll("  \"description\": \"Secure, ZK-verified autonomous services. Payments are settled in real-time via MagicBlock HFT Rail. Auditable. Unstoppable.\\n\\nSelect a tier to engage.\",\n");
+        try writer.print("  \"icon\": \"{s}/api/brand/blink-icon.svg\",\n", .{base_url});
+        try writer.print("  \"title\": \"[ SOVEREIGN AGENT ] {s}\",\n", .{self.business_name});
+        try writer.writeAll("  \"description\": \"ZK-verified autonomous commerce on Solana.\\nPayments settle in real-time via the xB77 MagicBlock HFT rail.\\nEvery receipt is mathematically auditable. Pick a tier to engage.\",\n");
         try writer.writeAll("  \"label\": \"Hire Agent\",\n");
         try writer.writeAll("  \"links\": {\n");
         try writer.writeAll("    \"actions\": [\n");
 
-        for (self.services, 0..) |s, i| {
-            try writer.print("      {{\n        \"label\": \"⚡ {s} ({d} SC)\",\n        \"href\": \"{s}/api/actions/pay?service={s}&amount={d}\"\n      }}{s}\n", .{
+        for (self.services) |s| {
+            try writer.print("      {{\n        \"type\": \"transaction\",\n        \"label\": \"{s} - {d} SOL\",\n        \"href\": \"{s}/api/actions/pay?service={s}&amount={d}\"\n      }},\n", .{
                 s.name,
                 s.price_lamports / 1000000,
                 base_url,
                 s.name,
                 s.price_lamports,
-                if (i < self.services.len - 1) "," else "",
             });
         }
-
+        try writer.print(
+            "      {{\n        \"type\": \"transaction\",\n        \"label\": \"Custom Tip\",\n        \"href\": \"{s}/api/actions/tip?amount={{amount}}\",\n        \"parameters\": [\n          {{ \"name\": \"amount\", \"label\": \"SOL amount\", \"required\": true }}\n        ]\n      }}\n",
+            .{base_url},
+        );
         try writer.writeAll("    ]\n");
         try writer.writeAll("  }\n");
         try writer.writeAll("}");

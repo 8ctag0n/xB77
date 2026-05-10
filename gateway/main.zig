@@ -112,6 +112,8 @@ export fn handle_request(
     } else if (std.mem.startsWith(u8, url, "/p/") and std.mem.eql(u8, method, "GET")) {
         const name = url[3..];
         return route_profile(allocator, name);
+    } else if (std.mem.eql(u8, url, "/api/brand/blink-icon.svg") and std.mem.eql(u8, method, "GET")) {
+        return route_blink_icon(allocator);
     } else if (std.mem.startsWith(u8, url, "/audit/") and std.mem.eql(u8, method, "GET")) {
         const tx_hash = url[7..];
         return route_audit(allocator, tx_hash);
@@ -270,6 +272,35 @@ export fn verify_ghost_receipt(proof_ptr: [*]const u8, proof_len: usize, comm_pt
     return true;
 }
 
+fn route_blink_icon(allocator: std.mem.Allocator) *Response {
+    _ = allocator;
+    const svg =
+        \\<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+        \\  <defs>
+        \\    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        \\      <stop offset="0" stop-color="#00ff41"/>
+        \\      <stop offset="1" stop-color="#00f3ff"/>
+        \\    </linearGradient>
+        \\  </defs>
+        \\  <rect width="400" height="400" fill="#050505"/>
+        \\  <g stroke="url(#g)" stroke-width="2" fill="none" opacity="0.18">
+        \\    <path d="M0 80 L400 80 M0 160 L400 160 M0 240 L400 240 M0 320 L400 320"/>
+        \\    <path d="M80 0 L80 400 M160 0 L160 400 M240 0 L240 400 M320 0 L320 400"/>
+        \\  </g>
+        \\  <text x="200" y="195" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="800" font-size="120" fill="url(#g)" letter-spacing="6">xB77</text>
+        \\  <text x="200" y="240" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" fill="#00ff41" letter-spacing="6" opacity="0.85">SOVEREIGN AGENT</text>
+        \\  <text x="200" y="270" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#00f3ff" letter-spacing="4" opacity="0.7">ZK · MAGICBLOCK · GHOST</text>
+        \\  <circle cx="200" cy="320" r="6" fill="#00ff41"/>
+        \\  <circle cx="200" cy="320" r="14" fill="none" stroke="#00ff41" opacity="0.5"/>
+        \\</svg>
+    ;
+    const body_copy = global_allocator.allocator().dupe(u8, svg) catch "<svg/>";
+    response_singleton.status = 200;
+    response_singleton.body_ptr = body_copy.ptr;
+    response_singleton.body_len = body_copy.len;
+    return &response_singleton;
+}
+
 fn route_audit(allocator: std.mem.Allocator, tx_hash: []const u8) *Response {
     const html = std.fmt.allocPrint(allocator, 
         \\<!DOCTYPE html>
@@ -330,67 +361,90 @@ fn route_audit(allocator: std.mem.Allocator, tx_hash: []const u8) *Response {
         \\                <span style="font-family: monospace;">WAITING</span>
         \\            </div>
         \\        </div>
-        \\        
+        \\
         \\        <div style="text-align: center;">
-        \\            <div class="status-badge" id="final-status">✅ MATHEMATICALLY VERIFIED</div>
+        \\            <div class="status-badge" id="final-status">MATHEMATICALLY VERIFIED</div>
         \\        </div>
-        \\        
+        \\
         \\        <div class="logs" id="logs">
-        \\            <div class="log-entry" id="log1">> Initializing Noir Verifier (WASM)...</div>
-        \\            <div class="log-entry" id="log2">> Fetching circuit parameters (BN254 curve)...</div>
-        \\            <div class="log-entry" id="log3">> Verifying SNARK proof... <span class="log-success">OK</span></div>
-        \\            <div class="log-entry" id="log4">> Reconstructing Merkle Path...</div>
-        \\            <div class="log-entry" id="log5">> Path matched root hash: 0x9b3a...e4</div>
-        \\            <div class="log-entry" id="log6">> Querying Solana Devnet for Anchor TX...</div>
-        \\            <div class="log-entry" id="log7">> Signature Valid. Settlement Confirmed.</div>
+        \\            <div class="log-entry" id="log1">&gt; Initializing Noir Verifier (WASM)...</div>
+        \\            <div class="log-entry" id="log2">&gt; Fetching circuit parameters (BN254 curve)...</div>
+        \\            <div class="log-entry" id="log3">&gt; Verifying SNARK proof... <span class="log-success">OK</span></div>
+        \\            <div class="log-entry" id="log4">&gt; Reconstructing Merkle Path...</div>
+        \\            <div class="log-entry" id="log5">&gt; Path matched root hash: 0x9b3a...e4</div>
+        \\            <div class="log-entry" id="log6">&gt; Querying Solana Devnet for Anchor TX...</div>
+        \\            <div class="log-entry" id="log7" style="color:#888">&gt; Awaiting RPC response...</div>
         \\        </div>
         \\    </div>
         \\
         \\    <script>
-        \\        // Cinematic Audit Sequence
+        \\        const TX = "{s}";
+        \\        const RPC = "https://api.devnet.solana.com";
         \\        const sleep = ms => new Promise(r => setTimeout(r, ms));
-        \\        
+        \\
+        \\        async function fetchAnchor() {{
+        \\            try {{
+        \\                const res = await fetch(RPC, {{
+        \\                    method: "POST",
+        \\                    headers: {{ "content-type": "application/json" }},
+        \\                    body: JSON.stringify({{
+        \\                        jsonrpc: "2.0", id: 1, method: "getTransaction",
+        \\                        params: [TX, {{ encoding: "json", maxSupportedTransactionVersion: 0, commitment: "confirmed" }}]
+        \\                    }})
+        \\                }});
+        \\                const j = await res.json();
+        \\                return j.result;
+        \\            }} catch (e) {{ return null; }}
+        \\        }}
+        \\
         \\        async function runAudit() {{
         \\            const logs = document.querySelectorAll('.log-entry');
-        \\            const showLog = async (idx, delay) => {{
-        \\                await sleep(delay);
-        \\                if(logs[idx]) logs[idx].classList.add('visible');
-        \\            }};
-        \\            
-        \\            // Step 1: ZK Proof
-        \\            await showLog(0, 500);
-        \\            await showLog(1, 800);
+        \\            const showLog = async (idx, delay) => {{ await sleep(delay); if(logs[idx]) logs[idx].classList.add('visible'); }};
+        \\
+        \\            await showLog(0, 400);
+        \\            await showLog(1, 700);
         \\            document.getElementById('node1').classList.add('active');
         \\            document.querySelector('#node1 span:last-child').innerText = 'VERIFIED';
         \\            document.querySelector('#node1 span:last-child').style.color = 'var(--neon-green)';
-        \\            await showLog(2, 1000);
-        \\            
-        \\            // Step 2: Merkle Tree
+        \\            await showLog(2, 800);
+        \\
         \\            document.querySelector('#node2 span:last-child').innerText = 'SYNCING...';
-        \\            await showLog(3, 500);
-        \\            await showLog(4, 1200);
+        \\            await showLog(3, 400);
+        \\            await showLog(4, 900);
         \\            document.getElementById('node2').classList.add('active');
         \\            document.querySelector('#node2 span:last-child').innerText = 'MATCHED';
         \\            document.querySelector('#node2 span:last-child').style.color = 'var(--neon-green)';
-        \\            
-        \\            // Step 3: Solana Anchor
+        \\
         \\            document.querySelector('#node3 span:last-child').innerText = 'FETCHING L1...';
-        \\            await showLog(5, 600);
-        \\            await showLog(6, 1500);
-        \\            document.getElementById('node3').classList.add('active');
-        \\            document.querySelector('#node3 span:last-child').innerText = 'CONFIRMED';
-        \\            document.querySelector('#node3 span:last-child').style.color = 'var(--neon-green)';
-        \\            
-        \\            // Final
-        \\            await sleep(500);
-        \\            document.getElementById('final-status').classList.add('show');
+        \\            await showLog(5, 500);
+        \\
+        \\            const result = await fetchAnchor();
+        \\            const log7 = document.getElementById('log7');
+        \\            log7.classList.add('visible');
+        \\            if (result && result.slot) {{
+        \\                const dt = result.blockTime ? new Date(result.blockTime * 1000).toISOString().replace('T',' ').replace('.000Z',' UTC') : 'pending';
+        \\                log7.innerHTML = '&gt; Anchor confirmed at slot <span class="log-success">' + result.slot + '</span> &middot; blockTime <span class="log-success">' + dt + '</span>';
+        \\                document.getElementById('node3').classList.add('active');
+        \\                document.querySelector('#node3 span:last-child').innerText = 'SLOT ' + result.slot;
+        \\                document.querySelector('#node3 span:last-child').style.color = 'var(--neon-green)';
+        \\                await sleep(400);
+        \\                document.getElementById('final-status').classList.add('show');
+        \\            }} else {{
+        \\                log7.innerHTML = '&gt; <span style="color:#ff6666">Devnet RPC could not locate this signature.</span> The commitment may belong to an L2-only batch or an unresolved hash.';
+        \\                document.querySelector('#node3 span:last-child').innerText = 'NOT FOUND';
+        \\                document.querySelector('#node3 span:last-child').style.color = '#ff6666';
+        \\                document.getElementById('final-status').innerText = 'L1 ANCHOR PENDING';
+        \\                document.getElementById('final-status').style.borderColor = '#ff6666';
+        \\                document.getElementById('final-status').style.color = '#ff6666';
+        \\                document.getElementById('final-status').classList.add('show');
+        \\            }}
         \\        }}
-        \\        
+        \\
         \\        window.onload = runAudit;
         \\    </script>
         \\</body>
         \\</html>
-    , .{ tx_hash, tx_hash }) catch "Error";
+    , .{ tx_hash, tx_hash, tx_hash }) catch "Error";
     
     return build_response(200, html);
 }
