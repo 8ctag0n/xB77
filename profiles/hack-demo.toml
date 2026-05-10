@@ -1,0 +1,10 @@
+# xB77 Sovereign Agent Configuration
+rpc_solana = "https://api.devnet.solana.com"
+rpc_base = "https://sepolia.base.org"
+vault_path = "./.xb77"
+mesh_port = 7777
+portal_port = 8081
+ipfs_endpoint = "https://api.quicknode.com/ipfs/v1/"
+ipfs_api_key = ""
+registry_program_id = "Reg111111111111111111111111111111111111111"
+facilitator = "xB77infraTax11111111111111111111111111111"
