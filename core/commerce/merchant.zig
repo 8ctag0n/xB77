@@ -43,10 +43,14 @@ pub const MerchantConfig = struct {
     pub fn load(allocator: std.mem.Allocator, path: []const u8) !MerchantConfig {
         const file = std.fs.cwd().openFile(path, .{}) catch |err| {
             if (err == error.FileNotFound) {
+                // Default config with allocator-owned strings — deinit() frees
+                // all three fields unconditionally, so passing literals here
+                // panics with "Invalid free" the first time the config is torn
+                // down. Always hand back owned memory.
                 return MerchantConfig{
-                    .business_name = "xB77 Sovereign Agent",
-                    .contact = "@agent",
-                    .services = &.{},
+                    .business_name = try allocator.dupe(u8, "xB77 Sovereign Agent"),
+                    .contact = try allocator.dupe(u8, "@agent"),
+                    .services = try allocator.alloc(MerchantService, 0),
                 };
             }
             return err;

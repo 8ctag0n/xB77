@@ -838,8 +838,13 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
     }
     try ctx.config.save(allocator, config_path);
 
-    // Update Merchant Config
+    // Update Merchant Config — free previous owned strings before overwrite
+    // so subsequent ctx.merchant.deinit() doesn't leak the original
+    // allocations (load() now hands back owned defaults, not literals).
+    allocator.free(ctx.merchant.business_name);
     ctx.merchant.business_name = try allocator.dupe(u8, name);
+    for (ctx.merchant.services) |s| allocator.free(s.name);
+    allocator.free(ctx.merchant.services);
     var service = try allocator.alloc(core.commerce.merchant.MerchantService, 1);
     service[0] = .{
         .name = try allocator.dupe(u8, srv_name),
