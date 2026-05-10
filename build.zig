@@ -96,6 +96,12 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     // --- WASM Target (Cloudflare Workers) ---
+    // Stays on wasi because core/* depends on std.posix surfaces (clockid_t,
+    // getrandom, writev) which don't exist on freestanding wasm. Cloudflare
+    // Workers can polyfill the few WASI imports that survive (or we shim
+    // them in worker.js). The real fix to the empty-binary-stub problem is
+    // entry = .disabled + rdynamic — without those, the linker DCE'd every
+    // `export fn` because nothing was reachable from _start.
     const wasm_target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
         .os_tag = .wasi,
@@ -111,6 +117,8 @@ pub fn build(b: *std.Build) void {
         }),
     });
     wasm_gateway.root_module.addImport("core", core_module);
+    wasm_gateway.entry = .disabled;
+    wasm_gateway.rdynamic = true;
 
     const install_wasm = b.addInstallArtifact(wasm_gateway, .{
         .dest_dir = .{ .override = .{ .custom = "bin" } },

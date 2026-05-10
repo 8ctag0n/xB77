@@ -4,9 +4,28 @@ import wasmModule from "./gateway.wasm";
 export default {
   async fetch(request, env, ctx) {
     const instance = await WebAssembly.instantiate(wasmModule, {
+      // WASI stubs. Cloudflare Workers don't run WASI natively, so we shim
+      // every preview1 import the Zig std pulls in. Most are no-op success
+      // codes (0); the two that need a real value are clock_time_get and
+      // random_get because Zig's allocator/RNG path will call them.
       wasi_snapshot_preview1: {
-        proc_exit: (code) => console.log("Exit", code),
+        proc_exit: (code) => { throw new Error(`wasi proc_exit ${code}`); },
         fd_write: () => 0,
+        fd_read: () => 0,
+        fd_seek: () => 0,
+        fd_pwrite: () => 0,
+        fd_filestat_get: () => 0,
+        clock_time_get: (clock_id, precision, time_ptr) => {
+          // Write current time as i64 nanoseconds to the wasm memory.
+          const view = new DataView(instance.exports.memory.buffer);
+          view.setBigInt64(time_ptr, BigInt(Date.now()) * 1_000_000n, true);
+          return 0;
+        },
+        random_get: (buf_ptr, buf_len) => {
+          const mem = new Uint8Array(instance.exports.memory.buffer, buf_ptr, buf_len);
+          crypto.getRandomValues(mem);
+          return 0;
+        },
       },
       env: {
         js_kv_get: (key_ptr, key_len) => {
