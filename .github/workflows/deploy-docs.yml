@@ -1,58 +1,55 @@
-# Simple workflow for deploying static content to GitHub Pages
 name: Deploy Docs
 
-on:
-  # Runs on pushes targeting the default branch
-  push:
-    branches: ["bedrock", "obsidian"]
+# Builds the Jekyll site under ./docs and publishes it to GitHub Pages.
+# The landing (docs/index.html) is a hand-written cyberpunk page; the
+# surrounding *.md files (DEMO_FRONTIER, SESSION_BRIEF, planning/, ...)
+# are rendered by Jekyll's default minima theme so the nav links resolve
+# to actual pages.
+#
+# Repo Settings -> Pages -> Build and deployment -> Source: 'GitHub Actions'
+# (one-time setup; nothing else to configure).
 
-  # Allows you to run this workflow manually from the Actions tab
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "docs/**"
+      - ".github/workflows/deploy-docs.yml"
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# One in-flight deploy at a time; let later pushes pile up.
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
 
 jobs:
-  # Build job
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+      - uses: actions/configure-pages@v5
+
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
         with:
-          bun-version: latest
+          source: ./docs
+          destination: ./_site
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - uses: actions/upload-pages-artifact@v3
 
-      - name: Build with VitePress
-        run: bun run docs:build
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: pages/.vitepress/dist
-
-  # Deployment job
   deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
-    runs-on: ubuntu-latest
-    name: Deploy
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
+      - id: deployment
         uses: actions/deploy-pages@v4

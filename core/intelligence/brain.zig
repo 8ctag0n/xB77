@@ -21,7 +21,7 @@ pub const BrainInsight = struct {
         var list = std.ArrayList(u8).init(self.allocator);
         const writer = list.writer();
 
-        try writer.print("️ XB77 INTELLIGENCE REPORT\n", .{});
+        try writer.print(" XB77 INTELLIGENCE REPORT\n", .{});
         try writer.print("---------------------------\n", .{});
         try writer.print("INTENT: {s}\n\n", .{self.decision_trace});
         
@@ -29,7 +29,7 @@ pub const BrainInsight = struct {
         if (std.mem.eql(u8, self.directive.zk_proof, "zkp_authorized_by_shield_v1")) {
             try writer.print(" IDENTITY: Tether WDK Sovereign Verified\n", .{});
         } else {
-            try writer.print("🆔 IDENTITY: Local Keypair Verified\n", .{});
+            try writer.print(" IDENTITY: Local Keypair Verified\n", .{});
         }
         
         if (self.relevant_rules.len > 0) {
@@ -41,7 +41,7 @@ pub const BrainInsight = struct {
             try writer.print("\n RAG: No specific rules triggered.\n", .{});
         }
         
-        try writer.print("\n️ COMPLIANCE:\n", .{});
+        try writer.print("\n COMPLIANCE:\n", .{});
         if (self.directive.compliance_proof) |proof| {
             if (proof.len > 32) {
                 try writer.print("   {s}...\n", .{proof[0..32]});
@@ -80,7 +80,7 @@ pub const Brain = struct {
     /// Razonamiento avanzado usando un modelo local Gemma 4 (vía Ollama/LocalAI)
     /// Este es el núcleo de la soberanía de IA: no data leakeage a la nube.
     pub fn reasonWithGemma(self: *Brain, directive: []const u8) !BrainInsight {
-        std.debug.print("\n[BRAIN ] 🧠 Consulting Gemma 4 (Local Sovereign Model)...", .{});
+        std.debug.print("\n[BRAIN ]  Consulting Gemma 4 (Local Sovereign Model)...", .{});
         
         // 1. Construir el contexto constitucional
         var context_buf = std.ArrayList(u8).init(self.allocator);
@@ -102,7 +102,7 @@ pub const Brain = struct {
         defer self.allocator.free(payload);
 
         var resp = self.http_client.post("http://127.0.0.1:11434/api/generate", payload) catch |err| {
-            std.debug.print("\n[BRAIN ] ️ Gemma 4 not found (Ollama offline). Falling back to heuristics: {}", .{err});
+            std.debug.print("\n[BRAIN ]  Gemma 4 not found (Ollama offline). Falling back to heuristics: {}", .{err});
             return try self.interpret(directive);
         };
         defer resp.deinit();
@@ -284,7 +284,7 @@ pub const Brain = struct {
             if (std.mem.indexOf(u8, lower, s_lower) != null or std.mem.indexOf(u8, s_lower, lower) != null) {
                 // Verificar stock e inventario
                 if (service.status != .available or service.stock == 0) {
-                    std.debug.print("\n[BRAIN ] ️ Commercial Intent Detected but OUT OF STOCK: {s}", .{service.name});
+                    std.debug.print("\n[BRAIN ]  Commercial Intent Detected but OUT OF STOCK: {s}", .{service.name});
                     return null;
                 }
 

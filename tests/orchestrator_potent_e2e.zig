@@ -52,7 +52,7 @@ test "Orchestrator Potent E2E: Agent Lifecycle & Credit-Gating" {
     _ = client.get("http://localhost:8899") catch {}; // We don't care about the actual request failure
     
     try std.testing.expectEqual(@as(u32, 1), hub.rpc_count);
-    std.debug.print("\n[MAGIC] ️  HttpClient RPC automatically recorded in TelemetryHub.", .{});
+    std.debug.print("\n[MAGIC]   HttpClient RPC automatically recorded in TelemetryHub.", .{});
 
     // Simulate more RPC calls
     var i: usize = 0;
@@ -98,5 +98,5 @@ test "Orchestrator Potent E2E: Agent Lifecycle & Credit-Gating" {
         return error.TestFailed;
     }
 
-    std.debug.print("\n[TEST] Potent E2E Verified 🟢\n", .{});
+    std.debug.print("\n[TEST] Potent E2E Verified \n", .{});
 }

@@ -1,0 +1,153 @@
+{
+  "version": "0.1.0",
+  "name": "xb77_zk_verifier",
+  "metadata": {
+    "address": "J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ",
+    "encoding": "raw-tagged",
+    "notes": "Proof verifier with chunked PDA buffer. A Honk proof is larger than the 1232-byte raw tx limit on Solana, so the program exposes an init/write/verify state machine. The buffer PDA is derived from seeds [\"proof_buf\", payer, salt(8)] under the verifier's own program id. Instruction data is NOT borsh: each ix is prefixed by a single u8 tag (0=Init, 1=Write, 2=Verify) followed by raw little-endian fields and the chunk bytes."
+  },
+  "instructions": [
+    {
+      "name": "Init",
+      "tag": 0,
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true,
+          "desc": "Funds the buffer PDA rent and signs the create_account CPI via PDA seeds."
+        },
+        {
+          "name": "buffer",
+          "isMut": true,
+          "isSigner": false,
+          "desc": "PDA at seeds=[\"proof_buf\", payer, salt]; allocated to HEADER_LEN(8) + declared_len bytes."
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "salt",
+          "type": {
+            "array": ["u8", 8]
+          }
+        },
+        {
+          "name": "declared_len",
+          "type": "u32",
+          "desc": "Must be in [MIN_PROOF_LEN=64, MAX_PROOF_LEN=16384]."
+        }
+      ]
+    },
+    {
+      "name": "Write",
+      "tag": 1,
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "buffer",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "offset",
+          "type": "u32"
+        },
+        {
+          "name": "chunk",
+          "type": "bytes",
+          "desc": "Raw bytes of the proof at [offset, offset+len). Subsequent writes may overlap or extend; the highest written tail is tracked in the buffer header for the Verify step."
+        }
+      ]
+    },
+    {
+      "name": "Verify",
+      "tag": 2,
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "buffer",
+          "isMut": false,
+          "isSigner": false,
+          "desc": "Read-only on this ix; must contain a fully written proof (written_len == declared_len)."
+        }
+      ],
+      "args": []
+    }
+  ],
+  "types": [
+    {
+      "name": "BufferLayout",
+      "type": {
+        "kind": "struct",
+        "notes": "On-account layout starting at offset 0.",
+        "fields": [
+          {
+            "name": "declared_len",
+            "type": "u32",
+            "offset": 0
+          },
+          {
+            "name": "written_len",
+            "type": "u32",
+            "offset": 4
+          },
+          {
+            "name": "proof_bytes",
+            "type": "bytes",
+            "offset": 8,
+            "desc": "Raw proof payload, length = declared_len once fully written."
+          }
+        ]
+      }
+    }
+  ],
+  "constants": [
+    { "name": "HEADER_LEN", "value": 8, "type": "usize" },
+    { "name": "MIN_PROOF_LEN", "value": 64, "type": "u32" },
+    { "name": "MAX_PROOF_LEN", "value": 16384, "type": "u32" }
+  ],
+  "errors": [
+    {
+      "code": 0,
+      "name": "InvalidInstructionData",
+      "msg": "Empty data, unknown tag, declared_len out of range, or attempted write past declared_len."
+    },
+    {
+      "code": 1,
+      "name": "MissingRequiredSignature",
+      "msg": "Payer account is not a signer."
+    },
+    {
+      "code": 2,
+      "name": "InvalidSeeds",
+      "msg": "Buffer account does not match find_program_address([\"proof_buf\", payer, salt])."
+    },
+    {
+      "code": 3,
+      "name": "AccountDataTooSmall",
+      "msg": "Buffer length < HEADER_LEN; usually means Init was never confirmed before Write/Verify ran."
+    }
+  ],
+  "verdict_emissions": {
+    "notes": "On a successful Verify, two msg! lines are emitted in program logs:",
+    "lines": [
+      "[ZK-JUDGE] STUB-VERIFIER accepted proof of <declared_len> bytes (entropy=<nonzero_count>). NOTE: cryptographic verification NOT performed by this stub.",
+      "[ZK-JUDGE] verdict: GREEN"
+    ]
+  }
+}

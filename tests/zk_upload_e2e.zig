@@ -61,7 +61,7 @@ pub fn main() !void {
     const keypair_path = try envOr(allocator, "PAYER_KEYPAIR", "/tmp/xb77_payer.json");
     defer allocator.free(keypair_path);
     const verifier_id_str = std.process.getEnvVarOwned(allocator, "VERIFIER_PROGRAM_ID") catch {
-        std.debug.print("[E2E] ❌ VERIFIER_PROGRAM_ID env var is required\n", .{});
+        std.debug.print("[E2E]  VERIFIER_PROGRAM_ID env var is required\n", .{});
         return error.MissingVerifierProgramId;
     };
     defer allocator.free(verifier_id_str);
@@ -87,21 +87,21 @@ pub fn main() !void {
     defer client.deinit();
 
     const balance = client.getBalance(payer_addr) catch |err| {
-        std.debug.print("[E2E] ❌ getBalance failed: {any}\n", .{err});
+        std.debug.print("[E2E]  getBalance failed: {any}\n", .{err});
         return err;
     };
     std.debug.print("[E2E] payer balance: {d} lamports\n", .{balance});
     if (balance == 0) {
-        std.debug.print("[E2E] ⚠ payer has 0 SOL; airdrop and retry\n", .{});
+        std.debug.print("[E2E]  payer has 0 SOL; airdrop and retry\n", .{});
         return error.PayerNotFunded;
     }
 
     const result = zk_uploader.uploadAndVerify(&client, verifier_id, &payer_kp, proof_bytes) catch |err| {
-        std.debug.print("\n[E2E] ❌ uploadAndVerify failed: {any}\n", .{err});
+        std.debug.print("\n[E2E]  uploadAndVerify failed: {any}\n", .{err});
         return err;
     };
 
-    std.debug.print("\n[E2E] ✅ uploadAndVerify completed\n", .{});
+    std.debug.print("\n[E2E]  uploadAndVerify completed\n", .{});
     std.debug.print("[E2E]    init:   {s}\n", .{result.init_sig});
     std.debug.print("[E2E]    chunks: {d}\n", .{result.write_sigs.len});
     std.debug.print("[E2E]    verify: {s}\n", .{result.verify_sig});

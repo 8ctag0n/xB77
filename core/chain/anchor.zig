@@ -50,7 +50,7 @@ pub const AnchorService = struct {
         // En un entorno real, aquí correríamos el Verificador Noir.
         // ------------------------------------
 
-        std.debug.print("\n[ANCHOR] 🧠 ZK-Witness generated successfully (Simulated).", .{});
+        std.debug.print("\n[ANCHOR]  ZK-Witness generated successfully (Simulated).", .{});
 
         // 3. Simular llamada On-Chain
         // En una implementación final, aquí usaríamos SolanaClient/EvmClient para llamar al Verificador.

@@ -82,7 +82,7 @@ pub const AgentContext = struct {
         const merchant_path = try std.fs.path.join(allocator, &[_][]const u8{ config.vaults.path, "merchant.json" });
         defer allocator.free(merchant_path);
         const m_config = @import("../commerce/merchant.zig").MerchantConfig.load(allocator, merchant_path) catch |err| blk: {
-            std.debug.print("\n[CONTEXT] ⚠️ Warning loading merchant.json: {s}. Using default.", .{@errorName(err)});
+            std.debug.print("\n[CONTEXT]  Warning loading merchant.json: {s}. Using default.", .{@errorName(err)});
             break :blk @import("../commerce/merchant.zig").MerchantConfig{
                 .business_name = "xB77 Sovereign Agent",
                 .contact = "@agent",
@@ -138,7 +138,7 @@ pub const AgentContext = struct {
         // it on every profile.
         if (std.process.getEnvVarOwned(allocator, "XB77_SNS_NAMESPACE")) |ns| {
             ctx.constitution.required_sns_namespace = ns;
-            std.debug.print("\n[Shield] 🆔 Hard SNS Enforcement: namespace '{s}' is now mandatory for non-trivial transfers.\n", .{ns});
+            std.debug.print("\n[Shield]  Hard SNS Enforcement: namespace '{s}' is now mandatory for non-trivial transfers.\n", .{ns});
         } else |_| {}
 
         ctx.router = pay.PaymentRouter.init(
@@ -154,7 +154,7 @@ pub const AgentContext = struct {
 
         ctx.router.mb_session = ctx.mb_client.openSovereignSession(&ctx.vaults.ops.sol_kp) catch |err| blk: {
             if (!isQuietMode(allocator)) {
-                std.debug.print("\n[MAGIC ] ⚠️ ShadowWire initialization failed: {s}. Using standard rails.", .{@errorName(err)});
+                std.debug.print("\n[MAGIC ]  ShadowWire initialization failed: {s}. Using standard rails.", .{@errorName(err)});
             }
             break :blk null;
         };

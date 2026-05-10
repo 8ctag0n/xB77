@@ -109,7 +109,7 @@ pub const Store = struct {
 
         // Inicializar Header si es nuevo
         if (!std.mem.eql(u8, &header.magic, &types.VaultHeader.MAGIC)) {
-            std.debug.print("\n[STORE ] 🆕 Initializing NEW vault (Magic mismatch or empty).", .{});
+            std.debug.print("\n[STORE ]  Initializing NEW vault (Magic mismatch or empty).", .{});
             @memset(vault_ptr, 0);
             header.magic = types.VaultHeader.MAGIC;
             header.version = 1;
@@ -202,7 +202,7 @@ pub const Store = struct {
             try self.account_index.put(self.allocator, owner_pk, idx);
         }
         
-        std.debug.print("\n[VAULT ] ️ Sovereign Vault updated (Header Index: {d}).", .{self.header.next_index});
+        std.debug.print("\n[VAULT ]  Sovereign Vault updated (Header Index: {d}).", .{self.header.next_index});
         std.debug.print("\n[STATE ]  New Root: {x}...", .{self.tree.getRoot()[0..4]});
     }
 

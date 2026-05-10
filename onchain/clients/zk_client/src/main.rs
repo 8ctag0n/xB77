@@ -103,11 +103,11 @@ fn main() {
     let tx = Transaction::new_signed_with_payer(&[verify_ix], Some(&payer.pubkey()), &[&payer], blockhash);
     match client.send_and_confirm_transaction(&tx) {
         Ok(sig) => {
-            println!("[CLIENT] ✅ verify sig: {}", sig);
+            println!("[CLIENT]  verify sig: {}", sig);
             println!("[CLIENT] (see validator logs for [ZK-JUDGE] verdict)");
         }
         Err(e) => {
-            eprintln!("[CLIENT] ❌ verify failed: {:?}", e);
+            eprintln!("[CLIENT]  verify failed: {:?}", e);
             std::process::exit(1);
         }
     }

@@ -10,7 +10,7 @@
 3. **[EVM Tx]**: Implementar el constructor de transacciones EIP-1559 en `core/tx.zig`.
 4. **[AgentKit Bridge]**: Crear un adaptador para que el Engine pueda orquestar acciones de Coinbase AgentKit.
 
-## ️ Tareas Técnicas / Deuda
+##  Tareas Técnicas / Deuda
 
 - [ ] Integrar el nuevo `RiskScorer` (0.11% tax) en los flujos de EVM.
 - [ ] Refactorizar `Vault` para manejar llaves Secp256k1 en paralelo a Ed25519.
@@ -27,7 +27,7 @@
 - Binario WASM compatible con Cloudflare Workers incluyendo lógica EVM.
 - Latencia de firma Secp256k1 < 10ms.
 
-## 🔜 Siguiente Fase: "Path to Production" (Un-Mocking)
+##  Siguiente Fase: "Path to Production" (Un-Mocking)
 Para la próxima sesión (post-hackathons), debemos reemplazar los mocks locales por integraciones reales:
 1. **Brain (LLM)**: Habilitar cliente HTTP en `brain.zig` apuntando a Ollama local (`localhost:11434/api/generate`) para inferencia real con Gemma 4.
 2. **Z-Node (Red)**: Reemplazar el mock por la conexión WebSocket WSS real a QuickNode/Helius en `znode.c` / `znode_bridge.zig`.

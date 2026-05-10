@@ -65,5 +65,5 @@ test "Orchestrator E2E: Full Billing Lifecycle" {
     
     const err = orch.processUsage(agent_id, bankrupt_report);
     try std.testing.expectError(error.InsufficientCredits, err);
-    std.debug.print("\n[TEST] Bankruptcy Protection: Verified 🟢", .{});
+    std.debug.print("\n[TEST] Bankruptcy Protection: Verified ", .{});
 }

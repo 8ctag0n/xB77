@@ -18,8 +18,8 @@ EXPOSE 8545
 
 # Script de inicio
 RUN echo '#!/bin/bash\n\
-echo "🚀 Levantando Infraestructura Soberana xB77..."\n\
-echo "🔹 Iniciando Anvil (EVM Mock) en puerto 8545..."\n\
+echo " Levantando Infraestructura Soberana xB77..."\n\
+echo " Iniciando Anvil (EVM Mock) en puerto 8545..."\n\
 anvil --host 0.0.0.0 --port 8545 --chain-id 84532 --block-time 2 &\n\
 \n\
 wait -n\n\

@@ -99,7 +99,7 @@ pub const MeshManager = struct {
             .last_seen = std.time.timestamp(),
         });
 
-        std.debug.print("\n[MESH  ] ️ Peer added to Bucket[{d}]: ", .{bucket_idx});
+        std.debug.print("\n[MESH  ]  Peer added to Bucket[{d}]: ", .{bucket_idx});
         for (id[0..4]) |b| {
             std.debug.print("{x:0>2}", .{b});
         }
@@ -350,7 +350,7 @@ pub const MeshManager = struct {
         switch (opcode) {
             @intFromEnum(awp.MessageType.state_response) => {
                 const resp = try decoder.decodeStateResponse();
-                std.debug.print("\n[MESH  ] ️ Valid State Response from peer. Root: {x}", .{resp.root[0..4].*});
+                std.debug.print("\n[MESH  ]  Valid State Response from peer. Root: {x}", .{resp.root[0..4].*});
                 peer.status = .verified;
                 peer.state_root = resp.root;
             },
@@ -358,7 +358,7 @@ pub const MeshManager = struct {
                 const delta = try decoder.decodeDeltaSync(self.allocator);
                 defer self.allocator.free(delta.siblings);
                 
-                std.debug.print("\n[MESH  ] 🧬 Received Delta Sync (Index: {d}). Updating local tree...", .{delta.index});
+                std.debug.print("\n[MESH  ]  Received Delta Sync (Index: {d}). Updating local tree...", .{delta.index});
                 
                 // Si el índice es el que esperamos (el siguiente en nuestro árbol), lo aplicamos
                 if (delta.index == self.store.tree.rightmost_index) {
@@ -372,7 +372,7 @@ pub const MeshManager = struct {
                 const req = try decoder.decodeLoanRequest();
                 std.debug.print("\n[SWARM ]  SOS Received from Peer {x}. Needs {d} SC at {d} bps.", .{peer.id[0..4].*, req.amount, req.interest_bps});
                 // In a real swarm, the brain evaluates risk and balance.
-                std.debug.print("\n[SWARM ] 🧠 Brain evaluated risk: Acceptable. Sending Loan Offer...", .{});
+                std.debug.print("\n[SWARM ]  Brain evaluated risk: Acceptable. Sending Loan Offer...", .{});
                 
                 var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch return;
                 defer stream.close();
@@ -389,7 +389,7 @@ pub const MeshManager = struct {
             },
             @intFromEnum(awp.MessageType.loan_offer) => {
                 const offer = try decoder.decodeLoanOffer();
-                std.debug.print("\n[SWARM ] 🤝 Loan Offer Received from {x}: {d} SC.", .{offer.lender_id[0..4].*, offer.amount});
+                std.debug.print("\n[SWARM ]  Loan Offer Received from {x}: {d} SC.", .{offer.lender_id[0..4].*, offer.amount});
                 std.debug.print("\n[SWARM ]  Accept offer. Liquidity injected. Returning to Normal Operation.", .{});
                 
                 var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch return;

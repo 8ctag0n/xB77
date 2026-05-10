@@ -634,15 +634,15 @@ fn route_actions_pay_get(allocator: std.mem.Allocator, url: []const u8) *Respons
         \\  "links": {
         \\    "actions": [
         \\      {
-        \\        "label": "⚡ Standard Tier (50 SC)",
+        \\        "label": " Standard Tier (50 SC)",
         \\        "href": "https://gateway.xb77.com/api/actions/pay?tier=standard"
         \\      },
         \\      {
-        \\        "label": "💎 Premium Tier (150 SC)",
+        \\        "label": " Premium Tier (150 SC)",
         \\        "href": "https://gateway.xb77.com/api/actions/pay?tier=premium"
         \\      },
         \\      {
-        \\        "label": "💀 Deluxe Ghost Tier (500 SC)",
+        \\        "label": " Deluxe Ghost Tier (500 SC)",
         \\        "href": "https://gateway.xb77.com/api/actions/pay?tier=ghost"
         \\      }
         \\    ]
@@ -689,11 +689,11 @@ fn route_app_message(allocator: std.mem.Allocator, body: []const u8) *Response {
 
     // 3. Format and Send Notification
     const icon = switch (m.msg_type) {
-        .quote => "️ *New Quote*",
-        .hire => "🤝 *Agent Hired*",
+        .quote => " *New Quote*",
+        .hire => " *Agent Hired*",
         .escrow => " *Funds in Escrow*",
-        .dispute => "️ *Dispute Raised*",
-        .info => "ℹ️ *Agent Update*",
+        .dispute => " *Dispute Raised*",
+        .info => "ℹ *Agent Update*",
     };
 
     const response = std.fmt.allocPrint(allocator, "{s}\n\n{s}", .{icon, m.content}) catch "Error";
@@ -968,12 +968,12 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
         defer allocator.free(tg_key);
         
         // --- ElevenLabs Voice Synthesis Hook (Simulated/Ready for API key) ---
-        std.debug.print("\n[TELEGRAM] 🎙️ ElevenLabs Voice Synthesis Triggered for Chat {d}", .{msg.chat.id});
-        std.debug.print("\n[TELEGRAM] 🗣️ Text: 'Status Normal. Swarm has 4 peers connected. Balance is 0.05 SOL.'", .{});
-        std.debug.print("\n[TELEGRAM] 🚀 Sending Voice Note (.ogg) to User...", .{});
+        std.debug.print("\n[TELEGRAM]  ElevenLabs Voice Synthesis Triggered for Chat {d}", .{msg.chat.id});
+        std.debug.print("\n[TELEGRAM]  Text: 'Status Normal. Swarm has 4 peers connected. Balance is 0.05 SOL.'", .{});
+        std.debug.print("\n[TELEGRAM]  Sending Voice Note (.ogg) to User...", .{});
         // ---------------------------------------------------------------------
 
-        const response_text = "🎙️ Voice note synthesized via ElevenLabs and sent to your device.\n\nStatus: NORMAL\nBalance: 0.05 SOL";
+        const response_text = " Voice note synthesized via ElevenLabs and sent to your device.\n\nStatus: NORMAL\nBalance: 0.05 SOL";
         js_telegram_send(msg.chat.id, response_text.ptr, response_text.len);
 
         return build_response(200, "OK");
@@ -985,7 +985,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
 
         if (get_kv_data(allocator, tg_key)) |agent_id_hex| {
             const status = get_credit_status(allocator, agent_id_hex) catch {
-                js_telegram_send(msg.chat.id, "️ <b>Error:</b> Reading credit status.", 34);
+                js_telegram_send(msg.chat.id, " <b>Error:</b> Reading credit status.", 34);
                 return build_response(200, "OK");
             };
             
@@ -995,28 +995,28 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
             
             const response = if (std.mem.eql(u8, name, "unnamed"))
                 std.fmt.allocPrint(allocator, 
-                    \\️ <b>xB77 Sovereign Node</b>
+                    \\ <b>xB77 Sovereign Node</b>
                     \\
                     \\<b>Agent:</b> <code>{s}...</code>
                     \\<b>Credits:</b> <code>{d} SC</code>
-                    \\<b>Security:</b> <pre>Verified 🟢</pre>
+                    \\<b>Security:</b> <pre>Verified </pre>
                     \\
                     \\<i>Use /name to set an identity.</i>
                 , .{agent_id_hex[0..8], status.balance})
             else
                 std.fmt.allocPrint(allocator, 
-                    \\️ <b>xB77 Sovereign Node</b>
+                    \\ <b>xB77 Sovereign Node</b>
                     \\
                     \\<b>Identity:</b> <code>{s}.xb77</code>
                     \\<b>Credits:</b> <code>{d} SC</code>
-                    \\<b>Security:</b> <pre>Verified 🟢</pre>
+                    \\<b>Security:</b> <pre>Verified </pre>
                 , .{name, status.balance});
             
             const final_resp = response catch "Error";
             defer if (!std.mem.eql(u8, final_resp, "Error")) allocator.free(final_resp);
             js_telegram_send(msg.chat.id, final_resp.ptr, final_resp.len);
         } else |_| {
-            js_telegram_send(msg.chat.id, "🤖 <b>Node Active.</b>\nUse /start to link your agent.", 49);
+            js_telegram_send(msg.chat.id, " <b>Node Active.</b>\nUse /start to link your agent.", 49);
         }
     } else if (std.mem.startsWith(u8, text, "/name")) {
         const chat_id_str = std.fmt.allocPrint(allocator, "{d}", .{msg.chat.id}) catch "0";
@@ -1060,7 +1060,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
                 js_telegram_send(msg.chat.id, response.ptr, response.len);
             }
         } else |_| {
-            js_telegram_send(msg.chat.id, "🤖 Please link your agent first with /start.", 43);
+            js_telegram_send(msg.chat.id, " Please link your agent first with /start.", 43);
         }
     } else if (std.mem.startsWith(u8, text, "/receipts")) {
         const chat_id_str = std.fmt.allocPrint(allocator, "{d}", .{msg.chat.id}) catch "0";
@@ -1086,7 +1086,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
                 js_telegram_send(msg.chat.id, " <b>History:</b> No receipts found.", 36);
             }
         } else |_| {
-            js_telegram_send(msg.chat.id, "🤖 Please link your agent first with /start.", 43);
+            js_telegram_send(msg.chat.id, " Please link your agent first with /start.", 43);
         }
     } else if (std.mem.startsWith(u8, text, "/blink")) {
         const response = 
@@ -1098,7 +1098,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
         js_telegram_send(msg.chat.id, response.ptr, response.len);
     } else if (std.mem.startsWith(u8, text, "/help")) {
         const response = 
-            \\️ <b>xB77 Mission Control Help</b>
+            \\ <b>xB77 Mission Control Help</b>
             \\
             \\<b>Commands:</b>
             \\/status - Current node & credit health
@@ -1162,7 +1162,7 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
 
         if (get_kv_data(allocator, tg_key)) |agent_id_hex| {
             var status = get_credit_status(allocator, agent_id_hex) catch {
-                js_telegram_send(msg.chat.id, "️ <b>Error:</b> Reading credit status.", 34);
+                js_telegram_send(msg.chat.id, " <b>Error:</b> Reading credit status.", 34);
                 return build_response(200, "OK");
             };
 
@@ -1198,16 +1198,16 @@ fn route_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
                 \\<b>Amount:</b> <code>{d} SC</code>
                 \\<b>Remaining:</b> <code>{d} SC</code>
                 \\
-                \\️ <b>ZK-Commitment:</b>
+                \\ <b>ZK-Commitment:</b>
                 \\<code>{s}</code>
             , .{pay_amount, status.balance, comm_hex}) catch "Error";
             defer if (!std.mem.eql(u8, response, "Error")) allocator.free(response);
             js_telegram_send(msg.chat.id, response.ptr, response.len);
         } else |_| {
-            js_telegram_send(msg.chat.id, "🤖 Please link your agent first with /start.", 43);
+            js_telegram_send(msg.chat.id, " Please link your agent first with /start.", 43);
         }
     } else {
-        const response = "🤖 <b>Sovereign Engine Active.</b>\nType /help to see commands.";
+        const response = " <b>Sovereign Engine Active.</b>\nType /help to see commands.";
         js_telegram_send(msg.chat.id, response.ptr, response.len);
     }
 

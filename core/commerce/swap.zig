@@ -83,7 +83,7 @@ pub const SwapManager = struct {
 
     /// Procesa un mensaje AWP de SwapRequest
     pub fn handleRequest(self: *SwapManager, msg: awp.SwapRequestMsg, peer_id: [32]u8) !void {
-        std.debug.print("\n[SWAP  ] 🤝 Received Swap Request from ", .{});
+        std.debug.print("\n[SWAP  ]  Received Swap Request from ", .{});
         for (peer_id[0..4]) |b| std.debug.print("{x:0>2}", .{b});
         std.debug.print("\n         Offered: {d} {s} ({s})", .{ msg.offered_amount, msg.offered_asset.symbol, @tagName(msg.offered_asset.chain) });
         std.debug.print("\n         Wanted:  {d} {s} ({s})", .{ msg.wanted_amount, msg.wanted_asset.symbol, @tagName(msg.wanted_asset.chain) });

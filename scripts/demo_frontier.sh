@@ -26,9 +26,9 @@ echo "[SWARM ]  Triggering Flash Loan protocol..."
 echo "[MESH  ]  Broadcasting Loan Request to Swarm: 50000000 SC at 500 bps... Sent to 1 peers."
 sleep 1
 echo "[SWARM ]  SOS Received from Peer a8b3. Needs 50000000 SC at 500 bps."
-echo "[SWARM ] 🧠 Brain evaluated risk: Acceptable. Sending Loan Offer..."
+echo "[SWARM ]  Brain evaluated risk: Acceptable. Sending Loan Offer..."
 sleep 1
-echo "[SWARM ] 🤝 Loan Offer Received from c1f9: 50000000 SC."
+echo "[SWARM ]  Loan Offer Received from c1f9: 50000000 SC."
 echo "[SWARM ]  Accept offer. Liquidity injected. Returning to Normal Operation."
 sleep 1
 echo "[SWARM ]  Peer accepted loan. Executing L1 transfer via MagicBlock..."
@@ -36,7 +36,7 @@ echo "[SWARM ]  Transfer complete."
 echo ""
 echo "[MOCK] Simulating inbound Blink payment of 0.05 SOL..."
 sleep 2
-echo "[BRAIN ] 🧠 Consulting Gemma 4 (Local Sovereign Model)..."
+echo "[BRAIN ]  Consulting Gemma 4 (Local Sovereign Model)..."
 sleep 1
 echo "[BRAIN ]  Gemma 4 reasoned: Sovereign Decision reached. APPROVED."
 sleep 1
@@ -44,7 +44,7 @@ echo "[ENGINE]  Routing transaction via MagicBlock HFT Rail..."
 sleep 1
 echo "[ENGINE]  Turbo Rail Success. PER Sig: 4uQ6..."
 sleep 1
-echo "[PROVER] ️ Executing: scripts/nargo.sh prove --package zk_receipt"
+echo "[PROVER]  Executing: scripts/nargo.sh prove --package zk_receipt"
 sleep 2
 echo "[PROVER]  ZK-Proof generated successfully by Noir."
 echo "[PROVER]  Mesh State Anchored at Index 1. L1 Sig: 5zB..."

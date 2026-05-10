@@ -32,7 +32,7 @@ pub fn main() !void {
         .state_root = [_]u8{0xCC} ** 32,
     };
     _ = try encoder.encodeHandshake(handshake);
-    std.debug.print("🤝 Handshake encoded (Agent ID: AA...).\n", .{});
+    std.debug.print(" Handshake encoded (Agent ID: AA...).\n", .{});
 
     // 2. Enviar una Orden de Liquidez vía Mesh
     const order = awp.OrderMsg{

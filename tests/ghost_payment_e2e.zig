@@ -85,5 +85,5 @@ test "Ghost Payment E2E: Settlement and ZK Anchoring" {
     try prover.checkAndAnchor(&ctx.vaults.ops.sol_kp);
 
     try std.testing.expectEqual(ctx.store.tree.rightmost_index, prover.last_anchored_index);
-    std.debug.print("\n[TEST] Batch Anchoring successful! 🟢", .{});
+    std.debug.print("\n[TEST] Batch Anchoring successful! ", .{});
 }

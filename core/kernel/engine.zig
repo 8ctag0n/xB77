@@ -134,7 +134,7 @@ pub const Engine = struct {
     pub fn processIntent(self: *Engine, intent: []const u8) !void {
         // Negotiation and Directive logic delegated to Brain
         const insight = try self.ctx.brain.interpret(intent);
-        std.debug.print("\n[Kernel] 🧠 Directive Interpreted: {d} lamports", .{insight.directive.max_budget});
+        std.debug.print("\n[Kernel]  Directive Interpreted: {d} lamports", .{insight.directive.max_budget});
     }
 
     fn tick(self: *Engine) !void {
@@ -156,11 +156,11 @@ pub const Engine = struct {
 
                 // Compliance & Shield
                 if (!self.ctx.compliance.check(tx)) {
-                    std.debug.print("\n[SHIELD] ️ Transaction Rejected: Compliance Violation.", .{});
+                    std.debug.print("\n[SHIELD]  Transaction Rejected: Compliance Violation.", .{});
                     return;
                 }
 
-                std.debug.print("\n[PULSE ] 🧠 Verdict: Sovereign Transaction Accepted.", .{});
+                std.debug.print("\n[PULSE ]  Verdict: Sovereign Transaction Accepted.", .{});
                 
                 const sig_hex = core.security.crypto.bytesToHex(self.allocator, &tx.signature) catch tx.signature[0..8];
                 defer if (sig_hex.len > 8) self.allocator.free(sig_hex);

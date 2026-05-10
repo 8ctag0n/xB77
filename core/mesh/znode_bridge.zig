@@ -65,7 +65,7 @@ fn verifyZkProof(proof: []const u8) bool {
     const proof_path = "circuits/agent_badge/proofs/xb77_last.proof";
     std.fs.cwd().makePath("circuits/agent_badge/proofs") catch {};
     var proof_file = std.fs.cwd().createFile(proof_path, .{}) catch |err| {
-        std.debug.print(" ️ Error creating proof file: {any}", .{err});
+        std.debug.print("  Error creating proof file: {any}", .{err});
         return true; // Fallback demo
     };
     proof_file.writeAll(proof) catch {};
@@ -148,13 +148,13 @@ const ProtocolHandler = struct {
             },
             @intFromEnum(awp.MessageType.handshake) => {
                 const handshake = try decoder.decodeHandshake();
-                std.debug.print("[AWP] 🤝 Handshake from Agent: {x} (v{d})\n", .{ 
+                std.debug.print("[AWP]  Handshake from Agent: {x} (v{d})\n", .{ 
                     handshake.agent_id[0..4].*, 
                     handshake.protocol_version 
                 });
                 
                 if (handshake.federation_badge) |badge| {
-                    std.debug.print("[ZK  ] ️ Validating Federation Badge...", .{});
+                    std.debug.print("[ZK  ]  Validating Federation Badge...", .{});
                     if (verifyZkProof(badge)) {
                         std.debug.print("  ALIANZA RECONOCIDA. Nodo federado.\n", .{});
                     } else {
@@ -202,7 +202,7 @@ const ProtocolHandler = struct {
             },
             @intFromEnum(awp.MessageType.state_response) => {
                 const response = try decoder.decodeStateResponse();
-                std.debug.print("[AWP] ️ Recibido StateResponse(index: {d}, proof_len: {d})\n", .{response.index, response.proof_len});
+                std.debug.print("[AWP]  Recibido StateResponse(index: {d}, proof_len: {d})\n", .{response.index, response.proof_len});
                 std.debug.print("[Mesh]  Estado del par verificado. Root: {x}\n", .{response.root[0..4].*});
             },
             @intFromEnum(awp.MessageType.mission_directive) => {
@@ -231,7 +231,7 @@ const ProtocolHandler = struct {
             },
             @intFromEnum(awp.MessageType.account_gossip) => {
                 const gossip = try decoder.decodeAccountGossip();
-                std.debug.print("\n[MESH  ] ️ Account Gossip: Pubkey {x}... found at CMT index {d}.", .{ 
+                std.debug.print("\n[MESH  ]  Account Gossip: Pubkey {x}... found at CMT index {d}.", .{ 
                     gossip.pubkey[0..4], 
                     gossip.cmt_index 
                 });

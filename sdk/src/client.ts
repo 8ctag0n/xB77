@@ -50,6 +50,6 @@ export class MerchantClient {
             throw new Error("Failed to submit order via Native SDK");
         }
 
-        console.log(`[Native-SDK] 🚀 Order Submitted: ${order.side === Side.Buy ? 'BUY' : 'SELL'} ${order.symbol}`);
+        console.log(`[Native-SDK]  Order Submitted: ${order.side === Side.Buy ? 'BUY' : 'SELL'} ${order.symbol}`);
     }
 }

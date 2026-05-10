@@ -17,7 +17,7 @@ pub fn main() !void {
     const agent_kp = crypto.generateKeypair();
     const agent_address = try crypto.encodeBase58(allocator, &agent_kp.public);
     defer allocator.free(agent_address);
-    std.debug.print("\n[AGENT ] ️ Identity Generated: {s}", .{agent_address});
+    std.debug.print("\n[AGENT ]  Identity Generated: {s}", .{agent_address});
 
     // 2. Levantar el Sovereign Store (Memoria Persistente)
     const test_path = "./.test_e2e_anchor";
@@ -46,7 +46,7 @@ pub fn main() !void {
 
     // 4. Pedir Fondeo (Airdrop) y esperar confirmación
     try client.requestAirdrop(agent_address, 1_000_000_000); // 1 SOL
-    std.debug.print("\n[SOLANA] ⏳ Waiting for airdrop confirmation...", .{});
+    std.debug.print("\n[SOLANA]  Waiting for airdrop confirmation...", .{});
     
     var balance: u64 = 0;
     var retries: usize = 0;

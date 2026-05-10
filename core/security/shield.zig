@@ -148,7 +148,7 @@ pub const ComplianceEngine = struct {
             if (consti.required_sns_namespace) |namespace| {
                 if (self.sol_client) |sol| {
                     _ = sol;
-                    std.debug.print("[Shield] 🆔 Hard SNS Enforcement active. Checking namespace: {s}\n", .{namespace});
+                    std.debug.print("[Shield]  Hard SNS Enforcement active. Checking namespace: {s}\n", .{namespace});
                     
                     // Nota: En un entorno real, el tx.recipient (Pubkey) debería tener un SNS vinculado.
                     // Para la demo, validamos que la dirección no sea anónima si el namespace es obligatorio.
@@ -158,7 +158,7 @@ pub const ComplianceEngine = struct {
                     // Si no tiene SNS vinculado en el catálogo local o on-chain, rechazamos.
                     // (Simulación de fallo si no es un 'agent.sol')
                     if (tx.amount > 1_000_000_000 and !std.mem.startsWith(u8, namespace, "*")) {
-                         std.debug.print("[Shield] ️ REJECTED: Counterparty lacks required Sovereign Identity ({s}).\n", .{namespace});
+                         std.debug.print("[Shield]  REJECTED: Counterparty lacks required Sovereign Identity ({s}).\n", .{namespace});
                          return false;
                     }
                 }
@@ -175,14 +175,14 @@ pub const ComplianceEngine = struct {
                 }
             }
             if (!found) {
-                std.debug.print("[Shield] ️ Dirección no presente en Whitelist ZK. Se requiere proof externa.\n", .{});
+                std.debug.print("[Shield]  Dirección no presente en Whitelist ZK. Se requiere proof externa.\n", .{});
                 // Para el MVP de S8, permitimos si no es maliciosa, pero logueamos la advertencia.
             }
         }
 
         // Velocity Check: No más de 1M por transacción en la rampa AWP
         if (tx.amount > 1_000_000_000_000) {
-             std.debug.print("[Shield] ⚠️ Volumen excedido. Aplicando Circuit Breaker.\n", .{});
+             std.debug.print("[Shield]  Volumen excedido. Aplicando Circuit Breaker.\n", .{});
              return false;
         }
 

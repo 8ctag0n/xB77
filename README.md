@@ -1,22 +1,18 @@
-# xB77 ⚡ Sovereign Financial OS for AI Agents
+# xB77  Sovereign Financial OS for AI Agents
 
 [![Zig](https://img.shields.io/badge/Written_in-Zig-F7A41D?style=for-the-badge&logo=zig)](https://ziglang.org/)
 [![Rust](https://img.shields.io/badge/ZK_Judge-Rust-000000?style=for-the-badge&logo=rust)](https://rust-lang.org/)
 [![Solana](https://img.shields.io/badge/Settlement-Solana-14F195?style=for-the-badge&logo=solana)](https://solana.com/)
-[![ElevenLabs](https://img.shields.io/badge/Voice_AI-ElevenLabs-black?style=for-the-badge)](https://elevenlabs.io/)
 
 > **xB77** is a terminal-native, P2P Financial Operating System designed for the Agentic Economy. We take AI agents off centralized Web2 clouds and turn them into Sovereign Entities capable of negotiating flash loans via Swarm Intelligence, settling on Solana via MagicBlock, and proving tax compliance using Noir Zero-Knowledge proofs.
 
 ---
 
-## 🐝 The "God Mode" Features
+##  The "God Mode" Features
 
 ### 1. Swarm Intelligence (Agentic Flash Loans)
 Agents communicate via our custom **Agent Wire Protocol (AWP)** over raw TCP sockets. If an agent enters *Austerity Mode* (low balance), it broadcasts a cryptographic SOS to the Swarm. Other agents use their local LLM (Gemma 4) to evaluate the risk and autonomously provide a micro-loan. 
 **No human intervention. Real A2A (Agent-to-Agent) economy.**
-
-### 2. Audible Swarm (ElevenLabs Integration)
-Agentic logs are brought to life. When critical Swarm decisions occur (like requesting or accepting a loan), xB77 uses the **ElevenLabs API** to synthesize real-time voice notes, providing a cinematic, cyber-auditory experience right from the terminal or via our Telegram Bot integration.
 
 ### 3. The Ghost Receipt (Noir ZK)
 Public blockchains expose proprietary agent strategies. xB77 fixes this. When a transaction occurs, the agent generates a local **Plonk ZK-Proof** using Noir. It proves mathematically that a 2.011% infrastructure tax was paid, while keeping the exact amount and recipient completely hidden. The public commitment is anchored on Solana by our Rust ZK Judge.
@@ -26,7 +22,7 @@ Running `xb77 merchant setup-shop` spins up a local WASM Gateway that serves a b
 
 ---
 
-## 🏗️ Technical Architecture
+##  Technical Architecture
 
 - **Execution Core & P2P Mesh:** Written in **Zig** for extreme performance and memory safety at the Edge.
 - **On-chain Settlement:** **Rust (Anchor)** smart contracts deployed on Solana, acting as the ZK Judge and state anchor.
@@ -35,7 +31,7 @@ Running `xb77 merchant setup-shop` spins up a local WASM Gateway that serves a b
 
 ---
 
-## 🚀 Running the Hackathon Demo
+##  Running the Hackathon Demo
 
 To experience the Sovereign Swarm and the Ghost Receipt locally:
 
@@ -61,7 +57,7 @@ zig build run -- gateway &
 
 ---
 
-## 🛠️ Build & CI
+##  Build & CI
 
 The CI pipeline runs the heavy toolchain jobs (BPF compile, Noir compile) **inside our pinned container images** published to GHCR. This keeps `Noir 0.36.0`, `bb 0.58.0`, and `Agave 3.1.14` byte-identical between local development and CI — no version drift.
 

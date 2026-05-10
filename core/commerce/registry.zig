@@ -70,7 +70,7 @@ pub const RegistryManager = struct {
 
     /// Registra el Merchant en el índice oficial on-chain (Solana)
     pub fn registerMerchant(self: *RegistryManager, merchant_id: [32]u8, methods: u64, signer: *const types.Keypair) ![]const u8 {
-        std.debug.print("\n[REGISTRY] 📝 Registering Merchant on-chain...", .{});
+        std.debug.print("\n[REGISTRY]  Registering Merchant on-chain...", .{});
         
         const merchant_pda = try self.deriveMerchantPda(merchant_id);
 
@@ -91,7 +91,7 @@ pub const RegistryManager = struct {
 
     /// Añade un catálogo (vínculo a IPFS) al registro on-chain
     pub fn addCatalog(self: *RegistryManager, merchant_id: [32]u8, catalog_url: []const u8, signer: *const types.Keypair) ![]const u8 {
-        std.debug.print("\n[REGISTRY] 📁 Adding Catalog URL: {s}", .{catalog_url});
+        std.debug.print("\n[REGISTRY]  Adding Catalog URL: {s}", .{catalog_url});
         
         const merchant_pda = try self.deriveMerchantPda(merchant_id);
         

@@ -509,7 +509,7 @@ fn handleRemoteExport(allocator: std.mem.Allocator, config_path: []const u8) !vo
     const sol_kp = ctx.vaults.ops.sol_kp;
     const timestamp = std.time.milliTimestamp();
 
-    std.debug.print("\n️ Iniciando Sovereign Export para el Agente {s}...\n", .{try core.crypto.pubkeyToString(allocator, &sol_kp.public)});
+    std.debug.print("\n Iniciando Sovereign Export para el Agente {s}...\n", .{try core.crypto.pubkeyToString(allocator, &sol_kp.public)});
 
     // 1. Firmar el timestamp para autenticación
     var ts_buf: [8]u8 = undefined;
@@ -603,7 +603,7 @@ fn handleIdentity(allocator: std.mem.Allocator, config_path: []const u8, args: [
             return;
         }
         const name = args[1];
-        std.debug.print("️  Reclamando identidad '{s}.xb77' para este agente...\n", .{name});
+        std.debug.print("  Reclamando identidad '{s}.xb77' para este agente...\n", .{name});
 
         const sol_kp = ctx.vaults.ops.sol_kp;
         const msg = try std.fmt.allocPrint(allocator, "claim:{s}", .{name});
@@ -649,7 +649,7 @@ fn handleIdentity(allocator: std.mem.Allocator, config_path: []const u8, args: [
 
         const pubkey = resolve_blk: {
             break :resolve_blk core.business.identity.Identity.resolveSnsNative(allocator, &ctx.sol_client, domain) catch |err| {
-                std.debug.print("️  Fallo resolución nativa: {s}. Probando API fallback...\n", .{@errorName(err)});
+                std.debug.print("  Fallo resolución nativa: {s}. Probando API fallback...\n", .{@errorName(err)});
                 break :resolve_blk core.business.identity.Identity.resolveSnsApi(allocator, &ctx.sol_client, domain) catch |err2| {
                     std.debug.print(" Fallo total de resolución: {s}\n", .{@errorName(err2)});
                     return;
@@ -701,7 +701,7 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
             var it = ctx.app_manager.plans.iterator();
             while (it.next()) |entry| {
                 const p = entry.value_ptr;
-                std.debug.print("️  Plan {x}: {d} lamports every {d}s\n", .{ p.plan_id[0..4].*, p.amount_per_period, p.period_sec });
+                std.debug.print("  Plan {x}: {d} lamports every {d}s\n", .{ p.plan_id[0..4].*, p.amount_per_period, p.period_sec });
             }
         }
     } else if (std.mem.eql(u8, sub, "add")) {
@@ -752,7 +752,7 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
         const sig = try ctx.registry_manager.addCatalog(ctx.vaults.ops.sol_kp.public, cid, &ctx.vaults.ops.sol_kp);
         std.debug.print("\n Registro completado. Sig: {s}\n", .{sig});
 
-        std.debug.print("️  Anunciando a la red Mesh...\n", .{});
+        std.debug.print("  Anunciando a la red Mesh...\n", .{});
         try ctx.mesh_manager.tick();
         std.debug.print(" IP Protegida. Tu agente ahora es global.\n", .{});
     } else if (std.mem.eql(u8, sub, "register")) {
@@ -766,7 +766,7 @@ fn handleMerchant(allocator: std.mem.Allocator, config_path: []const u8, args: [
             return;
         }
         // Lógica simplificada de disputa por CLI
-        std.debug.print("️ Disputa abierta para contrato {s}.\n", .{args[1]});
+        std.debug.print(" Disputa abierta para contrato {s}.\n", .{args[1]});
     } else if (std.mem.eql(u8, sub, "plan")) {
         if (args.len < 3) {
             std.debug.print("Uso: xb77 merchant plan <monto_lamports> <segundos>\n", .{});
@@ -861,7 +861,7 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
     
     // Claim Identity if handle provided
     if (handle.len > 0) {
-        std.debug.print("[SETUP ]  🆔 Claiming {s}.xb77... ", .{handle});
+        std.debug.print("[SETUP ]   Claiming {s}.xb77... ", .{handle});
         const sol_kp = ctx.vaults.ops.sol_kp;
         const msg = try std.fmt.allocPrint(allocator, "claim:{s}", .{handle});
         defer allocator.free(msg);
@@ -874,7 +874,7 @@ fn handleSetupShop(allocator: std.mem.Allocator, config_path: []const u8, ctx: *
 
         var http_client = core.mesh.http.HttpClient.init(allocator);
         _ = http_client.post("https://gateway.xb77.com/identity/claim", json_list.items) catch {
-            std.debug.print("️ Gateway unreachable, skipping claim.\n", .{});
+            std.debug.print(" Gateway unreachable, skipping claim.\n", .{});
         };
         ctx.config.name = try allocator.dupe(u8, handle);
         try ctx.config.save(allocator, config_path);
