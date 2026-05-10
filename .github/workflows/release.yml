@@ -68,13 +68,13 @@ jobs:
           size=$(stat -c%s zig-out/bin/gateway.wasm)
           test "$size" -gt 50000 || (echo "::error::gateway.wasm regressed to a stub" && exit 1)
 
+      # Ship every binary `zig build install` produces so e2e runners,
+      # benches and the znode server land in the Release alongside the
+      # CLI. Glob also future-proofs the workflow against new targets.
       - uses: actions/upload-artifact@v4
         with:
           name: zig-binaries
-          path: |
-            zig-out/bin/xb77
-            zig-out/bin/gateway.wasm
-            zig-out/bin/zk-upload-e2e
+          path: zig-out/bin/*
           if-no-files-found: error
 
   bpf:
@@ -148,13 +148,14 @@ jobs:
       - name: Stage release files
         run: |
           mkdir -p release
-          cp dist/zig-binaries/xb77            release/xb77
-          cp dist/zig-binaries/gateway.wasm    release/gateway.wasm
-          cp dist/zig-binaries/zk-upload-e2e   release/zk-upload-e2e
+          # Every Zig-built binary (CLI, gateway.wasm, e2e runners,
+          # znode-server, benches). Globbing keeps the workflow honest
+          # if build.zig adds or renames targets.
+          cp -v dist/zig-binaries/*           release/
           for prog in xb77_core xb77_gateway xb77_registry xb77_compression xb77_zk_verifier; do
             cp "dist/bpf-${prog}/${prog}.so" "release/${prog}.so"
           done
-          cp dist/zk-circuit/zk_receipt.json   release/zk_receipt.json
+          cp dist/zk-circuit/zk_receipt.json  release/zk_receipt.json
           ls -la release/
 
       - name: Publish release
