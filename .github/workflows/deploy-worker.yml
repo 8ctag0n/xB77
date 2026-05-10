@@ -1,0 +1,60 @@
+name: Deploy Worker
+
+# Publishes the xB77 gateway (gateway.wasm + worker.js) to Cloudflare
+# Workers whenever a Release is published. Decoupled from CI so a flaky
+# build can't ship a half-baked worker — the deploy only runs once the
+# Release artifacts are signed off.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN     · token with Workers Scripts:Edit + Workers Tail:Read
+#   CLOUDFLARE_ACCOUNT_ID    · numeric account id from the CF dashboard URL
+#
+# Manual re-run: Actions → Deploy Worker → Run workflow → put the tag.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag whose gateway.wasm to deploy (e.g. v0.2.2-deluxe)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: wrangler deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      # gateway.wasm is published as a Release asset by release.yml. Pull
+      # it down by tag instead of re-building so the bytes deployed match
+      # exactly what the Release advertises.
+      - name: Fetch gateway.wasm from Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
+        run: |
+          mkdir -p gateway
+          gh release download "$TAG" \
+              --repo "${{ github.repository }}" \
+              --pattern 'gateway.wasm' \
+              --output gateway/gateway.wasm
+          ls -la gateway/gateway.wasm
+
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # No `command:` — defaults to `wrangler deploy`, reads
+          # wrangler.toml at repo root.

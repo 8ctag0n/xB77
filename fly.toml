@@ -1,14 +1,33 @@
-# xB77 Sovereign Agent - Fly.io Deployment Configuration
+# xB77 Sovereign Agent — Fly.io app config.
+#
+# Single-VM deploy: znode-server + xb77 serve run together inside one
+# micro-VM (see infra/Containerfile.agent's start.sh). Cheaper and
+# keeps the inter-process IPC on localhost. Split into two Fly apps
+# only if you need to scale them independently or the agent grows
+# past 1 GB RAM.
+#
+# First-time deploy:
+#   1. fly auth login                  (or use the toolbox container)
+#   2. fly apps create xb77-agent      (idempotent if the name exists)
+#   3. fly secrets set \
+#        YELLOWSTONE_ENDPOINT=https://... \
+#        YELLOWSTONE_TOKEN=...          # only if your provider requires it
+#   4. fly deploy
+#
+# Optional secrets (set only if used):
+#   TETHER_WDK_ID, TELEGRAM_TOKEN, OPENAI_API_KEY, ...
+
 app = "xb77-agent"
 primary_region = "bos"
 
 [build]
   dockerfile = "infra/Containerfile.agent"
 
+# Sensitive values (YELLOWSTONE_ENDPOINT, *_TOKEN) live in
+# `fly secrets set`, never here. Anything in [env] is baked into the
+# image and visible in `fly status` — non-sensitive defaults only.
 [env]
-  YELLOWSTONE_ENDPOINT = "https://solana-mainnet.core.quiknode.pro/your-token/"
-  # TETHER_WDK_ID = "..."
-  # TELEGRAM_TOKEN = "..."
+  RUST_LOG = "info"
 
 [[services]]
   internal_port = 8081
@@ -18,10 +37,17 @@ primary_region = "bos"
     force_https = true
     handlers = ["http"]
     port = 80
-  
+
   [[services.ports]]
     handlers = ["tls", "http"]
     port = 443
+
+  # Auto-stop after idle. Wakes in <1 s on the next request and drops
+  # idle cost to near zero on the free tier.
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 200
+    soft_limit = 150
 
 [[vm]]
   cpu_kind = "shared"
