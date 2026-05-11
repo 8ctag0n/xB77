@@ -72,6 +72,7 @@ function PublicApp() {
     changelog: ChangelogPage
   };
   const Page = pages[route] || LandingPage;
-  return /* @__PURE__ */ React.createElement(Page, { key: route });
+  const Toggle = window.ThemeToggle;
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Page, { key: route }), Toggle ? /* @__PURE__ */ React.createElement(Toggle, null) : null);
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(PublicApp, null));

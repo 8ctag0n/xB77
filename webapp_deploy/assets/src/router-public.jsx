@@ -85,7 +85,13 @@ function PublicApp() {
     why: WhyPage, changelog: ChangelogPage,
   };
   const Page = pages[route] || LandingPage;
-  return <Page key={route} />;
+  const Toggle = window.ThemeToggle;
+  return (
+    <React.Fragment>
+      <Page key={route} />
+      {Toggle ? <Toggle /> : null}
+    </React.Fragment>
+  );
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<PublicApp />);

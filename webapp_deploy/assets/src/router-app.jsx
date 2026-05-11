@@ -92,7 +92,13 @@ function AppShell() {
     network: NetworkPageWrap,
   };
   const Page = pages[route] || AppPage;
-  return <Page key={route} />;
+  const Toggle = window.ThemeToggle;
+  return (
+    <React.Fragment>
+      <Page key={route} />
+      {Toggle ? <Toggle /> : null}
+    </React.Fragment>
+  );
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<AppShell />);
