@@ -80,3 +80,28 @@ step_0_preflight() {
     fi
   done
 }
+
+step_1_agent() {
+  require_image xb77-agent infra/Containerfile.agent
+  run_cmd podman rm -f xb77-agent-demo 2>/dev/null || true
+
+  run_cmd podman run -d \
+    --name xb77-agent-demo \
+    -v /tmp:/tmp:Z \
+    xb77-agent xb77 context
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    return 0
+  fi
+
+  log_info "waiting for /tmp/xb77_znode.sock (10s timeout)..."
+  local i=0
+  while ((i < 20)); do
+    [[ -S /tmp/xb77_znode.sock ]] && { log_ok "agent socket up"; return 0; }
+    sleep 0.5
+    i=$((i+1))
+  done
+  log_error "agent socket did not appear within 10s"
+  run_cmd podman logs --tail 50 xb77-agent-demo
+  return 1
+}
