@@ -643,6 +643,13 @@ function NetworkPage() {
         <AgentFleetSection />
         <RecentPipelinesSection />
       </div>
+      {window.DocsDeepDive && (
+        <DocsDeepDive
+          kicker="// FULL DATA-INFRA REFERENCE"
+          label="Endpoints, fallback chain, DataSource API."
+          path="/reference/data-infra"
+        />
+      )}
       {window.PageFooter && <PageFooter />}
     </div>
   );

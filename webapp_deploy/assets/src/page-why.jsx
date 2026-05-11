@@ -376,6 +376,12 @@ function WhyPage() {
         </FadeIn>
       </section>
 
+      <DocsDeepDive
+        kicker="// THE MISSION, IN DEPTH"
+        label="Read the manifesto and full rationale."
+        path="/why"
+      />
+
       <PageFooter />
     </div>
   );

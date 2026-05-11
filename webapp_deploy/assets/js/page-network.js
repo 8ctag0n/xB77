@@ -446,7 +446,14 @@ function NetworkPage() {
     maxWidth: 640,
     marginTop: 12,
     lineHeight: 1.6
-  } }, "Real-time view of the xB77 zk-pipeline network. Slot, block height, agent fleet, audit portal, and the live pipeline feed.")), /* @__PURE__ */ React.createElement(NetworkPulseSection, null), /* @__PURE__ */ React.createElement(GhostAuditSection, null), /* @__PURE__ */ React.createElement(AgentFleetSection, null), /* @__PURE__ */ React.createElement(RecentPipelinesSection, null)), window.PageFooter && /* @__PURE__ */ React.createElement(PageFooter, null));
+  } }, "Real-time view of the xB77 zk-pipeline network. Slot, block height, agent fleet, audit portal, and the live pipeline feed.")), /* @__PURE__ */ React.createElement(NetworkPulseSection, null), /* @__PURE__ */ React.createElement(GhostAuditSection, null), /* @__PURE__ */ React.createElement(AgentFleetSection, null), /* @__PURE__ */ React.createElement(RecentPipelinesSection, null)), window.DocsDeepDive && /* @__PURE__ */ React.createElement(
+    DocsDeepDive,
+    {
+      kicker: "// FULL DATA-INFRA REFERENCE",
+      label: "Endpoints, fallback chain, DataSource API.",
+      path: "/reference/data-infra"
+    }
+  ), window.PageFooter && /* @__PURE__ */ React.createElement(PageFooter, null));
 }
 window.NetworkPage = NetworkPage;
 (function NetworkHashBootstrap() {

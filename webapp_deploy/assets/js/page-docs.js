@@ -2,6 +2,7 @@ const DOC_SECTIONS = [
   { id: "quickstart", label: "Quickstart" },
   { id: "api", label: "API Reference" },
   { id: "sdk", label: "SDK Guide" },
+  { id: "network", label: "Network API" },
   { id: "protocol", label: "Protocol Specs" }
 ];
 function DocsPage() {
@@ -192,7 +193,47 @@ receipt = client.pay(
     to="vendor.sol",
     privacy="shielded"
 )
-print(f"Ghost Receipt: {receipt.proof_hash}")`)), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", height: 1, background: t.border, margin: "60px 0" } }), /* @__PURE__ */ React.createElement("section", { id: "protocol" }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 10, color: t.accent, letterSpacing: "0.2em", marginBottom: 12, textTransform: "uppercase" } }, "PROTOCOL"), /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "var(--serif)", fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 400, color: t.text, margin: "0 0 24px", lineHeight: 1.1 } }, "Protocol Specs"), /* @__PURE__ */ React.createElement(H3, null, "ZK Privacy Engine"), /* @__PURE__ */ React.createElement(P, null, "xB77's proprietary privacy engine shields transactions at the protocol level. Payments are routed through the ZK layer, generating compressed proofs that verify validity without revealing strategy."), /* @__PURE__ */ React.createElement(
+print(f"Ghost Receipt: {receipt.proof_hash}")`)), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", height: 1, background: t.border, margin: "60px 0" } }), /* @__PURE__ */ React.createElement("section", { id: "network" }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 10, color: t.accent, letterSpacing: "0.2em", marginBottom: 12, textTransform: "uppercase" } }, "NETWORK API"), /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "var(--serif)", fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 400, color: t.text, margin: "0 0 24px", lineHeight: 1.1 } }, "Live network data, in your browser."), /* @__PURE__ */ React.createElement(P, null, "The xB77 adapter exposes 4 REST endpoints with CORS open for any origin. The webapp ships a ", /* @__PURE__ */ React.createElement(Code, null, "window.DataSource"), " client with invisible degradation: live \u2192 cached \u2192 snapshot. The reader never sees a loader, never sees red."), /* @__PURE__ */ React.createElement(H3, null, "Endpoints"), /* @__PURE__ */ React.createElement(
+    Table,
+    {
+      headers: ["Method", "Path", "Returns"],
+      rows: [
+        ["GET", "/api/network/pulse", "slot, blockHeight, agentsOnline, proofsVerified24h, ts"],
+        ["GET", "/api/audit/:txhash", "verdict, proofId, agent, timestamp, chunks"],
+        ["GET", "/api/agents", "agents: [{id, pubkey, status, pipelines, uptime}]"],
+        ["GET", "/api/pipelines/recent", "pipelines: [{id, agent, chunks, status, verdict, ...}]"]
+      ]
+    }
+  ), /* @__PURE__ */ React.createElement(P, null, "The adapter probes the znode RPC via ", /* @__PURE__ */ React.createElement(Code, null, "ZNODE_RPC_URL"), " (default ", /* @__PURE__ */ React.createElement(Code, null, "localhost:8899"), ") with a 1.5s timeout. If the RPC is unreachable, returns deterministic mock data so the webapp never breaks."), /* @__PURE__ */ React.createElement(H3, null, "DataSource client"), /* @__PURE__ */ React.createElement(P, null, "Drop ", /* @__PURE__ */ React.createElement(Code, null, "data-source.js"), " on the page and call any method. Every response carries ", /* @__PURE__ */ React.createElement(Code, null, "_source"), " (", /* @__PURE__ */ React.createElement(Code, null, "'live' | 'cached' | 'snapshot'"), ") and ", /* @__PURE__ */ React.createElement(Code, null, "_ageMs"), ". The client never throws."), /* @__PURE__ */ React.createElement(Code, { block: true }, `// Live data with automatic fallback
+const pulse = await window.DataSource.networkPulse();
+console.log(pulse.slot, pulse._source);   // 250412311 'live'
+
+// Audit any transaction hash
+const audit = await window.DataSource.auditTx('5K3sP9...');
+console.log(audit.verdict, audit.chunks); // 'VALID' 8
+
+// Polling subscription (returns unsubscribe)
+const off = window.DataSource.subscribe(
+  'networkPulse',
+  (p) => console.log(p.slot),
+  3000,
+);
+// later: off();`), /* @__PURE__ */ React.createElement(H3, null, "Degradation chain"), /* @__PURE__ */ React.createElement(P, null, "Each call walks three layers before returning. The UI dot color (", /* @__PURE__ */ React.createElement("span", { style: { color: t.accent, fontFamily: "var(--mono)" } }, "lime"), " / ", /* @__PURE__ */ React.createElement("span", { style: { color: "#e94da4", fontFamily: "var(--mono)" } }, "magenta"), " / ", /* @__PURE__ */ React.createElement("span", { style: { color: t.textDim, fontFamily: "var(--mono)" } }, "muted"), ") reflects which layer answered."), /* @__PURE__ */ React.createElement(
+    Table,
+    {
+      headers: ["Source", "TTL", "When"],
+      rows: [
+        ["live", "\u2014", "Adapter reachable, returns 200"],
+        ["cached", "30s", "localStorage hit, adapter unreachable"],
+        ["snapshot", "\u221E", "Last-resort frozen payload bundled with the client"]
+      ]
+    }
+  ), /* @__PURE__ */ React.createElement(H3, null, "Try it"), /* @__PURE__ */ React.createElement(P, null, "Open ", /* @__PURE__ */ React.createElement(Code, null, "/network"), " in the webapp to see all four endpoints driving a live page. Kill the adapter mid-session \u2014 the status pill flips to ", /* @__PURE__ */ React.createElement(Code, null, "// CACHED Xs"), " magenta, the numbers stay on screen."), /* @__PURE__ */ React.createElement(Code, { block: true }, `# spin up the adapter locally
+cd gateway/worker && bunx wrangler@latest dev
+
+# in another terminal
+curl http://localhost:8787/api/network/pulse
+# { "slot": 250412311, "blockHeight": 250411104, ... }`)), /* @__PURE__ */ React.createElement("div", { style: { width: "100%", height: 1, background: t.border, margin: "60px 0" } }), /* @__PURE__ */ React.createElement("section", { id: "protocol" }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 10, color: t.accent, letterSpacing: "0.2em", marginBottom: 12, textTransform: "uppercase" } }, "PROTOCOL"), /* @__PURE__ */ React.createElement("h2", { style: { fontFamily: "var(--serif)", fontSize: "clamp(32px, 4vw, 48px)", fontWeight: 400, color: t.text, margin: "0 0 24px", lineHeight: 1.1 } }, "Protocol Specs"), /* @__PURE__ */ React.createElement(H3, null, "ZK Privacy Engine"), /* @__PURE__ */ React.createElement(P, null, "xB77's proprietary privacy engine shields transactions at the protocol level. Payments are routed through the ZK layer, generating compressed proofs that verify validity without revealing strategy."), /* @__PURE__ */ React.createElement(
     Table,
     {
       headers: ["Parameter", "Value", "Notes"],
@@ -228,6 +269,13 @@ print(f"Ghost Receipt: {receipt.proof_hash}")`)), /* @__PURE__ */ React.createEl
   zkid:    NoirCommitment,       // ZK commitment to key
   nonce:   u64,                  // replay protection
   ttl:     u64,                  // key rotation schedule
-}`)))), /* @__PURE__ */ React.createElement(PageFooter, null));
+}`)))), /* @__PURE__ */ React.createElement(
+    DocsDeepDive,
+    {
+      kicker: "// FULL DOCUMENTATION",
+      label: "Reference, programs, proof format and more.",
+      path: "/guide/quickstart"
+    }
+  ), /* @__PURE__ */ React.createElement(PageFooter, null));
 }
 Object.assign(window, { DocsPage });

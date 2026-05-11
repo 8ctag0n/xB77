@@ -214,6 +214,12 @@ function WhitepaperPage() {
         </div>
       </Section>
 
+      <DocsDeepDive
+        kicker="// FULL WHITEPAPER"
+        label="Read the markdown whitepaper, in full."
+        path="/whitepaper"
+      />
+
       <PageFooter />
     </div>
   );

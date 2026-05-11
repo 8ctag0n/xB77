@@ -331,6 +331,13 @@ function WhyPage() {
     textTransform: "uppercase",
     textDecoration: "none",
     cursor: "pointer"
-  } }, "Explore Docs")))), /* @__PURE__ */ React.createElement(PageFooter, null));
+  } }, "Explore Docs")))), /* @__PURE__ */ React.createElement(
+    DocsDeepDive,
+    {
+      kicker: "// THE MISSION, IN DEPTH",
+      label: "Read the manifesto and full rationale.",
+      path: "/why"
+    }
+  ), /* @__PURE__ */ React.createElement(PageFooter, null));
 }
 Object.assign(window, { WhyPage });
