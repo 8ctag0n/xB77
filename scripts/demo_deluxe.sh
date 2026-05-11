@@ -90,4 +90,10 @@ dispatch_step "STEP 4/7 — nargo prove (ZK proof real)" \
 dispatch_step "STEP 5/7 — zk-upload-e2e (chunked + verdict)" \
   "XB77_RPC=https://api.${CLUSTER}.solana.com ./zig-out/bin/zk-upload-e2e" \
   step_5_upload
+dispatch_step "STEP 6/7 — solana logs (verifier, 10s)" \
+  "podman run xb77-solana timeout 10 solana logs <verifier_id>" \
+  step_6_logs
+dispatch_step "STEP 7/7 — zig build test (in-process health)" \
+  "zig build test --summary all" \
+  step_7_test
 log_ok "demo_deluxe runner wiring OK"

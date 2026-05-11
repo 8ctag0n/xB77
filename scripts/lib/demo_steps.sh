@@ -183,3 +183,16 @@ step_5_upload() {
   sig=$(echo "$out" | grep -oE '[1-9A-HJ-NP-Za-km-z]{87,88}' | tail -1 || true)
   [[ -n "$sig" ]] && log_ok "verify tx: $(explorer_tx "$sig")"
 }
+
+step_6_logs() {
+  require_image xb77-solana infra/Containerfile.solana_slim
+  local verifier_id="J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ"
+  run_cmd podman run --rm \
+    xb77-solana timeout 10 solana logs "$verifier_id" \
+      --url "https://api.${CLUSTER}.solana.com" || true
+  log_info "logs tail window ended"
+}
+
+step_7_test() {
+  run_cmd zig build test --summary all
+}
