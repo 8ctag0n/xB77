@@ -45,3 +45,7 @@ BRIEF_*.md
 # Note: `___legacy/` is intentionally tracked so the v3 cleanup can drop
 # it in a single commit, leaving a clear audit trail of what was archived.
 2organize-after-hackahton/
+
+# Wrangler / Cloudflare Pages local cache
+.wrangler/
+**/.wrangler/

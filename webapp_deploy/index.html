@@ -1,19 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>xB77 — Autonomous Financial Infrastructure</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>xB77 — Sovereign Commerce Layer</title>
+  <meta name="description" content="High-fidelity payments rail for autonomous agents on Solana. ZK-batched, shielded, mathematically auditable.">
+  <meta name="theme-color" content="#c8ff2e">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="canonical" href="https://xb77.app/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="xB77 — Sovereign Commerce Layer">
+  <meta property="og:description" content="High-fidelity payments rail for autonomous agents on Solana. ZK-batched, shielded, mathematically auditable.">
+  <meta property="og:site_name" content="xB77">
+  <meta property="og:url" content="https://xb77.app/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="xB77 — Sovereign Commerce Layer">
+  <meta name="twitter:description" content="ZK-batched payments rail for autonomous agents on Solana.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --xb77-bg: #08080a;
+      --xb77-accent: #c8ff2e;
+      --xb77-cyan: #00F0FF;
+      --xb77-font: 'Geist', system-ui, -apple-system, sans-serif;
+      --xb77-mono: 'Geist Mono', ui-monospace, monospace;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #08080a; display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-    #__bundler_loading { position: fixed; bottom: 20px; right: 20px; font: 13px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; color: #666; background: #fff; padding: 8px 14px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.12); z-index: 10000; }
+    body { background: var(--xb77-bg); display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: var(--xb77-font); color: #e8e8ea; }
+    #__bundler_loading { position: fixed; bottom: 20px; right: 20px; font: 12px/1.4 var(--xb77-mono); letter-spacing: 0.04em; color: var(--xb77-accent); background: rgba(8,8,10,0.85); border: 1px solid rgba(200,255,46,0.25); padding: 8px 14px; border-radius: 4px; box-shadow: 0 0 20px rgba(200,255,46,0.08); z-index: 10000; }
     #__bundler_thumbnail { position: fixed; inset: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #08080a; z-index: 9999; }
     #__bundler_thumbnail svg { width: 100%; height: 100%; object-fit: contain; }
     #__bundler_placeholder { color: #999; font-size: 14px; }
   </style>
   <noscript>
     <style>#__bundler_loading { display: none; }</style>
-    <div style="position:fixed;bottom:12px;left:12px;font:13px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;color:#999;background:rgba(255,255,255,0.9);padding:6px 12px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,0.08);z-index:10000;">
+    <div style="position:fixed;bottom:12px;left:12px;font:12px/1.4 'Geist Mono',ui-monospace,monospace;color:#c8ff2e;background:rgba(8,8,10,0.9);border:1px solid rgba(200,255,46,0.25);padding:6px 12px;border-radius:4px;z-index:10000;">
       This page requires JavaScript to display.
     </div>
   </noscript>
