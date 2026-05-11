@@ -362,6 +362,21 @@ pub fn build(b: *std.Build) void {
     zk_upload_e2e.linkLibC();
     b.installArtifact(zk_upload_e2e);
 
+    // --- E2E Compression VerifyTransition (sends real tx to xb77_compression) ---
+    const compression_e2e = b.addExecutable(.{
+        .name = "compression-e2e",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/compression_e2e.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    compression_e2e.root_module.addImport("core", core_module);
+    compression_e2e.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    compression_e2e.addIncludePath(b.path("deps"));
+    compression_e2e.linkLibC();
+    b.installArtifact(compression_e2e);
+
     // --- Mesh P2P Ping ---
     const mesh_ping_exe = b.addExecutable(.{
         .name = "mesh-ping",
