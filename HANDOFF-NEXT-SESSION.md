@@ -1,121 +1,102 @@
-# 🔁 HANDOFF — Frontend Realistic Wiring
+# 🔁 HANDOFF — Migrate webapp to wire schema 1.1
 
 > **Worktree**: `/home/exp1/Desktop/xB77/worktree/docs-v2`
-> **Branch**: `feat/dapp-public-split` @ `9bf5618`
-> **Parallel sibling**: `/home/exp1/Desktop/xB77/worktree/gateway-realdata` (`feat/gateway-realdata`) — backend producer
-> **Contract (source of truth)**: `docs/api-contract-v1.md` (tracked, both sides see it)
-> **Estimated effort**: 4–5 hours
-> **Created at**: 2026-05-11 session close — fresh session expected to pick this up
+> **Branch**: `feat/dapp-public-split` (post-merge `feat/gateway-realdata` 2026-05-11)
+> **Estimated effort**: 2–3h focused
+> **Contract**: `docs/api-contract-v1.md` (wire schema 1.1)
 
----
+## What happened (TL;DR)
 
-## State at session close
+Two parallel worktrees merged:
 
-Webapp deluxe shipped, ready for real wiring:
+- **Frontend** (this side) shipped checklist §8 end-to-end with stub crypto: keystore modal, action layer, all DataSource swaps, rate-limit strip + 429 toast, wallet polling real balances/transactions.
+- **Gateway** (`feat/gateway-realdata`) shipped a real Cloudflare Worker (`gateway/worker/src/index.js`, 865 lines), 22 worker tests, and the SDK propagated to wire 1.1 in Zig/TS/Rust (67 tests green).
 
-✅ 2-entry split (`index.html` + `app.html`) with cross-doc fade transitions
-✅ Theme system (warm-paper light + Obsidian dark + bottom-right toggle, hybrid OS-pref)
-✅ ASCII boot screen (first visit on landing, theme-respect, skippable)
-✅ Layered surface tokens, zebra tables, drawer striping, sharp-edge widgets
-✅ `/pitch` slide deck (scroll-snap + keyboard nav + dot nav + progress bar)
-✅ Pitch moved to Docs sidebar related-links (out of horizontal nav)
-✅ SDK Zig/TS/Rust merged from `merge/onchain-deluxe`
-✅ API contract v1 committed at `docs/api-contract-v1.md`
+**The wire protocol changed underneath us**. The contract bumped from JSON envelope → header-bound signatures. The webapp stub still produces the old envelope, so action POSTs will fail against the real gateway and against the post-merge mock when `XB77_VERIFY_SIGS=1`.
 
-Tag for rollback: `pre-sdk-wasm-deluxe-2026-05-11` (lives on `feat/docs-vitepress`).
+## What still works as-is
 
-## Mission for this worktree
+- **GET reads** (`/api/v1/network/pulse`, `/agents/fleet`, `/pipelines/recent`, `/wallet/balances`, `/wallet/transactions`) — unsigned, shape unchanged.
+- **DataSource layer** (live → cached → snapshot) with normalizers, polling, captured `X-RateLimit-*` headers.
+- **Debug strip** (`?debug=1`), **429 toast** (window event `xb77:rate-limited`).
+- **Modal UI**, **connection pill**, all UI components.
+- **`mock-gateway.ts`** (post-merge): default `VERIFY_SIGS=false`, so the stub signer can still hit it. Real Ed25519 verification enables with `XB77_VERIFY_SIGS=1`.
 
-Consume `docs/api-contract-v1.md` from the frontend side. Wire every stub-button in the dApp to real signed actions over the gateway. Replace `DataSource` mocks with real reads.
+## What needs migration (concrete checklist)
 
-## What to build (from contract §8 checklist)
+All in `webapp_deploy/assets/src/lib/dapp-actions.js`:
 
-- [ ] **Keystore flow** in `webapp_deploy/assets/src/dapp-wallet.jsx`:
-  - "Connect" button opens password modal.
-  - Two paths: "Generate new keystore" (calls SDK `keystore.seal`) and "Import existing" (file input with sealed blob, calls `keystore.unseal`).
-  - Sealed blob persists in `localStorage.xb77_keystore`. Private key lives only in component state for the session.
-  - First-session flow auto-calls `register_agent` after keystore is ready.
-- [ ] **`Wallet → Claim credits`** wired to `POST /api/v1/actions/claim_credits`.
-- [ ] **`Pipelines → Run pipeline`** wired to `POST /api/v1/actions/submit_order`. On success, append to tx log via lifted state.
-- [ ] **`Agents → Deploy agent`** wired to `POST /api/v1/actions/register_agent` (creates a child agent under the connected one).
-- [ ] **`DataSource.networkPulse`** swap mock branch for `GET /api/v1/network/pulse`.
-- [ ] **`DataSource.agents`** swap for `GET /api/v1/agents/fleet`.
-- [ ] **`DataSource.pipelinesRecent`** swap for `GET /api/v1/pipelines/recent`.
-- [ ] **Rate-limit debug strip** (bottom-right, dev-only, behind a `?debug=1` flag): show `Tier · Remaining · Reset` from `X-RateLimit-*` headers.
-- [ ] **429 toast**: catch rate-limit responses, show a small toast "Rate limited — retry in Xs", reading `Retry-After` header.
+### 1. Replace `signEnvelope()` with wire-1.1 signing
 
-## SDK import path (after merge)
+Current: returns `{agent_id, ts, nonce, action, payload, signature: "ed25519:stub..."}` as the JSON body.
 
-The TS wrapper is at `sdk/ts/src/index.ts` and needs `bun run build` (via `sdk/ts/package.json`) to produce `sdk/ts/dist/`. For the webapp:
+Needs to:
+- Produce binary canonical bytes: `action_byte(1) ‖ ts_be_u64_ms(8) ‖ nonce(12) ‖ payload_json_bytes`
+- Real Ed25519 sign with the keystore's private key
+- Return `{headers, body}` where `headers` is `{X-Xb77-Pubkey, X-Xb77-Timestamp, X-Xb77-Nonce, X-Xb77-Signature}` (all hex) and `body` is the raw payload JSON string
 
-```bash
-cd sdk/ts
-bun install
-bun run copy-wasm   # copies xb77_core.wasm next to dist
-bun run build       # produces dist/index.js
-```
+Action bytes: `0x01` submit_order · `0x02` register_agent · `0x03` claim_credits · `0x04` query_pulse.
 
-Then vendor it into `webapp_deploy/assets/vendor/`:
+### 2. Rewrite `callAction(action, payload)`
 
-```bash
-cp -r sdk/ts/dist/* webapp_deploy/assets/vendor/xb77-sdk/
-cp sdk/ts/wasm/xb77_core.wasm webapp_deploy/assets/vendor/xb77-sdk/
-```
+Current: POST JSON `{envelope...}`. Needs to:
+- Compute headers + raw body via the new `signEnvelope`
+- `fetch(gateway + path, { method: "POST", headers, body })` — `body` is raw `payload_json`, **not** wrapped
+- Parse response per contract §1.2: body is `{ok: true, data}` (no `gateway_sig` in body — it's in header `X-Xb77-Gateway-Signature` over canonical of action+ts+body_bytes)
+- On `ok: false`: throw with `error.code`/`error.message`
 
-Add a `<script type="module" src="assets/vendor/xb77-sdk/index.js">` to both HTMLs. (Adjust path to match what `tsc` actually emits.)
+### 3. Drop `agent_id` from outgoing payloads
 
-## Mock-first development (no backend dependency)
+Per contract §1.1: server derives `agent_id = "ag_" + hex(sha256(pubkey)[:9])` from the verified pubkey. The webapp must stop sending it in payloads. The local `agentId` in keystore is computed the same way for UI display (sha256 the 32B pubkey, slice 9 bytes, hex-encode).
 
-Until the gateway worktree publishes a preview URL, point `window.XB77_GATEWAY` at the local SDK mock:
+### 4. Real keystore (Web Crypto API)
+
+Current: pubkey is random hex, seal/unseal are base64 placeholders.
+
+Needs:
+- `crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"])` on Generate
+- Export pubkey to raw → 32B → hex (this is what server sees as `X-Xb77-Pubkey`)
+- Export private to PKCS#8 → encrypt with password-derived key (PBKDF2 + AES-GCM) → base64 → store as `xb77_keystore`
+- Import path: decrypt blob with password, re-import the keypair into Web Crypto
+
+The two patterns to copy: see `gateway/worker/src/index.js` for verification-side canonical bytes; see `sdk/ts/src/index.ts` for the client-side signing example with `crypto.subtle.sign`.
+
+## How to run
 
 ```bash
-cd sdk/ts
-bun run dev/mock-gateway.ts   # spins up the mock on :8787
+# Webapp + serve
+cd webapp_deploy && ./build.sh && python3 -m http.server 8080 &
+
+# Mock gateway (default: signature verification OFF for incremental migration)
+cd sdk/ts && bun run dev/mock-gateway.ts --port 8787 &
+
+# Once webapp produces real signatures, flip on enforcement:
+XB77_VERIFY_SIGS=1 bun run dev/mock-gateway.ts --port 8787
 ```
 
-The webapp talks to `http://127.0.0.1:8787` exactly as it would to the real gateway. The contract guarantees byte-identical shapes.
+When the real gateway worker is reachable, swap `window.XB77_GATEWAY` in `app.html` to the worker URL and the same client should work without changes.
 
-## Build sequence (suggested)
+## Suggested migration order
 
-1. Vendor the SDK TS wrapper into the webapp. Smoke test in browser console: `await window.XB77.load()` resolves.
-2. Implement keystore modal in `dapp-wallet.jsx`. Use `var(--bg-elevated)` + `var(--accent)` for the password input. Generate/import paths.
-3. Wire `register_agent` on first keystore unlock. Save returned `agent_id` to `localStorage.xb77_agent_id`.
-4. Wire `Claim credits` → `claim_credits` action. On success, animate the credits card from old → new total.
-5. Wire `Run pipeline` → `submit_order`. Lift `txLog` state to `PipelinesView`; new orders prepend.
-6. Wire `Deploy agent` → `register_agent` (child). Add the new agent to the visible list.
-7. Replace `DataSource.networkPulse` mock with real fetch + 3s interval.
-8. Replace `DataSource.agents` and `DataSource.pipelinesRecent`.
-9. Add the rate-limit debug strip and the 429 toast.
-10. Test against `mock-gateway.ts` end-to-end.
-11. Once gateway-realdata has a preview URL, swap `window.XB77_GATEWAY` and re-test.
+1. Real keystore (Web Crypto Ed25519 keypair). Verify with `console.log` that pubkey is 64-char hex.
+2. Real `signEnvelope` returning `{headers, body}`. Unit-test against a fixture from `sdk/ts/src/index.ts`.
+3. Rewrite `callAction` to send headers + raw body. Smoke each action against the post-merge mock with `XB77_VERIFY_SIGS=0` first.
+4. Flip `XB77_VERIFY_SIGS=1`. Fix anything that didn't sign correctly.
+5. Validate `agent_id` shows the new sha256-derived form (18 hex chars from 9 bytes).
+6. End-to-end click-through: modal generate → register_agent → claim_credits → submit_order → fleet shows the new child.
 
-## Sync points with gateway worktree
+## Open deltas (low priority, post-migration)
 
-- **Only shared artifact**: `docs/api-contract-v1.md`.
-- If a contract change is needed, edit the file in this worktree, commit, push to the other side. Backend session sees the new contract before re-implementing.
-- **Preview URL handoff**: gateway worktree publishes via `wrangler deploy`; you receive a URL string. Update one constant in `index.html` + `app.html`:
-  ```html
-  <script>window.XB77_GATEWAY = "https://xb77-gateway.<account>.workers.dev";</script>
-  ```
+- **Allocations** panel in Wallet still placeholder (contract doesn't expose per-child agent breakdown). Derive from `/api/v1/agents/fleet` filtering by parent agent when contract gains a parent_id field.
+- **Pipelines/Agents list seeds** still decorate `volume/privacy/pnl/governance/risk` — contract doesn't expose these. Either extend contract or accept they're UI flavor only.
+- **`scripts/e2e_local.sh`** points at `dev/mock-gateway-legacy.ts` (the pre-v1 fixture for the SDK e2e). When the SDK migrates its e2e to wire 1.1 against the real mock, delete the legacy file.
 
 ## Risk register
 
-- **CORS** — Gateway must respond with `Access-Control-Allow-Origin: *` (contract §1.4 requires this). If browser blocks, the contract was violated, not your code.
-- **Idempotency** — `submit_order` and `claim_credits` are dangerous to retry without `idempotency_key`. Always set one in the SDK call.
-- **Keystore UX** — first-time user with no keystore needs the "Generate new" path. Don't force "Import" only.
-- **Pre-React paint** — keep boot.js and theme.js as the first two scripts in `<head>` regardless of SDK wiring.
-- **Bundle size** — vendoring the SDK adds ~50KB. Worth it; don't try to inline.
+- **Pubkey leak via console** — Web Crypto keypair lives in component state. Don't `console.log` the private key. Default to non-extractable for the private side; only extract when sealing.
+- **Storage XSS** — sealed blob in localStorage protects against passive disclosure but not against XSS that runs in the page. Out of scope for hackathon; document it.
+- **Clock skew** — gateway rejects `|now - ts| > 30s`. If the user's clock is wildly off, every action fails with `clock_skew`. Surface the error code in the toast.
 
-## Local server status
+## Frase de arranque
 
-The `python3 -m http.server 8080` background process (id `bamh1fiis`) from this session **must be killed** before opening a fresh session. Run:
-
-```bash
-kill $(lsof -ti :8080)
-# or:
-ps aux | grep "python3 -m http.server" | grep -v grep | awk '{print $2}' | xargs kill
-```
-
-## Frase de arranque sugerida
-
-> "Vengo a labura el frontend realistic wiring en `feat/dapp-public-split`. Leé `HANDOFF-NEXT-SESSION.md` y el contract `docs/api-contract-v1.md` (§8 es el MUST-implement). Arrancamos por el step 1 del build sequence: vendor del SDK TS al webapp."
+> "Vengo a migrar la webapp al wire schema 1.1. Leé `HANDOFF-NEXT-SESSION.md` y el contract `docs/api-contract-v1.md` §1.1. Arrancamos por el keystore real con Web Crypto Ed25519."

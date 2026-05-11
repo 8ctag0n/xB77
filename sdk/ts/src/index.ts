@@ -67,7 +67,8 @@ interface WasmExports {
     action: number,
     payloadPtr: number, payloadLen: number,
     privPtr: number, privLen: number,
-    timestamp: bigint,
+    timestampMs: bigint,
+    noncePtr: number, nonceLen: number,
     basePtr: number, baseLen: number,
     urlOut: number, urlMax: number, urlLenPtr: number,
     hdrOut: number, hdrMax: number, hdrLenPtr: number,
@@ -76,7 +77,7 @@ interface WasmExports {
   verify_response(
     bodyPtr: number, bodyLen: number,
     expectedAction: number,
-    timestamp: bigint,
+    timestampMs: bigint,
     pkPtr: number, pkLen: number,
     sigPtr: number, sigLen: number,
   ): number;
@@ -299,18 +300,24 @@ export class XB77 {
     action: Action;
     payload: Uint8Array | string;
     privkey: Uint8Array; // 64 bytes
-    timestampUnix?: number; // defaults to Date.now()/1000
+    timestampMs?: number; // defaults to Date.now()
+    nonce?: Uint8Array;   // 12 bytes; defaults to crypto.getRandomValues
   }): SignedRequest {
     if (args.privkey.length !== 64) {
       throw new Xb77Error(ErrorCode.InvalidInput, "build_signed_request: privkey must be 64 bytes");
     }
+    const nonce = args.nonce ?? crypto.getRandomValues(new Uint8Array(12));
+    if (nonce.length !== 12) {
+      throw new Xb77Error(ErrorCode.InvalidInput, "build_signed_request: nonce must be 12 bytes");
+    }
     const payloadBytes = typeof args.payload === "string"
       ? new TextEncoder().encode(args.payload)
       : args.payload;
-    const ts = BigInt(args.timestampUnix ?? Math.floor(Date.now() / 1000));
+    const ts = BigInt(args.timestampMs ?? Date.now());
 
     const payloadPtr = this.writeBytes(payloadBytes);
     const privPtr = this.writeBytes(args.privkey);
+    const noncePtr = this.writeBytes(nonce);
     const baseStr = this.writeString(args.gatewayBase);
     const urlLenSlot = this.allocLenSlot();
     const hdrLenSlot = this.allocLenSlot();
@@ -322,6 +329,7 @@ export class XB77 {
       payloadPtr, payloadBytes.length,
       privPtr, 64,
       ts,
+      noncePtr, 12,
       baseStr.ptr, baseStr.len,
       0, 0, urlLenSlot,
       0, 0, hdrLenSlot,
@@ -340,6 +348,7 @@ export class XB77 {
       payloadPtr, payloadBytes.length,
       privPtr, 64,
       ts,
+      noncePtr, 12,
       baseStr.ptr, baseStr.len,
       urlPtr, urlLen, urlLenSlot,
       hdrPtr, hdrLen, hdrLenSlot,
@@ -352,6 +361,7 @@ export class XB77 {
 
     this.exports.wasm_free(payloadPtr, payloadBytes.length);
     this.exports.wasm_free(privPtr, 64);
+    this.exports.wasm_free(noncePtr, 12);
     this.exports.wasm_free(baseStr.ptr, baseStr.len);
     this.exports.wasm_free(urlLenSlot, 4);
     this.exports.wasm_free(hdrLenSlot, 4);
@@ -373,7 +383,7 @@ export class XB77 {
   verifyResponse(args: {
     body: Uint8Array;
     expectedAction: Action;
-    timestampUnix: number;
+    timestampMs: number;
     gatewayPubkey: Uint8Array; // 32 bytes
     signature: Uint8Array;     // 64 bytes
   }): void {
@@ -390,7 +400,7 @@ export class XB77 {
     const rc = this.exports.verify_response(
       bodyPtr, args.body.length,
       args.expectedAction,
-      BigInt(args.timestampUnix),
+      BigInt(args.timestampMs),
       pkPtr, 32,
       sigPtr, 64,
     );

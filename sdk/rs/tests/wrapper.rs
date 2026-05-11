@@ -70,20 +70,24 @@ fn build_signed_request_url_and_headers_well_formed() {
     priv64[..32].copy_from_slice(&signing_key.to_bytes());
     priv64[32..].copy_from_slice(verifying_key.as_bytes());
 
+    let nonce = [0xAAu8; 12];
     let req = sdk.build_signed_request(
         "https://gateway.xb77.dev",
         Action::SubmitOrder,
         br#"{"symbol":"SOL/USDC","amount":1000}"#,
         &priv64,
-        1_700_000_000,
+        1_700_000_000_000,
+        &nonce,
     ).unwrap();
 
     assert_eq!(req.method, "POST");
-    assert_eq!(req.url, "https://gateway.xb77.dev/submit_order");
+    assert_eq!(req.url, "https://gateway.xb77.dev/api/v1/actions/submit_order");
 
     let h: std::collections::HashMap<_, _> = req.headers.iter().cloned().collect();
     assert_eq!(h.get("Content-Type").map(String::as_str), Some("application/json"));
-    assert_eq!(h.get("X-Xb77-Timestamp").map(String::as_str), Some("1700000000"));
+    assert_eq!(h.get("X-API-Version").map(String::as_str), Some("v1"));
+    assert_eq!(h.get("X-Xb77-Timestamp").map(String::as_str), Some("1700000000000"));
+    assert_eq!(h.get("X-Xb77-Nonce").unwrap().len(), 24); // hex(12B)
     assert_eq!(h.get("X-Xb77-Pubkey").unwrap().len(), 64); // hex
     assert_eq!(h.get("X-Xb77-Signature").unwrap().len(), 128); // hex
     assert_eq!(req.body, br#"{"symbol":"SOL/USDC","amount":1000}"#);
@@ -107,9 +111,10 @@ fn all_four_actions_map_to_canonical_paths() {
         (Action::ClaimCredits, "claim_credits"),
         (Action::QueryPulse, "query_pulse"),
     ];
+    let nonce = [0u8; 12];
     for (action, suffix) in cases {
-        let req = sdk.build_signed_request("https://g.xb77/", action, b"{}", &priv64, 1).unwrap();
-        assert_eq!(req.url, format!("https://g.xb77/{}", suffix));
+        let req = sdk.build_signed_request("https://g.xb77/", action, b"{}", &priv64, 1, &nonce).unwrap();
+        assert_eq!(req.url, format!("https://g.xb77/api/v1/actions/{}", suffix));
     }
 }
 
@@ -126,17 +131,19 @@ fn wasm_signature_verifies_under_independent_ed25519_dalek() {
     priv64[32..].copy_from_slice(verifying_key.as_bytes());
 
     let payload = br#"{"order":"buy 1 SOL"}"#;
-    let ts: u64 = 1_700_000_123;
-    let req = sdk.build_signed_request("https://g", Action::SubmitOrder, payload, &priv64, ts).unwrap();
+    let ts_ms: u64 = 1_700_000_123_456;
+    let nonce: [u8; 12] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    let req = sdk.build_signed_request("https://g", Action::SubmitOrder, payload, &priv64, ts_ms, &nonce).unwrap();
 
     let sig_hex = req.headers.iter().find(|(k, _)| k == "X-Xb77-Signature").unwrap().1.clone();
     let sig_bytes = hex::decode(&sig_hex).unwrap();
     let signature = Signature::from_slice(&sig_bytes).unwrap();
 
-    // Reconstruct canonical bytes per addendum §A.1.
-    let mut canonical = Vec::with_capacity(1 + 8 + payload.len());
+    // Reconstruct canonical bytes per addendum §A.1 (schema 1.1).
+    let mut canonical = Vec::with_capacity(1 + 8 + 12 + payload.len());
     canonical.push(Action::SubmitOrder as u8);
-    canonical.extend_from_slice(&ts.to_be_bytes());
+    canonical.extend_from_slice(&ts_ms.to_be_bytes());
+    canonical.extend_from_slice(&nonce);
     canonical.extend_from_slice(payload);
 
     // Independent verifier: ed25519-dalek (zero overlap with our Zig WASM).

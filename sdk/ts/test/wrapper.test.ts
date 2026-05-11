@@ -97,18 +97,22 @@ describe("buildSignedRequest", () => {
 
   test("produces a POST request with the correct URL and headers", async () => {
     const { priv } = await makeKeypair();
+    const nonce = new Uint8Array(12).fill(0xaa);
     const req = sdk.buildSignedRequest({
       gatewayBase: "https://gateway.xb77.dev",
       action: Action.SubmitOrder,
       payload: '{"symbol":"SOL/USDC","amount":1000}',
       privkey: priv,
-      timestampUnix: 1_700_000_000,
+      timestampMs: 1_700_000_000_000,
+      nonce,
     });
 
     expect(req.method).toBe("POST");
-    expect(req.url).toBe("https://gateway.xb77.dev/submit_order");
+    expect(req.url).toBe("https://gateway.xb77.dev/api/v1/actions/submit_order");
     expect(req.headers["Content-Type"]).toBe("application/json");
-    expect(req.headers["X-Xb77-Timestamp"]).toBe("1700000000");
+    expect(req.headers["X-API-Version"]).toBe("v1");
+    expect(req.headers["X-Xb77-Timestamp"]).toBe("1700000000000");
+    expect(req.headers["X-Xb77-Nonce"]).toMatch(/^[0-9a-f]{24}$/);
     expect(req.headers["X-Xb77-Pubkey"]).toMatch(/^[0-9a-f]{64}$/);
     expect(req.headers["X-Xb77-Signature"]).toMatch(/^[0-9a-f]{128}$/);
     expect(new TextDecoder().decode(req.body)).toBe('{"symbol":"SOL/USDC","amount":1000}');
@@ -116,6 +120,7 @@ describe("buildSignedRequest", () => {
 
   test("URL maps each action to its canonical path", async () => {
     const { priv } = await makeKeypair();
+    const nonce = new Uint8Array(12);
     const tests: Array<[Action, string]> = [
       [Action.SubmitOrder, "submit_order"],
       [Action.RegisterAgent, "register_agent"],
@@ -128,9 +133,10 @@ describe("buildSignedRequest", () => {
         action,
         payload: "{}",
         privkey: priv,
-        timestampUnix: 1,
+        timestampMs: 1,
+        nonce,
       });
-      expect(req.url).toBe(`https://g.xb77/${suffix}`);
+      expect(req.url).toBe(`https://g.xb77/api/v1/actions/${suffix}`);
     }
   });
 
@@ -141,7 +147,22 @@ describe("buildSignedRequest", () => {
         action: Action.QueryPulse,
         payload: "{}",
         privkey: new Uint8Array(32),
-        timestampUnix: 1,
+        timestampMs: 1,
+        nonce: new Uint8Array(12),
+      }),
+    ).toThrow(Xb77Error);
+  });
+
+  test("rejects nonce of wrong length", async () => {
+    const { priv } = await makeKeypair();
+    expect(() =>
+      sdk.buildSignedRequest({
+        gatewayBase: "https://g",
+        action: Action.QueryPulse,
+        payload: "{}",
+        privkey: priv,
+        timestampMs: 1,
+        nonce: new Uint8Array(8),
       }),
     ).toThrow(Xb77Error);
   });
@@ -149,14 +170,11 @@ describe("buildSignedRequest", () => {
 
 describe("verifyResponse", () => {
   test("InvalidSignature when body is tampered", async () => {
-    // We can't easily forge a valid gateway signature here without the
-    // gateway's secret; instead we verify the negative path: an arbitrary
-    // 32-byte pubkey + 64-byte sig must be rejected as InvalidSignature.
     try {
       sdk.verifyResponse({
         body: new TextEncoder().encode('{"status":"ok"}'),
         expectedAction: Action.SubmitOrder,
-        timestampUnix: 1_700_000_000,
+        timestampMs: 1_700_000_000_000,
         gatewayPubkey: new Uint8Array(32).fill(0x11),
         signature: new Uint8Array(64).fill(0x22),
       });
@@ -172,7 +190,7 @@ describe("verifyResponse", () => {
       sdk.verifyResponse({
         body: new Uint8Array(0),
         expectedAction: Action.SubmitOrder,
-        timestampUnix: 1,
+        timestampMs: 1,
         gatewayPubkey: new Uint8Array(16),
         signature: new Uint8Array(64),
       }),

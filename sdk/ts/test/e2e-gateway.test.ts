@@ -33,18 +33,28 @@ let gatewayPubkey: Uint8Array;
 let gatewaySignKey: CryptoKey;
 
 const PATH_TO_ACTION: Record<string, Action> = {
-  "/submit_order": Action.SubmitOrder,
-  "/register_agent": Action.RegisterAgent,
-  "/claim_credits": Action.ClaimCredits,
-  "/query_pulse": Action.QueryPulse,
+  "/api/v1/actions/submit_order": Action.SubmitOrder,
+  "/api/v1/actions/register_agent": Action.RegisterAgent,
+  "/api/v1/actions/claim_credits": Action.ClaimCredits,
+  "/api/v1/actions/query_pulse": Action.QueryPulse,
 };
 
-function canonicalBytes(action: Action, ts: number, payload: Uint8Array): Uint8Array {
-  const out = new Uint8Array(1 + 8 + payload.length);
+function canonicalRequest(action: Action, ts_ms: number, nonce: Uint8Array, payload: Uint8Array): Uint8Array {
+  const out = new Uint8Array(1 + 8 + 12 + payload.length);
   out[0] = action;
-  const bts = BigInt(ts);
+  const bts = BigInt(ts_ms);
   for (let i = 0; i < 8; i++) out[1 + i] = Number((bts >> BigInt((7 - i) * 8)) & 0xffn);
-  out.set(payload, 9);
+  out.set(nonce, 9);
+  out.set(payload, 21);
+  return out;
+}
+
+function canonicalResponse(action: Action, ts_ms: number, body: Uint8Array): Uint8Array {
+  const out = new Uint8Array(1 + 8 + body.length);
+  out[0] = action;
+  const bts = BigInt(ts_ms);
+  for (let i = 0; i < 8; i++) out[1 + i] = Number((bts >> BigInt((7 - i) * 8)) & 0xffn);
+  out.set(body, 9);
   return out;
 }
 
@@ -79,28 +89,30 @@ beforeAll(async () => {
       const pkHex = req.headers.get("X-Xb77-Pubkey");
       const sigHex = req.headers.get("X-Xb77-Signature");
       const tsStr = req.headers.get("X-Xb77-Timestamp");
-      if (!pkHex || !sigHex || !tsStr) {
+      const nonceHex = req.headers.get("X-Xb77-Nonce");
+      if (!pkHex || !sigHex || !tsStr || !nonceHex) {
         return new Response("missing auth headers", { status: 401 });
       }
       const body = new Uint8Array(await req.arrayBuffer());
-      const ts = Number(tsStr);
+      const ts_ms = Number(tsStr);
 
       const clientPub = fromHex(pkHex);
       const sig = fromHex(sigHex);
+      const nonce = fromHex(nonceHex);
 
-      // Verify the client signature with WebCrypto (independent of WASM).
       const clientVerifyKey = await crypto.subtle.importKey(
         "raw", clientPub, "Ed25519", false, ["verify"],
       );
-      const ok = await crypto.subtle.verify("Ed25519", clientVerifyKey, sig, canonicalBytes(action, ts, body));
+      const ok = await crypto.subtle.verify(
+        "Ed25519", clientVerifyKey, sig, canonicalRequest(action, ts_ms, nonce, body),
+      );
       if (!ok) return new Response("bad signature", { status: 401 });
 
-      // Build a response, sign it back with the gateway key.
       const echo = JSON.stringify({ status: "ok", echoed_action: action, echoed_body_len: body.length });
       const echoBytes = new TextEncoder().encode(echo);
-      const responseTs = ts + 1;
+      const responseTs = ts_ms + 1;
       const responseSig = new Uint8Array(
-        await crypto.subtle.sign("Ed25519", gatewaySignKey, canonicalBytes(action, responseTs, echoBytes)),
+        await crypto.subtle.sign("Ed25519", gatewaySignKey, canonicalResponse(action, responseTs, echoBytes)),
       );
 
       return new Response(echoBytes, {
@@ -133,7 +145,7 @@ async function makeClientKeypair() {
 describe("e2e: SDK ↔ mock gateway over real HTTP", () => {
   test("full round-trip: build → POST → verify response", async () => {
     const priv = await makeClientKeypair();
-    const ts = Math.floor(Date.now() / 1000);
+    const ts = Date.now();
     const payload = '{"symbol":"SOL/USDC","amount":1000000,"side":"buy"}';
 
     const req = sdk.buildSignedRequest({
@@ -141,7 +153,7 @@ describe("e2e: SDK ↔ mock gateway over real HTTP", () => {
       action: Action.SubmitOrder,
       payload,
       privkey: priv,
-      timestampUnix: ts,
+      timestampMs: ts,
     });
 
     // The wrapper would normally do this for the user:
@@ -161,7 +173,7 @@ describe("e2e: SDK ↔ mock gateway over real HTTP", () => {
       sdk.verifyResponse({
         body: responseBody,
         expectedAction: Action.SubmitOrder,
-        timestampUnix: responseTs,
+        timestampMs: responseTs,
         gatewayPubkey,
         signature: responseSig,
       }),
@@ -174,13 +186,13 @@ describe("e2e: SDK ↔ mock gateway over real HTTP", () => {
 
   test("gateway rejects request whose body was tampered after signing", async () => {
     const priv = await makeClientKeypair();
-    const ts = Math.floor(Date.now() / 1000);
+    const ts = Date.now();
     const req = sdk.buildSignedRequest({
       gatewayBase: server.url.origin,
       action: Action.QueryPulse,
       payload: "{}",
       privkey: priv,
-      timestampUnix: ts,
+      timestampMs: ts,
     });
 
     // Tamper the body in-flight — same length so headers don't lie about size.
@@ -194,13 +206,13 @@ describe("e2e: SDK ↔ mock gateway over real HTTP", () => {
 
   test("a tampered gateway response is rejected by the client wrapper", async () => {
     const priv = await makeClientKeypair();
-    const ts = Math.floor(Date.now() / 1000);
+    const ts = Date.now();
     const req = sdk.buildSignedRequest({
       gatewayBase: server.url.origin,
       action: Action.RegisterAgent,
       payload: '{"name":"alice"}',
       privkey: priv,
-      timestampUnix: ts,
+      timestampMs: ts,
     });
     const httpRes = await fetch(req.url, { method: req.method, headers: req.headers, body: req.body });
     expect(httpRes.status).toBe(200);
@@ -218,7 +230,7 @@ describe("e2e: SDK ↔ mock gateway over real HTTP", () => {
       sdk.verifyResponse({
         body: tamperedBody,
         expectedAction: Action.RegisterAgent,
-        timestampUnix: responseTs,
+        timestampMs: responseTs,
         gatewayPubkey,
         signature: goodSig,
       });

@@ -40,7 +40,7 @@ inline fn code(c: ErrorCode) u32 {
 // -------------------- ABI version --------------------
 
 const ABI_MAJOR: u16 = 1;
-const ABI_MINOR: u16 = 0;
+const ABI_MINOR: u16 = 1;
 
 export fn xb77_abi_version() u32 {
     return (@as(u32, ABI_MAJOR) << 16) | @as(u32, ABI_MINOR);
@@ -175,7 +175,9 @@ export fn build_signed_request(
     payload_len: u32,
     privkey_ptr: u32,
     privkey_len: u32,
-    timestamp_unix: u64,
+    timestamp_unix_ms: u64,
+    nonce_ptr: u32,
+    nonce_len: u32,
     gateway_base_ptr: u32,
     gateway_base_len: u32,
     out_url_ptr: u32,
@@ -189,6 +191,7 @@ export fn build_signed_request(
     out_body_len_ptr: u32,
 ) u32 {
     if (privkey_len != 64) return code(.invalid_input);
+    if (nonce_len != 12) return code(.invalid_input);
     if (action_byte > 0xFF) return code(.invalid_action);
 
     const action = sdk.Action.fromU8(@intCast(action_byte)) catch return code(.invalid_action);
@@ -200,13 +203,21 @@ export fn build_signed_request(
         break :blk buf;
     };
 
+    const nonce: [12]u8 = blk: {
+        var buf: [12]u8 = undefined;
+        const slice = sliceFromPtr(nonce_ptr, nonce_len);
+        @memcpy(&buf, slice);
+        break :blk buf;
+    };
+
     const req = sdk.buildSignedRequest(
         wasm_allocator,
         sliceFromPtr(gateway_base_ptr, gateway_base_len),
         action,
         sliceFromPtr(payload_ptr, payload_len),
         privkey,
-        timestamp_unix,
+        timestamp_unix_ms,
+        nonce,
     ) catch |err| return switch (err) {
         sdk.Error.InvalidPrivkey => code(.invalid_input),
         sdk.Error.OutOfMemory => code(.out_of_memory),
@@ -236,7 +247,7 @@ export fn verify_response(
     body_ptr: u32,
     body_len: u32,
     expected_action_byte: u32,
-    response_timestamp_unix: u64,
+    response_timestamp_unix_ms: u64,
     gateway_pubkey_ptr: u32,
     gateway_pubkey_len: u32,
     signature_ptr: u32,
@@ -256,7 +267,7 @@ export fn verify_response(
     sdk.verifyResponse(
         sliceFromPtr(body_ptr, body_len),
         action,
-        response_timestamp_unix,
+        response_timestamp_unix_ms,
         pk,
         sig,
         wasm_allocator,
@@ -273,7 +284,7 @@ export fn verify_response(
 test "xb77_abi_version packs major and minor" {
     const v = xb77_abi_version();
     try std.testing.expectEqual(@as(u32, (@as(u32, ABI_MAJOR) << 16) | ABI_MINOR), v);
-    try std.testing.expectEqual(@as(u32, 1 << 16), v);
+    try std.testing.expectEqual(@as(u32, (1 << 16) | 1), v);
 }
 
 test "ErrorCode contiguous from 0" {
