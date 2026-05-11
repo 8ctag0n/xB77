@@ -1,109 +1,135 @@
-# 🔁 HANDOFF — SDK WASM-Core Deluxe
+# 🔁 HANDOFF — Post-Deluxe Gateway v1 + SDK 1.1
 
-> **Worktree**: `/home/exp1/Desktop/xB77/worktree/merge-onchain-deluxe`
-> **Branch base**: `merge/onchain-deluxe` @ `6649a1e`
-> **Próxima rama de trabajo**: `feat/sdk-wasm-deluxe`
-> **Spec**: `docs/superpowers/specs/2026-05-11-sdk-wasm-core-deluxe-design.md`
-> **Addendum**: `docs/superpowers/specs/2026-05-11-sdk-wasm-core-deluxe-design.addendum.md` (decisiones lockeadas durante Fase 1: canonical bytes, error codes, length protocol, deuda explícita)
-> **Budget**: 9.5 horas (scope recortado v1.0 — ver §Scope decision 2026-05-11)
-> **Safety rollback**: tag `pre-sdk-wasm-deluxe-2026-05-11` (vive en `feat/docs-vitepress`)
+> **Worktree**: `/home/exp1/Desktop/xB77/worktree/gateway-realdata`
+> **Branch**: `feat/gateway-realdata`
+> **Estado**: ✅ Backend gateway v1 100% implementado contra contract. SDK bumped a wire schema 1.1 byte-identical across Zig+TS+Rust.
+> **Tests verdes**: 67 (6 zig + 12 rust + 27 ts + 22 worker)
+> **Cerrado**: 2026-05-11 noche
 
-## ⚠️ Scope decision 2026-05-11 (lockeada, no re-discutir)
+---
 
-Hackathon budget total: 12 hrs. SDK v1.0 incluye **Zig + TS + Rust**. Python y Go wrappers van a **v1.1 post-hackathon** con ABI estable garantizada.
+## TL;DR de qué cambió esta sesión
 
-**Evolución del scope**:
-1. Inicial: 4 lenguajes (Zig+TS+Py+Rust), 15 hrs → no entraba en 12 hrs
-2. Recorte: Zig+TS, 9.5 hrs → Python+Rust+Go a v1.1
-3. Re-ampliación (post-Fase 6): Fase 1-2-3-6 cerraron en 2.5 hrs (vs 9.5 estimado) → bancamos meter Rust de vuelta
+1. **Wire schema bump 1.0 → 1.1** — agregamos `nonce` 12B + ts en ms + agent_id derivado server-side + `X-API-Version` + idempotency. Canonical bytes siguen binarios (sin JSON canonicalization), preservando la propiedad byte-identical cross-language.
 
-**Por qué Rust y NO Python en v1.0**: audiencia Solana es Rust-nativa; wasmtime-py tiene quirks identificadas en spec §10 (más riesgo). Go queda en v1.1 para audiencia infra/devops.
+2. **SDK propagado en los 3 lenguajes**:
+   - `core/sdk/sdk.zig` — `buildSignedRequest` ahora toma `nonce: [12]u8` + `timestamp_unix_ms`
+   - `sdk/wasm/exports.zig` — ABI bumped a 1.1, nuevo param nonce_ptr/nonce_len
+   - `sdk/ts/src/index.ts` — wrapper TS con defaults (`nonce` ← `crypto.getRandomValues`, `timestampMs` ← `Date.now()`)
+   - `sdk/rs/src/lib.rs` — wrapper Rust, switch a `wasmtime::Func` untyped (TypedFunc tuples capean a 16 params, ahora son 19)
+   - `sdk/ts/dev/mock-gateway.ts` + `sdk/rs/examples/cross_fixture.rs` actualizados
 
-**Trade-off aceptado**: "SDK day-1 en 3 lenguajes con cross-conformance byte-identical" — mensaje más fuerte que TS-only.
+3. **Contract v1 (`docs/api-contract-v1.md`)** — fully reescrito al wire 1.1. Incluye §1.5 wire-schema versioning con feature flag para acceptance de schema 1.0.
 
-**Safety check explícito**: si Rust wrapper supera 2 hrs, Python+Go quedan firmes en v1.1 sin culpa.
+4. **Gateway worker (`gateway/worker/src/index.js`)** — 640 líneas, single-file:
+   - 4 signed actions: `register_agent`, `submit_order`, `claim_credits`, `query_pulse`
+   - 7 reads: `network/pulse`, `network/audit`, `agents/fleet`, `agents/:id`, `pipelines/recent`, `wallet/balances`, `wallet/transactions`
+   - Auth middleware: Ed25519 verify + ts skew ±30s + nonce replay (KV 5min TTL) + agent_id = `"ag_" + hex(sha256(pubkey)[:9])`
+   - Rate-limit token bucket per agent_id (o per-IP unauth), 4 tiers, action costs, `X-RateLimit-*` headers, 429+`Retry-After`
+   - Idempotency cache `X-Idempotency-Key` (KV 24h TTL)
+   - Gateway response signing (`X-Xb77-Gateway-Signature`)
+   - CORS preflight + back-compat aliases (`/api/network/pulse` → `/api/v1/network/pulse`)
+   - Dual-schema toggle via `ACCEPT_SCHEMA_1_0` env var
 
-## Por qué este worktree
+5. **Wrangler config (`gateway/worker/wrangler.toml`)** — 5 KV namespaces declaradas (`AGENTS`, `ORDERS`, `NONCES`, `BUCKETS`, `IDEMP`), `GATEWAY_PRIVKEY_HEX_DEV` con una keypair real generada para dev local.
 
-Acá tenés todo lo pesado integrado:
-- `core/` Zig completo (cripto, AWP, merchant, chain, mesh)
-- `onchain/programs/xb77_compression` con `solana_poseidon` syscall
-- `sdk/` actual (Zig + TS via `bun:ffi`)
-- `cli/main.zig` (1158 líneas, fuente de la extracción de keystore)
-- Webapp + docs (vinieron en el merge desde docs-v2)
+---
 
-El otro worktree (`docs-v2`, `feat/docs-vitepress`) está trabajando el dapp-public-split en paralelo. No tocar webapp acá.
+## Cómo correr todo localmente
 
-## Primer paso al volver
-
+### Build + Tests
 ```bash
-cd /home/exp1/Desktop/xB77/worktree/merge-onchain-deluxe
-git status                                                # confirmar limpio
-git log --oneline -5                                      # confirmar 6649a1e en top
-cat docs/superpowers/specs/2026-05-11-sdk-wasm-core-deluxe-design.md   # spec completo
-git checkout -b feat/sdk-wasm-deluxe
+cd /home/exp1/Desktop/xB77/worktree/gateway-realdata
+
+# Zig: build + tests nativos
+zig build           # compila CLI, znode-server, ambos WASM
+zig build test      # corre TODOS los tests Zig — debe exit 0
+zig build sdk-wasm  # produce zig-out/bin/xb77_core.wasm
+
+# SDK TS tests (necesita el wasm)
+cd sdk/ts && bun test       # 27 verde
+
+# SDK Rust tests
+cd sdk/rs && cargo test     # 12 verde
+
+# Worker tests (sin wrangler — mockea KV en memoria)
+cd gateway/worker && bun test   # 22 verde
 ```
 
-## Plan de ejecución (resumen — ver spec §9 para detalle)
+### Dev server (cuando tengas wrangler instalado)
+```bash
+cd gateway/worker
+bunx wrangler@latest dev --local --port 8787
 
-| # | Fase | Horas | Estado |
-|---|---|---|---|
-| 1 | Extraer `keystore` + `signed-request builder` a `core/keystore/` y `core/sdk/` | 4 | v1.0 |
-| 2 | WASM build pipeline (`zig build wasm`) + ABI exports | 2 | v1.0 |
-| 3 | Wrapper TypeScript (reemplaza `bun:ffi` por `WebAssembly`) | 2 | v1.0 |
-| ~~4~~ | ~~Wrapper Python (`wasmtime-py`)~~ | ~~2~~ | **v1.1** |
-| 5 | Wrapper Rust (`wasmtime` crate) | 2 | v1.0 (re-añadido) |
-| 6 | Tests + ejemplo e2e contra mock gateway (HTTP real, WebCrypto independiente) | 1 | v1.0 (reducido) |
-| 6b | Cross-conformance Zig native ↔ TS ↔ Rust byte-identical | 0.5 | v1.0 |
-| 7 | Buffer + READMEs (TS + Rust) | 0.5 | v1.0 |
-| **Total v1.0** | | **8** | |
+# Smoke desde otra terminal:
+curl -i http://127.0.0.1:8787/                  # gateway metadata + pubkey
+curl -i http://127.0.0.1:8787/api/v1/network/pulse
+curl -i -X POST http://127.0.0.1:8787/api/v1/actions/register_agent \
+  -H 'Content-Type: application/json' \
+  -d '{"pubkey":"<64-hex-pubkey>","intent_hint":"merchant","client_version":"@xb77/sdk@1.1.0"}'
+```
 
-**Fallback si Fase 1 excede 5h**: scope cae a "AWP + keystore solamente"; `build_signed_request` se va a v1.1.
+---
 
-## Cierre completo del proyecto (post-SDK, ~2.5 hrs restantes del budget)
+## Próximos pasos (orden sugerido)
 
-Después de Fase 7, en ESTA misma rama:
+### Path A — Cierre de hackathon (8-10h)
 
-| # | Tarea | Horas |
-|---|---|---|
-| C1 | Merge final de worktrees pendientes (verificar product-deluxe, fix-onchain-battle) | 0.5 |
-| C2 | Devnet deploy (fondear payer + 3 programas + correr demo --cluster devnet, capturar tx sigs públicas) | 1 |
-| C3 | CF deploy (Pages + Worker via wrangler — requiere login previo) | 0.5 |
-| C4 | Rewrite commits proton → noreply (filter-branch quirúrgico al final, una sola pasada) | 0.25 |
-| C5 | Build deluxe ReleaseSafe + verificación final + bajar servicios | 0.25 |
-| **Total cierre** | | **2.5** |
+1. **Merge** `feat/gateway-realdata` al destino que prefieras (probablemente `merge/onchain-deluxe` primero para sincronizar SDK 1.1, y de ahí a `bedrock`).
 
-**Si Fase SDK excede 9.5h**: cae primero CF deploy (C3) → queda solo devnet. Si excede 10.5h: cae devnet (C2) → queda solo localnet evidence. Decidir EN EL MOMENTO, no antes.
+2. **E2E visual webapp ↔ gateway** — el frontend (worktree `docs-v2`, branch `feat/dapp-public-split`) tiene que pinear `XB77_GATEWAY` al worker. Hasta que se haga eso, sigue contra el mock `sdk/ts/dev/mock-gateway.ts`.
 
-## Decisiones lockeadas (no re-brainstormear)
+3. **Deploy CF**:
+   ```bash
+   cd gateway/worker
+   wrangler login                          # interactivo
+   for ns in AGENTS ORDERS NONCES BUCKETS IDEMP; do
+     wrangler kv namespace create "$ns"
+   done
+   # Pegar los IDs devueltos en wrangler.toml (reemplazar los `*_local_placeholder`)
+   # Generar key prod:  bun -e 'const k = await crypto.subtle.generateKey("Ed25519", true, ["sign","verify"]); ...'
+   wrangler secret put GATEWAY_PRIVKEY_HEX
+   wrangler deploy
+   ```
+   Tomar la URL devuelta (`https://xb77-adapter.<account>.workers.dev`) y pinearla en frontend.
 
-- **Scope**: B (merchant-complete). NO scope A (mucho wrapper), NO scope C (MCP/proof/admin → worktree futuro).
-- **v1.0 wrappers**: solo Zig native + TS. Python y Rust = v1.1 (ABI estable garantizada, wrappers post-hackathon).
-- **Arquitectura**: pure-WASM stateless. WASM **no** hace red. Cada wrapper hace HTTP en su idioma nativo.
-- **ABI**: ~10 funciones (ver §5 del spec). JSON cross-boundary (no bincode/postcard).
-- **Action enum**: una sola `build_signed_request(action, …)` con enum `u8`. NO N funciones separadas.
-- **Distribución v1.0**: `@xb77/sdk` (npm). PyPI + crates.io en v1.1.
+4. **Phantom wallet adapter** en webapp — sin esto Colosseum judges restan. El SDK actualmente firma con un keystore interno; agregar Phantom es ~2h: usar `@solana/wallet-adapter` para extraer la pubkey + presentar un challenge para que Phantom firme la primera vez (luego cachear).
 
-## Riesgos a vigilar (§10 del spec)
+5. **Programa Solana real onchain** — el ZK verifier vive en `merge/onchain-deluxe` como stub. Si querés Colosseum-readiness, hay que:
+   - Desplegar un programa Anchor mínimo a devnet (basta con `anchor_proof_commit(proof_hash: [u8;32])`)
+   - Llamarlo desde `submit_order` cuando una order completa
+   - Mostrar la tx en el frontend con link a `explorer.solana.com/...?cluster=devnet`
 
-- Zig → `wasm32-freestanding`: allocator + no-libc constraints. **Mitigación**: buildear el artifact en Fase 2 antes de tocar wrappers. Fail fast.
-- `wasmtime-py` ABI quirks (memory pointers). **Mitigación**: Python wrapper después del TS para tener referencia.
-- `std.json` en WASM: chequear performance. **Mitigación**: bench en Fase 1; fallback a parser hand-rolled si lento.
-- Firma determinística cross-runtime: Ed25519 OK, pero RNG-for-nonce paths revisar. **Mitigación**: tests cross-conformance en Fase 6.
+6. **Demo video 60s** + pitch refresh.
 
-## Success criteria (§11 del spec)
+### Path B — Si no llegamos a Colosseum (extender hackathon)
 
-1. `xb77_core.wasm` builds clean.
-2. Los 4 targets (Zig native, TS, Py, Rust) producen output **byte-idéntico** para el mismo input.
-3. Worked example end-to-end (Python: seal keystore → build order → POST gateway local → verify) pasa contra el podman gateway.
-4. READMEs de los 3 wrappers muestran ejemplo canónico (ver §7 del spec).
+Lo construido es production-quality. Los gaps (Phantom, programa Solana, demo) son work-of-hours, no work-of-architecture. Recomiendo no entregar a Colosseum si no se cierran 4-5 antes; el código merece mejor puntaje que el que sacaríamos sin ellos.
 
-## Out of scope acá
+---
 
-- **dapp-public-split** → worktree `docs-v2` (en paralelo).
-- **CLI modularization** → sesión futura, se beneficia de que `core/keystore/` quede extraído por este trabajo.
-- **MCP / proof-verify / admin** (scope C) → worktree futuro sin nombre todavía.
+## Decisiones técnicas que vale la pena tener presentes
 
-## Frase de arranque sugerida
+- **Canonical bytes binarios** (no JSON canonical) — esto es lo que permite byte-identical cross-language. Cambiar a JSON canonical sería un foot-gun masivo (RFC 8785/JCS son un nido de bugs en práctica). Si en el futuro alguien propone "agreguemos signing JSON-style", la respuesta corta es **no**.
 
-> "Vuelvo a labura SDK WASM-core deluxe en merge-onchain-deluxe. Leé este HANDOFF y el spec en `docs/superpowers/specs/2026-05-11-sdk-wasm-core-deluxe-design.md`. Arrancamos Fase 1: extracción de keystore a `core/keystore/`."
+- **agent_id derivation server-side** (`sha256(pubkey)[:9]`) — el cliente nunca lo envía. Esto permite rotar keys en el futuro manteniendo identidad (cuando agreguemos key-rotation envelope).
+
+- **Dual-schema toggle** (`ACCEPT_SCHEMA_1_0` env) — quedó listo por si aparece un cliente legacy. En prod debe estar OFF; el código defaultea a OFF.
+
+- **wasmtime tuple cap a 16 params** — por eso `build_signed_request` en Rust usa `Func` untyped en vez de `TypedFunc`. Si en el futuro extendemos el ABI a más de 19 params, ya estamos cubiertos.
+
+- **Gateway dev key**: la pubkey actual es `0b7695d319c619c0c80bb667407765107c4538f1a6cc2df1e5701acf1255822c`. **Esto es solo para dev** — en prod la secret `GATEWAY_PRIVKEY_HEX` toma precedencia.
+
+---
+
+## Si algo se rompe — rollback
+
+- **SDK rollback**: tag `pre-sdk-wasm-deluxe-2026-05-11` te lleva al estado pre-SDK-deluxe.
+- **Backend rollback**: `git reset --hard 9bf5618` te deja en el estado pre-implementación (contract committed, sin backend).
+- **Si el gateway falla en prod**: el frontend tiene fallback en cascada (`DataSource` cached → snapshot). No es disruption total.
+
+---
+
+## Frase de arranque para próxima sesión
+
+> "Estado: gateway v1 completo + SDK 1.1 byte-identical, 67 tests verde. Falta merge → e2e visual → deploy CF → Phantom → programa Solana onchain. Leé `HANDOFF-NEXT-SESSION.md` para el detalle. Arrancamos por el merge o saltamos directo a Phantom?"
