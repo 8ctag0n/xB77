@@ -1,19 +1,4 @@
 const _ksHooks = { useState: React.useState, useEffect: React.useEffect, useRef: React.useRef };
-const _ksRandHex = (n) => {
-  const a = new Uint8Array(n);
-  (crypto || window.crypto).getRandomValues(a);
-  return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
-};
-const _ksSeal = (pubkey, password) => btoa(JSON.stringify({ v: 1, kind: "stub", pubkey, salt: _ksRandHex(8), pwLen: password.length }));
-const _ksUnseal = (blob) => {
-  try {
-    const obj = JSON.parse(atob(blob));
-    if (obj.kind !== "stub" || !obj.pubkey) throw new Error("bad blob");
-    return { pubkey: obj.pubkey };
-  } catch {
-    return null;
-  }
-};
 function KeystoreModal() {
   const [open, setOpen] = _ksHooks.useState(false);
   const [step, setStep] = _ksHooks.useState("choose");
@@ -51,27 +36,35 @@ function KeystoreModal() {
     try {
       window.XB77Actions.keystore.saveSealedBlob(sealedBlob);
       const data = await window.XB77Actions.registerAgent(pubkey, intent);
-      window.XB77Actions.keystore.saveAgent({ agent_id: data.agent_id, pubkey });
       setResult({ agent_id: data.agent_id, tier: data.tier, credits: data.credits });
       setStep("done");
       window.dispatchEvent(new CustomEvent("xb77:connected", { detail: { agent_id: data.agent_id } }));
     } catch (e) {
       setError(e.message || "register failed");
-      setStep(step === "working" ? "choose" : step);
+      setStep("choose");
     }
   }
-  function handleGenerate() {
+  async function handleGenerate() {
     if (!password || password.length < 4) return setError("password too short (min 4)");
     if (password !== confirmPw) return setError("passwords don't match");
-    const pubkey = _ksRandHex(32);
-    finalize(pubkey, _ksSeal(pubkey, password));
+    setError(null);
+    try {
+      const r = await window.XB77Keystore.generate(password);
+      finalize(r.pubkeyHex, r.sealedBlob);
+    } catch (e) {
+      setError(e.message || "keystore generate failed");
+    }
   }
-  function handleImport() {
+  async function handleImport() {
     if (!password) return setError("enter password");
     if (!importBlob) return setError("pick a keystore file");
-    const u = _ksUnseal(importBlob);
-    if (!u) return setError("invalid keystore blob");
-    finalize(u.pubkey, importBlob);
+    setError(null);
+    try {
+      const r = await window.XB77Keystore.import(importBlob, password);
+      finalize(r.pubkeyHex, r.sealedBlob);
+    } catch (e) {
+      setError(/invalid_password/.test(e.message) ? "wrong password" : e.message || "import failed");
+    }
   }
   function onFile(e) {
     const f = e.target.files && e.target.files[0];
@@ -151,7 +144,7 @@ function KeystoreModal() {
   } }, "Generate new"), /* @__PURE__ */ React.createElement("button", { style: btn(false), onClick: () => {
     setError(null);
     setStep("import");
-  } }, "Import existing")), /* @__PURE__ */ React.createElement("p", { style: { fontSize: 9, color: "var(--text-soft)", marginTop: 18, opacity: 0.7 } }, "\u26A0 stub crypto \xB7 real signing arrives with the SDK build")), step === "generate" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: label }, "Intent"), /* @__PURE__ */ React.createElement("select", { value: intent, onChange: (e) => setIntent(e.target.value), style: input }, /* @__PURE__ */ React.createElement("option", { value: "merchant" }, "merchant"), /* @__PURE__ */ React.createElement("option", { value: "treasury" }, "treasury"), /* @__PURE__ */ React.createElement("option", { value: "trader" }, "trader"), /* @__PURE__ */ React.createElement("option", { value: "indexer" }, "indexer")), /* @__PURE__ */ React.createElement("label", { style: label }, "Password"), /* @__PURE__ */ React.createElement("input", { type: "password", value: password, onChange: (e) => setPassword(e.target.value), style: input, autoFocus: true }), /* @__PURE__ */ React.createElement("label", { style: label }, "Confirm"), /* @__PURE__ */ React.createElement("input", { type: "password", value: confirmPw, onChange: (e) => setConfirmPw(e.target.value), style: input }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { style: btn(false), onClick: () => setStep("choose") }, "\u2190 Back"), /* @__PURE__ */ React.createElement("button", { style: btn(true), onClick: handleGenerate }, "Generate"))), step === "import" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: label }, "Keystore file"), /* @__PURE__ */ React.createElement("input", { ref: fileRef, type: "file", accept: ".json,.txt,application/json,text/plain", onChange: onFile, style: { ...input, padding: 8 } }), importBlob && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: "var(--text-soft)", marginTop: -8, marginBottom: 12 } }, "blob loaded \xB7 ", importBlob.length, " chars"), /* @__PURE__ */ React.createElement("label", { style: label }, "Password"), /* @__PURE__ */ React.createElement("input", { type: "password", value: password, onChange: (e) => setPassword(e.target.value), style: input }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { style: btn(false), onClick: () => setStep("choose") }, "\u2190 Back"), /* @__PURE__ */ React.createElement("button", { style: btn(true), onClick: handleImport }, "Import"))), step === "working" && /* @__PURE__ */ React.createElement("div", { style: { padding: "24px 0", textAlign: "center", color: "var(--text-soft)", fontSize: 11 } }, "registering agent\u2026"), step === "done" && result && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 0" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--text-soft)", marginBottom: 6 } }, "// agent registered"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, color: "var(--accent, #c97a3a)", marginBottom: 10 } }, result.agent_id), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--text)" } }, "tier: ", /* @__PURE__ */ React.createElement("b", null, result.tier), " \xB7 credits: ", /* @__PURE__ */ React.createElement("b", null, result.credits))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { style: btn(true), onClick: () => setOpen(false) }, "Continue"))), error && /* @__PURE__ */ React.createElement("div", { style: {
+  } }, "Import existing")), /* @__PURE__ */ React.createElement("p", { style: { fontSize: 9, color: "var(--text-soft)", marginTop: 18, opacity: 0.7 } }, "wire 1.1 \xB7 Ed25519 via Web Crypto \xB7 AES-GCM at rest")), step === "generate" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: label }, "Intent"), /* @__PURE__ */ React.createElement("select", { value: intent, onChange: (e) => setIntent(e.target.value), style: input }, /* @__PURE__ */ React.createElement("option", { value: "merchant" }, "merchant"), /* @__PURE__ */ React.createElement("option", { value: "treasury" }, "treasury"), /* @__PURE__ */ React.createElement("option", { value: "trader" }, "trader"), /* @__PURE__ */ React.createElement("option", { value: "indexer" }, "indexer")), /* @__PURE__ */ React.createElement("label", { style: label }, "Password"), /* @__PURE__ */ React.createElement("input", { type: "password", value: password, onChange: (e) => setPassword(e.target.value), style: input, autoFocus: true }), /* @__PURE__ */ React.createElement("label", { style: label }, "Confirm"), /* @__PURE__ */ React.createElement("input", { type: "password", value: confirmPw, onChange: (e) => setConfirmPw(e.target.value), style: input }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { style: btn(false), onClick: () => setStep("choose") }, "\u2190 Back"), /* @__PURE__ */ React.createElement("button", { style: btn(true), onClick: handleGenerate }, "Generate"))), step === "import" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: label }, "Keystore file"), /* @__PURE__ */ React.createElement("input", { ref: fileRef, type: "file", accept: ".json,.txt,application/json,text/plain", onChange: onFile, style: { ...input, padding: 8 } }), importBlob && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: "var(--text-soft)", marginTop: -8, marginBottom: 12 } }, "blob loaded \xB7 ", importBlob.length, " chars"), /* @__PURE__ */ React.createElement("label", { style: label }, "Password"), /* @__PURE__ */ React.createElement("input", { type: "password", value: password, onChange: (e) => setPassword(e.target.value), style: input }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { style: btn(false), onClick: () => setStep("choose") }, "\u2190 Back"), /* @__PURE__ */ React.createElement("button", { style: btn(true), onClick: handleImport }, "Import"))), step === "working" && /* @__PURE__ */ React.createElement("div", { style: { padding: "24px 0", textAlign: "center", color: "var(--text-soft)", fontSize: 11 } }, "registering agent\u2026"), step === "done" && result && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 0" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--text-soft)", marginBottom: 6 } }, "// agent registered"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, color: "var(--accent, #c97a3a)", marginBottom: 10 } }, result.agent_id), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--text)" } }, "tier: ", /* @__PURE__ */ React.createElement("b", null, result.tier), " \xB7 credits: ", /* @__PURE__ */ React.createElement("b", null, result.credits))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { style: btn(true), onClick: () => setOpen(false) }, "Continue"))), error && /* @__PURE__ */ React.createElement("div", { style: {
     marginTop: 8,
     padding: "8px 10px",
     fontSize: 10,
