@@ -1,13 +1,21 @@
-/* xB77 Combined — Single-page hash router for standalone export */
+/* xB77 Public — Hash router for the marketing site (index.html). */
 
-/* ── File → hash mapping ── */
+/* ── Cross-entry redirect: app/network hashes belong to /app.html ── */
+(function redirectAppHashes() {
+  const h = window.location.hash || '';
+  if (h.startsWith('#app') || h === '#network') {
+    window.location.replace('/app.html' + h);
+  }
+})();
+
+/* ── File → hash mapping (public pages only) ── */
 const _FILE_HASH = {
-  'xB77 v2.html': '#home', 'dApp.html': '#app/agents', 'Explorer.html': '#app/explorer',
+  'xB77 v2.html': '#home',
   'Architecture.html': '#architecture', 'Docs.html': '#docs',
   'Whitepaper.html': '#whitepaper', 'Why xB77.html': '#why', 'Changelog.html': '#changelog',
 };
 
-/* ── Intercept <a href="*.html"> → hash nav ── */
+/* ── Intercept <a href="*.html"> → hash nav for public pages only ── */
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[href]');
   if (!a) return;
@@ -27,16 +35,21 @@ window.DemoTour = DemoTour;
 function useHashRoute() {
   const [hash, setHash] = React.useState(window.location.hash || '');
   React.useEffect(() => {
-    const h = () => setHash(window.location.hash || '');
+    const h = () => {
+      const next = window.location.hash || '';
+      if (next.startsWith('#app') || next === '#network') {
+        window.location.replace('/app.html' + next);
+        return;
+      }
+      setHash(next);
+    };
     window.addEventListener('hashchange', h);
     return () => window.removeEventListener('hashchange', h);
   }, []);
-  // `#app/*` collapses into a single `app` route — AppView reads its own sub-hash.
-  if (hash.startsWith('#app')) return 'app';
   const map = {
     '': 'home', '#home': 'home',
     '#architecture': 'architecture', '#docs': 'docs', '#whitepaper': 'whitepaper',
-    '#why': 'why', '#changelog': 'changelog', '#network': 'network',
+    '#why': 'why', '#changelog': 'changelog',
   };
   return map[hash] || 'home';
 }
@@ -54,47 +67,25 @@ function LandingPage() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   APP PAGE — fused /dapp + /explorer (tabs live in app-tabs.jsx)
+   PUBLIC ROUTER
    ═══════════════════════════════════════════════════════════ */
-function AppPage() {
-  const View = window._AppView;
-  if (!View) {
-    return <div style={{padding:80, fontFamily:'var(--mono)', color:'#9a9aaa'}}>// app shell missing (app-tabs.js not loaded)</div>;
-  }
-  return <View />;
-}
-
-function NetworkPageWrap() {
-  const V = window.NetworkPage;
-  if (!V) {
-    return <div style={{padding:80, fontFamily:'var(--mono)', color:'#9a9aaa'}}>// network shell missing (page-network.js not loaded)</div>;
-  }
-  return <V />;
-}
-
-
-/* ═══════════════════════════════════════════════════════════
-   COMBINED ROUTER
-   ═══════════════════════════════════════════════════════════ */
-function CombinedApp() {
+function PublicApp() {
   const route = useHashRoute();
 
   React.useEffect(() => {
     document.body.style.overflow = '';
     document.body.style.height = '';
     document.body.style.overflowX = 'hidden';
-    // Only the legacy /app (when first navigating to a tab via hashchange) needs the
-    // scroll reset; intra-tab hash flips should not jump.
-    if (!window.location.hash.startsWith('#app/')) window.scrollTo(0, 0);
+    window.scrollTo(0, 0);
   }, [route]);
 
   const pages = {
-    home: LandingPage, app: AppPage,
+    home: LandingPage,
     architecture: ArchPage, docs: DocsPage, whitepaper: WhitepaperPage,
-    why: WhyPage, changelog: ChangelogPage, network: NetworkPageWrap,
+    why: WhyPage, changelog: ChangelogPage,
   };
   const Page = pages[route] || LandingPage;
   return <Page key={route} />;
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<CombinedApp />);
+ReactDOM.createRoot(document.getElementById('root')).render(<PublicApp />);

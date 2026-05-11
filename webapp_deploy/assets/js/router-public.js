@@ -1,7 +1,11 @@
+(function redirectAppHashes() {
+  const h = window.location.hash || "";
+  if (h.startsWith("#app") || h === "#network") {
+    window.location.replace("/app.html" + h);
+  }
+})();
 const _FILE_HASH = {
   "xB77 v2.html": "#home",
-  "dApp.html": "#app/agents",
-  "Explorer.html": "#app/explorer",
   "Architecture.html": "#architecture",
   "Docs.html": "#docs",
   "Whitepaper.html": "#whitepaper",
@@ -25,11 +29,17 @@ window.DemoTour = DemoTour;
 function useHashRoute() {
   const [hash, setHash] = React.useState(window.location.hash || "");
   React.useEffect(() => {
-    const h = () => setHash(window.location.hash || "");
+    const h = () => {
+      const next = window.location.hash || "";
+      if (next.startsWith("#app") || next === "#network") {
+        window.location.replace("/app.html" + next);
+        return;
+      }
+      setHash(next);
+    };
     window.addEventListener("hashchange", h);
     return () => window.removeEventListener("hashchange", h);
   }, []);
-  if (hash.startsWith("#app")) return "app";
   const map = {
     "": "home",
     "#home": "home",
@@ -37,8 +47,7 @@ function useHashRoute() {
     "#docs": "docs",
     "#whitepaper": "whitepaper",
     "#why": "why",
-    "#changelog": "changelog",
-    "#network": "network"
+    "#changelog": "changelog"
   };
   return map[hash] || "home";
 }
@@ -46,39 +55,23 @@ function LandingPage() {
   const t = THEMES.obsidian;
   return /* @__PURE__ */ React.createElement("div", { style: { background: t.bg, minHeight: "100vh" } }, /* @__PURE__ */ React.createElement(ObsidianVariant, { theme: "obsidian" }));
 }
-function AppPage() {
-  const View = window._AppView;
-  if (!View) {
-    return /* @__PURE__ */ React.createElement("div", { style: { padding: 80, fontFamily: "var(--mono)", color: "#9a9aaa" } }, "// app shell missing (app-tabs.js not loaded)");
-  }
-  return /* @__PURE__ */ React.createElement(View, null);
-}
-function NetworkPageWrap() {
-  const V = window.NetworkPage;
-  if (!V) {
-    return /* @__PURE__ */ React.createElement("div", { style: { padding: 80, fontFamily: "var(--mono)", color: "#9a9aaa" } }, "// network shell missing (page-network.js not loaded)");
-  }
-  return /* @__PURE__ */ React.createElement(V, null);
-}
-function CombinedApp() {
+function PublicApp() {
   const route = useHashRoute();
   React.useEffect(() => {
     document.body.style.overflow = "";
     document.body.style.height = "";
     document.body.style.overflowX = "hidden";
-    if (!window.location.hash.startsWith("#app/")) window.scrollTo(0, 0);
+    window.scrollTo(0, 0);
   }, [route]);
   const pages = {
     home: LandingPage,
-    app: AppPage,
     architecture: ArchPage,
     docs: DocsPage,
     whitepaper: WhitepaperPage,
     why: WhyPage,
-    changelog: ChangelogPage,
-    network: NetworkPageWrap
+    changelog: ChangelogPage
   };
   const Page = pages[route] || LandingPage;
   return /* @__PURE__ */ React.createElement(Page, { key: route });
 }
-ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(CombinedApp, null));
+ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(PublicApp, null));
