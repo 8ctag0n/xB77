@@ -99,7 +99,7 @@ ok "sdk/ts deps installed"
 
 # -------- gateway up --------
 step "Boot mock gateway on port $PORT"
-( cd sdk/ts && bun run dev/mock-gateway.ts --port "$PORT" --pubkey-out "$GW_PUB_FILE" ) \
+( cd sdk/ts && bun run dev/mock-gateway-legacy.ts --port "$PORT" --pubkey-out "$GW_PUB_FILE" ) \
   > "$GW_LOG" 2>&1 &
 GW_PID=$!
 

@@ -170,6 +170,37 @@
         })),
       };
     },
+    walletBalances(raw) {
+      if (!raw || !Array.isArray(raw.balances)) return raw;
+      const COLOR = { USDC: "#c97a3a", SOL: "#a78bfa", EURC: "#22d3ee", USDT: "#34d399" };
+      return {
+        agent_id: raw.agent_id,
+        credits: raw.credits ?? 0,
+        tier: raw.tier ?? "free",
+        balances: raw.balances.map((b) => ({
+          currency: b.asset,
+          chain: b.chain,
+          amount: Number(b.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          usd: "$" + Number(b.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          rawAmount: Number(b.amount),
+          color: COLOR[b.asset] || "#888",
+        })),
+      };
+    },
+    walletTransactions(raw) {
+      const arr = Array.isArray(raw) ? raw : (raw && raw.transactions) || [];
+      return {
+        transactions: arr.map((t) => {
+          const d = new Date(t.ts || Date.now());
+          return {
+            time: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+            desc: t.desc,
+            amount: t.amount,
+            type: t.type,
+          };
+        }),
+      };
+    },
   };
 
   // ── Core: try live → cached → snapshot ─────────────────────────────────
@@ -236,6 +267,29 @@
         `/api/v1/pipelines/recent?limit=${count}`,
         SNAPSHOT.pipelinesRecent,
         NORMALIZERS.pipelines,
+      );
+    },
+
+    walletBalances(agentId) {
+      const id = String(agentId || "").trim();
+      if (!id) return Promise.resolve(wrap({ balances: [] }, "snapshot", 0));
+      return resolve(
+        `wallet.balances.${id}`,
+        `/api/v1/wallet/balances?agent_id=${encodeURIComponent(id)}`,
+        { balances: [], credits: 0, tier: "free" },
+        NORMALIZERS.walletBalances,
+      );
+    },
+
+    walletTransactions(agentId, n = 20) {
+      const id = String(agentId || "").trim();
+      const count = Math.max(1, Math.min(50, Number(n) || 20));
+      if (!id) return Promise.resolve(wrap({ transactions: [] }, "snapshot", 0));
+      return resolve(
+        `wallet.tx.${id}.${count}`,
+        `/api/v1/wallet/transactions?agent_id=${encodeURIComponent(id)}&limit=${count}`,
+        { transactions: [] },
+        NORMALIZERS.walletTransactions,
       );
     },
 

@@ -1,9 +1,52 @@
+const _WALLET_SEED_BALANCES = [
+  { currency: "USDC", amount: "\u2014", usd: "\u2014", change: "", pct: "", color: D.accent, rawAmount: 0 },
+  { currency: "SOL", amount: "\u2014", usd: "\u2014", change: "", pct: "", color: D.purple, rawAmount: 0 },
+  { currency: "EURC", amount: "\u2014", usd: "\u2014", change: "", pct: "", color: D.cyan, rawAmount: 0 }
+];
+const _WALLET_ALLOC_PLACEHOLDER = [
+  { agent: "cfo-alpha", amount: "\u2014", pct: "40%", color: D.accent },
+  { agent: "ag_worker_01", amount: "\u2014", pct: "20%", color: D.green },
+  { agent: "ag_worker_02", amount: "\u2014", pct: "10%", color: D.cyan },
+  { agent: "ag_worker_03", amount: "\u2014", pct: "8%", color: D.purple },
+  { agent: "Unallocated", amount: "\u2014", pct: "22%", color: D.faint }
+];
 function WalletView() {
   const [credits, setCredits] = React.useState(0);
   const [tier, setTier] = React.useState("unauth");
   const [claiming, setClaiming] = React.useState(false);
   const [claimError, setClaimError] = React.useState(null);
   const [creditsPulse, setCreditsPulse] = React.useState(false);
+  const [balances, setBalances] = React.useState(_WALLET_SEED_BALANCES);
+  const [recentTx, setRecentTx] = React.useState([]);
+  const [source, setSource] = React.useState("idle");
+  const [agentId, setAgentId] = React.useState(() => window.XB77Actions?.keystore.agentId || null);
+  React.useEffect(() => {
+    const onConn = () => setAgentId(window.XB77Actions?.keystore.agentId || null);
+    window.addEventListener("xb77:connected", onConn);
+    return () => window.removeEventListener("xb77:connected", onConn);
+  }, []);
+  React.useEffect(() => {
+    if (!agentId || !window.DataSource) return;
+    let cancelled = false;
+    async function load() {
+      const [b, t] = await Promise.all([
+        window.DataSource.walletBalances(agentId),
+        window.DataSource.walletTransactions(agentId, 12)
+      ]);
+      if (cancelled) return;
+      if (b && Array.isArray(b.balances) && b.balances.length) setBalances(b.balances);
+      if (typeof b?.credits === "number") setCredits(b.credits);
+      if (b?.tier) setTier(b.tier);
+      if (t && Array.isArray(t.transactions)) setRecentTx(t.transactions);
+      setSource(b?._source || "idle");
+    }
+    load();
+    const id = setInterval(load, 1e4);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [agentId]);
   async function handleClaim() {
     if (claiming) return;
     setClaiming(true);
@@ -21,26 +64,9 @@ function WalletView() {
       setClaiming(false);
     }
   }
-  const balances = [
-    { currency: "USDC", amount: "14,240.00", usd: "$14,240.00", change: "+$820", pct: "+6.1%", color: D.accent },
-    { currency: "SOL", amount: "48.72", usd: "$8,107.20", change: "+$412", pct: "+5.3%", color: D.purple },
-    { currency: "EURC", amount: "2,500.00", usd: "$2,750.00", change: "-$50", pct: "-1.8%", color: D.cyan }
-  ];
-  const allocations = [
-    { agent: "cfo-alpha", amount: "$8,240", pct: "33%", color: D.accent },
-    { agent: "ag_worker_01", amount: "$4,100", pct: "16%", color: D.green },
-    { agent: "ag_worker_02", amount: "$2,400", pct: "10%", color: D.cyan },
-    { agent: "ag_worker_03", amount: "$1,850", pct: "7%", color: D.purple },
-    { agent: "Unallocated", amount: "$8,507", pct: "34%", color: D.faint }
-  ];
-  const recentTx = [
-    { time: "14:23", desc: "Payment to Caf\xE9 Sovereign", amount: "-$47.80", type: "OUT" },
-    { time: "14:18", desc: "Swap USDC \u2192 SOL", amount: "-$240.00", type: "SWAP" },
-    { time: "14:05", desc: "Privacy pool deposit", amount: "-$1,200.00", type: "OUT" },
-    { time: "13:40", desc: "Yield return", amount: "+$87.20", type: "IN" },
-    { time: "13:15", desc: "Trading profit", amount: "+$201.50", type: "IN" },
-    { time: "12:50", desc: "Deposit from external", amount: "+$5,000.00", type: "IN" }
-  ];
+  const allocations = _WALLET_ALLOC_PLACEHOLDER;
+  const totalUsd = balances.reduce((acc, b) => acc + (Number(b.rawAmount) || 0), 0);
+  const totalLabel = totalUsd > 0 ? "$" + totalUsd.toLocaleString(void 0, { maximumFractionDigits: 2 }) : "$ \u2014";
   return /* @__PURE__ */ React.createElement("div", { style: { padding: 24, overflowY: "auto", flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: {
     display: "flex",
     alignItems: "center",
@@ -64,7 +90,14 @@ function WalletView() {
       bg: tier === "unauth" ? `${D.dim}18` : tier === "free" ? `${D.cyan}18` : tier === "paid" ? `${D.green}18` : `${D.accent}18`
     },
     tier
-  ), claimError && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 9, color: D.red, marginLeft: 8 } }, "claim: ", claimError), /* @__PURE__ */ React.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true, onClick: handleClaim, disabled: claiming }, claiming ? "\u2026CLAIMING" : "CLAIM CREDITS")), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 24, padding: "28px 32px", background: D.bg2, border: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement(DM, { size: 9 }, "TOTAL TREASURY"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 16, marginTop: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--serif)", fontSize: 48, fontWeight: 400, color: D.text, fontStyle: "italic" } }, "$25,097"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 13, color: D.green } }, "+$1,182 today (+4.9%)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 16 } }, /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true }, "DEPOSIT"), /* @__PURE__ */ React.createElement(DBtn, { small: true }, "WITHDRAW"), /* @__PURE__ */ React.createElement(DBtn, { small: true }, "ALLOCATE"))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SectionHead, { title: "Balances" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, balances.map((b, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+  ), claimError && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 9, color: D.red, marginLeft: 8 } }, "claim: ", claimError), /* @__PURE__ */ React.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true, onClick: handleClaim, disabled: claiming }, claiming ? "\u2026CLAIMING" : "CLAIM CREDITS")), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 24, padding: "28px 32px", background: D.bg2, border: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement(DM, { size: 9 }, "TOTAL TREASURY"), source !== "idle" && /* @__PURE__ */ React.createElement(
+    Badge,
+    {
+      color: source === "live" ? D.green : source === "cached" ? D.amber : D.dim,
+      bg: source === "live" ? `${D.green}18` : source === "cached" ? `${D.amber}18` : `${D.dim}18`
+    },
+    source
+  )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 16, marginTop: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--serif)", fontSize: 48, fontWeight: 400, color: D.text, fontStyle: "italic" } }, totalLabel), !agentId && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 11, color: D.faint } }, "connect an agent to load")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 16 } }, /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true }, "DEPOSIT"), /* @__PURE__ */ React.createElement(DBtn, { small: true }, "WITHDRAW"), /* @__PURE__ */ React.createElement(DBtn, { small: true }, "ALLOCATE"))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SectionHead, { title: "Balances" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, balances.map((b, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
     display: "flex",
     alignItems: "center",
     gap: 14,
@@ -83,7 +116,7 @@ function WalletView() {
     fontSize: 10,
     fontWeight: 700,
     color: b.color
-  } }, b.currency.slice(0, 2)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 13, fontWeight: 600, color: D.text } }, b.currency), /* @__PURE__ */ React.createElement(DM, { size: 8 }, b.amount)), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 13, color: D.text } }, b.usd), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 10, color: b.change.startsWith("+") ? D.green : D.red } }, b.change, " (", b.pct, ")")))))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SectionHead, { title: "Allocation" }), /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}`, padding: 18 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", height: 8, marginBottom: 18, gap: 2 } }, allocations.map((a, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+  } }, b.currency.slice(0, 2)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 13, fontWeight: 600, color: D.text } }, b.currency), /* @__PURE__ */ React.createElement(DM, { size: 8 }, b.amount)), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 13, color: D.text } }, b.usd), b.change && b.pct && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 10, color: String(b.change).startsWith("+") ? D.green : D.red } }, b.change, " (", b.pct, ")"), b.chain && !b.change && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 9, color: D.faint } }, "on ", b.chain)))))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SectionHead, { title: "Allocation" }), /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}`, padding: 18 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", height: 8, marginBottom: 18, gap: 2 } }, allocations.map((a, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
     flex: parseInt(a.pct),
     background: a.color,
     opacity: a.agent === "Unallocated" ? 0.2 : 0.7
@@ -98,7 +131,7 @@ function WalletView() {
     fontSize: 11,
     color: a.agent === "Unallocated" ? D.dim : D.text,
     flex: 1
-  } }, a.agent), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 11, color: D.text } }, a.amount), /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.faint }, a.pct)))))), /* @__PURE__ */ React.createElement(SectionHead, { title: "Recent Transactions" }), /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "60px 1fr 100px 80px", padding: "0 16px", borderBottom: `1px solid ${D.border}`, background: D.bg3 } }, ["TIME", "DESCRIPTION", "AMOUNT", "TYPE"].map((h) => /* @__PURE__ */ React.createElement("div", { key: h, style: { padding: "8px 0" } }, /* @__PURE__ */ React.createElement(DM, { size: 7 }, h)))), recentTx.map((tx, i) => /* @__PURE__ */ React.createElement(
+  } }, a.agent), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 11, color: D.text } }, a.amount), /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.faint }, a.pct)))))), /* @__PURE__ */ React.createElement(SectionHead, { title: "Recent Transactions" }), /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "60px 1fr 100px 80px", padding: "0 16px", borderBottom: `1px solid ${D.border}`, background: D.bg3 } }, ["TIME", "DESCRIPTION", "AMOUNT", "TYPE"].map((h) => /* @__PURE__ */ React.createElement("div", { key: h, style: { padding: "8px 0" } }, /* @__PURE__ */ React.createElement(DM, { size: 7 }, h)))), recentTx.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "20px 16px", textAlign: "center", fontFamily: "var(--mono)", fontSize: 10, color: D.faint } }, agentId ? "no transactions yet" : "connect an agent to load transactions"), recentTx.map((tx, i) => /* @__PURE__ */ React.createElement(
     "div",
     {
       key: i,
