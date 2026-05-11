@@ -117,6 +117,13 @@ function WhitepaperPage() {
     textTransform: "uppercase",
     textDecoration: "none",
     cursor: "pointer"
-  } }, "Read the Docs"))), /* @__PURE__ */ React.createElement(PageFooter, null));
+  } }, "Read the Docs"))), /* @__PURE__ */ React.createElement(
+    DocsDeepDive,
+    {
+      kicker: "// FULL WHITEPAPER",
+      label: "Read the markdown whitepaper, in full.",
+      path: "/whitepaper"
+    }
+  ), /* @__PURE__ */ React.createElement(PageFooter, null));
 }
 Object.assign(window, { WhitepaperPage });

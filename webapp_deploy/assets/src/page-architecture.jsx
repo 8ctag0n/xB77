@@ -231,6 +231,12 @@ function ArchPage() {
         </div>
       </section>
 
+      <DocsDeepDive
+        kicker="// FULL ARCHITECTURE BRIEF"
+        label="The complete layered architecture."
+        path="/architecture"
+      />
+
       <PageFooter />
     </div>
   );

@@ -162,6 +162,12 @@ function ChangelogPage() {
         </div>
       </section>
 
+      <DocsDeepDive
+        kicker="// FULL CHANGELOG"
+        label="Every release, every commit, in markdown."
+        path="/changelog"
+      />
+
       <PageFooter />
     </div>
   );

@@ -320,4 +320,17 @@ function DashboardView() {
   );
 }
 
-Object.assign(window, { DashboardView });
+function MeshTab() {
+  return (
+    <div style={{
+      display:'flex', flexDirection:'column',
+      minHeight:520,
+      border:'1px solid rgba(245,245,247,0.08)',
+      background:'#08080a',
+    }}>
+      <DashboardView />
+    </div>
+  );
+}
+
+Object.assign(window, { DashboardView, MeshTab });

@@ -211,6 +211,13 @@ function ArchPage() {
     /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 9, color: t.textDim, letterSpacing: "0.15em", marginBottom: 8, textTransform: "uppercase" } }, spec.label),
     /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 16, color: t.accent, fontWeight: 600, marginBottom: 6 } }, spec.value),
     /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--sans)", fontSize: 13, color: t.textDim, lineHeight: 1.5 } }, spec.detail)
-  ))))), /* @__PURE__ */ React.createElement(PageFooter, null));
+  ))))), /* @__PURE__ */ React.createElement(
+    DocsDeepDive,
+    {
+      kicker: "// FULL ARCHITECTURE BRIEF",
+      label: "The complete layered architecture.",
+      path: "/architecture"
+    }
+  ), /* @__PURE__ */ React.createElement(PageFooter, null));
 }
 Object.assign(window, { ArchPage });

@@ -4,6 +4,7 @@ const DOC_SECTIONS = [
   { id: 'quickstart', label: 'Quickstart' },
   { id: 'api', label: 'API Reference' },
   { id: 'sdk', label: 'SDK Guide' },
+  { id: 'network', label: 'Network API' },
   { id: 'protocol', label: 'Protocol Specs' },
 ];
 
@@ -282,6 +283,67 @@ print(f"Ghost Receipt: {receipt.proof_hash}")`}</Code>
 
           <div style={{ width: '100%', height: 1, background: t.border, margin: '60px 0' }}></div>
 
+          {/* NETWORK API (W3 — public adapter + DataSource client) */}
+          <section id="network">
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: t.accent, letterSpacing: '0.2em', marginBottom: 12, textTransform: 'uppercase' }}>NETWORK API</div>
+            <h2 style={{ fontFamily: 'var(--serif)', fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 400, color: t.text, margin: '0 0 24px', lineHeight: 1.1 }}>
+              Live network data, in your browser.
+            </h2>
+            <P>The xB77 adapter exposes 4 REST endpoints with CORS open for any origin. The webapp ships a <Code>window.DataSource</Code> client with invisible degradation: live → cached → snapshot. The reader never sees a loader, never sees red.</P>
+
+            <H3>Endpoints</H3>
+            <Table
+              headers={['Method', 'Path', 'Returns']}
+              rows={[
+                ['GET', '/api/network/pulse',       'slot, blockHeight, agentsOnline, proofsVerified24h, ts'],
+                ['GET', '/api/audit/:txhash',       'verdict, proofId, agent, timestamp, chunks'],
+                ['GET', '/api/agents',              'agents: [{id, pubkey, status, pipelines, uptime}]'],
+                ['GET', '/api/pipelines/recent',    'pipelines: [{id, agent, chunks, status, verdict, ...}]'],
+              ]}
+            />
+            <P>The adapter probes the znode RPC via <Code>ZNODE_RPC_URL</Code> (default <Code>localhost:8899</Code>) with a 1.5s timeout. If the RPC is unreachable, returns deterministic mock data so the webapp never breaks.</P>
+
+            <H3>DataSource client</H3>
+            <P>Drop <Code>data-source.js</Code> on the page and call any method. Every response carries <Code>_source</Code> (<Code>'live' | 'cached' | 'snapshot'</Code>) and <Code>_ageMs</Code>. The client never throws.</P>
+            <Code block>{`// Live data with automatic fallback
+const pulse = await window.DataSource.networkPulse();
+console.log(pulse.slot, pulse._source);   // 250412311 'live'
+
+// Audit any transaction hash
+const audit = await window.DataSource.auditTx('5K3sP9...');
+console.log(audit.verdict, audit.chunks); // 'VALID' 8
+
+// Polling subscription (returns unsubscribe)
+const off = window.DataSource.subscribe(
+  'networkPulse',
+  (p) => console.log(p.slot),
+  3000,
+);
+// later: off();`}</Code>
+
+            <H3>Degradation chain</H3>
+            <P>Each call walks three layers before returning. The UI dot color (<span style={{ color: t.accent, fontFamily: 'var(--mono)' }}>lime</span> / <span style={{ color: '#e94da4', fontFamily: 'var(--mono)' }}>magenta</span> / <span style={{ color: t.textDim, fontFamily: 'var(--mono)' }}>muted</span>) reflects which layer answered.</P>
+            <Table
+              headers={['Source', 'TTL', 'When']}
+              rows={[
+                ['live',     '—',    'Adapter reachable, returns 200'],
+                ['cached',   '30s',  'localStorage hit, adapter unreachable'],
+                ['snapshot', '∞',    'Last-resort frozen payload bundled with the client'],
+              ]}
+            />
+
+            <H3>Try it</H3>
+            <P>Open <Code>/network</Code> in the webapp to see all four endpoints driving a live page. Kill the adapter mid-session — the status pill flips to <Code>// CACHED Xs</Code> magenta, the numbers stay on screen.</P>
+            <Code block>{`# spin up the adapter locally
+cd gateway/worker && bunx wrangler@latest dev
+
+# in another terminal
+curl http://localhost:8787/api/network/pulse
+# { "slot": 250412311, "blockHeight": 250411104, ... }`}</Code>
+          </section>
+
+          <div style={{ width: '100%', height: 1, background: t.border, margin: '60px 0' }}></div>
+
           {/* PROTOCOL SPECS */}
           <section id="protocol">
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: t.accent, letterSpacing: '0.2em', marginBottom: 12, textTransform: 'uppercase' }}>PROTOCOL</div>
@@ -341,6 +403,12 @@ print(f"Ghost Receipt: {receipt.proof_hash}")`}</Code>
           </section>
         </main>
       </div>
+
+      <DocsDeepDive
+        kicker="// FULL DOCUMENTATION"
+        label="Reference, programs, proof format and more."
+        path="/guide/quickstart"
+      />
 
       <PageFooter />
     </div>

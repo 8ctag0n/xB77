@@ -7,6 +7,7 @@ const INNER_NAV_LINKS = [
   { label: 'Whitepaper', href: 'Whitepaper.html' },
   { label: 'Docs', href: 'Docs.html' },
   { label: 'Explorer', href: 'Explorer.html' },
+  { label: 'Network', href: '#network' },
   { label: 'Changelog', href: 'Changelog.html' },
 ];
 

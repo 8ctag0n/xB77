@@ -80,4 +80,73 @@ function SyntaxHighlight({ code, theme }) {
     return /* @__PURE__ */ React.createElement("div", { key: i, dangerouslySetInnerHTML: { __html: html } });
   }));
 }
-Object.assign(window, { useFadeIn, FadeIn, Stagger, useBreakpoint, AnimatedCounter, SyntaxHighlight });
+const XB77_DOCS_BASE = "https://8ctag0n.github.io/xB77";
+function DocsDeepDive({ kicker, label, path, href, theme }) {
+  const t = theme || (typeof THEMES !== "undefined" ? THEMES.obsidian : {
+    bgCard: "rgba(255,255,255,0.03)",
+    accent: "#c8ff2e",
+    text: "#e8e8ec",
+    textDim: "#6e6e7a",
+    border: "rgba(255,255,255,0.06)"
+  });
+  const url = href || `${XB77_DOCS_BASE}${path || "/"}`;
+  const display = url.replace(/^https?:\/\//, "");
+  const [hover, setHover] = React.useState(false);
+  return /* @__PURE__ */ React.createElement("section", { style: { padding: "60px 40px", borderTop: `1px solid ${t.border}` } }, /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 1100, margin: "0 auto" } }, /* @__PURE__ */ React.createElement(
+    "a",
+    {
+      href: url,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      onMouseEnter: () => setHover(true),
+      onMouseLeave: () => setHover(false),
+      style: {
+        display: "block",
+        padding: "28px 32px",
+        background: hover ? t.bgCard : "transparent",
+        border: `1px solid ${hover ? t.accent : t.border}`,
+        textDecoration: "none",
+        transition: "all 0.25s ease"
+      }
+    },
+    /* @__PURE__ */ React.createElement("div", { style: {
+      fontFamily: "var(--mono)",
+      fontSize: 10,
+      fontWeight: 600,
+      color: t.accent,
+      letterSpacing: "0.2em",
+      textTransform: "uppercase",
+      marginBottom: 12
+    } }, kicker || "// CONTINUE READING"),
+    /* @__PURE__ */ React.createElement("div", { style: {
+      display: "flex",
+      alignItems: "baseline",
+      justifyContent: "space-between",
+      gap: 16,
+      flexWrap: "wrap"
+    } }, /* @__PURE__ */ React.createElement("h3", { style: {
+      fontFamily: "var(--serif)",
+      fontSize: "clamp(24px, 3vw, 32px)",
+      fontWeight: 400,
+      fontStyle: "italic",
+      color: t.text,
+      margin: 0,
+      lineHeight: 1.2
+    } }, label || "Read the full spec"), /* @__PURE__ */ React.createElement("div", { style: {
+      fontFamily: "var(--mono)",
+      fontSize: 16,
+      fontWeight: 600,
+      color: t.accent,
+      transform: hover ? "translateX(6px)" : "translateX(0)",
+      transition: "transform 0.25s ease"
+    } }, "\u2192")),
+    /* @__PURE__ */ React.createElement("div", { style: {
+      marginTop: 14,
+      fontFamily: "var(--mono)",
+      fontSize: 11,
+      color: t.textDim,
+      letterSpacing: "0.04em"
+    } }, display)
+  )));
+}
+Object.assign(window, { useFadeIn, FadeIn, Stagger, useBreakpoint, AnimatedCounter, SyntaxHighlight, DocsDeepDive, XB77_DOCS_BASE });

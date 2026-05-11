@@ -132,6 +132,13 @@ function ChangelogPage() {
         lineHeight: 1.5
       } }, change.text));
     })))));
-  }))), /* @__PURE__ */ React.createElement(PageFooter, null));
+  }))), /* @__PURE__ */ React.createElement(
+    DocsDeepDive,
+    {
+      kicker: "// FULL CHANGELOG",
+      label: "Every release, every commit, in markdown.",
+      path: "/changelog"
+    }
+  ), /* @__PURE__ */ React.createElement(PageFooter, null));
 }
 Object.assign(window, { ChangelogPage });
