@@ -137,8 +137,8 @@ function PipelinesTab() {
     <div style={{
       display:'flex', flexDirection:'column',
       height:'min(80vh, 820px)', minHeight:520,
-      border:'1px solid rgba(245,245,247,0.08)',
-      background:'#08080a', overflow:'hidden',
+      border:'1px solid var(--border-soft)',
+      background:'var(--bg)', overflow:'hidden',
     }}>
       <PipelinesView />
     </div>

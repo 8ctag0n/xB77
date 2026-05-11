@@ -1,10 +1,10 @@
 /* xB77 Explorer v2 — Enhanced UI Components */
 
 const T = {
-  bg: '#08080a', bg2: '#0e0e12', bg3: '#141418',
+  bg: 'var(--bg)', bg2: '#0e0e12', bg3: '#141418',
   card: 'rgba(255,255,255,0.02)', cardHover: 'rgba(255,255,255,0.05)',
-  accent: '#c8ff2e', accentDim: 'rgba(200,255,46,0.08)', accentMid: 'rgba(200,255,46,0.2)',
-  text: '#e8e8ec', textMid: '#9a9aaa', textDim: '#55555f',
+  accent: 'var(--accent)', accentDim: 'rgba(200,255,46,0.08)', accentMid: 'rgba(200,255,46,0.2)',
+  text: 'var(--text)', textMid: '#9a9aaa', textDim: '#55555f',
   border: 'rgba(255,255,255,0.05)', borderHover: 'rgba(255,255,255,0.12)',
   red: '#ff4455', green: '#44ee88', yellow: '#f0c040', blue: '#4da8ff', cyan: '#4de8d0',
 };

@@ -14,6 +14,8 @@
   --accent-dim:     rgba(200,255,46,0.12);
   --border:         rgba(255,255,255,0.06);
   --border-strong:  rgba(255,255,255,0.18);
+  --border-soft:    rgba(245,245,247,0.08);
+  --text-soft:      rgba(245,245,247,0.55);
   --nav-bg:         rgba(8,8,10,0.85);
   --terminal-bg:    #0c0c10;
   --terminal-glow:  rgba(200,255,46,0.08);
@@ -32,6 +34,8 @@ html[data-theme="light"] {
   --accent-dim:     rgba(90,122,0,0.12);
   --border:         rgba(26,26,26,0.10);
   --border-strong:  rgba(26,26,26,0.18);
+  --border-soft:    rgba(26,26,26,0.10);
+  --text-soft:      rgba(26,26,26,0.55);
   --nav-bg:         rgba(244,240,232,0.85);
   --terminal-bg:    #ebe5d8;
   --terminal-glow:  rgba(90,122,0,0.06);

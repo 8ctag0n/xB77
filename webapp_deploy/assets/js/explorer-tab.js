@@ -17,8 +17,8 @@ function ExplorerTab() {
   return /* @__PURE__ */ React.createElement("div", { style: {
     display: "flex",
     flexDirection: "column",
-    border: "1px solid rgba(245,245,247,0.08)",
-    background: "#08080a",
+    border: "1px solid var(--border-soft)",
+    background: "var(--bg)",
     overflow: "hidden"
   } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", borderBottom: `1px solid ${T.border}`, flexShrink: 0 } }, /* @__PURE__ */ React.createElement(MeshHero, { znodes: MOCK_ZNODES }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", bottom: 0, left: 0, right: 0, display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 1, background: "rgba(8,8,10,0.85)", backdropFilter: "blur(12px)", borderTop: `1px solid ${T.border}` } }, [
     { label: "TVL", value: "$12.4M", change: "+2.3%", spark: _expSparkTVL },

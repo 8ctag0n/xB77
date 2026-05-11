@@ -17,7 +17,7 @@ function MeshHero({ znodes }) {
         vx: (Math.random() - 0.5) * 0.2,
         vy: (Math.random() - 0.5) * 0.2,
         r: z.status === "ONLINE" ? 4 : 3,
-        color: z.status === "ONLINE" ? "#c8ff2e" : z.status === "SYNCING" ? "#f0c040" : "#ff4455",
+        color: z.status === "ONLINE" ? "var(--accent)" : z.status === "SYNCING" ? "#f0c040" : "#ff4455",
         pulsePhase: Math.random() * Math.PI * 2
       }));
     }

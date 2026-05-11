@@ -134,8 +134,8 @@ function AgentsTab() {
     flexDirection: "column",
     height: "min(80vh, 820px)",
     minHeight: 520,
-    border: "1px solid rgba(245,245,247,0.08)",
-    background: "#08080a",
+    border: "1px solid var(--border-soft)",
+    background: "var(--bg)",
     overflow: "hidden"
   } }, /* @__PURE__ */ React.createElement(AgentsView, null));
 }

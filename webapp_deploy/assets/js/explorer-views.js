@@ -19,7 +19,7 @@ function MeshCanvas({ znodes }) {
         vx: (Math.random() - 0.5) * 0.18,
         vy: (Math.random() - 0.5) * 0.18,
         r: z.status === "ONLINE" ? 3.5 : 2.5,
-        color: z.status === "ONLINE" ? "#c8ff2e" : z.status === "SYNCING" ? "#f0c040" : "#ff4455",
+        color: z.status === "ONLINE" ? "var(--accent)" : z.status === "SYNCING" ? "#f0c040" : "#ff4455",
         status: z.status,
         ring: Math.random() * Math.PI * 2,
         // ring phase

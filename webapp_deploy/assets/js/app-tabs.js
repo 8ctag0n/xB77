@@ -38,7 +38,7 @@ function AppView() {
     };
     const Cmp = map[active];
     if (!Cmp) {
-      return /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 0", color: "rgba(245,245,247,0.55)", fontFamily: "var(--mono)", fontSize: 12 } }, '// tab "', active, '" not loaded');
+      return /* @__PURE__ */ React.createElement("div", { style: { padding: "48px 0", color: "var(--text-soft)", fontFamily: "var(--mono)", fontSize: 12 } }, '// tab "', active, '" not loaded');
     }
     return /* @__PURE__ */ React.createElement(Cmp, null);
   };
@@ -51,24 +51,24 @@ function AppView() {
         marginBottom: 20,
         fontFamily: "var(--mono)",
         fontSize: 11,
-        color: "rgba(245,245,247,0.55)",
+        color: "var(--text-soft)",
         letterSpacing: "0.08em",
         textDecoration: "none",
         textTransform: "uppercase",
         transition: "color 0.15s"
       },
       onMouseEnter: (e) => {
-        e.target.style.color = "#c8ff2e";
+        e.target.style.color = "var(--accent)";
       },
       onMouseLeave: (e) => {
-        e.target.style.color = "rgba(245,245,247,0.55)";
+        e.target.style.color = "var(--text-soft)";
       }
     },
     "\u2190 xb77.io"
-  ), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 32 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 11, color: "rgba(245,245,247,0.55)", letterSpacing: "0.1em", marginBottom: 8 } }, "// APP"), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: "var(--serif)", fontSize: "clamp(2rem,5vw,3.5rem)", margin: 0, color: "#f5f5f7", lineHeight: 1.05, fontStyle: "italic" } }, "Sovereign commerce surface."), /* @__PURE__ */ React.createElement("p", { style: { color: "rgba(245,245,247,0.55)", marginTop: 12, fontFamily: "var(--mono)", fontSize: 12, letterSpacing: "0.04em" } }, "wallet / agents / pipelines / mesh / explorer \u2014 one origin.")), /* @__PURE__ */ React.createElement("div", { role: "tablist", "aria-label": "App sections", style: {
+  ), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 32 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 11, color: "var(--text-soft)", letterSpacing: "0.1em", marginBottom: 8 } }, "// APP"), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: "var(--serif)", fontSize: "clamp(2rem,5vw,3.5rem)", margin: 0, color: "var(--text)", lineHeight: 1.05, fontStyle: "italic" } }, "Sovereign commerce surface."), /* @__PURE__ */ React.createElement("p", { style: { color: "var(--text-soft)", marginTop: 12, fontFamily: "var(--mono)", fontSize: 12, letterSpacing: "0.04em" } }, "wallet / agents / pipelines / mesh / explorer \u2014 one origin.")), /* @__PURE__ */ React.createElement("div", { role: "tablist", "aria-label": "App sections", style: {
     display: "flex",
     gap: 0,
-    borderBottom: "1px solid rgba(245,245,247,0.08)",
+    borderBottom: "1px solid var(--border-soft)",
     marginBottom: 24,
     overflowX: "auto"
   } }, _APP_TABS.map((t) => {
@@ -84,13 +84,13 @@ function AppView() {
           padding: "12px 18px",
           background: "transparent",
           border: "none",
-          color: isActive ? "#c8ff2e" : "rgba(245,245,247,0.55)",
+          color: isActive ? "var(--accent)" : "var(--text-soft)",
           fontFamily: "var(--mono)",
           fontSize: 11,
           fontWeight: 600,
           letterSpacing: "0.1em",
           textTransform: "uppercase",
-          borderBottom: isActive ? "2px solid #c8ff2e" : "2px solid transparent",
+          borderBottom: isActive ? "2px solid var(--accent)" : "2px solid transparent",
           marginBottom: "-1px",
           cursor: "pointer",
           whiteSpace: "nowrap",

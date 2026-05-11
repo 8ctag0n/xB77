@@ -21,12 +21,12 @@
   ];
 
   const COLORS = {
-    bg:      '#0a0a0c',
+    bg:      'var(--bg)',
     nodeBg:  '#101013',
     border:  'rgba(255,255,255,0.10)',
-    lime:    '#c8ff2e',
+    lime:    'var(--accent)',
     cyan:    '#5cf2ff',
-    text:    '#e8e8ec',
+    text:    'var(--text)',
     textDim: 'rgba(232,232,236,0.55)',
     mono:    'rgba(232,232,236,0.35)',
   };

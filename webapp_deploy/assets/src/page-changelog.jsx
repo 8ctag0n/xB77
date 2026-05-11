@@ -51,7 +51,7 @@ const CHANGELOG = [
 
 const TYPE_STYLES = {
   breaking: { label: 'BREAKING', color: '#ff4466' },
-  new: { label: 'NEW', color: '#c8ff2e' },
+  new: { label: 'NEW', color: 'var(--accent)' },
   improved: { label: 'IMPROVED', color: '#4de8d0' },
   fixed: { label: 'FIXED', color: '#ffaa44' },
 };

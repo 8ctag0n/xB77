@@ -29,8 +29,8 @@ function ExplorerTab() {
   return (
     <div style={{
       display:'flex', flexDirection:'column',
-      border:'1px solid rgba(245,245,247,0.08)',
-      background:'#08080a', overflow:'hidden',
+      border:'1px solid var(--border-soft)',
+      background:'var(--bg)', overflow:'hidden',
     }}>
       {/* Mesh hero with stat bar */}
       <div style={{ position: 'relative', borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>

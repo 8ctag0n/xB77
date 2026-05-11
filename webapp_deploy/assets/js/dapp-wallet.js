@@ -85,8 +85,8 @@ function WalletTab() {
     display: "flex",
     flexDirection: "column",
     minHeight: 520,
-    border: "1px solid rgba(245,245,247,0.08)",
-    background: "#08080a"
+    border: "1px solid var(--border-soft)",
+    background: "var(--bg)"
   } }, /* @__PURE__ */ React.createElement(WalletView, null));
 }
 Object.assign(window, { WalletView, WalletTab });

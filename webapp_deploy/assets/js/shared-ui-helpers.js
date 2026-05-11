@@ -84,10 +84,10 @@ const XB77_DOCS_BASE = "https://8ctag0n.github.io/xB77";
 function DocsDeepDive({ kicker, label, path, href, theme }) {
   const t = theme || (typeof THEMES !== "undefined" ? THEMES.obsidian : {
     bgCard: "rgba(255,255,255,0.03)",
-    accent: "#c8ff2e",
-    text: "#e8e8ec",
-    textDim: "#6e6e7a",
-    border: "rgba(255,255,255,0.06)"
+    accent: "var(--accent)",
+    text: "var(--text)",
+    textDim: "var(--text-dim)",
+    border: "var(--border)"
   });
   const url = href || `${XB77_DOCS_BASE}${path || "/"}`;
   const display = url.replace(/^https?:\/\//, "");

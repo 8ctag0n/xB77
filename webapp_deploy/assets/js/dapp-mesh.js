@@ -1,15 +1,15 @@
 const MESH_NODES = [
-  { id: "cfo-alpha", label: "cfo-alpha", type: "LEAD", x: 50, y: 28, color: "#c8ff2e", status: "online" },
+  { id: "cfo-alpha", label: "cfo-alpha", type: "LEAD", x: 50, y: 28, color: "var(--accent)", status: "online" },
   { id: "worker-01", label: "worker_01", type: "TREASURY", x: 24, y: 50, color: "#34d399", status: "online" },
   { id: "worker-02", label: "worker_02", type: "TRADING", x: 76, y: 50, color: "#4de8d0", status: "online" },
   { id: "worker-03", label: "worker_03", type: "PAYMENTS", x: 30, y: 74, color: "#a78bfa", status: "online" },
   { id: "worker-04", label: "worker_04", type: "RECON", x: 70, y: 74, color: "#fbbf24", status: "idle" },
   // External nodes
-  { id: "zk-engine", label: "xB77 ZK Engine", type: "PRIVACY", x: 10, y: 30, color: "#c8ff2e", status: "active", ext: true },
+  { id: "zk-engine", label: "xB77 ZK Engine", type: "PRIVACY", x: 10, y: 30, color: "var(--accent)", status: "active", ext: true },
   { id: "light", label: "xB77 ZK Engine", type: "ZK-RECEIPTS", x: 90, y: 30, color: "#4de8d0", status: "active", ext: true },
   { id: "solana", label: "Solana", type: "SETTLEMENT", x: 50, y: 95, color: "#a78bfa", status: "active", ext: true },
   { id: "cafe", label: "Caf\xE9 Sovereign", type: "MERCHANT", x: 12, y: 80, color: "#fbbf24", status: "indexed", ext: true },
-  { id: "pool", label: "Privacy Pool", type: "OBFUSCATION", x: 88, y: 80, color: "#c8ff2e", status: "active", ext: true }
+  { id: "pool", label: "Privacy Pool", type: "OBFUSCATION", x: 88, y: 80, color: "var(--accent)", status: "active", ext: true }
 ];
 const MESH_EDGES = [
   ["cfo-alpha", "worker-01"],
@@ -103,7 +103,7 @@ function MeshViz({ events }) {
           y1: n1.y,
           x2: n2.x,
           y2: n2.y,
-          stroke: isHovered ? "#c8ff2e" : "rgba(255,255,255,0.06)",
+          stroke: isHovered ? "var(--accent)" : "var(--border)",
           strokeWidth: isHovered ? "0.25" : "0.12",
           strokeDasharray: n1.ext || n2.ext ? "0.6 0.4" : "none",
           style: { transition: "stroke 0.3s, stroke-width 0.3s" }
@@ -276,8 +276,8 @@ function MeshTab() {
     display: "flex",
     flexDirection: "column",
     minHeight: 520,
-    border: "1px solid rgba(245,245,247,0.08)",
-    background: "#08080a"
+    border: "1px solid var(--border-soft)",
+    background: "var(--bg)"
   } }, /* @__PURE__ */ React.createElement(DashboardView, null));
 }
 Object.assign(window, { DashboardView, MeshTab });

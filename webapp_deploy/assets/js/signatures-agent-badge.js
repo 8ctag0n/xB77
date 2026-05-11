@@ -1,11 +1,11 @@
 (function() {
   const PALETTE = {
-    bg: "#0a0a0c",
-    lime: "#c8ff2e",
+    bg: "var(--bg)",
+    lime: "var(--accent)",
     cyan: "#5cf2ff",
     magenta: "#ff2e88",
-    dim: "rgba(255,255,255,0.06)",
-    text: "#e8e8ec",
+    dim: "var(--border)",
+    text: "var(--text)",
     textDim: "rgba(232,232,236,0.5)"
   };
   function fnv1a(str) {
