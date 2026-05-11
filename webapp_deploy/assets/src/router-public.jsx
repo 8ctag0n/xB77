@@ -49,7 +49,7 @@ function useHashRoute() {
   const map = {
     '': 'home', '#home': 'home',
     '#architecture': 'architecture', '#docs': 'docs', '#whitepaper': 'whitepaper',
-    '#why': 'why', '#changelog': 'changelog',
+    '#why': 'why', '#changelog': 'changelog', '#pitch': 'pitch',
   };
   return map[hash] || 'home';
 }
@@ -83,6 +83,7 @@ function PublicApp() {
     home: LandingPage,
     architecture: ArchPage, docs: DocsPage, whitepaper: WhitepaperPage,
     why: WhyPage, changelog: ChangelogPage,
+    pitch: window.PitchPage,
   };
   const Page = pages[route] || LandingPage;
   const Toggle = window.ThemeToggle;

@@ -47,7 +47,8 @@ function useHashRoute() {
     "#docs": "docs",
     "#whitepaper": "whitepaper",
     "#why": "why",
-    "#changelog": "changelog"
+    "#changelog": "changelog",
+    "#pitch": "pitch"
   };
   return map[hash] || "home";
 }
@@ -69,7 +70,8 @@ function PublicApp() {
     docs: DocsPage,
     whitepaper: WhitepaperPage,
     why: WhyPage,
-    changelog: ChangelogPage
+    changelog: ChangelogPage,
+    pitch: window.PitchPage
   };
   const Page = pages[route] || LandingPage;
   const Toggle = window.ThemeToggle;
