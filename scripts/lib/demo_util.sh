@@ -11,16 +11,19 @@ else
   C_RESET=""; C_BOLD=""; C_RED=""; C_GRN=""; C_YEL=""; C_BLU=""; C_CYA=""
 fi
 
-log_info()  { printf '%s[INFO]%s  %s\n' "$C_BLU" "$C_RESET" "$*"; }
-log_step()  { printf '\n%s──── %s ────%s\n' "$C_BOLD" "$*" "$C_RESET"; }
-log_warn()  { printf '%s[WARN]%s  %s\n' "$C_YEL" "$C_RESET" "$*" >&2; }
-log_error() { printf '%s[ERR ]%s  %s\n' "$C_RED" "$C_RESET" "$*" >&2; }
-log_ok()    { printf '%s[ OK ]%s  %s\n' "$C_GRN" "$C_RESET" "$*"; }
+log_info()    { printf '%s[INFO]%s  %s\n' "$C_BLU" "$C_RESET" "$*"; }
+log_step()    { printf '\n%s──── %s ────%s\n' "$C_BOLD" "$*" "$C_RESET"; }
+log_warn()    { printf '%s[WARN]%s  %s\n' "$C_YEL" "$C_RESET" "$*" >&2; }
+log_error()   { printf '%s[ERR ]%s  %s\n' "$C_RED" "$C_RESET" "$*" >&2; }
+log_ok()      { printf '%s[ OK ]%s  %s\n' "$C_GRN" "$C_RESET" "$*"; }
+# Blurred: step is present in the flow but intentionally inactive in this run.
+log_blurred() { printf '%s[ ░░ ]%s %s\n' "$C_YEL" "$C_RESET" "$*"; }
 
 # run_cmd: prints the command, then executes (or skips if DRY_RUN=1).
 # Use: run_cmd solana balance "$PUBKEY" --url devnet
 run_cmd() {
-  printf '%s$%s %s\n' "$C_CYA" "$C_RESET" "$*"
+  # Print marker to stderr so $(run_cmd ...) only captures the real command output.
+  printf '%s$%s %s\n' "$C_CYA" "$C_RESET" "$*" >&2
   if [[ "${DRY_RUN:-0}" == "1" ]]; then
     return 0
   fi
