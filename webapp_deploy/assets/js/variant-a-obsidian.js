@@ -61,7 +61,7 @@ function ObsidianVariant({ theme }) {
       onMouseLeave: (e) => e.target.style.color = t.textDim
     },
     l.label
-  )), /* @__PURE__ */ React.createElement("a", { href: "dApp.html", style: {
+  )), /* @__PURE__ */ React.createElement("a", { href: "/app.html#app/agents", style: {
     fontFamily: "var(--mono)",
     fontSize: 11,
     color: t.bg,
@@ -140,7 +140,7 @@ function ObsidianVariant({ theme }) {
     lineHeight: 1.7,
     maxWidth: 400,
     margin: "32px 0 0"
-  } }, "Privacy-first capital management for the machine economy. Shielded payments. ZK-compressed receipts. Autonomous agents."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, marginTop: 40, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("a", { href: "dApp.html", className: "btn-primary", style: { "--ac": t.accent, "--bg": t.bg, textDecoration: "none" } }, "Launch Pipeline"), /* @__PURE__ */ React.createElement("a", { href: "Docs.html", className: "btn-ghost", style: { "--ac": t.accent, "--border": t.border, "--text": t.text, textDecoration: "none" } }, "Explore Docs"))), /* @__PURE__ */ React.createElement(FadeIn, { delay: 0.2, style: { position: "relative", zIndex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: {
+  } }, "Privacy-first capital management for the machine economy. Shielded payments. ZK-compressed receipts. Autonomous agents."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, marginTop: 40, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("a", { href: "/app.html#app/agents", className: "btn-primary", style: { "--ac": t.accent, "--bg": t.bg, textDecoration: "none" } }, "Launch Pipeline"), /* @__PURE__ */ React.createElement("a", { href: "/index.html#docs", className: "btn-ghost", style: { "--ac": t.accent, "--border": t.border, "--text": t.text, textDecoration: "none" } }, "Explore Docs"))), /* @__PURE__ */ React.createElement(FadeIn, { delay: 0.2, style: { position: "relative", zIndex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: {
     background: t.terminalBg,
     border: `1px solid ${t.border}`,
     fontFamily: "var(--mono)",
@@ -317,6 +317,6 @@ function ObsidianVariant({ theme }) {
     color: t.text,
     margin: "0 0 16px",
     lineHeight: 1.1
-  } }, "Ready to go ", /* @__PURE__ */ React.createElement("em", { style: { color: t.accent, fontStyle: "italic" } }, "sovereign?")), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: "var(--sans)", fontSize: 16, color: t.textDim, margin: "0 0 40px", lineHeight: 1.6 } }, "Deploy your first autonomous pipeline in minutes."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("a", { href: "dApp.html", className: "btn-primary", style: { "--ac": t.accent, "--bg": t.bg, textDecoration: "none" } }, "Launch Pipeline"), /* @__PURE__ */ React.createElement("a", { href: "Whitepaper.html", className: "btn-ghost", style: { "--ac": t.accent, "--border": t.border, "--text": t.text, textDecoration: "none" } }, "Read Whitepaper"), /* @__PURE__ */ React.createElement("a", { href: "dApp.html", className: "btn-ghost", style: { "--ac": t.accent, "--border": t.border, "--text": t.text, textDecoration: "none" } }, "Connect Wallet")))), /* @__PURE__ */ React.createElement(SiteFooter, { theme }));
+  } }, "Ready to go ", /* @__PURE__ */ React.createElement("em", { style: { color: t.accent, fontStyle: "italic" } }, "sovereign?")), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: "var(--sans)", fontSize: 16, color: t.textDim, margin: "0 0 40px", lineHeight: 1.6 } }, "Deploy your first autonomous pipeline in minutes."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("a", { href: "/app.html#app/agents", className: "btn-primary", style: { "--ac": t.accent, "--bg": t.bg, textDecoration: "none" } }, "Launch Pipeline"), /* @__PURE__ */ React.createElement("a", { href: "/index.html#whitepaper", className: "btn-ghost", style: { "--ac": t.accent, "--border": t.border, "--text": t.text, textDecoration: "none" } }, "Read Whitepaper"), /* @__PURE__ */ React.createElement("a", { href: "/app.html#app/agents", className: "btn-ghost", style: { "--ac": t.accent, "--border": t.border, "--text": t.text, textDecoration: "none" } }, "Connect Wallet")))), /* @__PURE__ */ React.createElement(SiteFooter, { theme }));
 }
 Object.assign(window, { ObsidianVariant });

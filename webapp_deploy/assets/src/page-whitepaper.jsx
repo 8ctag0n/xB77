@@ -201,12 +201,12 @@ function WhitepaperPage() {
         <P>The frontier is here. The agents are ready. The only question is whether the infrastructure will keep up.</P>
 
         <div style={{ display: 'flex', gap: 12, marginTop: 40 }}>
-          <a href="Architecture.html" style={{
+          <a href="/index.html#architecture" style={{
             fontFamily: 'var(--mono)', fontSize: 12, background: t.accent, color: t.bg,
             border: 'none', padding: '14px 28px', fontWeight: 600, letterSpacing: '0.06em',
             textTransform: 'uppercase', textDecoration: 'none', cursor: 'pointer',
           }}>Explore Architecture</a>
-          <a href="Docs.html" style={{
+          <a href="/index.html#docs" style={{
             fontFamily: 'var(--mono)', fontSize: 12, background: 'transparent', color: t.text,
             border: `1px solid ${t.border}`, padding: '14px 28px', fontWeight: 500,
             letterSpacing: '0.06em', textTransform: 'uppercase', textDecoration: 'none', cursor: 'pointer',

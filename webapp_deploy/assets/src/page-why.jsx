@@ -357,17 +357,17 @@ function WhyPage() {
             Ready to see it <em style={{ color: t.accent, fontStyle: 'italic' }}>in action?</em>
           </h2>
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a href="dApp.html" style={{
+            <a href="/app.html#app/agents" style={{
               fontFamily: 'var(--mono)', fontSize: 12, background: t.accent, color: t.bg,
               border: 'none', padding: '14px 28px', fontWeight: 600, letterSpacing: '0.06em',
               textTransform: 'uppercase', textDecoration: 'none', cursor: 'pointer',
             }}>Launch dApp</a>
-            <a href="Whitepaper.html" style={{
+            <a href="/index.html#whitepaper" style={{
               fontFamily: 'var(--mono)', fontSize: 12, background: 'transparent', color: t.text,
               border: `1px solid ${t.border}`, padding: '14px 28px', fontWeight: 500,
               letterSpacing: '0.06em', textTransform: 'uppercase', textDecoration: 'none', cursor: 'pointer',
             }}>Read Whitepaper</a>
-            <a href="Docs.html" style={{
+            <a href="/index.html#docs" style={{
               fontFamily: 'var(--mono)', fontSize: 12, background: 'transparent', color: t.text,
               border: `1px solid ${t.border}`, padding: '14px 28px', fontWeight: 500,
               letterSpacing: '0.06em', textTransform: 'uppercase', textDecoration: 'none', cursor: 'pointer',

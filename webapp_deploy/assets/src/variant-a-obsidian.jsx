@@ -59,7 +59,7 @@ function ObsidianVariant({ theme }) {
               onMouseEnter={e => e.target.style.color = t.accent}
               onMouseLeave={e => e.target.style.color = t.textDim}>{l.label}</a>
           ))}
-          <a href="dApp.html" style={{
+          <a href="/app.html#app/agents" style={{
             fontFamily: 'var(--mono)', fontSize: 11, color: t.bg,
             background: t.accent, border: 'none', padding: '8px 16px',
             letterSpacing: '0.08em', cursor: 'pointer', fontWeight: 600, textTransform: 'uppercase',
@@ -127,8 +127,8 @@ function ObsidianVariant({ theme }) {
             Shielded payments. ZK-compressed receipts. Autonomous agents.
           </p>
           <div style={{ display: 'flex', gap: 12, marginTop: 40, flexWrap: 'wrap' }}>
-            <a href="dApp.html" className="btn-primary" style={{ '--ac': t.accent, '--bg': t.bg, textDecoration: 'none' }}>Launch Pipeline</a>
-            <a href="Docs.html" className="btn-ghost" style={{ '--ac': t.accent, '--border': t.border, '--text': t.text, textDecoration: 'none' }}>Explore Docs</a>
+            <a href="/app.html#app/agents" className="btn-primary" style={{ '--ac': t.accent, '--bg': t.bg, textDecoration: 'none' }}>Launch Pipeline</a>
+            <a href="/index.html#docs" className="btn-ghost" style={{ '--ac': t.accent, '--border': t.border, '--text': t.text, textDecoration: 'none' }}>Explore Docs</a>
           </div>
         </FadeIn>
 
@@ -339,9 +339,9 @@ function ObsidianVariant({ theme }) {
             Deploy your first autonomous pipeline in minutes.
           </p>
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a href="dApp.html" className="btn-primary" style={{ '--ac': t.accent, '--bg': t.bg, textDecoration: 'none' }}>Launch Pipeline</a>
-            <a href="Whitepaper.html" className="btn-ghost" style={{ '--ac': t.accent, '--border': t.border, '--text': t.text, textDecoration: 'none' }}>Read Whitepaper</a>
-            <a href="dApp.html" className="btn-ghost" style={{ '--ac': t.accent, '--border': t.border, '--text': t.text, textDecoration: 'none' }}>Connect Wallet</a>
+            <a href="/app.html#app/agents" className="btn-primary" style={{ '--ac': t.accent, '--bg': t.bg, textDecoration: 'none' }}>Launch Pipeline</a>
+            <a href="/index.html#whitepaper" className="btn-ghost" style={{ '--ac': t.accent, '--border': t.border, '--text': t.text, textDecoration: 'none' }}>Read Whitepaper</a>
+            <a href="/app.html#app/agents" className="btn-ghost" style={{ '--ac': t.accent, '--border': t.border, '--text': t.text, textDecoration: 'none' }}>Connect Wallet</a>
           </div>
         </FadeIn>
       </section>

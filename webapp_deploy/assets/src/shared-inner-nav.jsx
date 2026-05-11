@@ -1,14 +1,14 @@
 /* Shared inner-page navigation for xB77 subpages */
 
 const INNER_NAV_LINKS = [
-  { label: 'Home', href: 'xB77 v2.html' },
-  { label: 'Why xB77', href: 'Why xB77.html' },
-  { label: 'Architecture', href: 'Architecture.html' },
-  { label: 'Whitepaper', href: 'Whitepaper.html' },
-  { label: 'Docs', href: 'Docs.html' },
-  { label: 'Explorer', href: 'Explorer.html' },
-  { label: 'Network', href: '#network' },
-  { label: 'Changelog', href: 'Changelog.html' },
+  { label: 'Home', href: '/index.html#home' },
+  { label: 'Why xB77', href: '/index.html#why' },
+  { label: 'Architecture', href: '/index.html#architecture' },
+  { label: 'Whitepaper', href: '/index.html#whitepaper' },
+  { label: 'Docs', href: '/index.html#docs' },
+  { label: 'Explorer', href: '/app.html#app/explorer' },
+  { label: 'Network', href: '/app.html#network' },
+  { label: 'Changelog', href: '/index.html#changelog' },
 ];
 
 function InnerNav({ active }) {
@@ -22,7 +22,7 @@ function InnerNav({ active }) {
       padding: '0 40px', height: 56,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
-        <a href="xB77 v2.html" style={{
+        <a href="/index.html#home" style={{
           fontFamily: 'var(--mono)', fontWeight: 700, fontSize: 20,
           color: t.accent, letterSpacing: '0.08em', textDecoration: 'none',
         }}>xB77</a>
@@ -42,12 +42,12 @@ function InnerNav({ active }) {
           ))}
         </div>
       </div>
-      <a href="dApp.html" style={{
+      <a href="/app.html" style={{
         fontFamily: 'var(--mono)', fontSize: 11, color: t.bg,
         background: t.accent, border: 'none', padding: '8px 16px',
         letterSpacing: '0.08em', cursor: 'pointer', fontWeight: 600,
         textTransform: 'uppercase', textDecoration: 'none',
-      }}>Launch dApp</a>
+      }}>Launch App</a>
     </nav>
   );
 }

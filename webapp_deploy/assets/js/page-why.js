@@ -295,7 +295,7 @@ function WhyPage() {
     fontWeight: 400,
     color: t.text,
     margin: "0 0 24px"
-  } }, "Ready to see it ", /* @__PURE__ */ React.createElement("em", { style: { color: t.accent, fontStyle: "italic" } }, "in action?")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("a", { href: "dApp.html", style: {
+  } }, "Ready to see it ", /* @__PURE__ */ React.createElement("em", { style: { color: t.accent, fontStyle: "italic" } }, "in action?")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("a", { href: "/app.html#app/agents", style: {
     fontFamily: "var(--mono)",
     fontSize: 12,
     background: t.accent,
@@ -307,7 +307,7 @@ function WhyPage() {
     textTransform: "uppercase",
     textDecoration: "none",
     cursor: "pointer"
-  } }, "Launch dApp"), /* @__PURE__ */ React.createElement("a", { href: "Whitepaper.html", style: {
+  } }, "Launch dApp"), /* @__PURE__ */ React.createElement("a", { href: "/index.html#whitepaper", style: {
     fontFamily: "var(--mono)",
     fontSize: 12,
     background: "transparent",
@@ -319,7 +319,7 @@ function WhyPage() {
     textTransform: "uppercase",
     textDecoration: "none",
     cursor: "pointer"
-  } }, "Read Whitepaper"), /* @__PURE__ */ React.createElement("a", { href: "Docs.html", style: {
+  } }, "Read Whitepaper"), /* @__PURE__ */ React.createElement("a", { href: "/index.html#docs", style: {
     fontFamily: "var(--mono)",
     fontSize: 12,
     background: "transparent",

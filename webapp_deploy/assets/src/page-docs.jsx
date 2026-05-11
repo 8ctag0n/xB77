@@ -95,10 +95,10 @@ function DocsPage() {
           <div style={{ padding: '32px 24px 0' }}>
             <div style={{ width: '100%', height: 1, background: t.border, marginBottom: 20 }}></div>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: t.textDim, lineHeight: 1.8 }}>
-              <a href="Architecture.html" style={{ color: t.textDim, textDecoration: 'none', display: 'block', transition: 'color 0.2s' }}
+              <a href="/index.html#architecture" style={{ color: t.textDim, textDecoration: 'none', display: 'block', transition: 'color 0.2s' }}
                 onMouseEnter={e => e.target.style.color = t.accent}
                 onMouseLeave={e => e.target.style.color = t.textDim}>→ Architecture</a>
-              <a href="Whitepaper.html" style={{ color: t.textDim, textDecoration: 'none', display: 'block', transition: 'color 0.2s' }}
+              <a href="/index.html#whitepaper" style={{ color: t.textDim, textDecoration: 'none', display: 'block', transition: 'color 0.2s' }}
                 onMouseEnter={e => e.target.style.color = t.accent}
                 onMouseLeave={e => e.target.style.color = t.textDim}>→ Whitepaper</a>
             </div>

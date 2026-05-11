@@ -1,12 +1,12 @@
 const INNER_NAV_LINKS = [
-  { label: "Home", href: "xB77 v2.html" },
-  { label: "Why xB77", href: "Why xB77.html" },
-  { label: "Architecture", href: "Architecture.html" },
-  { label: "Whitepaper", href: "Whitepaper.html" },
-  { label: "Docs", href: "Docs.html" },
-  { label: "Explorer", href: "Explorer.html" },
-  { label: "Network", href: "#network" },
-  { label: "Changelog", href: "Changelog.html" }
+  { label: "Home", href: "/index.html#home" },
+  { label: "Why xB77", href: "/index.html#why" },
+  { label: "Architecture", href: "/index.html#architecture" },
+  { label: "Whitepaper", href: "/index.html#whitepaper" },
+  { label: "Docs", href: "/index.html#docs" },
+  { label: "Explorer", href: "/app.html#app/explorer" },
+  { label: "Network", href: "/app.html#network" },
+  { label: "Changelog", href: "/index.html#changelog" }
 ];
 function InnerNav({ active }) {
   const t = THEMES.obsidian;
@@ -22,7 +22,7 @@ function InnerNav({ active }) {
     justifyContent: "space-between",
     padding: "0 40px",
     height: 56
-  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 32 } }, /* @__PURE__ */ React.createElement("a", { href: "xB77 v2.html", style: {
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 32 } }, /* @__PURE__ */ React.createElement("a", { href: "/index.html#home", style: {
     fontFamily: "var(--mono)",
     fontWeight: 700,
     fontSize: 20,
@@ -54,7 +54,7 @@ function InnerNav({ active }) {
       }
     },
     l.label
-  )))), /* @__PURE__ */ React.createElement("a", { href: "dApp.html", style: {
+  )))), /* @__PURE__ */ React.createElement("a", { href: "/app.html", style: {
     fontFamily: "var(--mono)",
     fontSize: 11,
     color: t.bg,
@@ -66,7 +66,7 @@ function InnerNav({ active }) {
     fontWeight: 600,
     textTransform: "uppercase",
     textDecoration: "none"
-  } }, "Launch dApp"));
+  } }, "Launch App"));
 }
 function PageFooter() {
   const t = THEMES.obsidian;

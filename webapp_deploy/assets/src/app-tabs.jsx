@@ -58,6 +58,16 @@ function AppView() {
   return (
     <div className="xb-app-shell" style={{minHeight:'100vh', padding:'80px 24px 48px', background:'var(--bg, #08080a)'}}>
       <div style={{maxWidth:1280, margin:'0 auto'}}>
+        <a href="/index.html#home" style={{
+          display:'inline-block', marginBottom:20,
+          fontFamily:'var(--mono)', fontSize:11,
+          color:'rgba(245,245,247,0.55)', letterSpacing:'0.08em',
+          textDecoration:'none', textTransform:'uppercase',
+          transition:'color 0.15s',
+        }}
+          onMouseEnter={e => { e.target.style.color = '#c8ff2e'; }}
+          onMouseLeave={e => { e.target.style.color = 'rgba(245,245,247,0.55)'; }}
+        >← xb77.io</a>
         <div style={{marginBottom:32}}>
           <div style={{fontFamily:'var(--mono)', fontSize:11, color:'rgba(245,245,247,0.55)', letterSpacing:'0.1em', marginBottom:8}}>// APP</div>
           <h1 style={{fontFamily:'var(--serif)', fontSize:'clamp(2rem,5vw,3.5rem)', margin:0, color:'#f5f5f7', lineHeight:1.05, fontStyle:'italic'}}>
