@@ -1,18 +1,18 @@
-# xB77 REST adapter Worker — sits in front of znode RPC + onchain state.
-# Independent of the Zig-wasm gateway in ../worker.js (that one is the
-# Sovereign Gateway dumb-pipe). This adapter exposes the 4 endpoints
-# the public webapp consumes via window.DataSource.
+# xB77 REST adapter Worker — gateway v1 per docs/api-contract-v1.md.
 #
 # Local dev:
-#   cd gateway/worker && bunx wrangler@latest dev
-#   curl http://localhost:8787/api/network/pulse
+#   cd gateway/worker && bunx wrangler@latest dev --local
+#   curl http://localhost:8787/api/v1/network/pulse
 #
 # Prod deploy:
+#   wrangler kv namespace create AGENTS    (×5, see below)
+#   wrangler secret put GATEWAY_PRIVKEY_HEX
 #   bunx wrangler@latest deploy
 
 name = "xb77-adapter"
 main = "src/index.js"
 compatibility_date = "2026-05-01"
+compatibility_flags = ["nodejs_compat"]
 
 [observability]
 enabled = true
@@ -21,6 +21,39 @@ enabled = true
 # Dev default: solana-test-validator on host (accessible from wrangler dev).
 # In prod set via `wrangler secret put ZNODE_RPC_URL` to znode.xb77.dev.
 ZNODE_RPC_URL = "http://127.0.0.1:8899"
-
-# CORS origin. "*" for hackathon demo; tighten when domain is finalized.
 ALLOWED_ORIGIN = "*"
+# Wire-schema acceptance. Set to "false" in prod to reject SDK ≤1.0.
+ACCEPT_SCHEMA_1_0 = "false"
+# Dev gateway signing key (64B hex: seed[32]||pubkey[32]). NEVER use in prod.
+# Generated with: zig run scripts/gen_dev_key.zig (or any Ed25519 generator).
+# Prod overrides via: wrangler secret put GATEWAY_PRIVKEY_HEX
+GATEWAY_PRIVKEY_HEX_DEV = "b80585950ebd968b6230907202fcbf6d9329328cf1c00f8eb09bdef422a1785f0b7695d319c619c0c80bb667407765107c4538f1a6cc2df1e5701acf1255822c"
+# Dev gateway pubkey (last 32B of the seed||pubkey above):
+#   0b7695d319c619c0c80bb667407765107c4538f1a6cc2df1e5701acf1255822c
+
+# ─────────────────────────────────────────────────────────────────────
+# KV namespaces. For local dev (`wrangler dev --local`), the placeholder IDs
+# are fine — wrangler emulates them in `.wrangler/state/v3/kv/`.
+# For prod, run for each:   wrangler kv namespace create <NAME>
+# then paste the returned `id =` UUIDs below.
+# ─────────────────────────────────────────────────────────────────────
+
+[[kv_namespaces]]
+binding = "AGENTS"
+id = "agents_local_placeholder"
+
+[[kv_namespaces]]
+binding = "ORDERS"
+id = "orders_local_placeholder"
+
+[[kv_namespaces]]
+binding = "NONCES"
+id = "nonces_local_placeholder"
+
+[[kv_namespaces]]
+binding = "BUCKETS"
+id = "buckets_local_placeholder"
+
+[[kv_namespaces]]
+binding = "IDEMP"
+id = "idemp_local_placeholder"
