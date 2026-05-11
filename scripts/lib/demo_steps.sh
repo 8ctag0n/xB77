@@ -105,3 +105,12 @@ step_1_agent() {
   run_cmd podman logs --tail 50 xb77-agent-demo
   return 1
 }
+
+step_2_znode() {
+  if [[ ! -x ./zig-out/bin/znode-e2e ]]; then
+    log_error "missing binary: ./zig-out/bin/znode-e2e"
+    log_error "build it: zig build"
+    return 1
+  fi
+  run_cmd ./zig-out/bin/znode-e2e
+}
