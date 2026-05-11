@@ -82,10 +82,19 @@ export default withMermaid({
           ],
         },
         {
+          text: 'Build with xB77',
+          items: [
+            { text: 'Quickstart', link: '/guide/quickstart' },
+            { text: 'Deploy', link: '/guide/deploy' },
+            { text: 'Demo Walkthrough', link: '/guide/demo' },
+          ],
+        },
+        {
           text: 'Reference',
           items: [
             { text: 'On-Chain Programs', link: '/reference/programs' },
             { text: 'Proof Format', link: '/reference/proof-format' },
+            { text: 'Data Infrastructure', link: '/reference/data-infra' },
             { text: 'Glossary', link: '/reference/glossary' },
           ],
         },
