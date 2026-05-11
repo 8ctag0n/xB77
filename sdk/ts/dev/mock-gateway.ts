@@ -31,14 +31,30 @@ const ACTION_PATHS: Record<string, number> = {
   "/register_agent": 0x02,
   "/claim_credits": 0x03,
   "/query_pulse": 0x04,
+  "/api/v1/actions/submit_order": 0x01,
+  "/api/v1/actions/register_agent": 0x02,
+  "/api/v1/actions/claim_credits": 0x03,
+  "/api/v1/actions/query_pulse": 0x04,
 };
 
-function canonicalBytes(action: number, ts: number, payload: Uint8Array): Uint8Array {
-  const out = new Uint8Array(1 + 8 + payload.length);
+function canonicalRequest(action: number, ts_ms: number, nonce: Uint8Array, payload: Uint8Array): Uint8Array {
+  // Schema 1.1: action(1) || ts_be_ms(8) || nonce(12) || payload
+  const out = new Uint8Array(1 + 8 + 12 + payload.length);
   out[0] = action;
-  const bts = BigInt(ts);
+  const bts = BigInt(ts_ms);
   for (let i = 0; i < 8; i++) out[1 + i] = Number((bts >> BigInt((7 - i) * 8)) & 0xffn);
-  out.set(payload, 9);
+  out.set(nonce, 9);
+  out.set(payload, 21);
+  return out;
+}
+
+function canonicalResponse(action: number, ts_ms: number, body: Uint8Array): Uint8Array {
+  // Response canonical: action(1) || ts_be_ms(8) || body (no nonce on response side).
+  const out = new Uint8Array(1 + 8 + body.length);
+  out[0] = action;
+  const bts = BigInt(ts_ms);
+  for (let i = 0; i < 8; i++) out[1 + i] = Number((bts >> BigInt((7 - i) * 8)) & 0xffn);
+  out.set(body, 9);
   return out;
 }
 
@@ -73,20 +89,23 @@ const server = Bun.serve({
     const pkHex = req.headers.get("X-Xb77-Pubkey");
     const sigHex = req.headers.get("X-Xb77-Signature");
     const tsStr = req.headers.get("X-Xb77-Timestamp");
-    if (!pkHex || !sigHex || !tsStr) {
+    const nonceHex = req.headers.get("X-Xb77-Nonce");
+    if (!pkHex || !sigHex || !tsStr || !nonceHex) {
       return new Response("missing auth headers", { status: 401 });
     }
 
     const body = new Uint8Array(await req.arrayBuffer());
-    const ts = Number(tsStr);
+    const ts_ms = Number(tsStr);
     const clientPub = fromHex(pkHex);
     const sig = fromHex(sigHex);
+    const nonce = fromHex(nonceHex);
+    if (nonce.length !== 12) return new Response("bad nonce", { status: 401 });
 
     const clientVerifyKey = await crypto.subtle.importKey(
       "raw", clientPub, "Ed25519", false, ["verify"],
     );
     const ok = await crypto.subtle.verify(
-      "Ed25519", clientVerifyKey, sig, canonicalBytes(action, ts, body),
+      "Ed25519", clientVerifyKey, sig, canonicalRequest(action, ts_ms, nonce, body),
     );
     if (!ok) return new Response("bad signature", { status: 401 });
 
@@ -98,9 +117,9 @@ const server = Bun.serve({
       echoed_body_len: body.length,
     });
     const echoBytes = new TextEncoder().encode(echo);
-    const responseTs = ts + 1;
+    const responseTs = ts_ms + 1;
     const responseSig = new Uint8Array(
-      await crypto.subtle.sign("Ed25519", kp.privateKey, canonicalBytes(action, responseTs, echoBytes)),
+      await crypto.subtle.sign("Ed25519", kp.privateKey, canonicalResponse(action, responseTs, echoBytes)),
     );
 
     return new Response(echoBytes, {

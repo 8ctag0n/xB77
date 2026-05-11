@@ -55,10 +55,10 @@ async function realKeypair(): Promise<{ priv: Uint8Array; pub: Uint8Array }> {
 
 describe("cross-conformance: TS ↔ Rust produce byte-identical signed requests", () => {
   test.each([
-    [Action.SubmitOrder, '{"symbol":"SOL/USDC","amount":1000000,"side":"buy"}', 1_700_000_000],
-    [Action.RegisterAgent, '{"name":"alice","contact":"alice@xb77.dev"}', 1_700_000_100],
-    [Action.ClaimCredits, '{"amount":500000}', 1_700_000_200],
-    [Action.QueryPulse, "{}", 1_700_000_300],
+    [Action.SubmitOrder, '{"symbol":"SOL/USDC","amount":1000000,"side":"buy"}', 1_700_000_000_000],
+    [Action.RegisterAgent, '{"name":"alice","contact":"alice@xb77.dev"}', 1_700_000_100_000],
+    [Action.ClaimCredits, '{"amount":500000}', 1_700_000_200_000],
+    [Action.QueryPulse, "{}", 1_700_000_300_000],
   ])("action %i: TS WASM output == Rust wasmtime output", async (action, payload, ts) => {
     if (!cargoOk) {
       console.warn("[cross-conformance] cargo not available, skipping");
@@ -67,6 +67,7 @@ describe("cross-conformance: TS ↔ Rust produce byte-identical signed requests"
 
     const { priv } = await realKeypair();
     const gateway = "https://gateway.xb77.dev";
+    const nonce = crypto.getRandomValues(new Uint8Array(12));
 
     // TS side
     const tsReq = sdk.buildSignedRequest({
@@ -74,7 +75,8 @@ describe("cross-conformance: TS ↔ Rust produce byte-identical signed requests"
       action,
       payload,
       privkey: priv,
-      timestampUnix: ts,
+      timestampMs: ts,
+      nonce,
     });
 
     // Rust side: spawn the example binary, feed inputs via env.
@@ -88,6 +90,7 @@ describe("cross-conformance: TS ↔ Rust produce byte-identical signed requests"
           XB77_PRIV_HEX: toHex(priv),
           XB77_PAYLOAD: payload,
           XB77_TIMESTAMP: String(ts),
+          XB77_NONCE_HEX: toHex(nonce),
           XB77_ACTION: String(action),
           XB77_GATEWAY: gateway,
         },
