@@ -23,11 +23,21 @@ containers (agent, solana CLI, zk toolchain).
      podman run --rm xb77-solana solana airdrop 2 "$PUBKEY" --url devnet
    done
    ```
-5. **On-chain programs** built (`.so` files):
+5. **On-chain programs** built (`.so` files) — runs inside `xb77-solana` since
+   the host doesn't need a local Solana/Rust toolchain. The `-v "$PWD:/work:Z"`
+   bind-mount is bidirectional, so the `.so` and `*-keypair.json` files cargo
+   writes to `target/deploy/` end up on the **host** in the same path. The
+   demo's step 0 mounts the same volume and finds them there.
    ```bash
    for p in xb77_core xb77_gateway xb77_compression xb77_registry xb77_zk_verifier; do
-     (cd onchain/programs/$p && cargo build-sbf)
+     podman run --rm \
+       -v "$PWD:/work:Z" \
+       -w "/work/onchain/programs/$p" \
+       xb77-solana cargo build-sbf
    done
+   # Verify the artifacts landed on host:
+   ls onchain/programs/xb77_core/target/deploy/xb77_core.so \
+      onchain/programs/xb77_core/target/deploy/xb77_core-keypair.json
    ```
 
 ## Run
