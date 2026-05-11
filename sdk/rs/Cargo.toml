@@ -1,0 +1,26 @@
+[package]
+name = "xb77"
+version = "1.0.0"
+edition = "2021"
+description = "xB77 Sovereign Commerce Layer — Rust SDK (WASM core)"
+license = "MIT"
+repository = "https://github.com/xb77/xb77"
+keywords = ["xb77", "solana", "sdk", "wasm", "sovereign-commerce"]
+categories = ["api-bindings", "cryptography"]
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+wasmtime = { version = "26", default-features = false, features = ["cranelift", "runtime"] }
+wasmtime-wasi = "26"
+thiserror = "1"
+
+[dev-dependencies]
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand = "0.8"
+hex = "0.4"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
