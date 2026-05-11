@@ -94,7 +94,11 @@ function DocsPage() {
 
           <div style={{ padding: '32px 24px 0' }}>
             <div style={{ width: '100%', height: 1, background: t.border, marginBottom: 20 }}></div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: t.textDim, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 12 }}>RELATED</div>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: t.textDim, lineHeight: 1.8 }}>
+              <a href="/index.html#pitch" style={{ color: t.textDim, textDecoration: 'none', display: 'block', transition: 'color 0.2s' }}
+                onMouseEnter={e => e.target.style.color = t.accent}
+                onMouseLeave={e => e.target.style.color = t.textDim}>→ Pitch deck</a>
               <a href="/index.html#architecture" style={{ color: t.textDim, textDecoration: 'none', display: 'block', transition: 'color 0.2s' }}
                 onMouseEnter={e => e.target.style.color = t.accent}
                 onMouseLeave={e => e.target.style.color = t.textDim}>→ Architecture</a>

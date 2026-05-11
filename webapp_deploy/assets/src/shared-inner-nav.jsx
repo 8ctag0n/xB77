@@ -2,7 +2,6 @@
 
 const INNER_NAV_LINKS = [
   { label: 'Home', href: '/index.html#home' },
-  { label: 'Pitch', href: '/index.html#pitch' },
   { label: 'Why xB77', href: '/index.html#why' },
   { label: 'Architecture', href: '/index.html#architecture' },
   { label: 'Whitepaper', href: '/index.html#whitepaper' },
