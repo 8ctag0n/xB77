@@ -37,7 +37,8 @@ function useHashRoute() {
     "#docs": "docs",
     "#whitepaper": "whitepaper",
     "#why": "why",
-    "#changelog": "changelog"
+    "#changelog": "changelog",
+    "#network": "network"
   };
   return map[hash] || "home";
 }
@@ -77,6 +78,13 @@ function AppPage() {
   }
   return /* @__PURE__ */ React.createElement(View, null);
 }
+function NetworkPageWrap() {
+  const V = window.NetworkPage;
+  if (!V) {
+    return /* @__PURE__ */ React.createElement("div", { style: { padding: 80, fontFamily: "var(--mono)", color: "#9a9aaa" } }, "// network shell missing (page-network.js not loaded)");
+  }
+  return /* @__PURE__ */ React.createElement(V, null);
+}
 function CombinedApp() {
   const route = useHashRoute();
   React.useEffect(() => {
@@ -92,7 +100,8 @@ function CombinedApp() {
     docs: DocsPage,
     whitepaper: WhitepaperPage,
     why: WhyPage,
-    changelog: ChangelogPage
+    changelog: ChangelogPage,
+    network: NetworkPageWrap
   };
   const Page = pages[route] || LandingPage;
   return /* @__PURE__ */ React.createElement(Page, { key: route });

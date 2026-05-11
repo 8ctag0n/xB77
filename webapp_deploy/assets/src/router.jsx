@@ -36,7 +36,7 @@ function useHashRoute() {
   const map = {
     '': 'home', '#home': 'home',
     '#architecture': 'architecture', '#docs': 'docs', '#whitepaper': 'whitepaper',
-    '#why': 'why', '#changelog': 'changelog',
+    '#why': 'why', '#changelog': 'changelog', '#network': 'network',
   };
   return map[hash] || 'home';
 }
@@ -86,6 +86,14 @@ function AppPage() {
   return <View />;
 }
 
+function NetworkPageWrap() {
+  const V = window.NetworkPage;
+  if (!V) {
+    return <div style={{padding:80, fontFamily:'var(--mono)', color:'#9a9aaa'}}>// network shell missing (page-network.js not loaded)</div>;
+  }
+  return <V />;
+}
+
 
 /* ═══════════════════════════════════════════════════════════
    COMBINED ROUTER
@@ -105,7 +113,7 @@ function CombinedApp() {
   const pages = {
     home: LandingPage, app: AppPage,
     architecture: ArchPage, docs: DocsPage, whitepaper: WhitepaperPage,
-    why: WhyPage, changelog: ChangelogPage,
+    why: WhyPage, changelog: ChangelogPage, network: NetworkPageWrap,
   };
   const Page = pages[route] || LandingPage;
   return <Page key={route} />;
