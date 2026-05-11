@@ -138,6 +138,30 @@ pub fn build(b: *std.Build) void {
     const wasm_step = b.step("wasm", "Build the Gateway WASM binary for Cloudflare Workers");
     wasm_step.dependOn(&install_wasm.step);
 
+    // --- SDK Core WASM (xb77_core.wasm) ---
+    // Stateless SDK surface compiled to wasm32-wasi. Wrappers (TS/Py/Rust)
+    // polyfill the small set of WASI imports actually used. See
+    // docs/superpowers/specs/2026-05-11-sdk-wasm-core-deluxe-design.addendum.md §A.9
+    const sdk_wasm = b.addExecutable(.{
+        .name = "xb77_core",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("sdk/wasm/exports.zig"),
+            .target = wasm_target,
+            .optimize = .ReleaseSmall,
+            .strip = true,
+        }),
+    });
+    sdk_wasm.root_module.addImport("core", core_module);
+    sdk_wasm.entry = .disabled;
+    sdk_wasm.rdynamic = true;
+
+    const install_sdk_wasm = b.addInstallArtifact(sdk_wasm, .{
+        .dest_dir = .{ .override = .{ .custom = "bin" } },
+    });
+
+    const sdk_wasm_step = b.step("sdk-wasm", "Build the xB77 SDK core WASM (xb77_core.wasm)");
+    sdk_wasm_step.dependOn(&install_sdk_wasm.step);
+
     // --- Tests ---
     const crypto_unit_tests = b.addTest(.{
         .root_module = b.createModule(.{

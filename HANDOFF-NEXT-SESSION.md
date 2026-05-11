@@ -4,18 +4,24 @@
 > **Branch base**: `merge/onchain-deluxe` @ `6649a1e`
 > **Próxima rama de trabajo**: `feat/sdk-wasm-deluxe`
 > **Spec**: `docs/superpowers/specs/2026-05-11-sdk-wasm-core-deluxe-design.md`
+> **Addendum**: `docs/superpowers/specs/2026-05-11-sdk-wasm-core-deluxe-design.addendum.md` (decisiones lockeadas durante Fase 1: canonical bytes, error codes, length protocol, deuda explícita)
 > **Budget**: 9.5 horas (scope recortado v1.0 — ver §Scope decision 2026-05-11)
 > **Safety rollback**: tag `pre-sdk-wasm-deluxe-2026-05-11` (vive en `feat/docs-vitepress`)
 
 ## ⚠️ Scope decision 2026-05-11 (lockeada, no re-discutir)
 
-Hackathon budget total: 12 hrs. SDK v1.0 recortado a **Zig + TS únicamente**. Python y Rust wrappers van a **v1.1 post-hackathon** con ABI estable garantizada.
+Hackathon budget total: 12 hrs. SDK v1.0 incluye **Zig + TS + Rust**. Python y Go wrappers van a **v1.1 post-hackathon** con ABI estable garantizada.
 
-**Por qué**: prioridad de evaluador hackathon = "tocar el demo en vivo" > "pip install en 3 lenguajes". El TS wrapper cubre la webapp (único consumer crítico para demo). Python/Rust son nice-to-have.
+**Evolución del scope**:
+1. Inicial: 4 lenguajes (Zig+TS+Py+Rust), 15 hrs → no entraba en 12 hrs
+2. Recorte: Zig+TS, 9.5 hrs → Python+Rust+Go a v1.1
+3. Re-ampliación (post-Fase 6): Fase 1-2-3-6 cerraron en 2.5 hrs (vs 9.5 estimado) → bancamos meter Rust de vuelta
 
-**Trade-off aceptado**: announciamos "SDK modular Zig+TS day-1, Python+Rust coming soon con ABI estable" en vez de "4 lenguajes day-1".
+**Por qué Rust y NO Python en v1.0**: audiencia Solana es Rust-nativa; wasmtime-py tiene quirks identificadas en spec §10 (más riesgo). Go queda en v1.1 para audiencia infra/devops.
 
-**Horas liberadas (5.5h)**: van a cierre completo del proyecto — devnet deploy, CF deploy, rewrite commits, builds ReleaseSafe verificados, e2e final.
+**Trade-off aceptado**: "SDK day-1 en 3 lenguajes con cross-conformance byte-identical" — mensaje más fuerte que TS-only.
+
+**Safety check explícito**: si Rust wrapper supera 2 hrs, Python+Go quedan firmes en v1.1 sin culpa.
 
 ## Por qué este worktree
 
@@ -46,10 +52,11 @@ git checkout -b feat/sdk-wasm-deluxe
 | 2 | WASM build pipeline (`zig build wasm`) + ABI exports | 2 | v1.0 |
 | 3 | Wrapper TypeScript (reemplaza `bun:ffi` por `WebAssembly`) | 2 | v1.0 |
 | ~~4~~ | ~~Wrapper Python (`wasmtime-py`)~~ | ~~2~~ | **v1.1** |
-| ~~5~~ | ~~Wrapper Rust (`wasmtime` crate)~~ | ~~2~~ | **v1.1** |
-| 6 | Tests TS ↔ Zig native byte-identical + ejemplo e2e contra gateway local | 1 | v1.0 (reducido) |
-| 7 | Buffer + README del TS wrapper | 0.5 | v1.0 |
-| **Total v1.0** | | **9.5** | |
+| 5 | Wrapper Rust (`wasmtime` crate) | 2 | v1.0 (re-añadido) |
+| 6 | Tests + ejemplo e2e contra mock gateway (HTTP real, WebCrypto independiente) | 1 | v1.0 (reducido) |
+| 6b | Cross-conformance Zig native ↔ TS ↔ Rust byte-identical | 0.5 | v1.0 |
+| 7 | Buffer + READMEs (TS + Rust) | 0.5 | v1.0 |
+| **Total v1.0** | | **8** | |
 
 **Fallback si Fase 1 excede 5h**: scope cae a "AWP + keystore solamente"; `build_signed_request` se va a v1.1.
 

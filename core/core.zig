@@ -64,6 +64,10 @@ pub const chain = struct {
     pub const zk_uploader = @import("chain/zk_uploader.zig");
 };
 
+// --- SDK surface (WASM-safe, stateless) ---
+pub const keystore = @import("keystore/keystore.zig");
+pub const sdk_core = @import("sdk/sdk.zig");
+
 // --- LEGACY COMPATIBILITY LAYER (The "Designer's API") ---
 pub const awp = protocol.awp;
 pub const tx = protocol.tx;
