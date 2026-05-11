@@ -1,6 +1,29 @@
 /* xB77 dApp — Wallet/Treasury View */
 
 function WalletView() {
+  const [credits, setCredits] = React.useState(0);
+  const [tier, setTier] = React.useState('unauth');
+  const [claiming, setClaiming] = React.useState(false);
+  const [claimError, setClaimError] = React.useState(null);
+  const [creditsPulse, setCreditsPulse] = React.useState(false);
+
+  async function handleClaim() {
+    if (claiming) return;
+    setClaiming(true); setClaimError(null);
+    const proof = 'proof-stub-' + Date.now().toString(36);
+    try {
+      const data = await window.XB77Actions.claimCredits(proof);
+      setCredits(data.credits_after ?? credits);
+      if (data.new_tier) setTier(data.new_tier);
+      setCreditsPulse(true);
+      setTimeout(() => setCreditsPulse(false), 900);
+    } catch (e) {
+      setClaimError(e.message || 'claim failed');
+    } finally {
+      setClaiming(false);
+    }
+  }
+
   const balances = [
     { currency: 'USDC', amount: '14,240.00', usd: '$14,240.00', change: '+$820', pct: '+6.1%', color: D.accent },
     { currency: 'SOL', amount: '48.72', usd: '$8,107.20', change: '+$412', pct: '+5.3%', color: D.purple },
@@ -26,6 +49,34 @@ function WalletView() {
 
   return (
     <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
+      {/* Gateway credits row (CONTRACT v1) */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12,
+        padding: '10px 16px', background: D.bg2, border: `1px solid ${D.border}`,
+      }}>
+        <DM size={8} color={D.accent}>// CREDITS</DM>
+        <span style={{
+          fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600,
+          color: creditsPulse ? D.green : D.text,
+          transition: 'color .6s ease, transform .25s ease',
+          transform: creditsPulse ? 'scale(1.08)' : 'scale(1)', transformOrigin: 'left',
+        }}>{credits.toLocaleString()}</span>
+        <DM size={8}>tier</DM>
+        <Badge color={tier === 'unauth' ? D.dim : tier === 'free' ? D.cyan : tier === 'paid' ? D.green : D.accent}
+          bg={tier === 'unauth' ? `${D.dim}18` : tier === 'free' ? `${D.cyan}18` : tier === 'paid' ? `${D.green}18` : `${D.accent}18`}>
+          {tier}
+        </Badge>
+        {claimError && (
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: D.red, marginLeft: 8 }}>
+            claim: {claimError}
+          </span>
+        )}
+        <span style={{ flex: 1 }} />
+        <DBtn small primary onClick={handleClaim} disabled={claiming}>
+          {claiming ? '…CLAIMING' : 'CLAIM CREDITS'}
+        </DBtn>
+      </div>
+
       {/* Total balance */}
       <div style={{ marginBottom: 24, padding: '28px 32px', background: D.bg2, border: `1px solid ${D.border}` }}>
         <DM size={9}>TOTAL TREASURY</DM>

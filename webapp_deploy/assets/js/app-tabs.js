@@ -13,6 +13,28 @@ function _appParseHash() {
   if (tab && _APP_TABS.find((t) => t.id === tab)) return tab;
   return "agents";
 }
+function ConnectionPill() {
+  const [agentId, setAgentId] = _appUseState(() => window.XB77Actions?.keystore.agentId || null);
+  _appUseEffect(() => {
+    const onConn = (ev) => setAgentId(ev?.detail?.agent_id || window.XB77Actions?.keystore.agentId || null);
+    window.addEventListener("xb77:connected", onConn);
+    return () => window.removeEventListener("xb77:connected", onConn);
+  }, []);
+  const open = () => window.dispatchEvent(new CustomEvent("xb77:open-keystore"));
+  const connected = !!agentId;
+  return /* @__PURE__ */ React.createElement("button", { onClick: open, title: connected ? "Manage keystore" : "Connect agent", style: {
+    fontFamily: "var(--mono)",
+    fontSize: 10,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
+    padding: "6px 12px",
+    background: connected ? "rgba(127,191,63,0.12)" : "transparent",
+    color: connected ? "var(--green, #7fbf3f)" : "var(--accent, #c97a3a)",
+    border: `1px solid ${connected ? "rgba(127,191,63,0.4)" : "var(--accent, #c97a3a)"}`,
+    cursor: "pointer",
+    whiteSpace: "nowrap"
+  } }, connected ? `\u25CF ${agentId.slice(0, 14)}\u2026` : "\u25CB Connect");
+}
 function AppView() {
   const [active, setActive] = _appUseState(_appParseHash() || "agents");
   _appUseEffect(() => {
@@ -23,6 +45,12 @@ function AppView() {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, [active]);
+  _appUseEffect(() => {
+    if (window.XB77Actions && !window.XB77Actions.keystore.hasAgent()) {
+      const t = setTimeout(() => window.dispatchEvent(new CustomEvent("xb77:open-keystore")), 600);
+      return () => clearTimeout(t);
+    }
+  }, []);
   const setTab = (id) => {
     if (id === active) return;
     window.location.hash = `#app/${id}`;
@@ -65,7 +93,7 @@ function AppView() {
       }
     },
     "\u2190 xb77.io"
-  ), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 18 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 11, color: "var(--text-soft)", letterSpacing: "0.1em", marginBottom: 4 } }, "// APP"), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: "var(--serif)", fontSize: "clamp(1.5rem,3.5vw,2.4rem)", margin: 0, color: "var(--text)", lineHeight: 1.1, fontStyle: "italic" } }, "Sovereign commerce surface."), /* @__PURE__ */ React.createElement("p", { style: { color: "var(--text-soft)", marginTop: 6, fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.04em" } }, "wallet / agents / pipelines / mesh / explorer \u2014 one origin.")), /* @__PURE__ */ React.createElement("div", { role: "tablist", "aria-label": "App sections", style: {
+  ), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 18, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 11, color: "var(--text-soft)", letterSpacing: "0.1em", marginBottom: 4 } }, "// APP"), /* @__PURE__ */ React.createElement("h1", { style: { fontFamily: "var(--serif)", fontSize: "clamp(1.5rem,3.5vw,2.4rem)", margin: 0, color: "var(--text)", lineHeight: 1.1, fontStyle: "italic" } }, "Sovereign commerce surface."), /* @__PURE__ */ React.createElement("p", { style: { color: "var(--text-soft)", marginTop: 6, fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.04em" } }, "wallet / agents / pipelines / mesh / explorer \u2014 one origin.")), /* @__PURE__ */ React.createElement(ConnectionPill, null)), /* @__PURE__ */ React.createElement("div", { role: "tablist", "aria-label": "App sections", style: {
     display: "flex",
     gap: 0,
     borderBottom: "1px solid var(--border-soft)",
@@ -99,6 +127,6 @@ function AppView() {
       },
       t.label
     );
-  })), /* @__PURE__ */ React.createElement("div", { role: "tabpanel", style: { position: "relative" } }, renderTab())));
+  })), /* @__PURE__ */ React.createElement("div", { role: "tabpanel", style: { position: "relative" } }, renderTab())), window.KeystoreModal ? React.createElement(window.KeystoreModal) : null);
 }
 window._AppView = AppView;

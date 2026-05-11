@@ -1,30 +1,66 @@
 /* xB77 dApp — Agents View */
 
+const AGENTS_SEED = [
+  { id: 'ag_swarm_lead_0x9c4f', name: 'cfo-alpha', type: 'SWARM LEAD', status: 'online', risk: 'MODERATE',
+    governance: 'AUTONOMOUS', humanOverride: '$10k', txns: 18, pnl: '+$412.30', balance: '$8,240',
+    currencies: ['USDC', 'SOL', 'EURC'], pipeline: 'pipe_sw_001', uptime: '99.7%',
+    color: D.accent, workers: 4, lastAction: 'Swap 240 USDC → SOL (2m ago)' },
+  { id: 'ag_worker_01_0x1a2b', name: 'ag_worker_01', type: 'TREASURY', status: 'online', risk: 'LOW',
+    governance: 'LEAD-CONTROLLED', txns: 12, pnl: '+$201.50', balance: '$4,100',
+    currencies: ['USDC'], pipeline: 'pipe_sw_001', uptime: '99.9%',
+    color: D.green, lastAction: 'Rebalance complete (8m ago)' },
+  { id: 'ag_worker_02_0x3c4d', name: 'ag_worker_02', type: 'TRADING', status: 'online', risk: 'MODERATE',
+    governance: 'LEAD-CONTROLLED', txns: 9, pnl: '+$87.20', balance: '$2,400',
+    currencies: ['USDC', 'SOL'], pipeline: 'pipe_lp_002', uptime: '98.2%',
+    color: D.cyan, lastAction: 'Opened position 500 USDC (15m ago)' },
+  { id: 'ag_worker_03_0x5e6f', name: 'ag_worker_03', type: 'PAYMENTS', status: 'online', risk: 'LOW',
+    governance: 'LEAD-CONTROLLED', txns: 6, pnl: '-$12.00', balance: '$1,850',
+    currencies: ['USDC', 'EURC'], pipeline: 'pipe_hy_003', uptime: '99.5%',
+    color: D.purple, lastAction: 'Payment to Café Sovereign (1h ago)' },
+  { id: 'ag_worker_04_0x7g8h', name: 'ag_worker_04', type: 'RECON', status: 'idle', risk: 'NONE',
+    governance: 'LEAD-CONTROLLED', txns: 2, pnl: '$0.00', balance: '$0',
+    currencies: [], pipeline: 'none', uptime: '97.1%',
+    color: D.amber, lastAction: 'Scanned 4 merchants (30m ago)' },
+];
+
+const _agRandHex = (n) => {
+  const a = new Uint8Array(n);
+  (crypto || window.crypto).getRandomValues(a);
+  return Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
+};
+
+const _CHILD_COLORS = [];
+function _nextChildColor() {
+  const palette = [D.cyan, D.purple, D.green, D.amber, D.accent];
+  return palette[_CHILD_COLORS.length++ % palette.length];
+}
+
 function AgentsView({ onNavigate }) {
   const [selected, setSelected] = React.useState(null);
+  const [agents, setAgents] = React.useState(AGENTS_SEED);
+  const [deploying, setDeploying] = React.useState(false);
+  const [deployError, setDeployError] = React.useState(null);
 
-  const agents = [
-    { id: 'ag_swarm_lead_0x9c4f', name: 'cfo-alpha', type: 'SWARM LEAD', status: 'online', risk: 'MODERATE',
-      governance: 'AUTONOMOUS', humanOverride: '$10k', txns: 18, pnl: '+$412.30', balance: '$8,240',
-      currencies: ['USDC', 'SOL', 'EURC'], pipeline: 'pipe_sw_001', uptime: '99.7%',
-      color: D.accent, workers: 4, lastAction: 'Swap 240 USDC → SOL (2m ago)' },
-    { id: 'ag_worker_01_0x1a2b', name: 'ag_worker_01', type: 'TREASURY', status: 'online', risk: 'LOW',
-      governance: 'LEAD-CONTROLLED', txns: 12, pnl: '+$201.50', balance: '$4,100',
-      currencies: ['USDC'], pipeline: 'pipe_sw_001', uptime: '99.9%',
-      color: D.green, lastAction: 'Rebalance complete (8m ago)' },
-    { id: 'ag_worker_02_0x3c4d', name: 'ag_worker_02', type: 'TRADING', status: 'online', risk: 'MODERATE',
-      governance: 'LEAD-CONTROLLED', txns: 9, pnl: '+$87.20', balance: '$2,400',
-      currencies: ['USDC', 'SOL'], pipeline: 'pipe_lp_002', uptime: '98.2%',
-      color: D.cyan, lastAction: 'Opened position 500 USDC (15m ago)' },
-    { id: 'ag_worker_03_0x5e6f', name: 'ag_worker_03', type: 'PAYMENTS', status: 'online', risk: 'LOW',
-      governance: 'LEAD-CONTROLLED', txns: 6, pnl: '-$12.00', balance: '$1,850',
-      currencies: ['USDC', 'EURC'], pipeline: 'pipe_hy_003', uptime: '99.5%',
-      color: D.purple, lastAction: 'Payment to Café Sovereign (1h ago)' },
-    { id: 'ag_worker_04_0x7g8h', name: 'ag_worker_04', type: 'RECON', status: 'idle', risk: 'NONE',
-      governance: 'LEAD-CONTROLLED', txns: 2, pnl: '$0.00', balance: '$0',
-      currencies: [], pipeline: 'none', uptime: '97.1%',
-      color: D.amber, lastAction: 'Scanned 4 merchants (30m ago)' },
-  ];
+  async function handleDeployChild() {
+    if (deploying) return;
+    setDeploying(true); setDeployError(null);
+    const pubkey = _agRandHex(32);
+    try {
+      const data = await window.XB77Actions.registerAgent(pubkey, 'merchant');
+      const aid = data.agent_id || `ag_child_${pubkey.slice(0, 8)}`;
+      const color = _nextChildColor();
+      setAgents((prev) => [{
+        id: aid, name: aid.slice(0, 16), type: 'CHILD', status: 'online', risk: 'LOW',
+        governance: 'LEAD-CONTROLLED', txns: 0, pnl: '$0.00', balance: '$0',
+        currencies: [], pipeline: 'none', uptime: '100%',
+        color, lastAction: `Registered as child (just now)`,
+      }, ...prev]);
+    } catch (e) {
+      setDeployError(e.message || 'register failed');
+    } finally {
+      setDeploying(false);
+    }
+  }
 
   const sel = agents.find(a => a.id === selected);
 
@@ -34,8 +70,15 @@ function AgentsView({ onNavigate }) {
       <div style={{ width: 360, borderRight: `1px solid ${D.border}`, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${D.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <DS size={20} italic>Agents</DS>
-          <DBtn small primary>+ NEW AGENT</DBtn>
+          <DBtn small primary onClick={handleDeployChild} disabled={deploying}>
+            {deploying ? '…DEPLOYING' : '+ NEW AGENT'}
+          </DBtn>
         </div>
+        {deployError && (
+          <div style={{ padding: '6px 20px', background: `${D.red}18`, borderBottom: `1px solid ${D.border}`, fontFamily: 'var(--mono)', fontSize: 10, color: D.red }}>
+            register_agent: {deployError}
+          </div>
+        )}
 
         {/* Swarm indicator */}
         <div style={{ padding: '12px 20px', borderBottom: `1px solid ${D.border}`, background: D.bg2 }}>

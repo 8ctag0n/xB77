@@ -1,4 +1,26 @@
 function WalletView() {
+  const [credits, setCredits] = React.useState(0);
+  const [tier, setTier] = React.useState("unauth");
+  const [claiming, setClaiming] = React.useState(false);
+  const [claimError, setClaimError] = React.useState(null);
+  const [creditsPulse, setCreditsPulse] = React.useState(false);
+  async function handleClaim() {
+    if (claiming) return;
+    setClaiming(true);
+    setClaimError(null);
+    const proof = "proof-stub-" + Date.now().toString(36);
+    try {
+      const data = await window.XB77Actions.claimCredits(proof);
+      setCredits(data.credits_after ?? credits);
+      if (data.new_tier) setTier(data.new_tier);
+      setCreditsPulse(true);
+      setTimeout(() => setCreditsPulse(false), 900);
+    } catch (e) {
+      setClaimError(e.message || "claim failed");
+    } finally {
+      setClaiming(false);
+    }
+  }
   const balances = [
     { currency: "USDC", amount: "14,240.00", usd: "$14,240.00", change: "+$820", pct: "+6.1%", color: D.accent },
     { currency: "SOL", amount: "48.72", usd: "$8,107.20", change: "+$412", pct: "+5.3%", color: D.purple },
@@ -19,7 +41,30 @@ function WalletView() {
     { time: "13:15", desc: "Trading profit", amount: "+$201.50", type: "IN" },
     { time: "12:50", desc: "Deposit from external", amount: "+$5,000.00", type: "IN" }
   ];
-  return /* @__PURE__ */ React.createElement("div", { style: { padding: 24, overflowY: "auto", flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 24, padding: "28px 32px", background: D.bg2, border: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement(DM, { size: 9 }, "TOTAL TREASURY"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 16, marginTop: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--serif)", fontSize: 48, fontWeight: 400, color: D.text, fontStyle: "italic" } }, "$25,097"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 13, color: D.green } }, "+$1,182 today (+4.9%)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 16 } }, /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true }, "DEPOSIT"), /* @__PURE__ */ React.createElement(DBtn, { small: true }, "WITHDRAW"), /* @__PURE__ */ React.createElement(DBtn, { small: true }, "ALLOCATE"))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SectionHead, { title: "Balances" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, balances.map((b, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: 24, overflowY: "auto", flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: {
+    display: "flex",
+    alignItems: "center",
+    gap: 14,
+    marginBottom: 12,
+    padding: "10px 16px",
+    background: D.bg2,
+    border: `1px solid ${D.border}`
+  } }, /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.accent }, "// CREDITS"), /* @__PURE__ */ React.createElement("span", { style: {
+    fontFamily: "var(--mono)",
+    fontSize: 14,
+    fontWeight: 600,
+    color: creditsPulse ? D.green : D.text,
+    transition: "color .6s ease, transform .25s ease",
+    transform: creditsPulse ? "scale(1.08)" : "scale(1)",
+    transformOrigin: "left"
+  } }, credits.toLocaleString()), /* @__PURE__ */ React.createElement(DM, { size: 8 }, "tier"), /* @__PURE__ */ React.createElement(
+    Badge,
+    {
+      color: tier === "unauth" ? D.dim : tier === "free" ? D.cyan : tier === "paid" ? D.green : D.accent,
+      bg: tier === "unauth" ? `${D.dim}18` : tier === "free" ? `${D.cyan}18` : tier === "paid" ? `${D.green}18` : `${D.accent}18`
+    },
+    tier
+  ), claimError && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 9, color: D.red, marginLeft: 8 } }, "claim: ", claimError), /* @__PURE__ */ React.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true, onClick: handleClaim, disabled: claiming }, claiming ? "\u2026CLAIMING" : "CLAIM CREDITS")), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 24, padding: "28px 32px", background: D.bg2, border: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement(DM, { size: 9 }, "TOTAL TREASURY"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 16, marginTop: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--serif)", fontSize: 48, fontWeight: 400, color: D.text, fontStyle: "italic" } }, "$25,097"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 13, color: D.green } }, "+$1,182 today (+4.9%)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 16 } }, /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true }, "DEPOSIT"), /* @__PURE__ */ React.createElement(DBtn, { small: true }, "WITHDRAW"), /* @__PURE__ */ React.createElement(DBtn, { small: true }, "ALLOCATE"))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SectionHead, { title: "Balances" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, balances.map((b, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
     display: "flex",
     alignItems: "center",
     gap: 14,

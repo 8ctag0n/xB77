@@ -18,6 +18,29 @@ function _appParseHash() {
   return 'agents';
 }
 
+function ConnectionPill() {
+  const [agentId, setAgentId] = _appUseState(() => (window.XB77Actions?.keystore.agentId) || null);
+  _appUseEffect(() => {
+    const onConn = (ev) => setAgentId(ev?.detail?.agent_id || window.XB77Actions?.keystore.agentId || null);
+    window.addEventListener('xb77:connected', onConn);
+    return () => window.removeEventListener('xb77:connected', onConn);
+  }, []);
+  const open = () => window.dispatchEvent(new CustomEvent('xb77:open-keystore'));
+  const connected = !!agentId;
+  return (
+    <button onClick={open} title={connected ? 'Manage keystore' : 'Connect agent'} style={{
+      fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+      padding: '6px 12px',
+      background: connected ? 'rgba(127,191,63,0.12)' : 'transparent',
+      color: connected ? 'var(--green, #7fbf3f)' : 'var(--accent, #c97a3a)',
+      border: `1px solid ${connected ? 'rgba(127,191,63,0.4)' : 'var(--accent, #c97a3a)'}`,
+      cursor: 'pointer', whiteSpace: 'nowrap',
+    }}>
+      {connected ? `● ${agentId.slice(0, 14)}…` : '○ Connect'}
+    </button>
+  );
+}
+
 function AppView() {
   const [active, setActive] = _appUseState(_appParseHash() || 'agents');
 
@@ -29,6 +52,13 @@ function AppView() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, [active]);
+
+  _appUseEffect(() => {
+    if (window.XB77Actions && !window.XB77Actions.keystore.hasAgent()) {
+      const t = setTimeout(() => window.dispatchEvent(new CustomEvent('xb77:open-keystore')), 600);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   const setTab = (id) => {
     if (id === active) return;
@@ -68,14 +98,17 @@ function AppView() {
           onMouseEnter={e => { e.target.style.color = 'var(--accent)'; }}
           onMouseLeave={e => { e.target.style.color = 'var(--text-soft)'; }}
         >← xb77.io</a>
-        <div style={{marginBottom:18}}>
-          <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--text-soft)', letterSpacing:'0.1em', marginBottom:4}}>// APP</div>
-          <h1 style={{fontFamily:'var(--serif)', fontSize:'clamp(1.5rem,3.5vw,2.4rem)', margin:0, color:'var(--text)', lineHeight:1.1, fontStyle:'italic'}}>
-            Sovereign commerce surface.
-          </h1>
-          <p style={{color:'var(--text-soft)', marginTop:6, fontFamily:'var(--mono)', fontSize:11, letterSpacing:'0.04em'}}>
-            wallet / agents / pipelines / mesh / explorer — one origin.
-          </p>
+        <div style={{marginBottom:18, display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16}}>
+          <div>
+            <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--text-soft)', letterSpacing:'0.1em', marginBottom:4}}>// APP</div>
+            <h1 style={{fontFamily:'var(--serif)', fontSize:'clamp(1.5rem,3.5vw,2.4rem)', margin:0, color:'var(--text)', lineHeight:1.1, fontStyle:'italic'}}>
+              Sovereign commerce surface.
+            </h1>
+            <p style={{color:'var(--text-soft)', marginTop:6, fontFamily:'var(--mono)', fontSize:11, letterSpacing:'0.04em'}}>
+              wallet / agents / pipelines / mesh / explorer — one origin.
+            </p>
+          </div>
+          <ConnectionPill />
         </div>
 
         <div role="tablist" aria-label="App sections" style={{
@@ -117,6 +150,7 @@ function AppView() {
           {renderTab()}
         </div>
       </div>
+      {window.KeystoreModal ? React.createElement(window.KeystoreModal) : null}
     </div>
   );
 }

@@ -79,7 +79,7 @@ const TCell = ({ children, color, mono, align, style: s }) => /* @__PURE__ */ Re
   gap: 6,
   ...s
 } }, children);
-const DBtn = ({ children, primary, small, danger, onClick, style: s }) => /* @__PURE__ */ React.createElement("button", { onClick, style: {
+const DBtn = ({ children, primary, small, danger, onClick, disabled, style: s }) => /* @__PURE__ */ React.createElement("button", { onClick, disabled, style: {
   fontFamily: "var(--mono)",
   fontSize: small ? 9 : 10,
   fontWeight: 600,
@@ -89,7 +89,8 @@ const DBtn = ({ children, primary, small, danger, onClick, style: s }) => /* @__
   color: danger ? D.red : primary ? D.bg : D.text,
   border: primary ? "none" : `1px solid ${danger ? "rgba(248,113,113,0.3)" : D.border}`,
   padding: small ? "5px 10px" : "8px 16px",
-  cursor: "pointer",
+  cursor: disabled ? "not-allowed" : "pointer",
+  opacity: disabled ? 0.5 : 1,
   transition: "all 0.2s",
   ...s
 } }, children);

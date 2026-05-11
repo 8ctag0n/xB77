@@ -82,12 +82,44 @@
     }
   }
 
+  // Rate-limit telemetry: drives debug-strip + rate-limit-toast.
+  const RL_NUM = { "X-RateLimit-Limit": "limit", "X-RateLimit-Remaining": "remaining", "X-RateLimit-Reset": "reset", "X-RateLimit-Cost": "cost" };
+  if (typeof window !== "undefined" && !window.__xb77RateLimit) {
+    window.__xb77RateLimit = { tier: null, limit: null, remaining: null, reset: null, cost: null, lastUpdatedAt: 0, last429: null };
+  }
+
+  function captureRateLimit(h) {
+    if (typeof window === "undefined" || !h) return;
+    const rl = window.__xb77RateLimit;
+    const tier = h.get("X-RateLimit-Tier");
+    if (tier) rl.tier = tier;
+    for (const k in RL_NUM) { const v = h.get(k); if (v != null) rl[RL_NUM[k]] = Number(v); }
+    rl.lastUpdatedAt = Date.now();
+  }
+
+  function note429(h) {
+    if (typeof window === "undefined") return;
+    const ra = h && h.get("Retry-After");
+    const detail = { retryAfterMs: ra ? Number(ra) * 1000 : null, at: Date.now() };
+    window.__xb77RateLimit.last429 = detail;
+    try { window.dispatchEvent(new CustomEvent("xb77:rate-limited", { detail })); } catch {}
+  }
+
   // ── HTTP with hard timeout ─────────────────────────────────────────────
   async function httpGet(url) {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS);
     try {
-      const r = await fetch(url, { signal: ctl.signal, mode: "cors" });
+      const r = await fetch(url, {
+        signal: ctl.signal,
+        mode: "cors",
+        headers: { "X-API-Version": "v1" },
+      });
+      captureRateLimit(r.headers);
+      if (r.status === 429) {
+        note429(r.headers);
+        return null;
+      }
       if (!r.ok) return null;
       return await r.json();
     } catch {
@@ -101,10 +133,50 @@
     return (typeof window !== "undefined" && window.XB77_GATEWAY) || GATEWAY_DEFAULT;
   }
 
+  // ── Shape normalizers: contract v1 → legacy UI field names ────────────
+  // Contract uses snake_case + agent_id/duration_ms/started_at.
+  // The webapp views still read id/duration/startedAt, so we adapt at the
+  // boundary instead of touching every view. Snapshot uses legacy shape and
+  // passes through unchanged.
+  const NORMALIZERS = {
+    agents(raw) {
+      if (!raw || !Array.isArray(raw.agents)) return raw;
+      return {
+        agents: raw.agents.map((a) => ({
+          id: a.id || a.agent_id,
+          pubkey: a.pubkey,
+          status: a.status || (a.last_seen_ms_ago > 60_000 ? "idle" : "online"),
+          // Contract doesn't surface these — fall back to 0 / 1 so the UI
+          // renders without ?? cascades everywhere.
+          pipelines: a.pipelines ?? 0,
+          uptime: a.uptime ?? 1,
+          tier: a.tier,
+          intent_hint: a.intent_hint,
+          registered_at: a.registered_at,
+        })),
+      };
+    },
+    pipelines(raw) {
+      if (!raw || !Array.isArray(raw.pipelines)) return raw;
+      return {
+        pipelines: raw.pipelines.map((p) => ({
+          id: p.id,
+          agent: p.agent,
+          chunks: p.chunks,
+          status: p.status,
+          verdict: p.verdict,
+          duration: p.duration ?? p.duration_ms,
+          startedAt: p.startedAt ?? p.started_at,
+        })),
+      };
+    },
+  };
+
   // ── Core: try live → cached → snapshot ─────────────────────────────────
-  async function resolve(cacheKey, path, snapshotFactory) {
+  async function resolve(cacheKey, path, snapshotFactory, normalize) {
     const url = `${gateway()}${path}`;
-    const live = await httpGet(url);
+    const rawLive = await httpGet(url);
+    const live = rawLive && normalize ? normalize(rawLive) : rawLive;
     if (live) {
       cachePut(cacheKey, live);
       return wrap(live, "live", 0);
@@ -133,7 +205,7 @@
   // ── Public API ─────────────────────────────────────────────────────────
   const DataSource = {
     networkPulse() {
-      return resolve("networkPulse", "/api/network/pulse", SNAPSHOT.networkPulse);
+      return resolve("networkPulse", "/api/v1/network/pulse", SNAPSHOT.networkPulse);
     },
 
     auditTx(hash) {
@@ -143,18 +215,28 @@
       }
       return resolve(
         `audit.${safe}`,
-        `/api/audit/${encodeURIComponent(safe)}`,
+        `/api/v1/network/audit?tx=${encodeURIComponent(safe)}`,
         () => SNAPSHOT.audit(safe),
       );
     },
 
     agents() {
-      return resolve("agents", "/api/agents", SNAPSHOT.agents);
+      return resolve(
+        "agents",
+        "/api/v1/agents/fleet?limit=50",
+        SNAPSHOT.agents,
+        NORMALIZERS.agents,
+      );
     },
 
     pipelinesRecent(n = 5) {
       const count = Math.max(1, Math.min(50, Number(n) || 5));
-      return resolve(`pipelines.${count}`, `/api/pipelines/recent?n=${count}`, SNAPSHOT.pipelinesRecent);
+      return resolve(
+        `pipelines.${count}`,
+        `/api/v1/pipelines/recent?limit=${count}`,
+        SNAPSHOT.pipelinesRecent,
+        NORMALIZERS.pipelines,
+      );
     },
 
     /**

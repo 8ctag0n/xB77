@@ -97,14 +97,16 @@ const TCell = ({ children, color, mono, align, style: s }) => (
 );
 
 /* ── Button ── */
-const DBtn = ({ children, primary, small, danger, onClick, style: s }) => (
-  <button onClick={onClick} style={{
+const DBtn = ({ children, primary, small, danger, onClick, disabled, style: s }) => (
+  <button onClick={onClick} disabled={disabled} style={{
     fontFamily: 'var(--mono)', fontSize: small ? 9 : 10, fontWeight: 600,
     letterSpacing: '0.08em', textTransform: 'uppercase',
     background: danger ? 'rgba(248,113,113,0.15)' : primary ? D.accent : 'transparent',
     color: danger ? D.red : primary ? D.bg : D.text,
     border: primary ? 'none' : `1px solid ${danger ? 'rgba(248,113,113,0.3)' : D.border}`,
-    padding: small ? '5px 10px' : '8px 16px', cursor: 'pointer',
+    padding: small ? '5px 10px' : '8px 16px',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
     transition: 'all 0.2s', ...s,
   }}>{children}</button>
 );

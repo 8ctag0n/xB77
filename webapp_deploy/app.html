@@ -425,6 +425,7 @@ window._ExAgentsView = window.AgentsView;
 <script src="assets/js/dapp-agents.js"></script>
 <script src="assets/js/dapp-pipelines.js"></script>
 <script src="assets/js/dapp-wallet.js"></script>
+<script src="assets/js/dapp-keystore-modal.js"></script>
 
 <!-- /app shell + Explorer-as-a-tab (must come after dapp + after _ExPipelinesView bridge) -->
 <script src="assets/js/explorer-tab.js"></script>
@@ -433,6 +434,9 @@ window._ExAgentsView = window.AgentsView;
 <!-- Data infra (W3): gateway adapter + DataSource client + /network page -->
 <script>window.XB77_GATEWAY = window.XB77_GATEWAY || "http://127.0.0.1:8787";</script>
 <script src="assets/js/lib/data-source.js"></script>
+<script src="assets/js/lib/dapp-actions.js"></script>
+<script src="assets/js/lib/rate-limit-toast.js"></script>
+<script src="assets/js/lib/debug-strip.js"></script>
 <script src="assets/js/page-network.js"></script>
 
 <!-- Theme toggle (must load before router) -->
