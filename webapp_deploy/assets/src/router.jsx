@@ -45,32 +45,10 @@ function useHashRoute() {
    LANDING PAGE
    ═══════════════════════════════════════════════════════════ */
 function LandingPage() {
-  const [variant, setVariant] = React.useState('obsidian');
-  const t = THEMES[variant];
-  const VMap = { obsidian: ObsidianVariant, deepsignal: DeepSignalVariant, cipher: CipherVariant };
-  const V = VMap[variant] || ObsidianVariant;
-
+  const t = THEMES.obsidian;
   return (
-    <div style={{ background: t.bg, minHeight: '100vh', transition: 'background 0.3s' }}>
-      <V key={variant} theme={variant} />
-      {/* Variant switcher */}
-      <div style={{
-        position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
-        display: 'flex', overflow: 'hidden',
-        border: `1px solid ${t.border}`, background: 'rgba(0,0,0,0.85)',
-        backdropFilter: 'blur(12px)',
-      }}>
-        {['obsidian', 'deepsignal', 'cipher'].map(v => (
-          <button key={v} onClick={() => setVariant(v)} style={{
-            fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 600,
-            letterSpacing: '0.06em', textTransform: 'uppercase',
-            background: variant === v ? t.accent : 'transparent',
-            color: variant === v ? t.bg : t.textDim,
-            border: 'none', padding: '10px 14px', cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}>{v === 'deepsignal' ? 'Signal' : v}</button>
-        ))}
-      </div>
+    <div style={{ background: t.bg, minHeight: '100vh' }}>
+      <ObsidianVariant theme="obsidian" />
     </div>
   );
 }

@@ -36,10 +36,19 @@ copy_lib() {
   fi
 }
 
+# Clean derived output so deleted sources don't leave orphan .js files.
+# assets/js/ is fully regenerated from assets/src/ on every build.
+clean_out() {
+  rm -f assets/js/*.js
+  rm -f assets/js/lib/*.js
+}
+
 if [[ "${1:-}" == "--watch" ]]; then
+  clean_out
   copy_lib
   exec bunx esbuild "${ARGS[@]}" --watch
 fi
 
+clean_out
 bunx esbuild "${ARGS[@]}"
 copy_lib
