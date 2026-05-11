@@ -246,10 +246,12 @@ step_4_prove() {
 
   # ENTRYPOINT is /usr/local/bin/zk-bridge, which reads Nargo.toml from CWD.
   # Mount the package dir directly and pass only the subcommand.
+  # Filter the well-known noisy "Redundant call to finalize_circuit" warning
+  # from bb (Barretenberg) without hiding real errors.
   run_cmd podman run --rm \
     -v "$REPO_ROOT/circuits/zk_receipt:/work:Z" \
     -w /work \
-    xb77-zk prove
+    xb77-zk prove 2>&1 | grep -v -E '^(WARNING: Redundant call to finalize_circuit|minimum_circuit_size: |num_filled_gates: )'
 
   if [[ "$DRY_RUN" == "1" ]]; then return 0; fi
 
