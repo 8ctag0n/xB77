@@ -196,3 +196,20 @@ step_6_logs() {
 step_7_test() {
   run_cmd zig build test --summary all
 }
+
+cleanup() {
+  local rc=$?
+  log_step "cleanup"
+  if podman ps --format '{{.Names}}' 2>/dev/null | grep -q '^xb77-agent-demo$'; then
+    run_cmd podman stop xb77-agent-demo >/dev/null 2>&1 || true
+    run_cmd podman rm   xb77-agent-demo >/dev/null 2>&1 || true
+    log_ok "removed xb77-agent-demo container"
+  fi
+  [[ -S /tmp/xb77_znode.sock ]] && rm -f /tmp/xb77_znode.sock 2>/dev/null || true
+  if (( rc == 0 )); then
+    log_ok "demo complete — exit 0"
+  else
+    log_error "demo aborted — exit $rc"
+  fi
+  exit "$rc"
+}

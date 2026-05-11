@@ -72,6 +72,8 @@ while [[ $# -gt 0 ]]; do
 done
 export DRY_RUN CLUSTER PAYER
 
+trap cleanup EXIT INT TERM
+
 log_info "cluster=$CLUSTER  runner=$RUNNER  dry_run=$DRY_RUN  payer=$PAYER"
 
 if [[ "$DRY_RUN" == "1" ]]; then
@@ -96,4 +98,3 @@ dispatch_step "STEP 6/7 — solana logs (verifier, 10s)" \
 dispatch_step "STEP 7/7 — zig build test (in-process health)" \
   "zig build test --summary all" \
   step_7_test
-log_ok "demo_deluxe runner wiring OK"
