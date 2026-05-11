@@ -102,15 +102,16 @@ function MerchantsView({ data, search, onSelect }) {
   });
   return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, padding: "14px 0", flexWrap: "wrap" } }, cats.map((c) => /* @__PURE__ */ React.createElement(FilterChip, { key: c, label: c, active: catFilter === c, onClick: () => setCatFilter(c) }))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1, background: T.border } }, filtered.map((m, i) => {
     const [h, setH] = React.useState(false);
+    const rowEven = Math.floor(i / 2) % 2 === 1;
     return /* @__PURE__ */ React.createElement(
       "div",
       {
         key: m.id,
         style: {
-          background: h ? T.cardHover : T.bg,
+          background: h ? T.cardHover : rowEven ? T.bg3 : T.bg2,
           padding: "24px 22px",
           cursor: "pointer",
-          transition: "background 0.2s"
+          transition: "background 0.28s ease"
         },
         onMouseEnter: () => setH(true),
         onMouseLeave: () => setH(false),
@@ -129,15 +130,16 @@ function AgentsRichView({ data, search, onSelect }) {
   const filtered = data.filter((a) => !search || a.name.toLowerCase().includes(search.toLowerCase()));
   return /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1, background: T.border, marginTop: 12 } }, filtered.map((a, i) => {
     const [h, setH] = React.useState(false);
+    const rowEven = Math.floor(i / 2) % 2 === 1;
     return /* @__PURE__ */ React.createElement(
       "div",
       {
         key: a.name,
         style: {
-          background: h ? T.cardHover : T.bg,
+          background: h ? T.cardHover : rowEven ? T.bg3 : T.bg2,
           padding: "24px 22px",
           cursor: "pointer",
-          transition: "background 0.2s"
+          transition: "background 0.28s ease"
         },
         onMouseEnter: () => setH(true),
         onMouseLeave: () => setH(false),

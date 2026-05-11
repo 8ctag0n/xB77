@@ -310,8 +310,8 @@ function DashboardView() {
             <DM size={8} color={D.text}>LIVE FEED</DM>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
-            {events.map(ev => (
-              <EventLine key={ev.id} time={ev.time} icon={ev.icon} text={ev.text} color={ev.color} isNew />
+            {events.map((ev, i) => (
+              <EventLine key={ev.id} idx={i} time={ev.time} icon={ev.icon} text={ev.text} color={ev.color} isNew />
             ))}
           </div>
         </div>

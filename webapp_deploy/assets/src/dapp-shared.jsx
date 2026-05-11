@@ -65,9 +65,11 @@ const Spark = ({ data, color, height }) => {
 };
 
 /* ── Event line (live feed) ── */
-const EventLine = ({ time, icon, text, color, isNew }) => (
+const EventLine = ({ time, icon, text, color, isNew, idx }) => (
   <div style={{
-    display: 'flex', gap: 10, padding: '8px 0',
+    display: 'flex', gap: 10, padding: '8px 10px',
+    margin: '0 -10px',
+    background: typeof idx === 'number' && idx % 2 === 1 ? D.bg3 : 'transparent',
     borderBottom: `1px solid ${D.border}`,
     animation: isNew ? 'fadeInLine 0.3s ease' : 'none',
   }}>

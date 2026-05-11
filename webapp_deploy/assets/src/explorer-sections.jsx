@@ -152,10 +152,11 @@ function MerchantsView({ data, search, onSelect }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1, background: T.border }}>
         {filtered.map((m, i) => {
           const [h, setH] = React.useState(false);
+          const rowEven = Math.floor(i / 2) % 2 === 1;
           return (
             <div key={m.id} style={{
-              background: h ? T.cardHover : T.bg, padding: '24px 22px',
-              cursor: 'pointer', transition: 'background 0.2s',
+              background: h ? T.cardHover : (rowEven ? T.bg3 : T.bg2), padding: '24px 22px',
+              cursor: 'pointer', transition: 'background 0.28s ease',
             }}
               onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
               onClick={() => onSelect({ type: 'merchant', data: m })}
@@ -206,10 +207,11 @@ function AgentsRichView({ data, search, onSelect }) {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1, background: T.border, marginTop: 12 }}>
       {filtered.map((a, i) => {
         const [h, setH] = React.useState(false);
+        const rowEven = Math.floor(i / 2) % 2 === 1;
         return (
           <div key={a.name} style={{
-            background: h ? T.cardHover : T.bg, padding: '24px 22px',
-            cursor: 'pointer', transition: 'background 0.2s',
+            background: h ? T.cardHover : (rowEven ? T.bg3 : T.bg2), padding: '24px 22px',
+            cursor: 'pointer', transition: 'background 0.28s ease',
           }}
             onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
             onClick={() => onSelect({ type: 'agent', data: a })}

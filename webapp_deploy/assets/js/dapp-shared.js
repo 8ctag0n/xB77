@@ -53,10 +53,12 @@ const Spark = ({ data, color, height }) => {
     opacity: 0.4 + i / data.length * 0.6
   } })));
 };
-const EventLine = ({ time, icon, text, color, isNew }) => /* @__PURE__ */ React.createElement("div", { style: {
+const EventLine = ({ time, icon, text, color, isNew, idx }) => /* @__PURE__ */ React.createElement("div", { style: {
   display: "flex",
   gap: 10,
-  padding: "8px 0",
+  padding: "8px 10px",
+  margin: "0 -10px",
+  background: typeof idx === "number" && idx % 2 === 1 ? D.bg3 : "transparent",
   borderBottom: `1px solid ${D.border}`,
   animation: isNew ? "fadeInLine 0.3s ease" : "none"
 } }, /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.faint, style: { minWidth: 42, flexShrink: 0 } }, time), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, flexShrink: 0 } }, icon), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--sans)", fontSize: 12, color: color || D.dim, lineHeight: 1.5 } }, text));
