@@ -9,6 +9,14 @@ pub const Cli = struct {
     /// invocation; pointing at literal "agent.toml" for the default profile.
     config_path: []const u8,
     password: ?[]const u8,
+    /// Gateway base URL for wire-1.1 actions. Resolved order:
+    ///   1. `--gateway <url>` flag
+    ///   2. `XB77_GATEWAY` env var
+    ///   3. default `http://127.0.0.1:8787` (local mock-gateway)
+    gateway_url: []const u8,
+    /// Owned when set from env var; null when literal/default. Internal — use
+    /// `gateway_url` for reads.
+    gateway_url_owned: ?[]u8 = null,
 };
 
 pub const ParsedArgs = struct {
@@ -19,8 +27,11 @@ pub const ParsedArgs = struct {
     /// Owned by the caller. Frees the password if it was env-allocated.
     pub fn deinit(self: *ParsedArgs, allocator: std.mem.Allocator) void {
         if (self.cli.password) |p| allocator.free(p);
+        if (self.cli.gateway_url_owned) |g| allocator.free(g);
     }
 };
+
+const GATEWAY_DEFAULT: []const u8 = "http://127.0.0.1:8787";
 
 /// Parse global flags (`--profile`/`-p`, `--role`, `--name`), resolve the
 /// config path, and pick up `XB77_PASSWORD` from the environment.
@@ -35,6 +46,7 @@ pub fn parse(
     if (args.len < 2) return null;
 
     var profile: []const u8 = "default";
+    var gateway_flag: ?[]const u8 = null;
     var command_idx: usize = 1;
 
     var i: usize = 1;
@@ -42,6 +54,12 @@ pub fn parse(
         if (std.mem.eql(u8, args[i], "--profile") or std.mem.eql(u8, args[i], "-p")) {
             if (i + 1 < args.len) {
                 profile = args[i + 1];
+                i += 2;
+                if (command_idx < i) command_idx = i;
+            } else i += 1;
+        } else if (std.mem.eql(u8, args[i], "--gateway")) {
+            if (i + 1 < args.len) {
+                gateway_flag = args[i + 1];
                 i += 2;
                 if (command_idx < i) command_idx = i;
             } else i += 1;
@@ -63,12 +81,24 @@ pub fn parse(
 
     const password = std.process.getEnvVarOwned(allocator, "XB77_PASSWORD") catch null;
 
+    // Resolve gateway URL: flag > env > default. The env-derived form is owned.
+    var gateway_url: []const u8 = GATEWAY_DEFAULT;
+    var gateway_url_owned: ?[]u8 = null;
+    if (gateway_flag) |g| {
+        gateway_url = g;
+    } else if (std.process.getEnvVarOwned(allocator, "XB77_GATEWAY")) |g| {
+        gateway_url_owned = g;
+        gateway_url = g;
+    } else |_| {}
+
     return ParsedArgs{
         .cli = .{
             .allocator = allocator,
             .profile = profile,
             .config_path = config_path,
             .password = password,
+            .gateway_url = gateway_url,
+            .gateway_url_owned = gateway_url_owned,
         },
         .command = args[command_idx],
         .cmd_args = args[command_idx + 1 ..],
@@ -82,7 +112,8 @@ pub fn printUsage() void {
         \\Uso: xb77 [flags] <comando> [opciones]
         \\
         \\Flags Globales:
-        \\  -p, --profile <name>  Usa un perfil específico (default: "default")
+        \\  -p, --profile <name>   Usa un perfil específico (default: "default")
+        \\      --gateway <url>    Gateway URL (default: env XB77_GATEWAY o http://127.0.0.1:8787)
         \\
         \\Comandos:
         \\  init             Inicializa un nuevo perfil de agente
@@ -103,6 +134,7 @@ pub fn printUsage() void {
         \\  merchant <sub>   Gestiona tus servicios comerciales y Blinks
         \\  watch            Mission Control: Dashboard Cyberpunk en tiempo real
         \\  receipt [sig]    Imprime el último Ghost Receipt (o uno por tx_hash)
+        \\  gateway <sub>    Wire 1.1 actions (register/order/claim/pulse/reads)
         \\
     , .{});
 }
