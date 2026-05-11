@@ -1,0 +1,175 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&family=Fira+Code:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+
+:root {
+  /* xB77 Correct Brand Colors */
+  --cyber-black: #08080a;
+  --cyber-dark: #050505;
+  --cyber-panel: rgba(22, 22, 22, 0.7);
+  --xb77-accent: #c8ff2e; /* The correct bright green/yellow */
+  --hot-pink: #FF003C;   
+  --neon-cyan: #00F0FF;   
+  --terminal-green: #c8ff2e;
+  
+  /* Legacy Vibe (Amber/Green) */
+  --legacy-amber: #ffb000;
+  --legacy-bg: #0d0d0d;
+
+  --vp-c-bg: var(--cyber-black);
+  --vp-c-brand-1: var(--xb77-accent);
+  --vp-c-brand-2: #b5e62a;
+  --vp-c-brand-3: #a1cc26;
+  
+  --vp-font-family-base: 'DM Sans', sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', monospace;
+  --vp-font-family-cyber: 'Rajdhani', sans-serif;
+}
+
+/* Global Effects */
+body::before {
+  content: " ";
+  display: block;
+  position: fixed;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1) 100%);
+  background-size: 100% 4px;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0.2;
+}
+
+/* --- MODERN V2 STYLE (Default) --- */
+.VPNavBar {
+  background-color: rgba(8, 8, 10, 0.8) !important;
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(200, 255, 46, 0.1) !important;
+}
+
+h1, h2, h3 {
+  font-family: var(--vp-font-family-cyber);
+  text-transform: uppercase;
+}
+
+.vp-doc h1 {
+  color: var(--xb77-accent);
+  text-shadow: 2px 2px 0px rgba(200, 255, 46, 0.2);
+}
+
+.VPButton.brand {
+  background-color: var(--xb77-accent) !important;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+  color: black !important;
+  font-weight: 900;
+}
+
+/* --- LEGACY V1 STYLE (Scoped) --- */
+/* Ensure the pageClass is correctly applied to scope these styles */
+.is-legacy-page {
+  --vp-c-bg: var(--legacy-bg) !important;
+  --vp-c-text-1: var(--legacy-amber) !important;
+  --vp-c-text-2: rgba(255, 176, 0, 0.7) !important;
+  --vp-c-brand-1: var(--legacy-amber) !important;
+  background-color: var(--legacy-bg) !important;
+}
+
+.is-legacy-page h1, 
+.is-legacy-page h2, 
+.is-legacy-page h3 {
+  color: var(--legacy-amber) !important;
+  text-shadow: none !important;
+  font-family: var(--vp-font-family-mono) !important;
+}
+
+.is-legacy-page .vp-doc p,
+.is-legacy-page .vp-doc li {
+  color: var(--legacy-amber) !important;
+  font-family: var(--vp-font-family-mono) !important;
+  opacity: 0.8;
+}
+
+/* Fix for broken legacy site navigation / missing styles */
+.is-legacy-page .VPSidebar {
+  background-color: #050505 !important;
+  border-right: 1px solid #332200 !important;
+}
+
+/* Transition UI */
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+.pulse {
+  animation: pulse 1s infinite;
+}
+
+.video-container {
+  margin-top: 3rem;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+  border: 1px solid #333;
+  padding: 1px;
+  background: #000;
+}
+
+.VPHero {
+  padding-bottom: 2rem !important;
+}
+
+/* Live Terminal UI */
+.terminal-deluxe {
+  background: #000;
+  border: 1px solid #333;
+  padding: 1.5rem;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.85rem;
+  color: var(--xb77-accent);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.term-line {
+  opacity: 0;
+  transform: translateX(-5px);
+  animation: line-appear 0.4s ease forwards;
+}
+
+@keyframes line-appear {
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.line-1 { animation-delay: 0.2s; }
+.line-2 { animation-delay: 0.8s; }
+.line-3 { animation-delay: 1.4s; }
+.line-4 { animation-delay: 2.0s; }
+.line-5 { animation-delay: 2.6s; }
+
+.terminal-scanline {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100px;
+  background: linear-gradient(to bottom, transparent, rgba(200, 255, 46, 0.05), transparent);
+  animation: scanline-move 4s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes scanline-move {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(400%); }
+}
+
+.terminal-cursor {
+  display: inline-block;
+  width: 8px; height: 15px;
+  background: var(--xb77-accent);
+  margin-left: 5px;
+  animation: cursor-blink 1s step-end infinite;
+  vertical-align: middle;
+}
+
+@keyframes cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}

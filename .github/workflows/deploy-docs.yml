@@ -1,13 +1,4 @@
-name: Deploy Docs
-
-# Builds the Jekyll site under ./docs and publishes it to GitHub Pages.
-# The landing (docs/index.html) is a hand-written cyberpunk page; the
-# surrounding *.md files (DEMO_FRONTIER, SESSION_BRIEF, planning/, ...)
-# are rendered by Jekyll's default minima theme so the nav links resolve
-# to actual pages.
-#
-# Repo Settings -> Pages -> Build and deployment -> Source: 'GitHub Actions'
-# (one-time setup; nothing else to configure).
+name: Deploy Docs (VitePress)
 
 on:
   push:
@@ -22,7 +13,6 @@ permissions:
   pages: write
   id-token: write
 
-# One in-flight deploy at a time; let later pushes pile up.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -32,24 +22,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/configure-pages@v5
-
-      - name: Build with Jekyll
-        uses: actions/jekyll-build-pages@v1
         with:
-          source: ./docs
-          destination: ./_site
+          fetch-depth: 0
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: cd docs && bun install
+
+      - name: Build with VitePress
+        run: cd docs && bun run docs:build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist
 
   deploy:
-    name: Deploy
-    needs: build
-    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
