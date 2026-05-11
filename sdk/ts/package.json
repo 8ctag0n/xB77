@@ -1,0 +1,32 @@
+{
+  "name": "@xb77/sdk",
+  "version": "1.0.0",
+  "description": "xB77 Sovereign Commerce Layer — TypeScript SDK (WASM core)",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "wasm/xb77_core.wasm",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "copy-wasm": "mkdir -p wasm && cp ../../zig-out/bin/xb77_core.wasm wasm/",
+    "prepublishOnly": "npm run copy-wasm && npm run build",
+    "test": "node --experimental-wasi-unstable-preview1 --no-warnings test/smoke.mjs"
+  },
+  "keywords": ["xb77", "solana", "sdk", "wasm", "sovereign-commerce"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
+}
