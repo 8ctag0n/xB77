@@ -1,0 +1,31 @@
+/* xB77 Design Tokens — dark default, light override via html[data-theme="light"] */
+:root {
+  --bg:             #08080a;
+  --bg-elevated:    #1a1a1e;
+  --text:           #f5f5f7;
+  --text-dim:       #9a9aaa;
+  --accent:         #c8ff2e;
+  --accent-hover:   #d9ff5c;
+  --border:         rgba(245,245,247,0.08);
+  --border-strong:  rgba(245,245,247,0.18);
+}
+
+html[data-theme="light"] {
+  --bg:             #f4f0e8;
+  --bg-elevated:    #ebe6da;
+  --text:           #1a1a1a;
+  --text-dim:       #6a6450;
+  --accent:         #5a7a00;
+  --accent-hover:   #6e9400;
+  --border:         rgba(26,26,26,0.10);
+  --border-strong:  rgba(26,26,26,0.18);
+}
+
+/* Smooth swap when toggle fires; ignored on first paint. */
+html {
+  transition: background 0.2s ease, color 0.2s ease;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+}
