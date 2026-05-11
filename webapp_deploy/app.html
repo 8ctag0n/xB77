@@ -397,22 +397,43 @@
 <!-- Shared foundations -->
 <script src="assets/js/shared-utils-terminal.js"></script>
 <script src="assets/js/shared-ui-helpers.js"></script>
-
-<!-- Landing page components -->
-<script src="assets/js/landing-pipeline-demo.js"></script>
-<script src="assets/js/shared-architecture-footer.js"></script>
-<script src="assets/js/variant-a-obsidian.js"></script>
-
-<!-- Inner pages -->
 <script src="assets/js/shared-inner-nav.js"></script>
-<script src="assets/js/page-architecture.js"></script>
-<script src="assets/js/page-docs.js"></script>
-<script src="assets/js/page-whitepaper.js"></script>
-<script src="assets/js/page-why.js"></script>
-<script src="assets/js/page-changelog.js"></script>
 
-<!-- Router (public) -->
-<script src="assets/js/router-public.js"></script>
+<!-- Signature components (W2) -->
+<script src="assets/js/signatures-agent-badge.js"></script>
+<script src="assets/js/signatures-zk-pipeline-visualizer.js"></script>
+
+<!-- Explorer (load BEFORE dApp to save conflicting component names) -->
+<script src="assets/js/explorer-mock-data.js"></script>
+<script src="assets/js/explorer-mock-data-ext.js"></script>
+<script src="assets/js/explorer-ui-components.js"></script>
+<script src="assets/js/explorer-views.js"></script>
+<script src="assets/js/explorer-sections.js"></script>
+
+<!-- Bridge: save explorer components before dApp overwrites them -->
+<script>
+window._ExPipelinesView = window.PipelinesView;
+window._ExAgentsView = window.AgentsView;
+</script>
+
+<!-- dApp (overwrites PipelinesView / AgentsView with its own versions) -->
+<script src="assets/js/dapp-shared.js"></script>
+<script src="assets/js/dapp-mesh.js"></script>
+<script src="assets/js/dapp-agents.js"></script>
+<script src="assets/js/dapp-pipelines.js"></script>
+<script src="assets/js/dapp-wallet.js"></script>
+
+<!-- /app shell + Explorer-as-a-tab (must come after dapp + after _ExPipelinesView bridge) -->
+<script src="assets/js/explorer-tab.js"></script>
+<script src="assets/js/app-tabs.js"></script>
+
+<!-- Data infra (W3): gateway adapter + DataSource client + /network page -->
+<script>window.XB77_GATEWAY = window.XB77_GATEWAY || "http://127.0.0.1:8787";</script>
+<script src="assets/js/lib/data-source.js"></script>
+<script src="assets/js/page-network.js"></script>
+
+<!-- Router (app) -->
+<script src="assets/js/router-app.js"></script>
 
 
 </body></html>
