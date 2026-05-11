@@ -43,8 +43,6 @@ export interface SignedRequest {
 export interface LoadOptions {
   /** Raw WASM bytes. If omitted, loader looks for ./wasm/xb77_core.wasm */
   wasmBytes?: Uint8Array | ArrayBuffer;
-  /** Override gateway pubkey for verifyResponse (32 bytes). */
-  gatewayPubkey?: Uint8Array;
 }
 
 // ----- ABI shape -----
@@ -407,16 +405,11 @@ export class XB77 {
 
 async function defaultLoadWasm(): Promise<Uint8Array> {
   // Node / Bun: read from co-located wasm/xb77_core.wasm
-  // (Node typings are not a hard dep — wrapper works without @types/node.)
   if (typeof process !== "undefined" && (process as { versions?: { node?: string } }).versions?.node) {
-    // @ts-ignore — node:fs/promises resolved at runtime in Node/Bun.
     const { readFile } = await import("node:fs/promises");
-    // @ts-ignore — node:url resolved at runtime.
     const { fileURLToPath } = await import("node:url");
-    // @ts-ignore — node:path resolved at runtime.
     const path = await import("node:path");
     const here = path.dirname(fileURLToPath(import.meta.url));
-    // @ts-ignore — Node-only typing for path.resolve return.
     const candidates = [
       path.resolve(here, "../wasm/xb77_core.wasm"),
       path.resolve(here, "./wasm/xb77_core.wasm"),
