@@ -128,4 +128,15 @@ function AgentsView({ onNavigate }) {
     { c: D.dim, t: `[${new Date(Date.now() - 15e5).toLocaleTimeString()}] agent initialized` }
   ].map((l, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { color: l.c } }, l.t)))))));
 }
-Object.assign(window, { AgentsView });
+function AgentsTab() {
+  return /* @__PURE__ */ React.createElement("div", { style: {
+    display: "flex",
+    flexDirection: "column",
+    height: "min(80vh, 820px)",
+    minHeight: 520,
+    border: "1px solid rgba(245,245,247,0.08)",
+    background: "#08080a",
+    overflow: "hidden"
+  } }, /* @__PURE__ */ React.createElement(AgentsView, null));
+}
+Object.assign(window, { AgentsView, AgentsTab });
