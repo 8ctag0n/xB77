@@ -54,3 +54,7 @@ docs/superpowers/
 circuits/state_anchor/Prover.toml
 circuits/state_anchor/target/
 circuits/state_anchor/proofs/
+
+# Wrangler / Cloudflare Pages local cache
+.wrangler/
+**/.wrangler/

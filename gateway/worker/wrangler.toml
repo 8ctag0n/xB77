@@ -1,0 +1,26 @@
+# xB77 REST adapter Worker — sits in front of znode RPC + onchain state.
+# Independent of the Zig-wasm gateway in ../worker.js (that one is the
+# Sovereign Gateway dumb-pipe). This adapter exposes the 4 endpoints
+# the public webapp consumes via window.DataSource.
+#
+# Local dev:
+#   cd gateway/worker && bunx wrangler@latest dev
+#   curl http://localhost:8787/api/network/pulse
+#
+# Prod deploy:
+#   bunx wrangler@latest deploy
+
+name = "xb77-adapter"
+main = "src/index.js"
+compatibility_date = "2026-05-01"
+
+[observability]
+enabled = true
+
+[vars]
+# Dev default: solana-test-validator on host (accessible from wrangler dev).
+# In prod set via `wrangler secret put ZNODE_RPC_URL` to znode.xb77.dev.
+ZNODE_RPC_URL = "http://127.0.0.1:8899"
+
+# CORS origin. "*" for hackathon demo; tighten when domain is finalized.
+ALLOWED_ORIGIN = "*"

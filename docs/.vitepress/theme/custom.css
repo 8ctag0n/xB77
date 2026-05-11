@@ -1,0 +1,793 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Geist+Mono:wght@100..900&family=Rajdhani:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;700&family=Share+Tech+Mono&display=swap');
+
+/* ============================================================
+   ROOT — V2 cyber defaults applied at :root so <body> inherits them.
+   Legacy pages override the subset needed inside .Layout.is-legacy-page.
+   ============================================================ */
+:root {
+  /* Brand palettes */
+  --xb77-accent: #c8ff2e;
+  --xb77-accent-soft: #a4d925;
+  --neon-cyan: #00f0ff;
+  --cyber-black: #08080a;
+  --cyber-panel: #0e0e12;
+  --cyber-border: rgba(200, 255, 46, 0.18);
+
+  /* Legacy v1 — cyberpunk red/cyan (the REAL v1 palette from ___legacy) */
+  --legacy-red: #FF003C;
+  --legacy-cyan: #00F0FF;
+  --legacy-yellow: #FCEE0A;
+  --legacy-matrix: #00FF41;
+  --legacy-bg: #050505;
+  --legacy-panel: #0a0a0a;
+  --legacy-border: #333333;
+
+  /* Fonts — V2 default: Space Grotesk (geometric/modern) + Geist Mono */
+  --vp-font-family-base: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --vp-font-family-mono: 'Geist Mono', ui-monospace, 'JetBrains Mono', Menlo, monospace;
+
+  /* VitePress dark tokens — V2 by default */
+  --vp-c-bg: #08080a;
+  --vp-c-bg-alt: #0c0c10;
+  --vp-c-bg-soft: #0a0a0e;
+  --vp-c-bg-elv: #0e0e12;
+  --vp-c-divider: rgba(200, 255, 46, 0.08);
+  --vp-c-border: rgba(200, 255, 46, 0.12);
+  --vp-c-gutter: rgba(200, 255, 46, 0.05);
+
+  --vp-c-text-1: rgba(255, 255, 245, 0.92);
+  --vp-c-text-2: rgba(235, 235, 245, 0.65);
+  --vp-c-text-3: rgba(235, 235, 245, 0.4);
+
+  --vp-c-brand-1: #c8ff2e;
+  --vp-c-brand-2: #a4d925;
+  --vp-c-brand-3: #8db521;
+  --vp-c-brand-soft: rgba(200, 255, 46, 0.14);
+
+  /* Kill default vitepress yellow/orange — bleeds into outline marker / anchors */
+  --vp-c-warning-1: #c8ff2e;
+  --vp-c-warning-2: #a4d925;
+  --vp-c-warning-3: #8db521;
+  --vp-c-warning-soft: rgba(200, 255, 46, 0.14);
+  --vp-c-yellow-1: #c8ff2e;
+  --vp-c-yellow-2: #a4d925;
+  --vp-c-yellow-3: #8db521;
+  --vp-c-yellow-soft: rgba(200, 255, 46, 0.14);
+
+  --vp-button-brand-bg: #c8ff2e;
+  --vp-button-brand-text: #08080a;
+  --vp-button-brand-hover-bg: #d6ff5a;
+  --vp-button-brand-active-bg: #b5e62a;
+  --vp-button-brand-border: #c8ff2e;
+  --vp-button-brand-hover-border: #d6ff5a;
+  --vp-button-brand-hover-text: #08080a;
+  --vp-button-alt-bg: transparent;
+  --vp-button-alt-border: rgba(200, 255, 46, 0.35);
+  --vp-button-alt-text: #c8ff2e;
+  --vp-button-alt-hover-bg: rgba(200, 255, 46, 0.08);
+  --vp-button-alt-hover-border: #c8ff2e;
+  --vp-button-alt-hover-text: #c8ff2e;
+
+  --vp-code-color: #c8ff2e;
+  --vp-code-bg: rgba(200, 255, 46, 0.06);
+  --vp-code-block-bg: #06060a;
+  --vp-code-line-highlight-color: rgba(200, 255, 46, 0.08);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #c8ff2e 0%, #5dffb5 35%, #00f0ff 100%);
+  --vp-home-hero-image-filter: blur(80px);
+}
+
+html, body {
+  background-color: var(--vp-c-bg);
+}
+
+body {
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ============================================================
+   V2 background — dotted grid + soft glows + giant typographic watermark
+   ============================================================ */
+.Layout:not(.is-legacy-page)::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    radial-gradient(circle, rgba(200, 255, 46, 0.06) 1px, transparent 1px),
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(200, 255, 46, 0.05), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 50% 100%, rgba(0, 240, 255, 0.04), transparent 70%);
+  background-size: 24px 24px, 100% 100%, 100% 100%;
+  pointer-events: none;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 90%);
+}
+
+/* Typographic watermark — huge faint Space Grotesk lockup in the bg */
+.Layout:not(.is-legacy-page)::after {
+  content: "xB77 // SOVEREIGN COMMERCE";
+  position: fixed;
+  bottom: -3vw;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: clamp(8rem, 22vw, 28rem);
+  letter-spacing: -0.06em;
+  line-height: 0.85;
+  white-space: nowrap;
+  background: linear-gradient(180deg, rgba(200, 255, 46, 0.045) 0%, rgba(200, 255, 46, 0) 70%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+  text-transform: uppercase;
+}
+
+/* Keep VitePress's nav/sidebar/local-nav layout untouched — they are
+   already positioned (fixed/sticky) with their own z-index from vitepress,
+   so they paint above our z:0 bg pseudos for free. Overriding their
+   position breaks dropdowns, sticky-hide of local nav, etc.
+
+   The ONLY static element that needs lifting above the bg pseudos is
+   .VPContent (its descendants — vp-doc, hero, features — are all static
+   and would otherwise stack under our ::before/::after at z:0). */
+.Layout .VPContent {
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   V2 navbar / hero / buttons / cards / doc body / tables
+   ============================================================ */
+.VPNavBar {
+  background-color: rgba(8, 8, 10, 0.78) !important;
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-bottom: 1px solid var(--cyber-border) !important;
+}
+
+.VPHero .name {
+  letter-spacing: -0.05em;
+  font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif;
+  filter: drop-shadow(0 0 28px rgba(200, 255, 46, 0.35));
+}
+.VPHero .text {
+  letter-spacing: -0.02em;
+  color: #e8e8ea;
+}
+.VPHero .tagline {
+  color: #9b9ba1;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  line-height: 1.55;
+}
+
+.VPButton.brand {
+  font-family: var(--vp-font-family-mono);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 0 24px rgba(200, 255, 46, 0.25);
+  transition: all 0.25s ease;
+}
+.VPButton.brand:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 36px rgba(200, 255, 46, 0.45);
+}
+.VPButton.alt {
+  font-family: var(--vp-font-family-mono);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.VPFeature {
+  background: linear-gradient(180deg, rgba(14, 14, 18, 0.9), rgba(8, 8, 10, 0.9)) !important;
+  border: 1px solid var(--cyber-border) !important;
+  border-radius: 6px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.VPFeature:hover {
+  border-color: rgba(200, 255, 46, 0.4) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(200, 255, 46, 0.08);
+}
+.VPFeature .title {
+  font-family: var(--vp-font-family-mono);
+  color: var(--xb77-accent);
+  font-size: 0.95rem !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.VPFeature .details {
+  color: #b0b0b8 !important;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+/* ── V2 doc body ── (scoped so legacy can override without specificity wars) */
+.Layout:not(.is-legacy-page) .vp-doc h1 {
+  color: var(--xb77-accent);
+  text-shadow: 0 0 24px rgba(200, 255, 46, 0.28);
+  letter-spacing: -0.035em;
+  font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif;
+}
+.Layout:not(.is-legacy-page) .vp-doc h2 {
+  color: #e8e8ea;
+  border-top: 1px solid var(--vp-c-divider);
+  padding-top: 1.5rem;
+  margin-top: 2.5rem !important;
+  letter-spacing: -0.02em;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+}
+.Layout:not(.is-legacy-page) .vp-doc h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+}
+.Layout:not(.is-legacy-page) .vp-doc h2::before {
+  content: "// ";
+  color: var(--xb77-accent);
+  opacity: 0.6;
+  font-family: var(--vp-font-family-mono);
+}
+.Layout:not(.is-legacy-page) .vp-doc h3 { color: var(--neon-cyan); letter-spacing: -0.01em; }
+.Layout:not(.is-legacy-page) .vp-doc strong { color: #f0f0f2; }
+.Layout:not(.is-legacy-page) .vp-doc p,
+.Layout:not(.is-legacy-page) .vp-doc li { color: #c4c4cc; line-height: 1.75; }
+
+.Layout:not(.is-legacy-page) .vp-doc a {
+  text-decoration: none;
+  color: var(--xb77-accent);
+  transition: color 0.2s ease;
+}
+.Layout:not(.is-legacy-page) .vp-doc a:hover { color: #d6ff5a; }
+
+.Layout:not(.is-legacy-page) .vp-doc code:not(pre code) {
+  font-family: var(--vp-font-family-mono);
+  color: var(--xb77-accent);
+  background: rgba(200, 255, 46, 0.08);
+  border: 1px solid rgba(200, 255, 46, 0.15);
+  padding: 0.15em 0.45em;
+  border-radius: 3px;
+  font-size: 0.88em;
+}
+.Layout:not(.is-legacy-page) .vp-doc div[class*='language-'] {
+  background-color: #06060a !important;
+  border: 1px solid var(--cyber-border);
+  border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Tables — full width, both themes */
+.vp-doc table {
+  display: table !important;
+  width: 100% !important;
+  margin: 1.5rem 0;
+  border-collapse: collapse;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 0.92rem;
+}
+.vp-doc tr { background: transparent !important; border-top: 1px solid var(--vp-c-border); }
+.vp-doc th {
+  background: var(--vp-c-brand-soft) !important;
+  color: var(--vp-c-brand-1);
+  font-family: var(--vp-font-family-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.78rem;
+  padding: 0.75rem 1rem !important;
+  border: none !important;
+  text-align: left;
+}
+.vp-doc td {
+  border: none !important;
+  border-top: 1px solid var(--vp-c-border) !important;
+  padding: 0.7rem 1rem !important;
+  color: var(--vp-c-text-1);
+}
+.Layout:not(.is-legacy-page) .vp-doc tbody tr:hover { background: rgba(200, 255, 46, 0.03) !important; }
+
+.Layout:not(.is-legacy-page) .vp-doc blockquote {
+  border-left: 2px solid var(--xb77-accent);
+  background: rgba(200, 255, 46, 0.04);
+  padding: 1rem 1.25rem;
+  color: #d4d4dc;
+}
+.Layout:not(.is-legacy-page) .vp-doc hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyber-border), transparent);
+  margin: 3rem 0;
+}
+
+/* Sidebar V2 */
+.Layout:not(.is-legacy-page) .VPSidebar { background: rgba(8, 8, 10, 0.85) !important; }
+.Layout:not(.is-legacy-page) .VPSidebarItem .text { font-family: var(--vp-font-family-mono); font-size: 0.85rem; letter-spacing: 0.02em; }
+.Layout:not(.is-legacy-page) .VPSidebarItem.level-0 > .item > .text {
+  color: var(--xb77-accent) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.78rem !important;
+}
+.Layout:not(.is-legacy-page) .VPSidebarItem.is-active > .item .link .text { color: var(--xb77-accent) !important; }
+
+/* Comparison grid */
+.Layout:not(.is-legacy-page) .comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 1.5rem;
+  margin: 3rem 0;
+  align-items: stretch;
+}
+.Layout:not(.is-legacy-page) .comparison-grid .v1-side,
+.Layout:not(.is-legacy-page) .comparison-grid .v2-side {
+  border: 1px solid var(--cyber-border);
+  padding: 1.75rem;
+  border-radius: 6px;
+}
+.Layout:not(.is-legacy-page) .comparison-grid .v1-side {
+  border-color: rgba(255, 176, 0, 0.25);
+  background: linear-gradient(180deg, rgba(20, 14, 4, 0.7), rgba(8, 8, 10, 0.9));
+}
+.Layout:not(.is-legacy-page) .comparison-grid .v2-side {
+  background: linear-gradient(180deg, rgba(14, 14, 18, 0.7), rgba(8, 8, 10, 0.9));
+}
+.Layout:not(.is-legacy-page) .comparison-grid .v1-side h3 { color: var(--legacy-amber) !important; }
+.Layout:not(.is-legacy-page) .comparison-grid .v2-side h3 { color: var(--xb77-accent) !important; }
+.Layout:not(.is-legacy-page) .comparison-grid h3 {
+  font-family: var(--vp-font-family-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 0;
+}
+.Layout:not(.is-legacy-page) .comparison-grid .divider-line {
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--cyber-border), transparent);
+}
+@media (max-width: 768px) {
+  .Layout:not(.is-legacy-page) .comparison-grid { grid-template-columns: 1fr; }
+  .Layout:not(.is-legacy-page) .comparison-grid .divider-line { height: 1px; width: 100%; background: linear-gradient(90deg, transparent, var(--cyber-border), transparent); }
+}
+
+/* Video container */
+.Layout:not(.is-legacy-page) .video-container {
+  margin: 3rem auto 0;
+  max-width: 900px;
+  border: 1px solid var(--cyber-border);
+  padding: 1px;
+  background: #000;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(200, 255, 46, 0.06);
+  border-radius: 4px;
+  position: relative;
+}
+.Layout:not(.is-legacy-page) .video-container::before {
+  content: "▶ LIVE_DEMO";
+  position: absolute;
+  top: -10px;
+  left: 16px;
+  background: var(--cyber-black);
+  color: var(--xb77-accent);
+  font-family: var(--vp-font-family-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  padding: 2px 8px;
+  border: 1px solid var(--cyber-border);
+  z-index: 2;
+}
+
+/* Scrollbar V2 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(200, 255, 46, 0.25);
+  border: 2px solid var(--cyber-black);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--xb77-accent); }
+
+/* ============================================================
+   ─── LEGACY V1 ─── Original cyberpunk red/cyan from ___legacy
+   Body font: Rajdhani. Mono: Fira Code / Share Tech Mono.
+   Brand: #FF003C (hot pink) + #00F0FF (neon cyan) + #FCEE0A (acid yellow).
+   ============================================================ */
+.Layout.is-legacy-page {
+  --vp-c-bg: var(--legacy-bg);
+  --vp-c-bg-alt: #0a0a0a;
+  --vp-c-bg-soft: #0f0f11;
+  --vp-c-bg-elv: var(--legacy-panel);
+  --vp-c-text-1: #ffffff;
+  --vp-c-text-2: #a0a0a0;
+  --vp-c-text-3: #6e6e6e;
+  --vp-c-brand-1: var(--legacy-red);
+  --vp-c-brand-2: var(--legacy-cyan);
+  --vp-c-brand-3: var(--legacy-yellow);
+  --vp-c-brand-soft: rgba(255, 0, 60, 0.14);
+  --vp-c-divider: #333333;
+  --vp-c-border: var(--legacy-border);
+  --vp-c-gutter: #1a1a1a;
+
+  --vp-c-warning-1: var(--legacy-red);
+  --vp-c-warning-2: #d6002f;
+  --vp-c-warning-3: #b30028;
+  --vp-c-warning-soft: rgba(255, 0, 60, 0.14);
+  --vp-c-yellow-1: var(--legacy-yellow);
+  --vp-c-yellow-soft: rgba(252, 238, 10, 0.14);
+
+  --vp-button-brand-bg: var(--legacy-red);
+  --vp-button-brand-text: #000;
+  --vp-button-brand-hover-bg: #ffffff;
+  --vp-button-brand-active-bg: #d6002f;
+  --vp-button-brand-border: var(--legacy-red);
+  --vp-button-brand-hover-border: #ffffff;
+  --vp-button-brand-hover-text: #000;
+  --vp-button-alt-bg: rgba(255, 255, 255, 0.05);
+  --vp-button-alt-border: rgba(255, 255, 255, 0.2);
+  --vp-button-alt-text: #ffffff;
+  --vp-button-alt-hover-bg: rgba(255, 255, 255, 0.12);
+  --vp-button-alt-hover-border: #ffffff;
+  --vp-button-alt-hover-text: #ffffff;
+
+  --vp-code-color: var(--legacy-cyan);
+  --vp-code-bg: rgba(0, 240, 255, 0.08);
+  --vp-code-block-bg: #000;
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(135deg, #FF003C 0%, #00F0FF 100%);
+  --vp-home-hero-image-filter: blur(100px);
+
+  --vp-font-family-base: 'Rajdhani', system-ui, -apple-system, sans-serif;
+  --vp-font-family-mono: 'Fira Code', 'Share Tech Mono', ui-monospace, monospace;
+
+  background-color: var(--legacy-bg);
+  font-family: 'Rajdhani', sans-serif;
+}
+
+/* Legacy bg layer — 40px grid + thin top-down scanlines */
+.Layout.is-legacy-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(to right, #1a1a1a 1px, transparent 1px),
+    linear-gradient(to bottom, #1a1a1a 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+.Layout.is-legacy-page::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1) 100%);
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.2;
+}
+
+/* Legacy nav */
+.Layout.is-legacy-page .VPNavBar {
+  background-color: rgba(5, 5, 5, 0.85) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid #333 !important;
+}
+.Layout.is-legacy-page .VPNavBarTitle .title { font-family: 'Rajdhani', sans-serif; }
+
+/* Legacy hero — chromatic gradient name, cyan tagline */
+.Layout.is-legacy-page .VPHero {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+.Layout.is-legacy-page .VPHero .name {
+  font-family: 'Rajdhani', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-weight: 700;
+}
+.Layout.is-legacy-page .VPHero .text {
+  color: #ffffff !important;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 500;
+}
+.Layout.is-legacy-page .VPHero .tagline {
+  color: #a0a0a0 !important;
+  font-family: var(--vp-font-family-mono);
+  letter-spacing: 0.04em;
+}
+
+/* Legacy doc body — chromatic aberration headings, cyan accents */
+.Layout.is-legacy-page .vp-doc h1,
+.Layout.is-legacy-page .vp-doc h2,
+.Layout.is-legacy-page .vp-doc h3 {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  font-family: 'Rajdhani', sans-serif;
+  color: var(--legacy-cyan) !important;
+}
+.Layout.is-legacy-page .vp-doc h1 {
+  color: #ffffff !important;
+  text-shadow: -2px 0 var(--legacy-red), 2px 0 var(--legacy-cyan);
+}
+.Layout.is-legacy-page .vp-doc h4 {
+  font-family: 'Rajdhani', sans-serif;
+  color: var(--legacy-cyan) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.Layout.is-legacy-page .vp-doc p,
+.Layout.is-legacy-page .vp-doc li {
+  color: #d8d8d8 !important;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+.Layout.is-legacy-page .vp-doc td {
+  color: #d8d8d8 !important;
+  font-family: 'Rajdhani', sans-serif;
+}
+.Layout.is-legacy-page .vp-doc strong { color: #ffffff !important; font-weight: 700; }
+
+.Layout.is-legacy-page .vp-doc a {
+  color: var(--legacy-cyan) !important;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+.Layout.is-legacy-page .vp-doc a:hover { border-bottom-color: var(--legacy-cyan); }
+
+.Layout.is-legacy-page .vp-doc code:not(pre code) {
+  color: var(--legacy-cyan);
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  padding: 0.15em 0.45em;
+  border-radius: 2px;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.88em;
+}
+.Layout.is-legacy-page .vp-doc div[class*='language-'] {
+  background-color: #000 !important;
+  border: 1px solid #333;
+  box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.05);
+}
+.Layout.is-legacy-page .vp-doc tbody tr:hover { background: rgba(0, 240, 255, 0.04) !important; }
+.Layout.is-legacy-page .vp-doc th {
+  color: var(--legacy-cyan) !important;
+  font-family: 'Rajdhani', sans-serif !important;
+}
+.Layout.is-legacy-page .vp-doc blockquote {
+  border-left: 2px solid var(--legacy-red);
+  background: rgba(255, 0, 60, 0.05);
+  padding: 1rem 1.25rem;
+  color: #d8d8d8;
+  font-family: 'Rajdhani', sans-serif;
+}
+.Layout.is-legacy-page .vp-doc hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #333, transparent);
+  margin: 3rem 0;
+}
+
+/* Legacy sidebar */
+.Layout.is-legacy-page .VPSidebar {
+  background-color: #0a0a0a !important;
+  border-right: 1px solid #333;
+}
+.Layout.is-legacy-page .VPSidebarItem .text {
+  font-family: 'Rajdhani', sans-serif;
+  color: #a0a0a0 !important;
+}
+.Layout.is-legacy-page .VPSidebarItem.level-0 > .item > .text {
+  color: var(--legacy-red) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.78rem !important;
+  font-weight: 700;
+}
+.Layout.is-legacy-page .VPSidebarItem.is-active > .item .link .text { color: var(--legacy-cyan) !important; }
+
+/* Legacy feature cards — cyber clip aesthetic */
+.Layout.is-legacy-page .VPFeature {
+  background: #0a0a0a !important;
+  border: 1px solid #333 !important;
+  border-radius: 0 !important;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%);
+  transition: all 0.3s ease;
+}
+.Layout.is-legacy-page .VPFeature:hover {
+  border-color: var(--legacy-red) !important;
+  box-shadow: 0 0 30px rgba(255, 0, 60, 0.15);
+}
+.Layout.is-legacy-page .VPFeature .title {
+  color: var(--legacy-cyan) !important;
+  font-family: 'Rajdhani', sans-serif !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+.Layout.is-legacy-page .VPFeature .details {
+  color: #a0a0a0 !important;
+  font-family: 'Rajdhani', sans-serif !important;
+}
+
+/* Legacy buttons — clip-corner cyber */
+.Layout.is-legacy-page .VPButton.brand {
+  background: var(--legacy-red) !important;
+  color: #000 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.Layout.is-legacy-page .VPButton.brand:hover {
+  background: #ffffff !important;
+  color: #000 !important;
+}
+.Layout.is-legacy-page .VPButton.alt {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #fff !important;
+  border-radius: 0 !important;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.Layout.is-legacy-page .VPButton.alt:hover { background: rgba(255, 255, 255, 0.12) !important; }
+
+/* Legacy footer */
+.Layout.is-legacy-page .VPFooter {
+  border-top: 1px solid #333 !important;
+}
+.Layout.is-legacy-page .VPFooter .message,
+.Layout.is-legacy-page .VPFooter .copyright {
+  color: #a0a0a0 !important;
+  font-family: var(--vp-font-family-mono) !important;
+}
+
+/* Legacy scrollbar */
+.Layout.is-legacy-page ::-webkit-scrollbar-thumb {
+  background: rgba(255, 0, 60, 0.3);
+  border: 2px solid #050505;
+}
+.Layout.is-legacy-page ::-webkit-scrollbar-thumb:hover { background: var(--legacy-red); }
+
+/* Chromatic utility (used by section CTAs) */
+.Layout.is-legacy-page .chromatic-text {
+  color: #ffffff;
+  text-shadow: -2px 0 var(--legacy-red), 2px 0 var(--legacy-cyan);
+  letter-spacing: 0.05em;
+  font-family: 'Rajdhani', sans-serif;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   Terminal animations
+   ============================================================ */
+.term-line {
+  opacity: 0;
+  transform: translateX(-5px);
+  animation: term-line-appear 0.4s ease forwards;
+  min-height: 1.4em;
+}
+@keyframes term-line-appear { to { opacity: 1; transform: translateX(0); } }
+.line-1 { animation-delay: 0.2s; }
+.line-2 { animation-delay: 0.7s; }
+.line-3 { animation-delay: 1.2s; }
+.line-4 { animation-delay: 1.7s; }
+.line-5 { animation-delay: 2.2s; }
+.line-6 { animation-delay: 2.7s; }
+.line-7 { animation-delay: 3.2s; }
+.line-8 { animation-delay: 3.7s; }
+.line-9 { animation-delay: 4.2s; }
+.line-10 { animation-delay: 4.7s; }
+
+.terminal-scanline {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 60px;
+  background: linear-gradient(to bottom, transparent, rgba(200, 255, 46, 0.05), transparent);
+  animation: term-scanline-move 5s linear infinite;
+  pointer-events: none;
+}
+.Layout.is-legacy-page .terminal-scanline {
+  background: linear-gradient(to bottom, transparent, rgba(0, 240, 255, 0.08), transparent);
+}
+@keyframes term-scanline-move {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(1200%); }
+}
+
+.terminal-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 15px;
+  background: var(--xb77-accent);
+  margin-left: 5px;
+  animation: term-cursor-blink 1s step-end infinite;
+  vertical-align: middle;
+  box-shadow: 0 0 8px var(--xb77-accent);
+}
+.Layout.is-legacy-page .terminal-cursor {
+  background: var(--legacy-matrix);
+  box-shadow: 0 0 8px var(--legacy-matrix);
+}
+@keyframes term-cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.crt-flicker { animation: crt-flicker 0.15s infinite; }
+@keyframes crt-flicker {
+  0% { opacity: 0.98; }
+  50% { opacity: 1; }
+  100% { opacity: 0.99; }
+}
+
+@keyframes terminal-scroll-vertical {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+/* Footer */
+.VPFooter { background: transparent !important; border-top: 1px solid var(--vp-c-divider) !important; }
+
+/* ============================================================
+   Tighter doc layout — kill all vitepress oversized top spacing
+   ============================================================ */
+.Layout .VPDoc {
+  padding-top: 16px !important;
+}
+.Layout .VPDoc.has-sidebar {
+  padding-top: 12px !important;
+}
+@media (min-width: 768px) {
+  .Layout .VPDoc { padding-top: 24px !important; }
+}
+@media (min-width: 960px) {
+  .Layout .VPDoc { padding-top: 32px !important; }
+  .Layout .VPDoc.has-sidebar { padding-top: 24px !important; }
+}
+
+/* Vitepress wraps content twice — nuke their internal top padding */
+.Layout .VPDoc > .container { padding-top: 0 !important; }
+.Layout .VPDoc .content { padding-top: 0 !important; }
+.Layout .VPDoc .content-container { padding-top: 0 !important; }
+.Layout .VPDoc .main { padding-top: 0 !important; }
+.Layout .VPDoc .main > div:first-child { padding-top: 0 !important; margin-top: 0 !important; }
+
+/* H1: flush with top edge */
+.Layout .vp-doc h1:first-child {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+/* First H2 in v2: no border-top + minimal margin */
+.Layout:not(.is-legacy-page) .vp-doc > div > h2:first-of-type {
+  margin-top: 1.25rem !important;
+  border-top: none;
+  padding-top: 0;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .VPHero .name { font-size: 2.5rem !important; }
+  .VPHero .text { font-size: 1.5rem !important; }
+}
