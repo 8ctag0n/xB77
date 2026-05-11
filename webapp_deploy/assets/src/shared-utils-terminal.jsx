@@ -3,31 +3,13 @@
 const THEMES = {
   obsidian: {
     name: 'Obsidian',
-    bg: '#08080a', bgSecondary: '#101014', bgCard: 'rgba(255,255,255,0.03)',
-    accent: '#c8ff2e', accentDim: 'rgba(200,255,46,0.12)',
-    text: '#e8e8ec', textDim: '#6e6e7a',
-    border: 'rgba(255,255,255,0.06)', navBg: 'rgba(8,8,10,0.85)',
-    terminalBg: '#0c0c10', terminalGlow: 'rgba(200,255,46,0.08)',
-    patternColor: 'rgba(200,255,46,0.03)',
+    bg: 'var(--bg)', bgSecondary: 'var(--bg-secondary)', bgCard: 'var(--bg-card)',
+    accent: 'var(--accent)', accentDim: 'var(--accent-dim)',
+    text: 'var(--text)', textDim: 'var(--text-dim)',
+    border: 'var(--border)', navBg: 'var(--nav-bg)',
+    terminalBg: 'var(--terminal-bg)', terminalGlow: 'var(--terminal-glow)',
+    patternColor: 'var(--pattern-color)',
   },
-  deepsignal: {
-    name: 'Deep Signal',
-    bg: '#060b18', bgSecondary: '#0a1020', bgCard: 'rgba(100,200,255,0.03)',
-    accent: '#4de8d0', accentDim: 'rgba(77,232,208,0.1)',
-    text: '#dce4f0', textDim: '#5a6a82',
-    border: 'rgba(100,200,255,0.06)', navBg: 'rgba(6,11,24,0.88)',
-    terminalBg: '#080e1c', terminalGlow: 'rgba(77,232,208,0.06)',
-    patternColor: 'rgba(77,232,208,0.025)',
-  },
-  cipher: {
-    name: 'Cipher',
-    bg: '#060f0a', bgSecondary: '#0a1810', bgCard: 'rgba(255,200,80,0.03)',
-    accent: '#f0b840', accentDim: 'rgba(240,184,64,0.1)',
-    text: '#dce8de', textDim: '#5a7062',
-    border: 'rgba(255,200,80,0.06)', navBg: 'rgba(6,15,10,0.88)',
-    terminalBg: '#081208', terminalGlow: 'rgba(240,184,64,0.06)',
-    patternColor: 'rgba(240,184,64,0.025)',
-  }
 };
 
 const TERMINAL_LINES = [
