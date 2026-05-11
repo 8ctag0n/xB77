@@ -8,7 +8,7 @@ const _PUBLIC_ONLY_HASHES = /* @__PURE__ */ new Set([
 ]);
 (function redirectPublicHashes() {
   const h = window.location.hash || "";
-  if (h === "" || _PUBLIC_ONLY_HASHES.has(h)) {
+  if (_PUBLIC_ONLY_HASHES.has(h)) {
     window.location.replace("/index.html" + h);
   }
 })();
@@ -35,7 +35,7 @@ function useHashRoute() {
   React.useEffect(() => {
     const h = () => {
       const next = window.location.hash || "";
-      if (next === "" || _PUBLIC_ONLY_HASHES.has(next)) {
+      if (_PUBLIC_ONLY_HASHES.has(next)) {
         window.location.replace("/index.html" + next);
         return;
       }
