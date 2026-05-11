@@ -96,7 +96,28 @@ function ObsidianVariant({ theme }) {
     wordBreak: "break-all",
     padding: 40,
     userSelect: "none"
-  } }, Array(25).fill("xB77 ZK ENGINE DEPLOY AGENT AUTONOMOUS CFO NEURAL KEY SOVEREIGN PIPELINE GOVERNANCE ").join("")), /* @__PURE__ */ React.createElement(FadeIn, { style: { position: "relative", zIndex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: {
+  } }, Array(25).fill("xB77 ZK ENGINE DEPLOY AGENT AUTONOMOUS CFO NEURAL KEY SOVEREIGN PIPELINE GOVERNANCE ").join("")), !bp.mobile && /* @__PURE__ */ React.createElement("div", { "aria-hidden": "true", style: {
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "none",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    zIndex: 0
+  } }, /* @__PURE__ */ React.createElement("div", { style: {
+    fontFamily: "var(--serif)",
+    fontSize: "clamp(8rem, 22vw, 28rem)",
+    fontStyle: "italic",
+    fontWeight: 400,
+    color: t.accent,
+    opacity: 0.04,
+    lineHeight: 0.9,
+    letterSpacing: "-0.04em",
+    userSelect: "none",
+    whiteSpace: "nowrap",
+    transform: "translateY(-2%)"
+  } }, "xB77 // SOVEREIGN")), /* @__PURE__ */ React.createElement(FadeIn, { style: { position: "relative", zIndex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: {
     fontFamily: "var(--mono)",
     fontSize: 11,
     color: t.accent,
