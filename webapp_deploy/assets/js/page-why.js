@@ -83,20 +83,162 @@ function WhyPage() {
   const bp = typeof useBreakpoint === "function" ? useBreakpoint() : { mobile: false };
   const [hoveredRow, setHoveredRow] = React.useState(null);
   const [hoveredAdv, setHoveredAdv] = React.useState(null);
-  return /* @__PURE__ */ React.createElement("div", { style: { background: t.bg, minHeight: "100vh", color: t.text } }, /* @__PURE__ */ React.createElement(InnerNav, { active: "Why xB77" }), /* @__PURE__ */ React.createElement("section", { style: { padding: bp.mobile ? "60px 20px" : "100px 40px 80px", maxWidth: 1100, margin: "0 auto" } }, /* @__PURE__ */ React.createElement(FadeIn, null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 11, color: t.accent, letterSpacing: "0.2em", marginBottom: 12, textTransform: "uppercase" } }, "WHY XB77"), /* @__PURE__ */ React.createElement("h1", { style: {
+  return /* @__PURE__ */ React.createElement("div", { style: { background: t.bg, minHeight: "100vh", color: t.text } }, /* @__PURE__ */ React.createElement(InnerNav, { active: "Why xB77" }), /* @__PURE__ */ React.createElement("section", { style: {
+    position: "relative",
+    padding: bp.mobile ? "80px 20px 60px" : "140px 40px 100px",
+    maxWidth: 1200,
+    margin: "0 auto",
+    overflow: "hidden"
+  } }, !bp.mobile && /* @__PURE__ */ React.createElement("div", { "aria-hidden": "true", style: {
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "none",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingRight: 40,
+    zIndex: 0,
+    overflow: "hidden"
+  } }, /* @__PURE__ */ React.createElement("div", { style: {
     fontFamily: "var(--serif)",
-    fontSize: bp.mobile ? 36 : "clamp(40px, 6vw, 72px)",
+    fontStyle: "italic",
+    fontSize: "clamp(8rem, 18vw, 22rem)",
+    color: t.accent,
+    opacity: 0.04,
+    lineHeight: 0.85,
+    letterSpacing: "-0.04em",
+    userSelect: "none",
+    whiteSpace: "nowrap"
+  } }, "WHY")), /* @__PURE__ */ React.createElement(FadeIn, { style: { position: "relative", zIndex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: {
+    fontFamily: "var(--mono)",
+    fontSize: 11,
+    color: t.accent,
+    letterSpacing: "0.3em",
+    marginBottom: 28,
+    textTransform: "uppercase"
+  } }, "// WHY xB77"), /* @__PURE__ */ React.createElement("h1", { style: {
+    fontFamily: "var(--serif)",
+    fontSize: bp.mobile ? "clamp(38px, 10vw, 56px)" : "clamp(56px, 7.5vw, 116px)",
     fontWeight: 400,
+    fontStyle: "italic",
     color: t.text,
-    lineHeight: 1,
-    margin: "0 0 20px"
-  } }, "Not another ", /* @__PURE__ */ React.createElement("em", { style: { color: t.accent, fontStyle: "italic" } }, "framework")), /* @__PURE__ */ React.createElement("p", { style: {
+    lineHeight: 0.95,
+    margin: "0 0 36px",
+    letterSpacing: "-0.035em"
+  } }, "Sovereignty is", /* @__PURE__ */ React.createElement("br", null), "not given.", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("span", { style: { color: t.accent } }, "It is computed.")), /* @__PURE__ */ React.createElement("p", { style: {
     fontFamily: "var(--sans)",
-    fontSize: 17,
+    fontSize: bp.mobile ? 16 : 18,
     color: t.textDim,
     lineHeight: 1.7,
-    maxWidth: 580
-  } }, "xB77 isn't a privacy coin, a mixer, or a ZK rollup. It's autonomous agent infrastructure \u2014 deploy, manage, and scale AI financial agents on Solana. Self-hosted or cloud."))), /* @__PURE__ */ React.createElement("section", { style: { padding: bp.mobile ? "0 12px 60px" : "0 40px 100px" } }, /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 1200, margin: "0 auto", overflowX: "auto" } }, /* @__PURE__ */ React.createElement(FadeIn, null, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 900 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { padding: "16px 20px", textAlign: "left", fontFamily: "var(--mono)", fontSize: 9, color: t.textDim, letterSpacing: "0.15em", borderBottom: `2px solid ${t.border}`, width: 140 } }, "FEATURE"), /* @__PURE__ */ React.createElement("th", { style: { padding: "16px 20px", textAlign: "left", fontFamily: "var(--mono)", fontSize: 11, color: t.accent, letterSpacing: "0.08em", borderBottom: `2px solid ${t.accent}`, background: t.accentDim, fontWeight: 700 } }, "xB77"), COMPETITORS.map((c) => /* @__PURE__ */ React.createElement("th", { key: c.name, style: { padding: "16px 20px", textAlign: "left", fontFamily: "var(--mono)", fontSize: 11, color: t.textDim, letterSpacing: "0.08em", borderBottom: `2px solid ${t.border}`, fontWeight: 500 } }, c.name)))), /* @__PURE__ */ React.createElement("tbody", null, COMPARE_ROWS.map((row, ri) => /* @__PURE__ */ React.createElement(
+    maxWidth: 640,
+    margin: "0 0 18px"
+  } }, "xB77 is not a privacy coin, a mixer, or another ZK rollup. It is the substrate for an autonomous machine economy \u2014 where agents settle, prove, and govern without asking permission."), /* @__PURE__ */ React.createElement("p", { style: {
+    fontFamily: "var(--sans)",
+    fontSize: bp.mobile ? 15 : 17,
+    color: t.textDim,
+    lineHeight: 1.7,
+    maxWidth: 640,
+    margin: 0,
+    opacity: 0.85
+  } }, "Math-enforced privacy. Sub-second settlement. Selective disclosure on demand. The rules are in the code, not in the prospectus."))), /* @__PURE__ */ React.createElement("section", { style: {
+    padding: bp.mobile ? "0 20px 80px" : "0 40px 120px",
+    maxWidth: 1200,
+    margin: "0 auto"
+  } }, /* @__PURE__ */ React.createElement("div", { style: {
+    display: "grid",
+    gridTemplateColumns: bp.mobile ? "1fr" : "1fr 1fr",
+    gap: 0,
+    borderTop: `1px solid ${t.border}`,
+    borderBottom: `1px solid ${t.border}`
+  } }, /* @__PURE__ */ React.createElement(FadeIn, null, /* @__PURE__ */ React.createElement("div", { style: {
+    padding: bp.mobile ? "40px 0" : "56px 48px 56px 0",
+    borderRight: bp.mobile ? "none" : `1px solid ${t.border}`,
+    borderBottom: bp.mobile ? `1px solid ${t.border}` : "none"
+  } }, /* @__PURE__ */ React.createElement("div", { style: {
+    fontFamily: "var(--mono)",
+    fontSize: 10,
+    color: t.accent,
+    letterSpacing: "0.25em",
+    marginBottom: 18,
+    textTransform: "uppercase"
+  } }, "// THE THESIS"), /* @__PURE__ */ React.createElement("h2", { style: {
+    fontFamily: "var(--serif)",
+    fontStyle: "italic",
+    fontWeight: 400,
+    fontSize: bp.mobile ? 28 : "clamp(28px, 3.4vw, 42px)",
+    color: t.text,
+    margin: "0 0 20px",
+    lineHeight: 1.1
+  } }, "Agents will move more money than humans."), /* @__PURE__ */ React.createElement("p", { style: {
+    fontFamily: "var(--sans)",
+    fontSize: 15,
+    color: t.textDim,
+    lineHeight: 1.7,
+    margin: "0 0 20px"
+  } }, "The next decade's settlement layer will be operated by software that negotiates, pays, and audits itself. Existing rails were built for humans: KYC at the door, surveillance by default, finality measured in minutes."), /* @__PURE__ */ React.createElement("ul", { style: {
+    listStyle: "none",
+    padding: 0,
+    margin: 0,
+    fontFamily: "var(--sans)",
+    fontSize: 14,
+    color: t.text,
+    lineHeight: 1.8
+  } }, [
+    "Identity as cryptographic keypair, not corporate account",
+    "Privacy as protocol default, not opt-in feature",
+    "Compliance as selective proof, not bulk disclosure",
+    "Settlement as machine-speed, not banking hours"
+  ].map((item, i) => /* @__PURE__ */ React.createElement("li", { key: i, style: { display: "flex", gap: 12, padding: "6px 0" } }, /* @__PURE__ */ React.createElement("span", { style: {
+    fontFamily: "var(--mono)",
+    color: t.accent,
+    fontSize: 11,
+    width: 22,
+    flexShrink: 0,
+    opacity: 0.7
+  } }, String(i + 1).padStart(2, "0")), /* @__PURE__ */ React.createElement("span", { style: { color: t.textDim } }, item)))))), /* @__PURE__ */ React.createElement(FadeIn, { delay: 0.15 }, /* @__PURE__ */ React.createElement("div", { style: {
+    padding: bp.mobile ? "40px 0" : "56px 0 56px 48px"
+  } }, /* @__PURE__ */ React.createElement("div", { style: {
+    fontFamily: "var(--mono)",
+    fontSize: 10,
+    color: t.accent,
+    letterSpacing: "0.25em",
+    marginBottom: 18,
+    textTransform: "uppercase"
+  } }, "// WHY NOW"), /* @__PURE__ */ React.createElement("h2", { style: {
+    fontFamily: "var(--serif)",
+    fontStyle: "italic",
+    fontWeight: 400,
+    fontSize: bp.mobile ? 28 : "clamp(28px, 3.4vw, 42px)",
+    color: t.text,
+    margin: "0 0 20px",
+    lineHeight: 1.1
+  } }, "The stack just became possible."), /* @__PURE__ */ React.createElement("p", { style: {
+    fontFamily: "var(--sans)",
+    fontSize: 15,
+    color: t.textDim,
+    lineHeight: 1.7,
+    margin: "0 0 20px"
+  } }, "Three things had to converge: ZK proofs cheap enough to run per-action, a chain fast enough to be agent-native, and language models capable enough to be trusted with capital. They have."), /* @__PURE__ */ React.createElement("ul", { style: {
+    listStyle: "none",
+    padding: 0,
+    margin: 0,
+    fontFamily: "var(--sans)",
+    fontSize: 14,
+    color: t.text,
+    lineHeight: 1.8
+  } }, [
+    "SNARK provers now build proofs in milliseconds, not minutes",
+    "Solana + MagicBlock deliver sub-second confirmed settlement",
+    "Autonomous agents are no longer demos \u2014 they hold real budgets",
+    "Regulators want selective disclosure, not surveillance, in 2026"
+  ].map((item, i) => /* @__PURE__ */ React.createElement("li", { key: i, style: { display: "flex", gap: 12, padding: "6px 0" } }, /* @__PURE__ */ React.createElement("span", { style: {
+    fontFamily: "var(--mono)",
+    color: t.accent,
+    fontSize: 11,
+    width: 22,
+    flexShrink: 0,
+    opacity: 0.7
+  } }, String(i + 1).padStart(2, "0")), /* @__PURE__ */ React.createElement("span", { style: { color: t.textDim } }, item)))))))), /* @__PURE__ */ React.createElement("section", { style: { padding: bp.mobile ? "0 12px 60px" : "0 40px 100px" } }, /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 1200, margin: "0 auto", overflowX: "auto" } }, /* @__PURE__ */ React.createElement(FadeIn, null, /* @__PURE__ */ React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: 900 } }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { padding: "16px 20px", textAlign: "left", fontFamily: "var(--mono)", fontSize: 9, color: t.textDim, letterSpacing: "0.15em", borderBottom: `2px solid ${t.border}`, width: 140 } }, "FEATURE"), /* @__PURE__ */ React.createElement("th", { style: { padding: "16px 20px", textAlign: "left", fontFamily: "var(--mono)", fontSize: 11, color: t.accent, letterSpacing: "0.08em", borderBottom: `2px solid ${t.accent}`, background: t.accentDim, fontWeight: 700 } }, "xB77"), COMPETITORS.map((c) => /* @__PURE__ */ React.createElement("th", { key: c.name, style: { padding: "16px 20px", textAlign: "left", fontFamily: "var(--mono)", fontSize: 11, color: t.textDim, letterSpacing: "0.08em", borderBottom: `2px solid ${t.border}`, fontWeight: 500 } }, c.name)))), /* @__PURE__ */ React.createElement("tbody", null, COMPARE_ROWS.map((row, ri) => /* @__PURE__ */ React.createElement(
     "tr",
     {
       key: row.key,
