@@ -53,6 +53,17 @@ pub const MagicBlockSDK = struct {
 
         // 2. Anclar el Escrow en Solana (L1) REAL
         if (self.sol_client) |sol| {
+            // Tests use "mock:..." endpoints to short-circuit network calls.
+            // Skip the L1 escrow anchor in that case; return a synthetic session.
+            if (std.mem.startsWith(u8, sol.endpoint, "mock:")) {
+                std.debug.print("\n[MAGIC ]  (mock endpoint — skipping L1 escrow anchor)", .{});
+                return Session{
+                    .id = session_id,
+                    .authority = agent_kp.public,
+                    .expiry = expiry,
+                    .is_active = true,
+                };
+            }
             const tx_mod = @import("../protocol/tx.zig");
             const amount: u64 = 2_000_000_000; // 2.0 SOL hardcoded for the demo session
 

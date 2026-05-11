@@ -64,6 +64,13 @@ pub const HttpClient = struct {
     }
 
     fn postNative(self: *HttpClient, url: []const u8, method: std.http.Method, payload: []const u8, payment_hash: ?[]const u8) !HttpResponse {
+        // "mock:" prefix short-circuits the real HTTP path so tests with mock
+        // RPC URIs don't hit the network nor exercise std.http's allocator
+        // paths. Match the historical behavior (error before any allocation).
+        if (std.mem.startsWith(u8, url, "mock:")) {
+            return error.UnsupportedUriScheme;
+        }
+
         var client = std.http.Client{ .allocator = self.allocator };
         defer client.deinit();
 
