@@ -15,12 +15,14 @@
 //! assert_eq!(recovered, b"my private bytes");
 //!
 //! let priv_64 = [0u8; 64]; // your Ed25519 secret in canonical seed||pubkey form
+//! let nonce = [0u8; 12]; // in real use: rand::random()
 //! let req = sdk.build_signed_request(
 //!     "https://gateway.xb77.dev",
 //!     Action::SubmitOrder,
 //!     br#"{"symbol":"SOL/USDC","amount":1000}"#,
 //!     &priv_64,
-//!     1_700_000_000,
+//!     1_700_000_000_000,
+//!     &nonce,
 //! )?;
 //!
 //! // The wrapper does HTTP in its idiomatic style (reqwest, ureq, ...).
@@ -29,7 +31,7 @@
 
 use std::path::Path;
 use thiserror::Error;
-use wasmtime::{Engine, Linker, Memory, Module, Store, TypedFunc};
+use wasmtime::{Engine, Func, Linker, Memory, Module, Store, TypedFunc, Val};
 use wasmtime_wasi::preview1::WasiP1Ctx;
 use wasmtime_wasi::WasiCtxBuilder;
 
@@ -124,7 +126,8 @@ struct Fns {
     keystore_seal: TypedFunc<(u32, u32, u32, u32, u32, u32, u32), u32>,
     keystore_unseal: TypedFunc<(u32, u32, u32, u32, u32, u32, u32), u32>,
     keystore_pubkey: TypedFunc<(u32, u32, u32), u32>,
-    build_signed_request: TypedFunc<(u32, u32, u32, u32, u32, u64, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32, u32), u32>,
+    /// Untyped: wasmtime TypedFunc tuples cap at 16 params, this fn takes 19.
+    build_signed_request: Func,
     verify_response: TypedFunc<(u32, u32, u32, u64, u32, u32, u32, u32), u32>,
 }
 
@@ -163,7 +166,9 @@ impl Xb77 {
             keystore_seal: instance.get_typed_func(&mut store, "keystore_seal")?,
             keystore_unseal: instance.get_typed_func(&mut store, "keystore_unseal")?,
             keystore_pubkey: instance.get_typed_func(&mut store, "keystore_pubkey")?,
-            build_signed_request: instance.get_typed_func(&mut store, "build_signed_request")?,
+            build_signed_request: instance
+                .get_func(&mut store, "build_signed_request")
+                .ok_or_else(|| Xb77Error::Trap("missing export: build_signed_request".into()))?,
             verify_response: instance.get_typed_func(&mut store, "verify_response")?,
         };
 
@@ -322,10 +327,12 @@ impl Xb77 {
         action: Action,
         payload: &[u8],
         privkey: &[u8; 64],
-        timestamp_unix: u64,
+        timestamp_unix_ms: u64,
+        nonce: &[u8; 12],
     ) -> Xb77Result<SignedRequest> {
         let payload_ptr = self.write_bytes(payload)?;
         let priv_ptr = self.write_bytes(privkey)?;
+        let nonce_ptr = self.write_bytes(nonce)?;
         let base = gateway_base.as_bytes();
         let base_ptr = self.write_bytes(base)?;
         let url_slot = self.alloc_len_slot()?;
@@ -334,19 +341,26 @@ impl Xb77 {
 
         let action_byte = action as u32;
 
+        let mk_args = |url_out: u32, url_max: u32, hdr_out: u32, hdr_max: u32, body_out: u32, body_max: u32| -> [Val; 19] {
+            [
+                Val::I32(action_byte as i32),
+                Val::I32(payload_ptr as i32), Val::I32(payload.len() as i32),
+                Val::I32(priv_ptr as i32), Val::I32(64),
+                Val::I64(timestamp_unix_ms as i64),
+                Val::I32(nonce_ptr as i32), Val::I32(12),
+                Val::I32(base_ptr as i32), Val::I32(base.len() as i32),
+                Val::I32(url_out as i32), Val::I32(url_max as i32), Val::I32(url_slot as i32),
+                Val::I32(hdr_out as i32), Val::I32(hdr_max as i32), Val::I32(hdr_slot as i32),
+                Val::I32(body_out as i32), Val::I32(body_max as i32), Val::I32(body_slot as i32),
+            ]
+        };
+        let mut ret = [Val::I32(0); 1];
+
         // Probe sizes (max = 0).
-        let _ = self.fns.build_signed_request.call(
+        self.fns.build_signed_request.call(
             &mut self.store,
-            (
-                action_byte,
-                payload_ptr, payload.len() as u32,
-                priv_ptr, 64,
-                timestamp_unix,
-                base_ptr, base.len() as u32,
-                0, 0, url_slot,
-                0, 0, hdr_slot,
-                0, 0, body_slot,
-            ),
+            &mk_args(0, 0, 0, 0, 0, 0),
+            &mut ret,
         )?;
         let url_len = self.read_u32(url_slot)?;
         let hdr_len = self.read_u32(hdr_slot)?;
@@ -356,19 +370,15 @@ impl Xb77 {
         let hdr_ptr = self.fns.wasm_alloc.call(&mut self.store, hdr_len)?;
         let body_ptr = self.fns.wasm_alloc.call(&mut self.store, body_len.max(1))?;
 
-        let rc = self.fns.build_signed_request.call(
+        self.fns.build_signed_request.call(
             &mut self.store,
-            (
-                action_byte,
-                payload_ptr, payload.len() as u32,
-                priv_ptr, 64,
-                timestamp_unix,
-                base_ptr, base.len() as u32,
-                url_ptr, url_len, url_slot,
-                hdr_ptr, hdr_len, hdr_slot,
-                body_ptr, body_len.max(1), body_slot,
-            ),
+            &mk_args(url_ptr, url_len, hdr_ptr, hdr_len, body_ptr, body_len.max(1)),
+            &mut ret,
         )?;
+        let rc = match ret[0] {
+            Val::I32(v) => v as u32,
+            _ => return Err(Xb77Error::Trap("build_signed_request: non-i32 return".into())),
+        };
 
         let url = String::from_utf8(self.read_bytes(url_ptr, url_len)?)
             .map_err(|e| Xb77Error::Trap(format!("url not utf-8: {e}")))?;
@@ -378,6 +388,7 @@ impl Xb77 {
 
         self.free(payload_ptr, payload.len() as u32);
         self.free(priv_ptr, 64);
+        self.free(nonce_ptr, 12);
         self.free(base_ptr, base.len() as u32);
         self.free(url_slot, 4);
         self.free(hdr_slot, 4);
@@ -398,7 +409,7 @@ impl Xb77 {
         &mut self,
         body: &[u8],
         expected_action: Action,
-        timestamp_unix: u64,
+        timestamp_unix_ms: u64,
         gateway_pubkey: &[u8; 32],
         signature: &[u8; 64],
     ) -> Xb77Result<()> {
@@ -410,7 +421,7 @@ impl Xb77 {
             (
                 body_ptr, body.len() as u32,
                 expected_action as u32,
-                timestamp_unix,
+                timestamp_unix_ms,
                 pk_ptr, 32,
                 sig_ptr, 64,
             ),

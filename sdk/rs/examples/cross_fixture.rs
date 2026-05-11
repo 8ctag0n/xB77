@@ -16,7 +16,8 @@ use xb77::{Action, Xb77};
 fn main() {
     let priv_hex = env::var("XB77_PRIV_HEX").expect("XB77_PRIV_HEX");
     let payload = env::var("XB77_PAYLOAD").expect("XB77_PAYLOAD");
-    let timestamp_unix: u64 = env::var("XB77_TIMESTAMP").expect("XB77_TIMESTAMP").parse().unwrap();
+    let timestamp_unix_ms: u64 = env::var("XB77_TIMESTAMP").expect("XB77_TIMESTAMP").parse().unwrap();
+    let nonce_hex = env::var("XB77_NONCE_HEX").expect("XB77_NONCE_HEX");
     let action_byte: u8 = env::var("XB77_ACTION").expect("XB77_ACTION").parse().unwrap();
     let gateway = env::var("XB77_GATEWAY").expect("XB77_GATEWAY");
 
@@ -24,6 +25,11 @@ fn main() {
     assert_eq!(priv_bytes.len(), 64, "priv must be 64 bytes");
     let mut priv64 = [0u8; 64];
     priv64.copy_from_slice(&priv_bytes);
+
+    let nonce_bytes = hex::decode(&nonce_hex).expect("nonce hex");
+    assert_eq!(nonce_bytes.len(), 12, "nonce must be 12 bytes");
+    let mut nonce12 = [0u8; 12];
+    nonce12.copy_from_slice(&nonce_bytes);
 
     let action = match action_byte {
         0x01 => Action::SubmitOrder,
@@ -35,7 +41,7 @@ fn main() {
 
     let mut sdk = Xb77::load().expect("load wasm");
     let req = sdk
-        .build_signed_request(&gateway, action, payload.as_bytes(), &priv64, timestamp_unix)
+        .build_signed_request(&gateway, action, payload.as_bytes(), &priv64, timestamp_unix_ms, &nonce12)
         .expect("build_signed_request");
 
     // Build a flat JSON object identical in shape to what the TS test produces.
