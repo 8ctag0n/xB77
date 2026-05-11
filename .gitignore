@@ -14,6 +14,7 @@ cache
 sdk/src/artifacts/
 .localnet/
 .devnet/
+.localnet-ledger/
 contracts/target/
 onchain/target/
 target/
@@ -40,6 +41,9 @@ circuits/zk_receipt/target/
 
 # Session briefs (ad-hoc handoff notes, not source of truth)
 BRIEF_*.md
+
+# Local-only brainstorming/spec artifacts (never commit)
+docs/superpowers/
 
 # Local-only scratch dir (NOT for the public repo).
 # Note: `___legacy/` is intentionally tracked so the v3 cleanup can drop
