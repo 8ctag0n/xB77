@@ -232,7 +232,7 @@ function MCPPanel() {
     };
   }, [cmdIdx]);
   const cmd = MCP_COMMANDS[cmdIdx % MCP_COMMANDS.length];
-  return /* @__PURE__ */ React.createElement("div", { style: { border: `1px solid ${T.border}`, background: "#0a0a0e", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: {
+  return /* @__PURE__ */ React.createElement("div", { style: { border: `1px solid ${T.border}`, background: "var(--sidebar-bg)", flexShrink: 0 } }, /* @__PURE__ */ React.createElement("div", { style: {
     display: "flex",
     alignItems: "center",
     gap: 8,

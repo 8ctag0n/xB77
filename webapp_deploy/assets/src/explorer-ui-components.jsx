@@ -1,7 +1,7 @@
 /* xB77 Explorer v2 — Enhanced UI Components */
 
 const T = {
-  bg: 'var(--bg)', bg2: '#0e0e12', bg3: '#141418',
+  bg: 'var(--bg)', bg2: 'var(--bg-2)', bg3: 'var(--bg-3)',
   card: 'rgba(255,255,255,0.02)', cardHover: 'rgba(255,255,255,0.05)',
   accent: 'var(--accent)', accentDim: 'rgba(200,255,46,0.08)', accentMid: 'rgba(200,255,46,0.2)',
   text: 'var(--text)', textMid: '#9a9aaa', textDim: '#55555f',

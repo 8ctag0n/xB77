@@ -348,7 +348,7 @@ function MCPPanel() {
   const cmd = MCP_COMMANDS[cmdIdx % MCP_COMMANDS.length];
 
   return (
-    <div style={{ border: `1px solid ${T.border}`, background: '#0a0a0e', flexShrink: 0 }}>
+    <div style={{ border: `1px solid ${T.border}`, background: 'var(--sidebar-bg)', flexShrink: 0 }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '8px 14px', borderBottom: `1px solid ${T.border}`,

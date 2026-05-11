@@ -35,7 +35,7 @@ function ExplorerTab() {
       {/* Mesh hero with stat bar */}
       <div style={{ position: 'relative', borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
         <MeshHero znodes={MOCK_ZNODES} />
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 1, background: 'rgba(8,8,10,0.85)', backdropFilter: 'blur(12px)', borderTop: `1px solid ${T.border}` }}>
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 1, background: 'var(--nav-bg)', backdropFilter: 'blur(12px)', borderTop: `1px solid ${T.border}` }}>
           {[
             { label: 'TVL',              value: '$12.4M',  change: '+2.3%', spark: _expSparkTVL },
             { label: 'PIPELINES',        value: '48,291',  change: '+847',  spark: _expSparkPipe },

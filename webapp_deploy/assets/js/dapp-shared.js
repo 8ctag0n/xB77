@@ -1,11 +1,11 @@
 const D = {
   bg: "var(--bg)",
-  bg2: "#0e0e12",
-  bg3: "#141418",
-  bg4: "#1a1a20",
+  bg2: "var(--bg-2)",
+  bg3: "var(--bg-3)",
+  bg4: "var(--bg-4)",
   accent: "var(--accent)",
-  accentDim: "rgba(200,255,46,0.10)",
-  accentGlow: "rgba(200,255,46,0.06)",
+  accentDim: "var(--accent-dim)",
+  accentGlow: "var(--accent-glow)",
   text: "var(--text)",
   dim: "var(--text-dim)",
   faint: "#3a3a42",
@@ -17,8 +17,8 @@ const D = {
   amber: "#fbbf24",
   cyan: "#4de8d0",
   purple: "#a78bfa",
-  sidebar: "#0a0a0e",
-  topbar: "rgba(8,8,10,0.92)"
+  sidebar: "var(--sidebar-bg)",
+  topbar: "var(--topbar-bg)"
 };
 const DM = ({ children, color, size, weight, style: s }) => /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: size || 9, fontWeight: weight || 600, letterSpacing: "0.14em", textTransform: "uppercase", color: color || D.dim, ...s } }, children);
 const DS = ({ children, size, color, italic, style: s }) => /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--serif)", fontSize: size || 28, fontWeight: 400, color: color || D.text, lineHeight: 1.1, fontStyle: italic ? "italic" : "normal", ...s } }, children);

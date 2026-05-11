@@ -163,7 +163,7 @@ function DetailSlide({ sel, onClose }) {
       animationDelay: `${0.04 + Math.min(i, 18) * 0.035}s`
     } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 9, color: T.textDim, letterSpacing: "0.12em" } }, label), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 11.5, color: accent ? T.accent : T.text, textAlign: "right", maxWidth: "60%", wordBreak: "break-all" } }, value));
   };
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 299, backdropFilter: "blur(4px)" }, onClick: onClose }), /* @__PURE__ */ React.createElement("div", { style: {
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 299, backdropFilter: "blur(4px)" }, onClick: onClose }), /* @__PURE__ */ React.createElement("div", { style: {
     position: "fixed",
     top: 0,
     right: 0,
@@ -173,7 +173,7 @@ function DetailSlide({ sel, onClose }) {
     borderLeft: `1px solid ${T.border}`,
     zIndex: 300,
     overflowY: "auto",
-    boxShadow: "-30px 0 80px rgba(0,0,0,0.6)",
+    boxShadow: "-30px 0 80px var(--overlay-strong)",
     animation: "slideInRight 0.2s ease"
   } }, /* @__PURE__ */ React.createElement("div", { style: {
     display: "flex",

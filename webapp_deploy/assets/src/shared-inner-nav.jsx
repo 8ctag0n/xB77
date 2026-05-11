@@ -16,7 +16,7 @@ function InnerNav({ active }) {
   return (
     <nav style={{
       position: 'sticky', top: 0, zIndex: 100,
-      background: 'rgba(8,8,10,0.88)', backdropFilter: 'blur(20px)',
+      background: 'var(--nav-bg)', backdropFilter: 'blur(20px)',
       borderBottom: `1px solid ${t.border}`,
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       padding: '0 40px', height: 56,

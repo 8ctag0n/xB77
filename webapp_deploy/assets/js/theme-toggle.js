@@ -23,7 +23,7 @@ function ThemeToggle() {
         zIndex: 9e3,
         width: 36,
         height: 36,
-        borderRadius: "50%",
+        borderRadius: 0,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

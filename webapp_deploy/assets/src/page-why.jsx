@@ -278,7 +278,7 @@ function WhyPage() {
                     style={{ background: hoveredRow === ri ? t.bgCard : 'transparent', transition: 'background 0.2s' }}
                   >
                     <td style={{ padding: '14px 20px', fontFamily: 'var(--mono)', fontSize: 10, color: t.textDim, letterSpacing: '0.1em', borderBottom: `1px solid ${t.border}`, textTransform: 'uppercase' }}>{row.label}</td>
-                    <td style={{ padding: '14px 20px', fontFamily: 'var(--sans)', fontSize: 13, color: t.text, borderBottom: `1px solid ${t.border}`, background: hoveredRow === ri ? t.accentDim : 'rgba(200,255,46,0.02)', fontWeight: 500 }}>{XB77_ROW[row.key]}</td>
+                    <td style={{ padding: '14px 20px', fontFamily: 'var(--sans)', fontSize: 13, color: t.text, borderBottom: `1px solid ${t.border}`, background: hoveredRow === ri ? t.accentDim : 'var(--accent-faint)', fontWeight: 500 }}>{XB77_ROW[row.key]}</td>
                     {COMPETITORS.map(c => (
                       <td key={c.name} style={{ padding: '14px 20px', fontFamily: 'var(--sans)', fontSize: 13, color: t.textDim, borderBottom: `1px solid ${t.border}` }}>{c[row.key]}</td>
                     ))}

@@ -195,7 +195,7 @@
       return /* @__PURE__ */ React.createElement("div", { key: s.id, style: {
         border: `1px solid ${COLORS.border}`,
         padding: "12px 14px",
-        background: "rgba(255,255,255,0.015)"
+        background: "var(--bg-card)"
       } }, /* @__PURE__ */ React.createElement("div", { style: {
         fontFamily: "var(--mono, monospace)",
         fontSize: 9,

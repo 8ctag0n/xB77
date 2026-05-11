@@ -278,12 +278,12 @@ function DetailSlide({ sel, onClose }) {
 
   return (
     <>
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 299, backdropFilter: 'blur(4px)' }} onClick={onClose}></div>
+      <div style={{ position: 'fixed', inset: 0, background: 'var(--overlay)', zIndex: 299, backdropFilter: 'blur(4px)' }} onClick={onClose}></div>
       <div style={{
         position: 'fixed', top: 0, right: 0, bottom: 0, width: 520,
         background: T.bg2, borderLeft: `1px solid ${T.border}`,
         zIndex: 300, overflowY: 'auto',
-        boxShadow: '-30px 0 80px rgba(0,0,0,0.6)',
+        boxShadow: '-30px 0 80px var(--overlay-strong)',
         animation: 'slideInRight 0.2s ease',
       }}>
         {/* Header */}

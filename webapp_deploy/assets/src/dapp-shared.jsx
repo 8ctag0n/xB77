@@ -1,12 +1,12 @@
 /* xB77 dApp — Shared theme, layout, icons */
 
 const D = {
-  bg: 'var(--bg)', bg2: '#0e0e12', bg3: '#141418', bg4: '#1a1a20',
-  accent: 'var(--accent)', accentDim: 'rgba(200,255,46,0.10)', accentGlow: 'rgba(200,255,46,0.06)',
+  bg: 'var(--bg)', bg2: 'var(--bg-2)', bg3: 'var(--bg-3)', bg4: 'var(--bg-4)',
+  accent: 'var(--accent)', accentDim: 'var(--accent-dim)', accentGlow: 'var(--accent-glow)',
   text: 'var(--text)', dim: 'var(--text-dim)', faint: '#3a3a42', muted: '#52525e',
   border: 'var(--border)', borderHover: 'rgba(255,255,255,0.12)',
   green: '#34d399', red: '#f87171', amber: '#fbbf24', cyan: '#4de8d0', purple: '#a78bfa',
-  sidebar: '#0a0a0e', topbar: 'rgba(8,8,10,0.92)',
+  sidebar: 'var(--sidebar-bg)', topbar: 'var(--topbar-bg)',
 };
 
 /* ── Tiny components ── */

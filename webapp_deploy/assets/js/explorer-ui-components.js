@@ -1,7 +1,7 @@
 const T = {
   bg: "var(--bg)",
-  bg2: "#0e0e12",
-  bg3: "#141418",
+  bg2: "var(--bg-2)",
+  bg3: "var(--bg-3)",
   card: "rgba(255,255,255,0.02)",
   cardHover: "rgba(255,255,255,0.05)",
   accent: "var(--accent)",

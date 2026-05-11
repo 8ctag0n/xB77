@@ -22,7 +22,7 @@ function ThemeToggle() {
       title={label}
       style={{
         position: 'fixed', bottom: 20, right: 20, zIndex: 9000,
-        width: 36, height: 36, borderRadius: '50%',
+        width: 36, height: 36, borderRadius: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: 'var(--bg-elevated)',
         border: '1px solid var(--border-strong)',
