@@ -84,4 +84,7 @@ dispatch_step "STEP 2/7 — znode-e2e (AWP orders + matches)" "./zig-out/bin/zno
 dispatch_step "STEP 3/7 — e2e-anchor (sovereign state onchain)" \
   "XB77_RPC=https://api.${CLUSTER}.solana.com ./zig-out/bin/e2e-anchor" \
   step_3_anchor
+dispatch_step "STEP 4/7 — nargo prove (ZK proof real)" \
+  "podman run xb77-zk zk-bridge prove --package zk_receipt" \
+  step_4_prove
 log_ok "demo_deluxe runner wiring OK"

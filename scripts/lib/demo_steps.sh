@@ -136,3 +136,26 @@ step_3_anchor() {
     log_warn "could not extract tx sig from e2e-anchor output"
   fi
 }
+
+step_4_prove() {
+  require_image xb77-zk infra/Containerfile.zk
+
+  run_cmd podman run --rm \
+    -v "$REPO_ROOT/circuits:/work:Z" \
+    -w /work \
+    xb77-zk zk-bridge prove --package zk_receipt
+
+  if [[ "$DRY_RUN" == "1" ]]; then return 0; fi
+
+  local proof="circuits/zk_receipt/proofs/zk_receipt.proof"
+  if [[ ! -f "$proof" ]]; then
+    log_error "proof not generated: $proof"
+    return 1
+  fi
+  local size
+  size=$(stat -c %s "$proof")
+  log_ok "proof generated: $proof ($size bytes)"
+  if (( size < 1500 || size > 3000 )); then
+    log_warn "proof size unusual ($size B, expected ~2176)"
+  fi
+}
