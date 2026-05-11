@@ -100,6 +100,12 @@ pub fn main() !void {
         std.debug.print("\n[E2E]  uploadAndVerify failed: {any}\n", .{err});
         return err;
     };
+    defer {
+        allocator.free(result.init_sig);
+        allocator.free(result.verify_sig);
+        for (result.write_sigs) |s| allocator.free(s);
+        allocator.free(result.write_sigs);
+    }
 
     std.debug.print("\n[E2E]  uploadAndVerify completed\n", .{});
     std.debug.print("[E2E]    init:   {s}\n", .{result.init_sig});
