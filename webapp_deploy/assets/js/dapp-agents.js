@@ -98,14 +98,23 @@ function AgentsView({ onNavigate }) {
     { k: "HUMAN OVERRIDE", v: sel.humanOverride || "N/A" },
     { k: "PIPELINE", v: sel.pipeline },
     { k: "CURRENCIES", v: sel.currencies.join(", ") || "None" }
-  ].map((r, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement(DM, { size: 8 }, r.k), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 11, color: D.text } }, r.v)))), /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}`, padding: 18 } }, /* @__PURE__ */ React.createElement(DM, { size: 8, color: sel.color, style: { marginBottom: 12, display: "block" } }, "RECENT ACTIONS"), [
+  ].map((r, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "8px 10px",
+    margin: "0 -10px",
+    background: i % 2 === 1 ? D.bg3 : "transparent",
+    borderBottom: `1px solid ${D.border}`
+  } }, /* @__PURE__ */ React.createElement(DM, { size: 8 }, r.k), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 11, color: D.text } }, r.v)))), /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}`, padding: 18 } }, /* @__PURE__ */ React.createElement(DM, { size: 8, color: sel.color, style: { marginBottom: 12, display: "block" } }, "RECENT ACTIONS"), [
     sel.lastAction,
     "ZK-receipt generated (45m ago)",
     "Risk check passed (1h ago)",
     "Neural key auth verified (2h ago)",
     "Pipeline heartbeat OK (2h ago)"
   ].map((act, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
-    padding: "6px 0",
+    padding: "8px 10px",
+    margin: "0 -10px",
+    background: i % 2 === 1 ? D.bg3 : "transparent",
     borderBottom: `1px solid ${D.border}`,
     fontFamily: "var(--sans)",
     fontSize: 11,

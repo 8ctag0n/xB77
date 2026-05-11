@@ -119,7 +119,12 @@ function AgentsView({ onNavigate }) {
                   { k: 'PIPELINE', v: sel.pipeline },
                   { k: 'CURRENCIES', v: sel.currencies.join(', ') || 'None' },
                 ].map((r, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: `1px solid ${D.border}` }}>
+                  <div key={i} style={{
+                    display: 'flex', justifyContent: 'space-between',
+                    padding: '8px 10px', margin: '0 -10px',
+                    background: i % 2 === 1 ? D.bg3 : 'transparent',
+                    borderBottom: `1px solid ${D.border}`,
+                  }}>
                     <DM size={8}>{r.k}</DM>
                     <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: D.text }}>{r.v}</span>
                   </div>
@@ -136,7 +141,9 @@ function AgentsView({ onNavigate }) {
                   'Pipeline heartbeat OK (2h ago)',
                 ].map((act, i) => (
                   <div key={i} style={{
-                    padding: '6px 0', borderBottom: `1px solid ${D.border}`,
+                    padding: '8px 10px', margin: '0 -10px',
+                    background: i % 2 === 1 ? D.bg3 : 'transparent',
+                    borderBottom: `1px solid ${D.border}`,
                     fontFamily: 'var(--sans)', fontSize: 11, color: i === 0 ? D.text : D.dim,
                     lineHeight: 1.5,
                   }}>{act}</div>

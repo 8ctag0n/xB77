@@ -263,10 +263,13 @@ function DetailSlide({ sel, onClose }) {
   let _fieldIdx = 0;
   const field = (label, value, accent) => {
     const i = _fieldIdx++;
+    const stripe = i % 2 === 1;
     return (
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '10px 0', borderBottom: `1px solid ${T.border}`,
+        padding: '10px 14px', margin: '0 -14px',
+        background: stripe ? T.bg3 : 'transparent',
+        borderBottom: `1px solid ${T.border}`,
         opacity: 0, animation: 'fadeInLine 0.32s ease forwards',
         animationDelay: `${0.04 + Math.min(i, 18) * 0.035}s`,
       }}>
