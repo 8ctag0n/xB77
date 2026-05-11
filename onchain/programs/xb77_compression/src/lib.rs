@@ -10,11 +10,7 @@ use solana_program::{
     declare_id,
 };
 use wincode::{SchemaRead, SchemaWrite};
-use ark_bn254::Fr;
-use ark_ff::{BigInteger, PrimeField};
-
-mod poseidon;
-use poseidon::Poseidon;
+use solana_poseidon::{hashv, Endianness, Parameters};
 
 declare_id!("6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN");
 
@@ -31,7 +27,8 @@ pub struct VerifyTransitionPayload {
 
 #[derive(Debug, SchemaRead, SchemaWrite)]
 pub enum CompressionInstruction {
-    /// Verify a state transition from Root A to Root B using Poseidon
+    /// Verify a state transition by recomputing the leaf via Poseidon BN254 (circomlib t=3)
+    /// and walking the Merkle proof up to `new_root`.
     VerifyTransition(VerifyTransitionPayload),
 }
 
@@ -51,7 +48,7 @@ pub fn process_instruction(
     match instruction {
         CompressionInstruction::VerifyTransition(payload) => {
             if verify_transition(&payload) {
-                msg!("Compression: Transition Verified via Poseidon BN254.");
+                msg!("Compression: Transition Verified via Poseidon BN254 (syscall).");
                 Ok(())
             } else {
                 msg!("Compression: Transition Verification FAILED.");
@@ -61,31 +58,50 @@ pub fn process_instruction(
     }
 }
 
+/// 32-byte big-endian field element from a u128 (zero-padded high bytes).
+fn u128_to_be32(v: u128) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    out[16..32].copy_from_slice(&v.to_be_bytes());
+    out
+}
+
 pub fn verify_transition(payload: &VerifyTransitionPayload) -> bool {
-    // 1. Reconstruir el leaf nuevo usando Poseidon (misma lógica que store.zig)
-    // amount_combined = (amount << 8) | type
-    let amount_combined = ((payload.leaf_preimage_amount as u128) << 8) | (payload.leaf_preimage_type as u128);
-    
-    // Hash2: [amount_combined, tx_hash]
-    let input = [
-        Fr::from(amount_combined),
-        Fr::from_be_bytes_mod_order(&payload.leaf_preimage_tx_hash),
-    ];
+    // 1. Leaf = Poseidon([(amount<<8) | type, tx_hash])
+    let amount_combined = ((payload.leaf_preimage_amount as u128) << 8)
+        | (payload.leaf_preimage_type as u128);
+    let amt_bytes = u128_to_be32(amount_combined);
 
-    let mut hasher = Poseidon::new(input);
-    let new_leaf = hasher.hash().into_bigint().to_bytes_be();
+    let leaf = match hashv(
+        Parameters::Bn254X5,
+        Endianness::BigEndian,
+        &[&amt_bytes, &payload.leaf_preimage_tx_hash],
+    ) {
+        Ok(h) => h.to_bytes(),
+        Err(_) => return false,
+    };
 
-    // 2. Verificar Merkle Proof
-    let mut current = new_leaf;
+    // 2. Merkle climb to new_root.
+    let mut current: [u8; 32] = leaf;
     for (i, sibling) in payload.siblings.iter().enumerate() {
         let node_is_right = (payload.index >> i) & 1 == 1;
-        
-        let left = if node_is_right { Fr::from_be_bytes_mod_order(sibling) } else { Fr::from_be_bytes_mod_order(&current) };
-        let right = if node_is_right { Fr::from_be_bytes_mod_order(&current) } else { Fr::from_be_bytes_mod_order(sibling) };
-        
-        let mut hasher = Poseidon::new([left, right]);
-        current = hasher.hash().into_bigint().to_bytes_be();
+        let next = if node_is_right {
+            hashv(
+                Parameters::Bn254X5,
+                Endianness::BigEndian,
+                &[&sibling[..], &current[..]],
+            )
+        } else {
+            hashv(
+                Parameters::Bn254X5,
+                Endianness::BigEndian,
+                &[&current[..], &sibling[..]],
+            )
+        };
+        current = match next {
+            Ok(h) => h.to_bytes(),
+            Err(_) => return false,
+        };
     }
-    
+
     current == payload.new_root
 }

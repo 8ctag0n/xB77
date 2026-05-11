@@ -11,6 +11,7 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 solana-program = "~3.0"
+solana-poseidon = "3.0"
 wincode = { version = "0.2.5", default-features = false, features = ["alloc", "derive", "solana-short-vec"] }
 borsh = "1.5.5"
 thiserror = "1.0"
