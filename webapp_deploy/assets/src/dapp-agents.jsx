@@ -175,4 +175,17 @@ function AgentsView({ onNavigate }) {
   );
 }
 
-Object.assign(window, { AgentsView });
+function AgentsTab() {
+  return (
+    <div style={{
+      display:'flex', flexDirection:'column',
+      height:'min(80vh, 820px)', minHeight:520,
+      border:'1px solid rgba(245,245,247,0.08)',
+      background:'#08080a', overflow:'hidden',
+    }}>
+      <AgentsView />
+    </div>
+  );
+}
+
+Object.assign(window, { AgentsView, AgentsTab });

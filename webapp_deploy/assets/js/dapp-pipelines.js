@@ -79,4 +79,15 @@ function PipelinesView() {
     /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 0", fontFamily: "var(--mono)", fontSize: 9, color: D.faint } }, tx.receipt)
   ))))));
 }
-Object.assign(window, { PipelinesView });
+function PipelinesTab() {
+  return /* @__PURE__ */ React.createElement("div", { style: {
+    display: "flex",
+    flexDirection: "column",
+    height: "min(80vh, 820px)",
+    minHeight: 520,
+    border: "1px solid rgba(245,245,247,0.08)",
+    background: "#08080a",
+    overflow: "hidden"
+  } }, /* @__PURE__ */ React.createElement(PipelinesView, null));
+}
+Object.assign(window, { PipelinesView, PipelinesTab });

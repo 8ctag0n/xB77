@@ -131,4 +131,17 @@ function WalletView() {
   );
 }
 
-Object.assign(window, { WalletView });
+function WalletTab() {
+  return (
+    <div style={{
+      display:'flex', flexDirection:'column',
+      minHeight:520,
+      border:'1px solid rgba(245,245,247,0.08)',
+      background:'#08080a',
+    }}>
+      <WalletView />
+    </div>
+  );
+}
+
+Object.assign(window, { WalletView, WalletTab });
