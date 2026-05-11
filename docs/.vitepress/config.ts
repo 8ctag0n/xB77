@@ -1,14 +1,14 @@
-import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
 // https://vitepress.dev/reference/site-config
-export default defineConfig({
+export default withMermaid({
   title: 'xB77',
   titleTemplate: ':title // xB77 Sovereign Commerce',
   description:
     'Sovereign commerce layer for autonomous agents on Solana — ZK-batched payments, shielded flows, mathematical audit.',
   lang: 'en-US',
   cleanUrls: true,
-  appearance: 'dark',
+  appearance: 'force-dark',
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
@@ -81,6 +81,14 @@ export default defineConfig({
             { text: 'Archive (v1 Legacy)', link: '/v1/index' },
           ],
         },
+        {
+          text: 'Reference',
+          items: [
+            { text: 'On-Chain Programs', link: '/reference/programs' },
+            { text: 'Proof Format', link: '/reference/proof-format' },
+            { text: 'Glossary', link: '/reference/glossary' },
+          ],
+        },
       ],
     },
 
@@ -102,5 +110,43 @@ export default defineConfig({
 
     outline: { level: [2, 3], label: 'On this page' },
     docFooter: { prev: 'Previous', next: 'Next' },
+  },
+
+  mermaid: {
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#08080a',
+      primaryColor: '#1a1a20',
+      primaryTextColor: '#fffffa',
+      primaryBorderColor: '#c8ff2e',
+      lineColor: '#c8ff2e',
+      secondaryColor: '#0e0e12',
+      tertiaryColor: '#0a0a0e',
+      edgeLabelBackground: '#0e0e12',
+      clusterBkg: '#0e0e12',
+      clusterBorder: 'rgba(200,255,46,0.3)',
+      titleColor: '#c8ff2e',
+      nodeTextColor: '#fffffa',
+      activationBorderColor: '#00f0ff',
+      activationBkgColor: '#0e0e12',
+      sequenceNumberColor: '#c8ff2e',
+      actorBkg: '#0e0e12',
+      actorBorder: '#c8ff2e',
+      actorTextColor: '#fffffa',
+      actorLineColor: '#c8ff2e',
+      signalColor: '#00f0ff',
+      signalTextColor: '#fffffa',
+      labelBoxBkgColor: '#0e0e12',
+      labelBoxBorderColor: 'rgba(200,255,46,0.4)',
+      labelTextColor: '#fffffa',
+      loopTextColor: '#c8ff2e',
+      noteBkgColor: '#0e0e12',
+      noteBorderColor: 'rgba(0,240,255,0.4)',
+      noteTextColor: '#fffffa',
+    },
+  },
+  mermaidPlugin: {
+    class: 'mermaid',
   },
 })
