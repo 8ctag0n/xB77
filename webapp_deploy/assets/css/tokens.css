@@ -68,3 +68,50 @@ body {
   background: var(--bg);
   color: var(--text);
 }
+
+/* ── Initial body fade-in (boot.js promotes opacity to 1 on DOMContentLoaded) ── */
+body {
+  opacity: 0;
+}
+
+/* ── Boot overlay (only injected on index.html, first visit per session) ── */
+#xb77-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: var(--bg);
+  color: var(--accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  font-family: var(--mono, 'JetBrains Mono', monospace);
+  opacity: 1;
+}
+#xb77-boot-logo {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.1;
+  white-space: pre;
+  letter-spacing: 0;
+  color: var(--accent);
+  text-shadow: 0 0 12px var(--accent-glow);
+}
+#xb77-boot-lines {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-align: left;
+  min-width: 260px;
+}
+#xb77-boot-lines div {
+  padding: 2px 0;
+}
+#xb77-boot-lines div.ready {
+  color: var(--accent);
+}
+@media (max-width: 480px) {
+  #xb77-boot-logo { font-size: 9px; }
+}
