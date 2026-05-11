@@ -4,6 +4,7 @@
 > **Branch base**: `merge/onchain-deluxe` @ `6649a1e`
 > **Próxima rama de trabajo**: `feat/sdk-wasm-deluxe`
 > **Spec**: `docs/superpowers/specs/2026-05-11-sdk-wasm-core-deluxe-design.md`
+> **Addendum**: `docs/superpowers/specs/2026-05-11-sdk-wasm-core-deluxe-design.addendum.md` (decisiones lockeadas durante Fase 1: canonical bytes, error codes, length protocol, deuda explícita)
 > **Budget**: 9.5 horas (scope recortado v1.0 — ver §Scope decision 2026-05-11)
 > **Safety rollback**: tag `pre-sdk-wasm-deluxe-2026-05-11` (vive en `feat/docs-vitepress`)
 
