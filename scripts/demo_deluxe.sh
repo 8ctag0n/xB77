@@ -81,4 +81,7 @@ fi
 dispatch_step "STEP 0/7 — preflight" "balance check + idempotent deploy" step_0_preflight
 dispatch_step "STEP 1/7 — agent up" "podman run -d xb77-agent xb77 context" step_1_agent
 dispatch_step "STEP 2/7 — znode-e2e (AWP orders + matches)" "./zig-out/bin/znode-e2e" step_2_znode
+dispatch_step "STEP 3/7 — e2e-anchor (sovereign state onchain)" \
+  "XB77_RPC=https://api.${CLUSTER}.solana.com ./zig-out/bin/e2e-anchor" \
+  step_3_anchor
 log_ok "demo_deluxe runner wiring OK"

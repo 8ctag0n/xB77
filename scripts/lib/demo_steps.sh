@@ -114,3 +114,25 @@ step_2_znode() {
   fi
   run_cmd ./zig-out/bin/znode-e2e
 }
+
+step_3_anchor() {
+  if [[ ! -x ./zig-out/bin/e2e-anchor ]]; then
+    log_error "missing binary: ./zig-out/bin/e2e-anchor"
+    log_error "build it: zig build"
+    return 1
+  fi
+  local rpc="https://api.${CLUSTER}.solana.com"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    run_cmd env "XB77_RPC=$rpc" ./zig-out/bin/e2e-anchor
+    return 0
+  fi
+  local out
+  out=$(XB77_RPC="$rpc" ./zig-out/bin/e2e-anchor | tee /dev/tty)
+  local sig
+  sig=$(echo "$out" | grep -oE '[1-9A-HJ-NP-Za-km-z]{87,88}' | tail -1 || true)
+  if [[ -n "$sig" ]]; then
+    log_ok "anchor tx: $(explorer_tx "$sig")"
+  else
+    log_warn "could not extract tx sig from e2e-anchor output"
+  fi
+}
