@@ -8,6 +8,26 @@ cd "$REPO_ROOT"
 
 # shellcheck source=scripts/lib/demo_util.sh
 source "$SCRIPT_DIR/lib/demo_util.sh"
+# shellcheck source=scripts/lib/demo_runner.sh
+source "$SCRIPT_DIR/lib/demo_runner.sh"
+
+# dispatch_step <human-name> <preview-cmd> <fn-name>
+#   Calls fn-name unless runner mode says skip/quit.
+dispatch_step() {
+  local name="$1" preview="$2" fn="$3"
+  STEP_CMD_PREVIEW="$preview"
+  log_step "$name"
+  if [[ "$RUNNER" == "1" ]]; then
+    local decision
+    decision=$(prompt_step "$name" "Command: $preview")
+    case "$decision" in
+      skip) log_warn "skipped $name"; return 0 ;;
+      quit) log_warn "user quit"; exit 130 ;;
+      run)  ;;
+    esac
+  fi
+  "$fn"
+}
 
 usage() {
   cat <<EOF
@@ -56,8 +76,6 @@ if [[ "$DRY_RUN" == "1" ]]; then
   log_warn "DRY RUN — printing commands only, nothing will actually execute"
 fi
 
-# Step dispatcher (placeholder for now — Task 2+ adds real steps)
-log_step "STEP 0/7 — preflight"
-run_cmd echo "preflight placeholder"
-
-log_ok "demo_deluxe skeleton OK"
+step_placeholder() { run_cmd echo "preflight placeholder"; }
+dispatch_step "STEP 0/7 — preflight" "echo preflight placeholder" step_placeholder
+log_ok "demo_deluxe runner wiring OK"
