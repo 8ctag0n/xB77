@@ -129,14 +129,17 @@ body {
   text-transform: uppercase;
 }
 
-/* Keep VitePress content above bg overlays */
-.Layout .VPNav,
-.Layout .VPLocalNav,
-.Layout .VPContent,
-.Layout .VPSidebar,
-.Layout .VPFooter {
+/* Keep VitePress's nav/sidebar/local-nav layout untouched — they are
+   already positioned (fixed/sticky) with their own z-index from vitepress,
+   so they paint above our z:0 bg pseudos for free. Overriding their
+   position breaks dropdowns, sticky-hide of local nav, etc.
+
+   The ONLY static element that needs lifting above the bg pseudos is
+   .VPContent (its descendants — vp-doc, hero, features — are all static
+   and would otherwise stack under our ::before/::after at z:0). */
+.Layout .VPContent {
   position: relative;
-  z-index: 2;
+  z-index: 1;
 }
 
 /* ============================================================
