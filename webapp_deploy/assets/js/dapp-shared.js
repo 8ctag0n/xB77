@@ -102,7 +102,7 @@ const NavItem = ({ icon, label, active, count, onClick }) => /* @__PURE__ */ Rea
   border: "none",
   borderLeft: `2px solid ${active ? D.accent : "transparent"}`,
   cursor: "pointer",
-  transition: "all 0.15s"
+  transition: "all 0.28s ease"
 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, color: active ? D.accent : D.muted, width: 18, textAlign: "center" } }, icon), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 10, fontWeight: active ? 600 : 500, letterSpacing: "0.08em", textTransform: "uppercase", color: active ? D.accent : D.dim } }, label), count != null && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontFamily: "var(--mono)", fontSize: 9, color: active ? D.accent : D.faint } }, count));
 Object.assign(window, {
   D,

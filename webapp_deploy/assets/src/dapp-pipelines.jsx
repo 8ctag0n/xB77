@@ -40,7 +40,7 @@ function PipelinesView() {
               padding: '16px 20px', borderBottom: `1px solid ${D.border}`,
               background: selected === p.id ? D.bg3 : 'transparent',
               borderLeft: `2px solid ${selected === p.id ? p.color : 'transparent'}`,
-              cursor: 'pointer', transition: 'all 0.15s',
+              cursor: 'pointer', transition: 'all 0.28s ease',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <Dot color={p.status === 'ACTIVE' ? D.green : D.amber} pulse={p.status === 'ACTIVE'} />
@@ -111,7 +111,7 @@ function PipelinesView() {
                 <div key={i} style={{
                   display: 'grid', gridTemplateColumns: '60px 1fr 1fr 100px 90px 120px',
                   padding: '0 12px', borderBottom: i < txLog.length - 1 ? `1px solid ${D.border}` : 'none',
-                  transition: 'background 0.15s',
+                  transition: 'background 0.28s ease',
                 }}
                   onMouseEnter={e => e.currentTarget.style.background = D.bg3}
                   onMouseLeave={e => e.currentTarget.style.background = ''}

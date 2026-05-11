@@ -224,7 +224,7 @@ function Row({ children, onClick, idx }) {
       style: {
         background: h ? T.cardHover : idx % 2 === 0 ? "transparent" : T.card,
         cursor: onClick ? "pointer" : "default",
-        transition: "background 0.15s, box-shadow 0.2s",
+        transition: "background 0.28s ease, box-shadow 0.3s ease",
         boxShadow: h ? `inset 3px 0 0 ${T.accent}` : "inset 3px 0 0 transparent",
         animationDelay: `${delay}s`
       },

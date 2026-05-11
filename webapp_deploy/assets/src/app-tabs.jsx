@@ -56,24 +56,24 @@ function AppView() {
   };
 
   return (
-    <div className="xb-app-shell" style={{minHeight:'100vh', padding:'80px 24px 48px', background:'var(--bg, #08080a)'}}>
+    <div className="xb-app-shell" style={{minHeight:'100vh', padding:'20px 24px 32px', background:'var(--bg, #08080a)'}}>
       <div style={{maxWidth:1280, margin:'0 auto'}}>
         <a href="/index.html#home" style={{
-          display:'inline-block', marginBottom:20,
+          display:'inline-block', marginBottom:10,
           fontFamily:'var(--mono)', fontSize:11,
           color:'var(--text-soft)', letterSpacing:'0.08em',
           textDecoration:'none', textTransform:'uppercase',
-          transition:'color 0.15s',
+          transition:'color 0.25s ease',
         }}
           onMouseEnter={e => { e.target.style.color = 'var(--accent)'; }}
           onMouseLeave={e => { e.target.style.color = 'var(--text-soft)'; }}
         >← xb77.io</a>
-        <div style={{marginBottom:32}}>
-          <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--text-soft)', letterSpacing:'0.1em', marginBottom:8}}>// APP</div>
-          <h1 style={{fontFamily:'var(--serif)', fontSize:'clamp(2rem,5vw,3.5rem)', margin:0, color:'var(--text)', lineHeight:1.05, fontStyle:'italic'}}>
+        <div style={{marginBottom:18}}>
+          <div style={{fontFamily:'var(--mono)', fontSize:11, color:'var(--text-soft)', letterSpacing:'0.1em', marginBottom:4}}>// APP</div>
+          <h1 style={{fontFamily:'var(--serif)', fontSize:'clamp(1.5rem,3.5vw,2.4rem)', margin:0, color:'var(--text)', lineHeight:1.1, fontStyle:'italic'}}>
             Sovereign commerce surface.
           </h1>
-          <p style={{color:'var(--text-soft)', marginTop:12, fontFamily:'var(--mono)', fontSize:12, letterSpacing:'0.04em'}}>
+          <p style={{color:'var(--text-soft)', marginTop:6, fontFamily:'var(--mono)', fontSize:11, letterSpacing:'0.04em'}}>
             wallet / agents / pipelines / mesh / explorer — one origin.
           </p>
         </div>
@@ -105,7 +105,7 @@ function AppView() {
                   marginBottom:'-1px',
                   cursor:'pointer',
                   whiteSpace:'nowrap',
-                  transition:'color 0.15s, border-color 0.15s',
+                  transition:'color 0.28s ease, border-color 0.28s ease',
                 }}>
                 {t.label}
               </button>

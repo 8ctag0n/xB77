@@ -55,7 +55,7 @@ function AgentsView({ onNavigate }) {
               padding: '14px 20px', borderBottom: `1px solid ${D.border}`,
               background: selected === ag.id ? D.bg3 : 'transparent',
               borderLeft: `2px solid ${selected === ag.id ? ag.color : 'transparent'}`,
-              cursor: 'pointer', transition: 'all 0.15s',
+              cursor: 'pointer', transition: 'all 0.28s ease',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <Dot color={ag.status === 'online' ? D.green : D.amber} pulse={ag.status === 'online'} />

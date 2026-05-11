@@ -62,7 +62,7 @@ function WalletView() {
         gridTemplateColumns: "60px 1fr 100px 80px",
         padding: "0 16px",
         borderBottom: i < recentTx.length - 1 ? `1px solid ${D.border}` : "none",
-        transition: "background 0.15s"
+        transition: "background 0.28s ease"
       },
       onMouseEnter: (e) => e.currentTarget.style.background = D.bg3,
       onMouseLeave: (e) => e.currentTarget.style.background = ""

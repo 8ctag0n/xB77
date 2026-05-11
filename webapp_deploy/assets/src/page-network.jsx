@@ -300,7 +300,7 @@ function GhostAuditSection() {
             color: VERDICT_COLOR[s.label] || D.text,
             border: `1px solid ${VERDICT_COLOR[s.label] || D.border}`,
             padding: '5px 12px', cursor: 'pointer',
-            transition: 'all 0.15s',
+            transition: 'all 0.28s ease',
           }}>{s.label}</button>
         ))}
       </div>
@@ -335,7 +335,7 @@ function GhostAuditSection() {
             border: `1px solid ${D.accent}`,
             padding: '0 28px',
             cursor: loading || !hash.trim() ? 'not-allowed' : 'pointer',
-            transition: 'all 0.15s',
+            transition: 'all 0.28s ease',
           }}
         >{loading ? 'auditing…' : 'audit'}</button>
       </div>

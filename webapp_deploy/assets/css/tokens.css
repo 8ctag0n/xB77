@@ -32,32 +32,32 @@
 }
 
 html[data-theme="light"] {
-  --bg:             #f4f0e8;
-  --bg-secondary:   #ecdfd0;
-  --bg-card:        rgba(26,26,26,0.03);
-  --bg-elevated:    #ebe6da;
-  --bg-2:           #ede8dd;
-  --bg-3:           #e6e0d2;
-  --bg-4:           #dfd8c7;
-  --text:           #1a1a1a;
-  --text-dim:       #6a6450;
-  --accent:         #5a7a00;
-  --accent-hover:   #6e9400;
-  --accent-dim:     rgba(90,122,0,0.12);
-  --accent-faint:   rgba(90,122,0,0.04);
-  --accent-glow:    rgba(90,122,0,0.06);
-  --border:         rgba(26,26,26,0.10);
-  --border-strong:  rgba(26,26,26,0.18);
-  --border-soft:    rgba(26,26,26,0.10);
-  --text-soft:      rgba(26,26,26,0.55);
-  --nav-bg:         rgba(244,240,232,0.85);
-  --topbar-bg:      rgba(244,240,232,0.92);
-  --sidebar-bg:     #ebe6da;
-  --overlay:        rgba(26,26,26,0.35);
-  --overlay-strong: rgba(26,26,26,0.50);
-  --terminal-bg:    #ebe5d8;
-  --terminal-glow:  rgba(90,122,0,0.06);
-  --pattern-color:  rgba(90,122,0,0.025);
+  --bg:             #f1ece0;
+  --bg-secondary:   #e6dcc4;
+  --bg-card:        rgba(26,26,26,0.05);
+  --bg-elevated:    #e4ddc9;
+  --bg-2:           #e8e1cf;
+  --bg-3:           #ddd5bf;
+  --bg-4:           #d3cab0;
+  --text:           #0e0e10;
+  --text-dim:       #4a4435;
+  --accent:         #4a6500;
+  --accent-hover:   #5d7e00;
+  --accent-dim:     rgba(74,101,0,0.16);
+  --accent-faint:   rgba(74,101,0,0.06);
+  --accent-glow:    rgba(74,101,0,0.10);
+  --border:         rgba(26,26,26,0.16);
+  --border-strong:  rgba(26,26,26,0.30);
+  --border-soft:    rgba(26,26,26,0.14);
+  --text-soft:      rgba(26,26,26,0.62);
+  --nav-bg:         rgba(241,236,224,0.88);
+  --topbar-bg:      rgba(241,236,224,0.94);
+  --sidebar-bg:     #e4ddc9;
+  --overlay:        rgba(26,26,26,0.40);
+  --overlay-strong: rgba(26,26,26,0.58);
+  --terminal-bg:    #e2dac4;
+  --terminal-glow:  rgba(74,101,0,0.10);
+  --pattern-color:  rgba(74,101,0,0.04);
 }
 
 /* Smooth swap when toggle fires; ignored on first paint. */

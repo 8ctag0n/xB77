@@ -124,7 +124,7 @@ const NavItem = ({ icon, label, active, count, onClick }) => (
     display: 'flex', alignItems: 'center', gap: 10, width: '100%',
     padding: '9px 16px', background: active ? D.accentDim : 'transparent',
     border: 'none', borderLeft: `2px solid ${active ? D.accent : 'transparent'}`,
-    cursor: 'pointer', transition: 'all 0.15s',
+    cursor: 'pointer', transition: 'all 0.28s ease',
   }}>
     <span style={{ fontSize: 13, color: active ? D.accent : D.muted, width: 18, textAlign: 'center' }}>{icon}</span>
     <span style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: active ? 600 : 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: active ? D.accent : D.dim }}>{label}</span>
