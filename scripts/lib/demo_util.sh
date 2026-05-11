@@ -36,6 +36,10 @@ explorer_tx() {
 require_image() {
   local img="$1" containerfile="$2"
   if ! podman image exists "$img" 2>/dev/null; then
+    if [[ "${DRY_RUN:-0}" == "1" ]]; then
+      log_warn "image $img not present (would build: podman build -f $containerfile -t $img .)"
+      return 0
+    fi
     log_error "Missing podman image: $img"
     log_error "Build it:  podman build -f $containerfile -t $img ."
     return 1

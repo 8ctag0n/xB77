@@ -10,6 +10,8 @@ cd "$REPO_ROOT"
 source "$SCRIPT_DIR/lib/demo_util.sh"
 # shellcheck source=scripts/lib/demo_runner.sh
 source "$SCRIPT_DIR/lib/demo_runner.sh"
+# shellcheck source=scripts/lib/demo_steps.sh
+source "$SCRIPT_DIR/lib/demo_steps.sh"
 
 # dispatch_step <human-name> <preview-cmd> <fn-name>
 #   Calls fn-name unless runner mode says skip/quit.
@@ -76,6 +78,5 @@ if [[ "$DRY_RUN" == "1" ]]; then
   log_warn "DRY RUN — printing commands only, nothing will actually execute"
 fi
 
-step_placeholder() { run_cmd echo "preflight placeholder"; }
-dispatch_step "STEP 0/7 — preflight" "echo preflight placeholder" step_placeholder
+dispatch_step "STEP 0/7 — preflight" "balance check + idempotent deploy" step_0_preflight
 log_ok "demo_deluxe runner wiring OK"
