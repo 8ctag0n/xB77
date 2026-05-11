@@ -87,4 +87,7 @@ dispatch_step "STEP 3/7 — e2e-anchor (sovereign state onchain)" \
 dispatch_step "STEP 4/7 — nargo prove (ZK proof real)" \
   "podman run xb77-zk zk-bridge prove --package zk_receipt" \
   step_4_prove
+dispatch_step "STEP 5/7 — zk-upload-e2e (chunked + verdict)" \
+  "XB77_RPC=https://api.${CLUSTER}.solana.com ./zig-out/bin/zk-upload-e2e" \
+  step_5_upload
 log_ok "demo_deluxe runner wiring OK"

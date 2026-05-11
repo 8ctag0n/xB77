@@ -159,3 +159,27 @@ step_4_prove() {
     log_warn "proof size unusual ($size B, expected ~2176)"
   fi
 }
+
+step_5_upload() {
+  if [[ ! -x ./zig-out/bin/zk-upload-e2e ]]; then
+    log_error "missing binary: ./zig-out/bin/zk-upload-e2e"
+    return 1
+  fi
+  local rpc="https://api.${CLUSTER}.solana.com"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    run_cmd env "XB77_RPC=$rpc" ./zig-out/bin/zk-upload-e2e
+    return 0
+  fi
+  local out
+  out=$(XB77_RPC="$rpc" ./zig-out/bin/zk-upload-e2e | tee /dev/tty)
+
+  if ! grep -q '\[ZK-JUDGE\] verdict: GREEN' <<<"$out"; then
+    log_error "verdict was NOT GREEN — pipeline failed"
+    return 1
+  fi
+  log_ok "verdict: GREEN"
+
+  local sig
+  sig=$(echo "$out" | grep -oE '[1-9A-HJ-NP-Za-km-z]{87,88}' | tail -1 || true)
+  [[ -n "$sig" ]] && log_ok "verify tx: $(explorer_tx "$sig")"
+}
