@@ -53,7 +53,7 @@ function WalletView() {
     fontSize: 11,
     color: a.agent === "Unallocated" ? D.dim : D.text,
     flex: 1
-  } }, a.agent), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 11, color: D.text } }, a.amount), /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.faint }, a.pct)))))), /* @__PURE__ */ React.createElement(SectionHead, { title: "Recent Transactions" }), /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "60px 1fr 100px 80px", padding: "0 16px", borderBottom: `1px solid ${D.border}` } }, ["TIME", "DESCRIPTION", "AMOUNT", "TYPE"].map((h) => /* @__PURE__ */ React.createElement("div", { key: h, style: { padding: "8px 0" } }, /* @__PURE__ */ React.createElement(DM, { size: 7 }, h)))), recentTx.map((tx, i) => /* @__PURE__ */ React.createElement(
+  } }, a.agent), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 11, color: D.text } }, a.amount), /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.faint }, a.pct)))))), /* @__PURE__ */ React.createElement(SectionHead, { title: "Recent Transactions" }), /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "60px 1fr 100px 80px", padding: "0 16px", borderBottom: `1px solid ${D.border}`, background: D.bg3 } }, ["TIME", "DESCRIPTION", "AMOUNT", "TYPE"].map((h) => /* @__PURE__ */ React.createElement("div", { key: h, style: { padding: "8px 0" } }, /* @__PURE__ */ React.createElement(DM, { size: 7 }, h)))), recentTx.map((tx, i) => /* @__PURE__ */ React.createElement(
     "div",
     {
       key: i,
@@ -62,10 +62,11 @@ function WalletView() {
         gridTemplateColumns: "60px 1fr 100px 80px",
         padding: "0 16px",
         borderBottom: i < recentTx.length - 1 ? `1px solid ${D.border}` : "none",
+        background: i % 2 === 1 ? D.bg3 : "transparent",
         transition: "background 0.28s ease"
       },
-      onMouseEnter: (e) => e.currentTarget.style.background = D.bg3,
-      onMouseLeave: (e) => e.currentTarget.style.background = ""
+      onMouseEnter: (e) => e.currentTarget.style.background = D.bg4,
+      onMouseLeave: (e) => e.currentTarget.style.background = i % 2 === 1 ? D.bg3 : "transparent"
     },
     /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 0", fontFamily: "var(--mono)", fontSize: 11, color: D.faint } }, tx.time),
     /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 0", fontFamily: "var(--sans)", fontSize: 12, color: D.text } }, tx.desc),

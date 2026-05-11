@@ -564,7 +564,7 @@ function RecentPipelinesSection() {
           <div>Status</div><div>Duration</div><div style={{ textAlign: 'right' }}>Started</div>
         </div>
 
-        {pipelines.map((p) => {
+        {pipelines.map((p, i) => {
           const running = p.status === 'running';
           const verdictColor = p.verdict === 'VALID' ? D.accent
             : p.verdict === 'INVALID' ? NET_MAGENTA
@@ -575,6 +575,7 @@ function RecentPipelinesSection() {
               gridTemplateColumns: '1.5fr 1fr 0.6fr 1fr 0.8fr 0.8fr',
               padding: '14px 18px',
               borderBottom: `1px solid ${D.border}`,
+              background: i % 2 === 1 ? D.bg3 : 'transparent',
               alignItems: 'center',
               fontFamily: 'var(--mono)', fontSize: 11, color: D.text,
             }}>

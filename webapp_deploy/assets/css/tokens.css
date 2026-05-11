@@ -8,8 +8,8 @@
   --bg-card:        rgba(255,255,255,0.03);
   --bg-elevated:    #1a1a1e;
   --bg-2:           #0e0e12;
-  --bg-3:           #141418;
-  --bg-4:           #1a1a20;
+  --bg-3:           #1a1a22;
+  --bg-4:           #28282e;
   --text:           #e8e8ec;
   --text-dim:       #6e6e7a;
   --accent:         #c8ff2e;
@@ -37,8 +37,8 @@ html[data-theme="light"] {
   --bg-card:        rgba(26,26,26,0.05);
   --bg-elevated:    #e4ddc9;
   --bg-2:           #e8e1cf;
-  --bg-3:           #ddd5bf;
-  --bg-4:           #d3cab0;
+  --bg-3:           #d4c7a6;
+  --bg-4:           #bdac82;
   --text:           #0e0e10;
   --text-dim:       #4a4435;
   --accent:         #4a6500;

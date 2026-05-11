@@ -404,7 +404,7 @@ function RecentPipelinesSection() {
     color: D.dim,
     letterSpacing: "0.14em",
     textTransform: "uppercase"
-  } }, /* @__PURE__ */ React.createElement("div", null, "Pipeline"), /* @__PURE__ */ React.createElement("div", null, "Agent"), /* @__PURE__ */ React.createElement("div", null, "Chunks"), /* @__PURE__ */ React.createElement("div", null, "Status"), /* @__PURE__ */ React.createElement("div", null, "Duration"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, "Started")), pipelines.map((p) => {
+  } }, /* @__PURE__ */ React.createElement("div", null, "Pipeline"), /* @__PURE__ */ React.createElement("div", null, "Agent"), /* @__PURE__ */ React.createElement("div", null, "Chunks"), /* @__PURE__ */ React.createElement("div", null, "Status"), /* @__PURE__ */ React.createElement("div", null, "Duration"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, "Started")), pipelines.map((p, i) => {
     const running = p.status === "running";
     const verdictColor = p.verdict === "VALID" ? D.accent : p.verdict === "INVALID" ? NET_MAGENTA : running ? D.cyan : D.dim;
     return /* @__PURE__ */ React.createElement("div", { key: p.id, style: {
@@ -412,6 +412,7 @@ function RecentPipelinesSection() {
       gridTemplateColumns: "1.5fr 1fr 0.6fr 1fr 0.8fr 0.8fr",
       padding: "14px 18px",
       borderBottom: `1px solid ${D.border}`,
+      background: i % 2 === 1 ? D.bg3 : "transparent",
       alignItems: "center",
       fontFamily: "var(--mono)",
       fontSize: 11,

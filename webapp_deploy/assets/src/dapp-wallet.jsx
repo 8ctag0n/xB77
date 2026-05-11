@@ -101,7 +101,7 @@ function WalletView() {
       {/* Recent transactions */}
       <SectionHead title="Recent Transactions" />
       <div style={{ background: D.bg2, border: `1px solid ${D.border}` }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 100px 80px', padding: '0 16px', borderBottom: `1px solid ${D.border}` }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 100px 80px', padding: '0 16px', borderBottom: `1px solid ${D.border}`, background: D.bg3 }}>
           {['TIME', 'DESCRIPTION', 'AMOUNT', 'TYPE'].map(h => (
             <div key={h} style={{ padding: '8px 0' }}><DM size={7}>{h}</DM></div>
           ))}
@@ -110,10 +110,11 @@ function WalletView() {
           <div key={i} style={{
             display: 'grid', gridTemplateColumns: '60px 1fr 100px 80px', padding: '0 16px',
             borderBottom: i < recentTx.length - 1 ? `1px solid ${D.border}` : 'none',
+            background: i % 2 === 1 ? D.bg3 : 'transparent',
             transition: 'background 0.28s ease',
           }}
-            onMouseEnter={e => e.currentTarget.style.background = D.bg3}
-            onMouseLeave={e => e.currentTarget.style.background = ''}
+            onMouseEnter={e => e.currentTarget.style.background = D.bg4}
+            onMouseLeave={e => e.currentTarget.style.background = i % 2 === 1 ? D.bg3 : 'transparent'}
           >
             <div style={{ padding: '10px 0', fontFamily: 'var(--mono)', fontSize: 11, color: D.faint }}>{tx.time}</div>
             <div style={{ padding: '10px 0', fontFamily: 'var(--sans)', fontSize: 12, color: D.text }}>{tx.desc}</div>

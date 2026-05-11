@@ -102,7 +102,7 @@ function PipelinesView() {
             </SectionHead>
             <div style={{ background: D.bg2, border: `1px solid ${D.border}` }}>
               {/* Header row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 100px 90px 120px', borderBottom: `1px solid ${D.border}`, padding: '0 12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 100px 90px 120px', borderBottom: `1px solid ${D.border}`, padding: '0 12px', background: D.bg3 }}>
                 {['TIME', 'FROM', 'TO', 'AMOUNT', 'STATUS', 'RECEIPT'].map(h => (
                   <div key={h} style={{ padding: '8px 0' }}><DM size={7}>{h}</DM></div>
                 ))}
@@ -110,11 +110,13 @@ function PipelinesView() {
               {txLog.map((tx, i) => (
                 <div key={i} style={{
                   display: 'grid', gridTemplateColumns: '60px 1fr 1fr 100px 90px 120px',
-                  padding: '0 12px', borderBottom: i < txLog.length - 1 ? `1px solid ${D.border}` : 'none',
+                  padding: '0 12px',
+                  borderBottom: i < txLog.length - 1 ? `1px solid ${D.border}` : 'none',
+                  background: i % 2 === 1 ? D.bg3 : 'transparent',
                   transition: 'background 0.28s ease',
                 }}
-                  onMouseEnter={e => e.currentTarget.style.background = D.bg3}
-                  onMouseLeave={e => e.currentTarget.style.background = ''}
+                  onMouseEnter={e => e.currentTarget.style.background = D.bg4}
+                  onMouseLeave={e => e.currentTarget.style.background = i % 2 === 1 ? D.bg3 : 'transparent'}
                 >
                   <div style={{ padding: '10px 0', fontFamily: 'var(--mono)', fontSize: 11, color: D.faint }}>{tx.time}</div>
                   <div style={{ padding: '10px 0', fontFamily: 'var(--mono)', fontSize: 11, color: D.text }}>{tx.from}</div>
