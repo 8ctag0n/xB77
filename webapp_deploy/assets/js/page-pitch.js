@@ -35,23 +35,24 @@ const PITCH_NEXT = [
   { k: "Mainnet path", v: "post-audit launch of the ZK-Judge; institutional Z-Node onramp for treasury integrations." },
   { k: "Agent Mesh", v: "scale the Agent Wire Protocol (AWP) for multi-agent swarm negotiation." }
 ];
-function PitchProgress() {
+function PitchProgress({ scrollRef }) {
   const [pct, setPct] = React.useState(0);
   React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
     function update() {
-      const root = document.scrollingElement || document.documentElement;
-      const max = root.scrollHeight - window.innerHeight;
-      const p = max > 0 ? Math.min(100, Math.max(0, root.scrollTop / max * 100)) : 0;
+      const max = el.scrollHeight - el.clientHeight;
+      const p = max > 0 ? Math.min(100, Math.max(0, el.scrollTop / max * 100)) : 0;
       setPct(p);
     }
     update();
-    window.addEventListener("scroll", update, { passive: true });
+    el.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
     return () => {
-      window.removeEventListener("scroll", update);
+      el.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
     };
-  }, []);
+  }, [scrollRef]);
   return /* @__PURE__ */ React.createElement("div", { style: {
     position: "fixed",
     top: 0,
@@ -104,7 +105,7 @@ function PitchDotNav({ active, onJump }) {
     );
   }));
 }
-function PitchReveal({ delay = 0, children, as = "div", style }) {
+function PitchReveal({ delay = 0, children, as = "div", style, scrollRoot }) {
   const ref = React.useRef(null);
   const [shown, setShown] = React.useState(false);
   React.useEffect(() => {
@@ -114,10 +115,10 @@ function PitchReveal({ delay = 0, children, as = "div", style }) {
       entries.forEach((en) => {
         if (en.isIntersecting) setShown(true);
       });
-    }, { threshold: 0.12 });
+    }, { threshold: 0.12, root: scrollRoot || null });
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [scrollRoot]);
   const Tag = as;
   return /* @__PURE__ */ React.createElement(Tag, { ref, style: {
     opacity: shown ? 1 : 0,
@@ -128,13 +129,15 @@ function PitchReveal({ delay = 0, children, as = "div", style }) {
 }
 function PitchSection({ id, num, label, children }) {
   return /* @__PURE__ */ React.createElement("section", { id, style: {
-    minHeight: "100vh",
+    height: "100vh",
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
     padding: "80px 28px",
     borderBottom: "1px solid var(--border)",
-    position: "relative"
+    position: "relative",
+    scrollSnapAlign: "start",
+    scrollSnapStop: "always"
   } }, /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 920, margin: "0 auto", width: "100%" } }, (num || label) && /* @__PURE__ */ React.createElement(PitchReveal, null, /* @__PURE__ */ React.createElement("span", { style: {
     fontFamily: "var(--mono)",
     fontSize: 11,
@@ -181,25 +184,78 @@ function PitchRow({ k, path, v, i }) {
 function PitchPage() {
   const Nav = window.InnerNav;
   const [active, setActive] = React.useState("hero");
+  const scrollRef = React.useRef(null);
   React.useEffect(() => {
-    const els = PITCH_SECTIONS.map((s) => document.getElementById(s.id)).filter(Boolean);
+    const root = scrollRef.current;
+    if (!root) return;
+    const els = PITCH_SECTIONS.map((s) => root.querySelector("#" + s.id)).filter(Boolean);
     if (!els.length) return;
     const io = new IntersectionObserver((entries) => {
       entries.forEach((en) => {
-        if (en.isIntersecting && en.intersectionRatio > 0.4) {
+        if (en.isIntersecting && en.intersectionRatio > 0.5) {
           setActive(en.target.id);
         }
       });
-    }, { threshold: [0.4, 0.6, 0.8] });
+    }, { threshold: [0.5, 0.7, 0.9], root });
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, []);
-  function jump(id) {
-    const el = document.getElementById(id);
+  function indexOf(id) {
+    return PITCH_SECTIONS.findIndex((s) => s.id === id);
+  }
+  function jumpTo(id) {
+    const root = scrollRef.current;
+    if (!root) return;
+    const el = root.querySelector("#" + id);
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "start" });
   }
-  return /* @__PURE__ */ React.createElement("div", { style: { background: "var(--bg)", color: "var(--text)", minHeight: "100vh" } }, Nav ? /* @__PURE__ */ React.createElement(Nav, { active: "Pitch" }) : null, /* @__PURE__ */ React.createElement(PitchProgress, null), /* @__PURE__ */ React.createElement(PitchDotNav, { active, onJump: jump }), /* @__PURE__ */ React.createElement(PitchSection, { id: "hero" }, /* @__PURE__ */ React.createElement(PitchReveal, null, /* @__PURE__ */ React.createElement("div", { style: {
+  function jumpDelta(delta) {
+    const i = indexOf(active);
+    const next = Math.max(0, Math.min(PITCH_SECTIONS.length - 1, i + delta));
+    if (next !== i) jumpTo(PITCH_SECTIONS[next].id);
+  }
+  React.useEffect(() => {
+    function onKey(e) {
+      const tag = e.target && e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || e.target && e.target.isContentEditable) return;
+      switch (e.key) {
+        case "ArrowDown":
+        case "PageDown":
+        case " ":
+        case "j":
+          e.preventDefault();
+          jumpDelta(1);
+          break;
+        case "ArrowUp":
+        case "PageUp":
+        case "k":
+          e.preventDefault();
+          jumpDelta(-1);
+          break;
+        case "Home":
+          e.preventDefault();
+          jumpTo(PITCH_SECTIONS[0].id);
+          break;
+        case "End":
+          e.preventDefault();
+          jumpTo(PITCH_SECTIONS[PITCH_SECTIONS.length - 1].id);
+          break;
+        default:
+          break;
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active]);
+  return /* @__PURE__ */ React.createElement("div", { ref: scrollRef, style: {
+    background: "var(--bg)",
+    color: "var(--text)",
+    height: "100vh",
+    overflowY: "auto",
+    scrollSnapType: "y mandatory",
+    scrollBehavior: "smooth"
+  } }, Nav ? /* @__PURE__ */ React.createElement(Nav, { active: "Pitch" }) : null, /* @__PURE__ */ React.createElement(PitchProgress, { scrollRef }), /* @__PURE__ */ React.createElement(PitchDotNav, { active, onJump: jumpTo }), /* @__PURE__ */ React.createElement(PitchSection, { id: "hero" }, /* @__PURE__ */ React.createElement(PitchReveal, null, /* @__PURE__ */ React.createElement("div", { style: {
     fontFamily: "var(--mono)",
     fontSize: 11,
     color: "var(--accent)",

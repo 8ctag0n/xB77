@@ -43,24 +43,25 @@ const PITCH_NEXT = [
   { k: 'Agent Mesh',   v: 'scale the Agent Wire Protocol (AWP) for multi-agent swarm negotiation.' },
 ];
 
-/* ── Scroll progress bar (top) ── */
-function PitchProgress() {
+/* ── Scroll progress bar (top) — reads from a specific scroll container ── */
+function PitchProgress({ scrollRef }) {
   const [pct, setPct] = React.useState(0);
   React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
     function update() {
-      const root = document.scrollingElement || document.documentElement;
-      const max = root.scrollHeight - window.innerHeight;
-      const p = max > 0 ? Math.min(100, Math.max(0, (root.scrollTop / max) * 100)) : 0;
+      const max = el.scrollHeight - el.clientHeight;
+      const p = max > 0 ? Math.min(100, Math.max(0, (el.scrollTop / max) * 100)) : 0;
       setPct(p);
     }
     update();
-    window.addEventListener('scroll', update, { passive: true });
+    el.addEventListener('scroll', update, { passive: true });
     window.addEventListener('resize', update);
     return () => {
-      window.removeEventListener('scroll', update);
+      el.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
     };
-  }, []);
+  }, [scrollRef]);
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, height: 2,
@@ -107,8 +108,8 @@ function PitchDotNav({ active, onJump }) {
   );
 }
 
-/* ── Reveal-on-scroll wrapper ── */
-function PitchReveal({ delay = 0, children, as = 'div', style }) {
+/* ── Reveal-on-scroll wrapper — accepts a custom scroll root ── */
+function PitchReveal({ delay = 0, children, as = 'div', style, scrollRoot }) {
   const ref = React.useRef(null);
   const [shown, setShown] = React.useState(false);
   React.useEffect(() => {
@@ -116,10 +117,10 @@ function PitchReveal({ delay = 0, children, as = 'div', style }) {
     if (!el) return;
     const io = new IntersectionObserver((entries) => {
       entries.forEach(en => { if (en.isIntersecting) setShown(true); });
-    }, { threshold: 0.12 });
+    }, { threshold: 0.12, root: scrollRoot || null });
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [scrollRoot]);
   const Tag = as;
   return (
     <Tag ref={ref} style={{
@@ -135,11 +136,13 @@ function PitchReveal({ delay = 0, children, as = 'div', style }) {
 function PitchSection({ id, num, label, children }) {
   return (
     <section id={id} style={{
-      minHeight: '100vh',
+      height: '100vh',
       display: 'flex', flexDirection: 'column', justifyContent: 'center',
       padding: '80px 28px',
       borderBottom: '1px solid var(--border)',
       position: 'relative',
+      scrollSnapAlign: 'start',
+      scrollSnapStop: 'always',
     }}>
       <div style={{ maxWidth: 920, margin: '0 auto', width: '100%' }}>
         {(num || label) && (
@@ -214,33 +217,89 @@ function PitchRow({ k, path, v, i }) {
 function PitchPage() {
   const Nav = window.InnerNav;
   const [active, setActive] = React.useState('hero');
+  const scrollRef = React.useRef(null);
 
-  // Track which section is in view.
+  // Track which section is in view, scoped to the pitch scroll container.
   React.useEffect(() => {
-    const els = PITCH_SECTIONS.map(s => document.getElementById(s.id)).filter(Boolean);
+    const root = scrollRef.current;
+    if (!root) return;
+    const els = PITCH_SECTIONS.map(s => root.querySelector('#' + s.id)).filter(Boolean);
     if (!els.length) return;
     const io = new IntersectionObserver((entries) => {
       entries.forEach(en => {
-        if (en.isIntersecting && en.intersectionRatio > 0.4) {
+        if (en.isIntersecting && en.intersectionRatio > 0.5) {
           setActive(en.target.id);
         }
       });
-    }, { threshold: [0.4, 0.6, 0.8] });
+    }, { threshold: [0.5, 0.7, 0.9], root });
     els.forEach(el => io.observe(el));
     return () => io.disconnect();
   }, []);
 
-  function jump(id) {
-    const el = document.getElementById(id);
+  function indexOf(id) {
+    return PITCH_SECTIONS.findIndex(s => s.id === id);
+  }
+
+  function jumpTo(id) {
+    const root = scrollRef.current;
+    if (!root) return;
+    const el = root.querySelector('#' + id);
     if (!el) return;
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  function jumpDelta(delta) {
+    const i = indexOf(active);
+    const next = Math.max(0, Math.min(PITCH_SECTIONS.length - 1, i + delta));
+    if (next !== i) jumpTo(PITCH_SECTIONS[next].id);
+  }
+
+  // Keyboard navigation while the pitch is mounted.
+  React.useEffect(() => {
+    function onKey(e) {
+      // Ignore if user is typing in a field.
+      const tag = e.target && e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+      switch (e.key) {
+        case 'ArrowDown':
+        case 'PageDown':
+        case ' ':
+        case 'j':
+          e.preventDefault();
+          jumpDelta(1);
+          break;
+        case 'ArrowUp':
+        case 'PageUp':
+        case 'k':
+          e.preventDefault();
+          jumpDelta(-1);
+          break;
+        case 'Home':
+          e.preventDefault();
+          jumpTo(PITCH_SECTIONS[0].id);
+          break;
+        case 'End':
+          e.preventDefault();
+          jumpTo(PITCH_SECTIONS[PITCH_SECTIONS.length - 1].id);
+          break;
+        default:
+          break;
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [active]);
+
   return (
-    <div style={{ background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh' }}>
+    <div ref={scrollRef} style={{
+      background: 'var(--bg)', color: 'var(--text)',
+      height: '100vh', overflowY: 'auto',
+      scrollSnapType: 'y mandatory',
+      scrollBehavior: 'smooth',
+    }}>
       {Nav ? <Nav active="Pitch" /> : null}
-      <PitchProgress />
-      <PitchDotNav active={active} onJump={jump} />
+      <PitchProgress scrollRef={scrollRef} />
+      <PitchDotNav active={active} onJump={jumpTo} />
 
       {/* HERO */}
       <PitchSection id="hero">
