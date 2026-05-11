@@ -1,0 +1,278 @@
+name: sdk
+
+on:
+  push:
+    branches: [bedrock, "merge/**", "feat/sdk-**"]
+    tags: ["sdk-v*"]
+    paths:
+      - "core/keystore/**"
+      - "core/sdk/**"
+      - "core/core.zig"
+      - "sdk/**"
+      - "build.zig"
+      - ".github/workflows/sdk.yml"
+  pull_request:
+    paths:
+      - "core/keystore/**"
+      - "core/sdk/**"
+      - "core/core.zig"
+      - "sdk/**"
+      - "build.zig"
+      - ".github/workflows/sdk.yml"
+
+# Cancel in-progress runs for the same ref when a new push comes in.
+concurrency:
+  group: sdk-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ZIG_VERSION: "0.15.2"
+  BUN_VERSION: "1.3.10"
+  RUST_TOOLCHAIN: "1.95.0"
+
+jobs:
+  build-wasm:
+    name: Build xb77_core.wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig ${{ env.ZIG_VERSION }}
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Build SDK WASM (ReleaseSmall)
+        run: zig build sdk-wasm
+
+      - name: Verify WASM size + exports
+        run: |
+          test -f zig-out/bin/xb77_core.wasm
+          size=$(stat -c%s zig-out/bin/xb77_core.wasm)
+          echo "xb77_core.wasm: $size bytes"
+          test "$size" -lt 200000  # sanity: should be ~75KB, not megabytes
+          for s in wasm_alloc wasm_free xb77_abi_version keystore_seal keystore_unseal keystore_pubkey build_signed_request verify_response; do
+            grep -q "$s" zig-out/bin/xb77_core.wasm || { echo "missing export: $s"; exit 1; }
+          done
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xb77_core-wasm
+          path: zig-out/bin/xb77_core.wasm
+          retention-days: 30
+
+  test-zig:
+    name: Zig native tests
+    runs-on: ubuntu-latest
+    needs: build-wasm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig ${{ env.ZIG_VERSION }}
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Install build deps (libcurl + clang)
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev clang
+
+      - name: zig build
+        run: zig build
+
+      - name: zig build test
+        run: zig build test
+
+  test-ts:
+    name: TypeScript wrapper tests
+    runs-on: ubuntu-latest
+    needs: build-wasm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bun ${{ env.BUN_VERSION }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Download WASM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: xb77_core-wasm
+          path: zig-out/bin
+
+      - name: Install deps
+        run: bun install --cwd sdk/ts
+
+      - name: Type-check + build
+        run: bun run --cwd sdk/ts build
+
+      - name: Test (excluding cross-conformance — Rust covered separately)
+        run: bun test --cwd sdk/ts wrapper conformance e2e-gateway
+
+  test-rust:
+    name: Rust wrapper tests
+    runs-on: ubuntu-latest
+    needs: build-wasm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust ${{ env.RUST_TOOLCHAIN }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: sdk/rs
+
+      - name: Download WASM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: xb77_core-wasm
+          path: zig-out/bin
+
+      - name: cargo test
+        working-directory: sdk/rs
+        run: cargo test --all-targets
+
+      - name: cargo build example for cross-conformance
+        working-directory: sdk/rs
+        run: cargo build --release --example cross_fixture
+
+      - name: Upload pre-built Rust example for cross-conf job
+        uses: actions/upload-artifact@v4
+        with:
+          name: rs-example-cross-fixture
+          path: sdk/rs/target/release/examples/cross_fixture
+          retention-days: 1
+
+  test-cross-conformance:
+    name: TS ↔ Rust byte-identical
+    runs-on: ubuntu-latest
+    needs: [test-ts, test-rust]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bun ${{ env.BUN_VERSION }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install Rust ${{ env.RUST_TOOLCHAIN }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: sdk/rs
+
+      - name: Download WASM
+        uses: actions/download-artifact@v4
+        with:
+          name: xb77_core-wasm
+          path: zig-out/bin
+
+      - name: Install TS deps
+        run: bun install --cwd sdk/ts
+
+      - name: Pre-build Rust example (warm cargo cache)
+        working-directory: sdk/rs
+        run: cargo build --example cross_fixture --quiet
+
+      - name: Run cross-conformance test
+        run: bun test --cwd sdk/ts test/cross-conformance.test.ts
+
+  release:
+    name: GitHub Release (sdk-v* tags only)
+    runs-on: ubuntu-latest
+    needs: [test-zig, test-ts, test-rust, test-cross-conformance]
+    if: startsWith(github.ref, 'refs/tags/sdk-v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zig ${{ env.ZIG_VERSION }}
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Install Bun ${{ env.BUN_VERSION }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install Rust ${{ env.RUST_TOOLCHAIN }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Build WASM (ReleaseSmall)
+        run: zig build sdk-wasm
+
+      - name: Stage release dir
+        run: mkdir -p release-staging
+
+      - name: Pack TS wrapper as a portable tarball
+        run: |
+          cp zig-out/bin/xb77_core.wasm sdk/ts/wasm/ 2>/dev/null || (mkdir -p sdk/ts/wasm && cp zig-out/bin/xb77_core.wasm sdk/ts/wasm/)
+          cd sdk/ts
+          bun install
+          bun run build
+          # `npm pack` produces a tarball without publishing.
+          # Use npm here (comes with Node, no extra setup); same effect as `bun pm pack`.
+          npm pack --pack-destination ../../release-staging
+
+      - name: Package Rust crate
+        working-directory: sdk/rs
+        run: |
+          cargo package --allow-dirty --no-verify
+          cp target/package/*.crate ../../release-staging/
+
+      - name: Copy raw WASM + checksums
+        run: |
+          cp zig-out/bin/xb77_core.wasm release-staging/
+          cd release-staging
+          sha256sum * > SHA256SUMS
+
+      - name: Show release artifacts
+        run: ls -lah release-staging/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: SDK ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            release-staging/*.tgz
+            release-staging/*.crate
+            release-staging/xb77_core.wasm
+            release-staging/SHA256SUMS
+          body: |
+            xB77 SDK release — `${{ github.ref_name }}`.
+
+            ## Install (no npm/crates.io required — fetch direct)
+
+            ### TypeScript
+            ```bash
+            curl -L -O https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/xb77-sdk-1.0.0.tgz
+            npm i ./xb77-sdk-1.0.0.tgz
+            # or pin from git: npm i github:${{ github.repository }}#${{ github.ref_name }}
+            ```
+
+            ### Rust
+            ```toml
+            # Cargo.toml
+            [dependencies]
+            xb77 = { git = "https://github.com/${{ github.repository }}", tag = "${{ github.ref_name }}" }
+            ```
+
+            ### Raw WASM
+            ```bash
+            curl -L -O https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/xb77_core.wasm
+            ```
+
+            All artifacts: `SHA256SUMS` in the assets.

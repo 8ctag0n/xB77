@@ -138,6 +138,30 @@ pub fn build(b: *std.Build) void {
     const wasm_step = b.step("wasm", "Build the Gateway WASM binary for Cloudflare Workers");
     wasm_step.dependOn(&install_wasm.step);
 
+    // --- SDK Core WASM (xb77_core.wasm) ---
+    // Stateless SDK surface compiled to wasm32-wasi. Wrappers (TS/Py/Rust)
+    // polyfill the small set of WASI imports actually used. See
+    // docs/superpowers/specs/2026-05-11-sdk-wasm-core-deluxe-design.addendum.md §A.9
+    const sdk_wasm = b.addExecutable(.{
+        .name = "xb77_core",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("sdk/wasm/exports.zig"),
+            .target = wasm_target,
+            .optimize = .ReleaseSmall,
+            .strip = true,
+        }),
+    });
+    sdk_wasm.root_module.addImport("core", core_module);
+    sdk_wasm.entry = .disabled;
+    sdk_wasm.rdynamic = true;
+
+    const install_sdk_wasm = b.addInstallArtifact(sdk_wasm, .{
+        .dest_dir = .{ .override = .{ .custom = "bin" } },
+    });
+
+    const sdk_wasm_step = b.step("sdk-wasm", "Build the xB77 SDK core WASM (xb77_core.wasm)");
+    sdk_wasm_step.dependOn(&install_sdk_wasm.step);
+
     // --- Tests ---
     const crypto_unit_tests = b.addTest(.{
         .root_module = b.createModule(.{
@@ -361,6 +385,21 @@ pub fn build(b: *std.Build) void {
     zk_upload_e2e.addIncludePath(b.path("deps"));
     zk_upload_e2e.linkLibC();
     b.installArtifact(zk_upload_e2e);
+
+    // --- E2E Compression VerifyTransition (sends real tx to xb77_compression) ---
+    const compression_e2e = b.addExecutable(.{
+        .name = "compression-e2e",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/compression_e2e.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    compression_e2e.root_module.addImport("core", core_module);
+    compression_e2e.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    compression_e2e.addIncludePath(b.path("deps"));
+    compression_e2e.linkLibC();
+    b.installArtifact(compression_e2e);
 
     // --- Mesh P2P Ping ---
     const mesh_ping_exe = b.addExecutable(.{

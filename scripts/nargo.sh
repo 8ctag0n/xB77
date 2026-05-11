@@ -16,11 +16,29 @@ if ! command -v podman >/dev/null 2>&1; then
     fi
 fi
 
-# Run nargo with the current directory mounted
-# We mount the root of the repo so relative paths work if needed
-# but we set the working directory to the current one.
-${CONTAINER_CMD} run --rm \
-    -v "$(pwd):/app:Z" \
-    -w "/app" \
-    "${IMAGE_NAME}" \
-    "$@"
+# If a --program-dir flag was passed (used by prover.zig to point at a specific
+# circuits/<name>/ subdir), mount that dir as /app and pass the remaining args
+# through. Otherwise mount the repo root and forward all args.
+PROGRAM_DIR=""
+FILTERED_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --program-dir) PROGRAM_DIR="$2"; shift 2 ;;
+    *)             FILTERED_ARGS+=("$1"); shift ;;
+  esac
+done
+
+if [[ -n "$PROGRAM_DIR" ]]; then
+    ABS_DIR="$(cd "$PROGRAM_DIR" && pwd)"
+    ${CONTAINER_CMD} run --rm \
+        -v "$ABS_DIR:/app:Z" \
+        -w "/app" \
+        "${IMAGE_NAME}" \
+        "${FILTERED_ARGS[@]}"
+else
+    ${CONTAINER_CMD} run --rm \
+        -v "$(pwd):/app:Z" \
+        -w "/app" \
+        "${IMAGE_NAME}" \
+        "${FILTERED_ARGS[@]}"
+fi

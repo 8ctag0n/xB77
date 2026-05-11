@@ -14,6 +14,7 @@ cache
 sdk/src/artifacts/
 .localnet/
 .devnet/
+.localnet-ledger/
 contracts/target/
 onchain/target/
 target/
@@ -41,10 +42,18 @@ circuits/zk_receipt/target/
 # Session briefs (ad-hoc handoff notes, not source of truth)
 BRIEF_*.md
 
+# Local-only brainstorming/spec artifacts (never commit)
+docs/superpowers/
+
 # Local-only scratch dir (NOT for the public repo).
 # Note: `___legacy/` is intentionally tracked so the v3 cleanup can drop
 # it in a single commit, leaving a clear audit trail of what was archived.
 2organize-after-hackahton/
+
+# Test-generated artifacts
+circuits/state_anchor/Prover.toml
+circuits/state_anchor/target/
+circuits/state_anchor/proofs/
 
 # Wrangler / Cloudflare Pages local cache
 .wrangler/
