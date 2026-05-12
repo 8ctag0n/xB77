@@ -18,6 +18,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "awp", .module = awp_module },
         },
     });
+    core_module.addIncludePath(b.path("deps"));
 
     // --- MCP Module ---
     const mcp_module = b.addModule("mcp", .{
@@ -254,6 +255,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     brain_unit_tests.root_module.addImport("core", core_module);
+    brain_unit_tests.linkLibC();
     const run_brain_unit_tests = b.addRunArtifact(brain_unit_tests);
 
     const merchant_unit_tests = b.addTest(.{
@@ -515,6 +517,24 @@ pub fn build(b: *std.Build) void {
     onchain_unit_tests.addIncludePath(b.path("deps"));
     onchain_unit_tests.linkLibC();
     const run_onchain_unit_tests = b.addRunArtifact(onchain_unit_tests);
+
+    // --- Trident Smoke Test ---
+    const trident_smoke = b.addExecutable(.{
+        .name = "trident-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/trident_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    trident_smoke.root_module.addImport("core", core_module);
+    trident_smoke.root_module.addIncludePath(b.path("deps"));
+    trident_smoke.linkLibC();
+    b.installArtifact(trident_smoke);
+
+    const run_trident_smoke = b.addRunArtifact(trident_smoke);
+    const trident_smoke_step = b.step("trident-smoke", "Run the Trident Integration Smoke Test");
+    trident_smoke_step.dependOn(&run_trident_smoke.step);
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);

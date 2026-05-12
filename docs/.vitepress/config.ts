@@ -3,28 +3,34 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 // https://vitepress.dev/reference/site-config
 export default withMermaid({
   title: 'xB77',
-  titleTemplate: ':title // xB77 Sovereign Commerce',
+  titleTemplate: ':title // xB77 — Autonomous Financial Infrastructure',
   description:
-    'Sovereign commerce layer for autonomous agents on Solana — ZK-batched payments, shielded flows, mathematical audit.',
+    'Privacy-first capital management for the machine economy. Shielded payments, ZK-compressed receipts, autonomous agents on Solana.',
   lang: 'en-US',
   cleanUrls: true,
   appearance: 'force-dark',
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+    ['link', { rel: 'apple-touch-icon', href: '/logo-og.png' }],
     ['meta', { name: 'theme-color', content: '#c8ff2e' }],
     ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:title', content: 'xB77 — Sovereign Commerce Layer' }],
-    ['meta', { property: 'og:description', content: 'High-fidelity payments rail for autonomous agents on Solana. ZK-batched, shielded, mathematically auditable.' }],
+    ['meta', { property: 'og:title', content: 'xB77 — Autonomous Financial Infrastructure' }],
+    ['meta', { property: 'og:description', content: 'Privacy-first capital management for the machine economy. Shielded payments, ZK-compressed receipts, autonomous agents on Solana.' }],
+    ['meta', { property: 'og:image', content: '/logo-og.png' }],
+    ['meta', { property: 'og:image:width', content: '1200' }],
+    ['meta', { property: 'og:image:height', content: '630' }],
+    ['meta', { property: 'og:image:alt', content: 'xB77 — Autonomous Financial Infrastructure. Shielded payments, ZK-compressed receipts, autonomous agents on Solana.' }],
     ['meta', { property: 'og:site_name', content: 'xB77' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:title', content: 'xB77 — Sovereign Commerce Layer' }],
-    ['meta', { name: 'twitter:description', content: 'ZK-batched payments rail for autonomous agents on Solana.' }],
+    ['meta', { name: 'twitter:title', content: 'xB77 — Autonomous Financial Infrastructure' }],
+    ['meta', { name: 'twitter:description', content: 'Shielded payments · ZK-compressed receipts · autonomous agents on Solana.' }],
+    ['meta', { name: 'twitter:image', content: '/logo-og.png' }],
     ['script', { src: 'https://player.vimeo.com/api/player.js', defer: '' }],
   ],
 
   themeConfig: {
-    logo: { src: '/favicon.svg', alt: 'xB77' },
+    logo: { src: '/logo-deluxe.svg', alt: 'xB77 — Autonomous Financial Infrastructure' },
 
     nav: [
       { text: 'Home', link: '/' },

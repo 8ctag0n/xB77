@@ -89,7 +89,7 @@ function SiteFooter({ theme }) {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-end"
-  } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontWeight: 700, fontSize: 18, color: t.accent, letterSpacing: "0.05em", marginBottom: 8 } }, "xB77"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--sans)", fontSize: 13, color: t.textDim, lineHeight: 1.5 } }, "Autonomous Financial Infrastructure", /* @__PURE__ */ React.createElement("br", null), "Built for the Solana Privacy Hackathon 2026")), /* @__PURE__ */ React.createElement("div", { style: {
+  } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(window.LogoDeluxe, { size: 36 }), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--sans)", fontSize: 13, color: t.textDim, lineHeight: 1.5, marginTop: 8 } }, "Autonomous Financial Infrastructure", /* @__PURE__ */ React.createElement("br", null), "Built for the Solana Privacy Hackathon 2026")), /* @__PURE__ */ React.createElement("div", { style: {
     display: "flex",
     gap: 24,
     fontFamily: "var(--mono)",

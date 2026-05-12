@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 80">
+  <defs>
+    <!-- Deluxe Palette v3 -->
+    <linearGradient id="deluxe-g-v3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c8ff2e" />
+      <stop offset="100%" stop-color="#00f0ff" />
+    </linearGradient>
+
+    <!-- Matrix Rain Pattern (Vertical Flow) -->
+    <pattern id="matrix-rain" x="0" y="0" width="20" height="40" patternUnits="userSpaceOnUse">
+      <rect width="2" height="10" fill="#c8ff2e" fill-opacity="0.8">
+        <animate attributeName="y" from="-40" to="40" dur="1s" repeatCount="indefinite" />
+      </rect>
+      <rect x="8" width="1" height="15" fill="#00f0ff" fill-opacity="0.5">
+        <animate attributeName="y" from="-40" to="40" dur="1.5s" repeatCount="indefinite" />
+      </rect>
+      <rect x="15" width="2" height="8" fill="#ff2e88" fill-opacity="0.4">
+        <animate attributeName="y" from="-40" to="40" dur="0.8s" repeatCount="indefinite" />
+      </rect>
+    </pattern>
+
+    <!-- Mask to clip Matrix Rain into the text shape -->
+    <mask id="text-mask">
+      <text x="120" y="52" text-anchor="middle" font-family="monospace" font-weight="900" font-size="42" fill="white" letter-spacing="-2">xB77</text>
+    </mask>
+
+    <!-- Sharding Glitch (Horizontal Slices) -->
+    <filter id="sharding">
+      <feTurbulence type="fractalNoise" baseFrequency="0 0.15" numOctaves="1" result="noise">
+        <animate attributeName="baseFrequency" values="0 0.15; 0 0.5; 0 0.15" dur="7s" repeatCount="indefinite" keyTimes="0; 0.05; 0.1" />
+      </feTurbulence>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R">
+        <animate attributeName="scale" values="0; 40; -40; 0" dur="7s" repeatCount="indefinite" keyTimes="0; 0.05; 0.08; 0.1" />
+      </feDisplacementMap>
+    </filter>
+  </defs>
+
+  <!-- Background Layer -->
+  <rect width="240" height="80" rx="2" fill="#08080a" />
+  
+  <!-- Subtle Background Particles (Clusters) -->
+  <g opacity="0.2">
+    <rect width="2" height="2" fill="#c8ff2e">
+      <animateTransform attributeName="transform" type="translate" values="20,10; 220,70; 20,10" dur="15s" repeatCount="indefinite" />
+    </rect>
+    <rect width="3" height="1" fill="#00f0ff">
+      <animateTransform attributeName="transform" type="translate" values="200,20; 10,60; 200,20" dur="12s" repeatCount="indefinite" />
+    </rect>
+    <rect width="1" height="4" fill="#ff2e88">
+      <animateTransform attributeName="transform" type="translate" values="120,5; 120,75; 120,5" dur="10s" repeatCount="indefinite" />
+    </rect>
+  </g>
+
+  <!-- Layer 1: The "Matrix Rain" inside the text -->
+  <rect width="240" height="80" fill="url(#matrix-rain)" mask="url(#text-mask)" opacity="0.6" />
+
+  <!-- Layer 2: Main Text with Sharding Glitch -->
+  <g filter="url(#sharding)">
+    <!-- Outline for structure -->
+    <text x="120" y="52" text-anchor="middle" font-family="monospace" font-weight="900" font-size="42" fill="none" stroke="url(#deluxe-g-v3)" stroke-width="0.5" letter-spacing="-2" opacity="0.8" />
+    
+    <!-- Solid base that occasionally "shatters" -->
+    <text x="120" y="52" text-anchor="middle" font-family="monospace" font-weight="900" font-size="42" fill="url(#deluxe-g-v3)" letter-spacing="-2">
+      xB77
+      <animate attributeName="opacity" values="1; 0.2; 1; 1" dur="7s" repeatCount="indefinite" keyTimes="0; 0.05; 0.1; 1" />
+    </text>
+  </g>
+
+  <!-- Digital Fragments (Clusters forming the logo) -->
+  <g fill="url(#deluxe-g-v3)">
+    <!-- Small bits that fly towards the center during the glitch -->
+    <rect width="4" height="4">
+      <animate attributeName="x" values="-20; 118; 118; -20" dur="7s" repeatCount="indefinite" keyTimes="0; 0.05; 0.1; 1" />
+      <animate attributeName="y" values="40; 40; 40; 40" dur="7s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0; 1; 0; 0" dur="7s" repeatCount="indefinite" keyTimes="0; 0.05; 0.1; 1" />
+    </rect>
+    <rect width="4" height="4">
+      <animate attributeName="x" values="260; 122; 122; 260" dur="7s" repeatCount="indefinite" keyTimes="0; 0.05; 0.1; 1" />
+      <animate attributeName="y" values="45; 45; 45; 45" dur="7s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0; 1; 0; 0" dur="7s" repeatCount="indefinite" keyTimes="0; 0.05; 0.1; 1" />
+    </rect>
+  </g>
+
+  <!-- UI Elements: Hex Cluster (Sovereign Shield) -->
+  <g transform="translate(20, 40) scale(0.6)" opacity="0.5">
+    <path d="M0 -20 L17.3 -10 L17.3 10 L0 20 L-17.3 10 L-17.3 -10 Z" fill="none" stroke="#00f0ff" stroke-width="2">
+      <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="10s" repeatCount="indefinite" />
+    </path>
+    <circle r="5" fill="#ff2e88">
+      <animate attributeName="r" values="3; 6; 3" dur="2s" repeatCount="indefinite" />
+    </circle>
+  </g>
+
+  <!-- Vertical Scanline Grid -->
+  <rect width="1" height="80" fill="#c8ff2e" fill-opacity="0.1">
+    <animate attributeName="x" from="-10" to="250" dur="5s" repeatCount="indefinite" />
+  </rect>
+</svg>

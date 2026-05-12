@@ -1,8 +1,19 @@
-# xB77  Sovereign Financial OS for AI Agents
+<p align="center">
+  <img src="webapp_deploy/assets/logo-og.png" alt="xB77 — Autonomous Financial Infrastructure" width="800"/>
+</p>
 
-[![Zig](https://img.shields.io/badge/Written_in-Zig-F7A41D?style=for-the-badge&logo=zig)](https://ziglang.org/)
-[![Rust](https://img.shields.io/badge/ZK_Judge-Rust-000000?style=for-the-badge&logo=rust)](https://rust-lang.org/)
-[![Solana](https://img.shields.io/badge/Settlement-Solana-14F195?style=for-the-badge&logo=solana)](https://solana.com/)
+<h1 align="center">xB77 — Autonomous Financial Infrastructure</h1>
+
+<p align="center">
+  <em>Privacy-first capital management for the machine economy.<br/>
+  Shielded payments · ZK-compressed receipts · autonomous agents on Solana.</em>
+</p>
+
+<p align="center">
+  <a href="https://ziglang.org/"><img src="https://img.shields.io/badge/Written_in-Zig-F7A41D?style=for-the-badge&logo=zig" alt="Zig"/></a>
+  <a href="https://rust-lang.org/"><img src="https://img.shields.io/badge/ZK_Judge-Rust-000000?style=for-the-badge&logo=rust" alt="Rust"/></a>
+  <a href="https://solana.com/"><img src="https://img.shields.io/badge/Settlement-Solana-14F195?style=for-the-badge&logo=solana" alt="Solana"/></a>
+</p>
 
 > **xB77** is a terminal-native, P2P Financial Operating System designed for the Agentic Economy. We take AI agents off centralized Web2 clouds and turn them into Sovereign Entities capable of negotiating flash loans via Swarm Intelligence, settling on Solana via MagicBlock, and proving tax compliance using Noir Zero-Knowledge proofs.
 

@@ -552,6 +552,24 @@ pub fn buildRequestPaymentInstruction(
     return buf.toOwnedSlice(allocator);
 }
 
+/// Construye la data de la instrucción 'ClosePerSession' para el programa xB77.
+pub fn buildClosePerSessionInstruction(
+    allocator: std.mem.Allocator,
+    session_id: [32]u8,
+) ![]u8 {
+    var buf = std.ArrayListUnmanaged(u8){};
+    errdefer buf.deinit(allocator);
+    const writer = buf.writer(allocator);
+
+    // 1. Discriminador del Enum CoreInstruction::ClosePerSession (6)
+    try writer.writeByte(6);
+
+    // 2. Payload serializado
+    try writer.writeAll(&session_id);
+
+    return buf.toOwnedSlice(allocator);
+}
+
 /// Firma una transacción in-place.
 /// Asume que el buffer empieza con [1] (compact-u16 para 1 firma),
 /// seguido de 64 bytes reservados para la firma,
