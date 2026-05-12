@@ -502,6 +502,20 @@ pub fn build(b: *std.Build) void {
     negotiation_unit_tests.root_module.addImport("core", core_module);
     const run_negotiation_unit_tests = b.addRunArtifact(negotiation_unit_tests);
 
+    // --- Onchain unit tests (wincode + IDL client + solana_tx) ---
+    const onchain_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/onchain_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    onchain_unit_tests.root_module.addImport("core", core_module);
+    onchain_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    onchain_unit_tests.addIncludePath(b.path("deps"));
+    onchain_unit_tests.linkLibC();
+    const run_onchain_unit_tests = b.addRunArtifact(onchain_unit_tests);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);
     test_step.dependOn(&run_tx_unit_tests.step);
@@ -519,4 +533,5 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_orchestrator_potent_e2e_tests.step);
     test_step.dependOn(&run_ghost_payment_e2e_tests.step);
     test_step.dependOn(&run_negotiation_unit_tests.step);
+    test_step.dependOn(&run_onchain_unit_tests.step);
 }

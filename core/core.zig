@@ -68,6 +68,9 @@ pub const chain = struct {
 pub const keystore = @import("keystore/keystore.zig");
 pub const sdk_core = @import("sdk/sdk.zig");
 
+// --- Onchain: IDL encoder + Solana tx builder ---
+pub const onchain = @import("onchain/onchain.zig");
+
 // --- LEGACY COMPATIBILITY LAYER (The "Designer's API") ---
 pub const awp = protocol.awp;
 pub const tx = protocol.tx;

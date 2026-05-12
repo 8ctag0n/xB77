@@ -18,6 +18,7 @@ const Cli = @import("../flags.zig").Cli;
 const HttpClient = core.mesh.http.HttpClient;
 const HttpHeader = core.mesh.http.HttpHeader;
 const sdk = core.sdk_core;
+const anchor_cmd = @import("gateway_anchor.zig");
 
 pub fn run(cli: *const Cli, cmd_args: []const [:0]u8) !void {
     if (cmd_args.len == 0) { usage(); return; }
@@ -36,6 +37,8 @@ pub fn run(cli: *const Cli, cmd_args: []const [:0]u8) !void {
         try pulse(cli);
     } else if (std.mem.eql(u8, sub, "reads")) {
         try reads(cli, rest);
+    } else if (std.mem.eql(u8, sub, "anchor")) {
+        try anchor_cmd.anchor(cli, rest);
     } else {
         std.debug.print("Unknown gateway subcommand: {s}\n", .{sub});
         usage();
@@ -52,10 +55,13 @@ fn usage() void {
         \\  claim  --proof_tx <hash>   POST claim_credits (signed)
         \\  pulse                      POST query_pulse (signed)
         \\  reads <pulse|fleet|recent|wallet>     unsigned GET endpoints
+        \\  anchor [--rpc <url>] [--idl <path>]
+        \\                             Anchor a state transition on xb77_compression (onchain)
         \\
         \\Env:
         \\  XB77_GATEWAY               Base URL (default http://127.0.0.1:8787)
         \\  XB77_GATEWAY_PUBKEY        Gateway pubkey hex (32B); else /_meta is used
+        \\  XB77_RPC                   Solana RPC URL (default http://127.0.0.1:8899)
         \\
     , .{});
 }
