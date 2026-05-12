@@ -193,11 +193,17 @@ say "Setting INGEST_TOKEN secret..."
 printf '%s' "$INGEST_TOKEN" | $WRANGLER secret put INGEST_TOKEN
 
 # ── Deploy (Worker + Static Assets in one shot) ───────────────────────
-say "Deploying Worker (with static assets)..."
-deploy_out="$($WRANGLER deploy 2>&1)"
-echo "$deploy_out" | tail -20
-WORKER_URL="$(printf '%s' "$deploy_out" | grep -oE 'https://[a-z0-9.-]+\.workers\.dev' | head -1 || echo '')"
-[[ -n "$WORKER_URL" ]] || die "couldn't parse Worker URL from deploy output"
+say "Deploying Worker (with static assets) — 30-90s on first deploy, uploads all of webapp_deploy/ ..."
+# Stream output live AND capture to a tmpfile so we can parse the URL after.
+# Without this, command substitution would freeze the terminal silently while
+# wrangler uploads assets, looking like a hang.
+DEPLOY_LOG="$(mktemp -t cf_deploy_XXXX.log)"
+$WRANGLER deploy 2>&1 | tee "$DEPLOY_LOG"
+deploy_exit="${PIPESTATUS[0]}"
+[[ "$deploy_exit" -eq 0 ]] || die "wrangler deploy exited $deploy_exit — see output above"
+
+WORKER_URL="$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' "$DEPLOY_LOG" | head -1 || echo '')"
+[[ -n "$WORKER_URL" ]] || die "couldn't parse Worker URL from deploy output (log: $DEPLOY_LOG)"
 say "Worker → $WORKER_URL"
 
 # ── Health checks ─────────────────────────────────────────────────────
