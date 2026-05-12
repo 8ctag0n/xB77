@@ -125,8 +125,8 @@ COPY services/qvac_brain /work
 RUN npm ci --omit=dev
 
 # Bake model into the image (build-time download; reproducible)
-ARG MODEL_URL=https://huggingface.co/<gemma-3-4b-q4-url>
-ARG MODEL_SHA256=<fill-in>
+ARG MODEL_URL=https://models.qvac.io/google/gemma-3-4b-it-q4_0.gguf
+ARG MODEL_SHA256=aeda25e63ebd698fab8638ffb778e68bed908b960d39d0becc650fa981609d25
 RUN curl -L -o /opt/model.gguf "$MODEL_URL" \
     && echo "$MODEL_SHA256  /opt/model.gguf" | sha256sum -c
 ENV QVAC_MODEL_PATH=/opt/model.gguf

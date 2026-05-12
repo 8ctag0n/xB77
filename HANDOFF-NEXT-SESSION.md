@@ -1,11 +1,11 @@
-# 🔁 HANDOFF — all 5 local programs wired, dApp deluxe-ready
+# HANDOFF — A+B+C+D onchain + sponsors-deluxe trident MERGED
 
-> **Worktree**: `/home/exp1/Desktop/xB77/worktree/docs-v2`
-> **Branch**: `feat/dapp-public-split` @ `5e07656`
-> **Status**: A + B + C + D + sigverify + DEMO refresh all closed.
+> **Branch**: `sponsors-and-deluxe-merge`
+> **Status**: A + B + C + D + sigverify + DEMO refresh closed AND sponsors-deluxe (SNS + QVAC + MagicBlock + brand) merged in.
 > **Local stack**: bootable in one shot via `scripts/full_local_stack.sh --keep-up`.
+> **Sovereign trident snapshot**: see `HANDOFF-TRIDENT.md` for the deluxe-side close-out (commit `f09fc73`).
 
-## What's shipped in this branch (5 sessions total)
+## What's shipped in this branch (5 sessions + sponsors-deluxe merge)
 
 ### Track A — `SubmitPrivateOrder` onchain (commit `0946778`)
 - `xb77 gateway {init, submit-order}` IDL-driven.
@@ -18,7 +18,6 @@
   programs and POSTs new sigs to worker `/api/v1/pipelines/ingest`
   (bearer auth via `INGEST_TOKEN`).
 - Pipelines view refreshes within one tick (~5s) without browser RPC.
-
 ### Track C — ZK e2e visible (commit `e3661fc`)
 - `xb77 zk {prove, upload, run}` CLI:
   - `prove` shells `nargo prove` via the `xb77-zk` podman container.
@@ -71,6 +70,9 @@ xb77 gateway {meta, register, order, claim, pulse, reads, anchor,
 xb77 zk {prove, upload, run}
 xb77 merchant {status, add, setup-shop, blink, publish, register,
                dispute, plan}
+xb77 brain think "<directiva>"        # NEW: QVAC on-device reasoning
+xb77 identity resolve <name>.sol      # NEW: SNS native (Bonfida-equiv)
+xb77 services                          # NEW: trident dashboard (SNS+QVAC+MB)
 ```
 
 **Tests:** 50/50 webapp · `zig build` clean.
@@ -133,7 +135,49 @@ curl http://127.0.0.1:8787/api/v1/pipelines/recent | jq .
 
 ## Frase de arranque sugerida
 
-> "Vengo del cierre A+B+C+D+polish en feat/dapp-public-split (HEAD
-> `5e07656`). Stack local 5 programas, dApp con 6 tabs onchain, CLI con
-> gateway+zk+merchant. Próximo paso depende de qué sponsors aterrizaron
-> de remoto."
+> "Vengo del cierre A+B+C+D+polish + sponsors-deluxe merge en
+> `sponsors-and-deluxe-merge`. Stack local 5 programas + 3 servicios
+> sovereign (SNS/QVAC/MagicBlock) + brand Remotion. dApp con tabs
+> onchain + Proofs + Merchants + signatures deluxe. CLI con
+> gateway+zk+merchant+brain+identity.sol+services dashboard."
+
+## Sponsors deluxe — what was merged in
+
+Brought over from `sponsors-deluxe` (commits `3997cef` → `f09fc73`):
+
+- **SNS** (`services/sns/`, `core/security/identity.zig`): native `.sol` resolution in Zig — matches Bonfida mainnet PDA `Crf8hzfthWGbGbLTVCiqRqV5MVnbpHB1L9KQMd6gsinb`. HTTP shim on `:8087`. Validated by `zig build sns-test`.
+- **QVAC** (`services/qvac_brain/`, `core/intelligence/brain.zig`, `deps/llama.h`): on-device brain. TS shim on `:8088` (active path), llama.cpp prep (`loadModel` commented behind compile flag), heuristic fallback if shim is down.
+- **MagicBlock** (`services/magicblock/`, `core/chain/magicblock.zig`): PER session SDK + L1 settlement via `ClosePerSession`. Mock support via `mock:` URL prefix.
+- **Brand** (`webapp_deploy/remotion/`, logos deluxe v2/v3, OG images): Remotion SoT for receipt-seal mark, intro, HeroLoop. Static SVG/JSX mirrors in `webapp_deploy/assets/`.
+- **CLI**: `xb77 brain think "<directiva>"` + `xb77 services` trident dashboard (SNS+QVAC+MagicBlock health) added.
+- **Tests**: `zig build trident-smoke` for cross-service smoke.
+- **Docs**: `docs/submissions/{MAGICBLOCK,QVAC,SNS}.md` for hackathon judge view.
+
+## Post-merge follow-ups (priority order)
+
+### MagicBlock — close the gap to live PER
+- `core/chain/magicblock.zig:74` ALSO calls MagicBlock Delegation Program `DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh` so sessions appear on their explorer
+- `services/magicblock/server.ts:38-49`, `:56-72` → real axios to `XB77_MAGICBLOCK_URL` (`https://devnet.magicblock.app`)
+- Add `cli/commands/magicblock.zig` (`start / status / close / probe`) per `specs/sponsors/magicblock.md` §2
+- Webapp PER pill in dApp shell — `PER <id_short> · 12m 34s`
+
+### QVAC — flip on real inference
+- `services/qvac_brain/server.ts:22-26` uncomment `loadModel({ modelSrc: GEMMA_3_4B_IT_Q4_0 })`, deploy on Runpod T4 (~$0.30/h)
+- `core/intelligence/brain.zig:98` wire actual llama.cpp via `deps/llama.h`
+- Optional Noir witness over `{ constitution_hash, decision, agent_pubkey }`
+
+### SNS — promote PoC to production
+- Move `services/sns/reveal_sns_truth.ts` logic into `services/sns/resolve.ts`, wire `server.ts:32-45` `/resolve` to call into it
+- Add `cli/commands/sns.zig` (`resolve / reverse / register / set-favorite`) per `specs/sponsors/sns.md` §2
+- Unsigned-tx registration; keypair never leaves device
+- Webapp `ConnectionPill` swaps `ag_xxx…` for `<name>.sol` after `xb77:domain-resolved`
+
+### Mega-demo
+- See `DEMO-MEGA.md` for the 5-minute end-to-end script that exercises EVERY sponsor + the onchain track in one run.
+
+## Hygiene / watch-out
+
+- `webapp_deploy/remotion/node_modules` (~674 MB), `services/qvac_brain/node_modules` (~4 GB), `webapp_deploy/remotion/out/` (renders) all gitignored — verify before staging
+- Don't run `git config --global` — user identity is per-command via `-c` flags
+- `force_hft_rail` flag in `core/security/constitution.zig:14` gates brain → MagicBlock PER routing
+- 17 SNS PoC scripts in `scripts/{check_*,test_*,reveal_pda*,verify_sns_*}` are kept as exploratory artifacts — prune in a `chore(scripts): drop SNS PoC` commit if they get in the way

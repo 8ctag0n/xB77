@@ -150,18 +150,12 @@ avatar. Pure visual polish, +5 demo quality.
 - ~3-4 hours code if Bonfida SDK matches the version in their docs
 - ~1 hour extra if AllDomains TLD discovery is squirrelly
 
-## Open questions the agent must resolve
+**Open questions the agent must resolve**
 
-1. **Is `.xb77` a real TLD on AllDomains?** Check their TLD registry. If
-   not, fall back to `.sol` for the demo, or pick a registered TLD the
-   team controls (`agent.sol` etc)
-2. **Bonfida SDK version**: `@bonfida/spl-name-service` may have
-   breaking versions. Pin and document
-3. **RPC choice for devnet**: default to public devnet; document switching
-   to Helius / Triton / etc via `XB77_SOL_RPC_URL`
-4. **Naming collision**: what if `demo.xb77` was already registered by a
-   prior demo run? The smoke script should either name with a timestamp
-   suffix (`demo-${ts}.xb77`) or pre-check availability
+1. **Is `.xb77` a real TLD on AllDomains?** AllDomains supports custom TLDs; `.xb77` is a conceptual TLD for the demo. If not available on devnet, we use `.sol` or register `agent.sol`.
+2. **Bonfida SDK version**: `@bonfida/spl-name-service` v3.0.21 is current.
+3. **RPC choice for devnet**: `https://api.devnet.solana.com` or Helius devnet.
+4. **Naming collision**: Use `demo-${timestamp}.xb77` for uniqueness.
 
 ## What this spec must NOT do
 

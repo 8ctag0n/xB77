@@ -1,0 +1,18 @@
+{
+  "name": "qvac_brain",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@qvac/llm-llamacpp": "^0.20.0",
+    "@qvac/sdk": "^0.10.2",
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  }
+}

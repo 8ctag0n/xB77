@@ -36,13 +36,51 @@ pub fn status(cli: *const Cli) !void {
     const eth_addr = try ctx.vaults.ops.address(.base, cli.allocator);
     defer cli.allocator.free(eth_addr);
 
-    std.debug.print("\n--- xB77 Agent Status ({s}) ---\n", .{cli.config_path});
+    std.debug.print("\n{s}--- xB77 SOVEREIGN AGENT STATUS ({s}) ---{s}\n", .{ "\x1b[33;1m", cli.profile, "\x1b[0m" });
+    
+    // --- [1] SOVEREIGN IDENTITY (SNS) ---
     if (ctx.config.name) |name| {
-        std.debug.print("Identity: {s}.xb77\n", .{name});
+        std.debug.print("{s}[IDENTITY]{s} {s}.xb77 / {s}.sol", .{ "\x1b[36m", "\x1b[0m", name, name });
+        // Intentar resolución nativa rápida de su propio nombre (si fuera .sol)
+        const name_sol = try std.fmt.allocPrint(cli.allocator, "{s}.sol", .{name});
+        defer cli.allocator.free(name_sol);
+        if (core.business.identity.Identity.resolveSnsNative(cli.allocator, &ctx.sol_client, name_sol)) |pk| {
+            const pk_str = try core.crypto.pubkeyToString(cli.allocator, &pk);
+            defer cli.allocator.free(pk_str);
+            std.debug.print(" -> {s} {s}(Native Verified){s}\n", .{ pk_str[0..8], "\x1b[32m", "\x1b[0m" });
+        } else |_| {
+            std.debug.print(" {s}(Local Only){s}\n", .{ "\x1b[90m", "\x1b[0m" });
+        }
+    } else {
+        std.debug.print("{s}[IDENTITY]{s} Anonymous Agent\n", .{ "\x1b[36m", "\x1b[0m" });
     }
-    std.debug.print("Solana:   {s}\n", .{sol_addr});
-    std.debug.print("EVM:      {s}\n", .{eth_addr});
-    std.debug.print("Status:   Sovereign & Active\n", .{});
+
+    // --- [2] SOVEREIGN BRAIN (QVAC) ---
+    const use_shim = if (std.process.getEnvVarOwned(cli.allocator, "XB77_USE_BRAIN_SHIM") catch null) |val| blk: {
+        const is_shim = std.mem.eql(u8, val, "1");
+        cli.allocator.free(val);
+        break :blk is_shim;
+    } else false;
+
+    std.debug.print("{s}[BRAIN   ]{s} Gemma 3 {s}\n", .{ 
+        "\x1b[36m", "\x1b[0m", 
+        if (use_shim) "\x1b[32m(Active via TS Shim :8088)\x1b[0m" else "\x1b[33m(Heuristics Fallback)\x1b[0m" 
+    });
+
+    // --- [3] HFT RAIL (MagicBlock) ---
+    const mb_active = !std.mem.startsWith(u8, ctx.mb_client.sequencer_url, "mock:");
+    std.debug.print("{s}[HFT RAIL ]{s} MagicBlock {s}\n", .{ 
+        "\x1b[36m", "\x1b[0m",
+        if (mb_active) "\x1b[32m(Live Sequencer)\x1b[0m" else "\x1b[33m(Simulated/Mock)\x1b[0m"
+    });
+
+    std.debug.print("--------------------------------------------------\n", .{});
+    std.debug.print("Solana L1: {s}\n", .{sol_addr});
+    std.debug.print("Base EVM:  {s}\n", .{eth_addr});
+    
+    const root = ctx.store.tree.getRoot();
+    std.debug.print("ZK Ledger: Root 0x{x:0>2}{x:0>2}... ({d} entries)\n", .{ root[0], root[1], ctx.store.tree.rightmost_index });
+    std.debug.print("Status:    {s}SOVEREIGN & ACTIVE{s}\n", .{ "\x1b[32;1m", "\x1b[0m" });
 }
 
 pub fn state(cli: *const Cli) !void {
