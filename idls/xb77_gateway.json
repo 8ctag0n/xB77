@@ -1,6 +1,9 @@
 {
   "version": "0.1.0",
   "name": "xb77_gateway",
+  "metadata": {
+    "address": "83nPgEhrzKaDSXCoWQCkYau66KUnVeFSQF32LPfyL3s4"
+  },
   "instructions": [
     {
       "name": "InitGateway",

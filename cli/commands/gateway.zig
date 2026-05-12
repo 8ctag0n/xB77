@@ -19,6 +19,8 @@ const HttpClient = core.mesh.http.HttpClient;
 const HttpHeader = core.mesh.http.HttpHeader;
 const sdk = core.sdk_core;
 const anchor_cmd = @import("gateway_anchor.zig");
+const submit_cmd = @import("gateway_submit.zig");
+const watch_cmd = @import("gateway_watch.zig");
 
 pub fn run(cli: *const Cli, cmd_args: []const [:0]u8) !void {
     if (cmd_args.len == 0) { usage(); return; }
@@ -39,6 +41,12 @@ pub fn run(cli: *const Cli, cmd_args: []const [:0]u8) !void {
         try reads(cli, rest);
     } else if (std.mem.eql(u8, sub, "anchor")) {
         try anchor_cmd.anchor(cli, rest);
+    } else if (std.mem.eql(u8, sub, "submit-order")) {
+        try submit_cmd.submitOrder(cli, rest);
+    } else if (std.mem.eql(u8, sub, "init")) {
+        try submit_cmd.initGateway(cli, rest);
+    } else if (std.mem.eql(u8, sub, "watch")) {
+        try watch_cmd.watch(cli, rest);
     } else {
         std.debug.print("Unknown gateway subcommand: {s}\n", .{sub});
         usage();
@@ -57,6 +65,12 @@ fn usage() void {
         \\  reads <pulse|fleet|recent|wallet>     unsigned GET endpoints
         \\  anchor [--rpc <url>] [--idl <path>]
         \\                             Anchor a state transition on xb77_compression (onchain)
+        \\  submit-order [--rpc <url>] [--idl <path>] [--amount N] [--order-id N]
+        \\                             Submit a private order on xb77_gateway (onchain)
+        \\  init [--rpc <url>] [--idl <path>]
+        \\                             One-time admin: InitGateway PDA (idempotent — skips if already initialized)
+        \\  watch [--rpc <url>] [--gw <url>] [--interval N] [--once]
+        \\                             Daemon: poll xb77_gateway tx sigs, POST to worker /pipelines/ingest
         \\
         \\Env:
         \\  XB77_GATEWAY               Base URL (default http://127.0.0.1:8787)

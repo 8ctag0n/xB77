@@ -55,7 +55,7 @@ PROGRAMS=(
   "xb77_core|73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3|onchain/programs/xb77_core/target/deploy/xb77_core.so|onchain/programs/xb77_core/target/deploy/xb77_core-keypair.json"
   "xb77_compression|6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN|onchain/programs/xb77_compression/target/deploy/xb77_compression.so|onchain/programs/xb77_compression/target/deploy/xb77_compression-keypair.json"
   "xb77_zk_verifier|J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ|onchain/programs/xb77_zk_verifier/target/deploy/xb77_zk_verifier.so|onchain/programs/xb77_zk_verifier/target/deploy/xb77_zk_verifier-keypair.json"
-  "xb77_gateway|4gDQBWwzncRdTspJW37NoH56mGELj8UTqdC8VLdu7BGC|onchain/programs/xb77_gateway/target/deploy/xb77_gateway.so|onchain/programs/xb77_gateway/target/deploy/xb77_gateway-keypair.json"
+  "xb77_gateway|83nPgEhrzKaDSXCoWQCkYau66KUnVeFSQF32LPfyL3s4|onchain/programs/xb77_gateway/target/deploy/xb77_gateway.so|onchain/programs/xb77_gateway/target/deploy/xb77_gateway-keypair.json"
 )
 
 # ─── Flags ─────────────────────────────────────────────────────────────
@@ -110,6 +110,12 @@ do_teardown() {
   step "Teardown"
   [[ -n "${WRANGLER_PID}" ]] && kill "${WRANGLER_PID}" 2>/dev/null && ok "wrangler stopped" || true
   [[ -n "${WEBAPP_PID}"   ]] && kill "${WEBAPP_PID}"   2>/dev/null && ok "webapp stopped"   || true
+  if [[ -f /tmp/xb77-gateway-watch.pid ]]; then
+    GW_WATCH_PID="$(cat /tmp/xb77-gateway-watch.pid 2>/dev/null || true)"
+    [[ -n "${GW_WATCH_PID}" ]] && kill "${GW_WATCH_PID}" 2>/dev/null && ok "gateway-watch stopped" || true
+    rm -f /tmp/xb77-gateway-watch.pid
+  fi
+  pkill -f "xb77 .* gateway watch" 2>/dev/null || true
   # also kill any orphan wrangler / http.server we may have spawned earlier
   pkill -f "wrangler.*dev.*--port ${GW_PORT}" 2>/dev/null || true
   pkill -f "http.server.*${WEB_PORT}"        2>/dev/null || true
@@ -257,6 +263,34 @@ for entry in "${PROGRAMS[@]}"; do
   fi
 done
 
+# ─── 3b. Init xb77_gateway state PDA (idempotent) ──────────────────────
+# Required by SubmitPrivateOrder. The CLI command checks getAccountInfo
+# first; if the PDA is already owned by the program it exits cleanly.
+# Uses XB77_INIT_PROFILE (default: myagent). If the profile does not exist,
+# this step is skipped with a hint — manually run:
+#   ./zig-out/bin/xb77 spawn <profile> && ./zig-out/bin/xb77 -p <profile> init
+#   ./zig-out/bin/xb77 -p <profile> gateway init
+INIT_PROFILE="${XB77_INIT_PROFILE:-myagent}"
+INIT_PROFILE_TOML="${REPO}/profiles/${INIT_PROFILE}.toml"
+if [[ -x "${REPO}/zig-out/bin/xb77" ]] && [[ -f "${INIT_PROFILE_TOML}" ]]; then
+  step "Init xb77_gateway state (profile: ${INIT_PROFILE})"
+  if XB77_PASSWORD="${XB77_PASSWORD:-demo-pw}" XB77_RPC="http://127.0.0.1:${RPC_PORT}" \
+       "${REPO}/zig-out/bin/xb77" -p "${INIT_PROFILE}" gateway init \
+         --idl "${REPO}/idls/xb77_gateway.json" >/tmp/xb77-init-gateway.log 2>&1; then
+    ok "gateway_state ready"
+  else
+    warn "gateway init returned non-zero — see /tmp/xb77-init-gateway.log"
+    tail -20 /tmp/xb77-init-gateway.log >&2 || true
+  fi
+elif [[ ! -x "${REPO}/zig-out/bin/xb77" ]]; then
+  warn "skip gateway init: ${REPO}/zig-out/bin/xb77 not built (run \`zig build\` first)"
+else
+  warn "skip gateway init: profile '${INIT_PROFILE}' not found at ${INIT_PROFILE_TOML}"
+  warn "  manually run: ./zig-out/bin/xb77 spawn ${INIT_PROFILE} && \\"
+  warn "               ./zig-out/bin/xb77 -p ${INIT_PROFILE} init && \\"
+  warn "               ./zig-out/bin/xb77 -p ${INIT_PROFILE} gateway init"
+fi
+
 if (( VALIDATOR_ONLY )); then
   step "Done (--validator-only)"
   ok "validator + programs ready at http://127.0.0.1:${RPC_PORT}"
@@ -334,6 +368,29 @@ if [[ "${SKIP_ONCHAIN_SMOKE:-0}" != "1" ]]; then
   else
     warn "onchain-e2e test did not report pass — check ${WORK}/onchain-smoke.log"
   fi
+fi
+
+# ─── XB77 GATEWAY WATCH DAEMON ─────────────────────────────────────────
+# Polls xb77_gateway tx signatures from the validator and POSTs each new
+# one to /api/v1/pipelines/ingest so the dApp's pipelines view shows live
+# onchain activity. Auth via INGEST_TOKEN. PID lives at /tmp/xb77-gateway-watch.pid.
+if [[ -x "${REPO}/zig-out/bin/xb77" ]] && [[ -f "${INIT_PROFILE_TOML:-/nope}" ]]; then
+  step "Gateway watch daemon (profile: ${INIT_PROFILE})"
+  XB77_INGEST_TOKEN=devtoken \
+  XB77_RPC="http://127.0.0.1:${RPC_PORT}" \
+  XB77_GATEWAY="http://127.0.0.1:${GW_PORT}" \
+  XB77_PASSWORD="${XB77_PASSWORD:-demo-pw}" \
+  nohup "${REPO}/zig-out/bin/xb77" -p "${INIT_PROFILE}" gateway watch --interval 5 \
+    >>"${WORK}/gateway-watch.log" 2>&1 &
+  echo $! > /tmp/xb77-gateway-watch.pid
+  sleep 1
+  if kill -0 "$(cat /tmp/xb77-gateway-watch.pid)" 2>/dev/null; then
+    ok "watch daemon started (PID $(cat /tmp/xb77-gateway-watch.pid))"
+  else
+    warn "watch daemon failed to start — see ${WORK}/gateway-watch.log"
+  fi
+else
+  warn "skip watch daemon: missing xb77 binary or '${INIT_PROFILE:-?}' profile"
 fi
 
 # ─── 7. Info card ──────────────────────────────────────────────────────

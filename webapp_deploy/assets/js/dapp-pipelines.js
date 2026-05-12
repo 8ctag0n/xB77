@@ -58,6 +58,8 @@ function PipelinesView() {
   const [submitError, setSubmitError] = React.useState(null);
   const [anchoring, setAnchoring] = React.useState(false);
   const [anchorSig, setAnchorSig] = React.useState(null);
+  const [submittingOnchain, setSubmittingOnchain] = React.useState(false);
+  const [submitOnchainSig, setSubmitOnchainSig] = React.useState(null);
   const sel = pipelines.find((p) => p.id === selected);
   async function handleAnchor() {
     if (anchoring) return;
@@ -82,6 +84,31 @@ function PipelinesView() {
       setSubmitError("anchor: " + (e.message || "failed"));
     } finally {
       setAnchoring(false);
+    }
+  }
+  async function handleSubmitOnchain() {
+    if (submittingOnchain) return;
+    setSubmittingOnchain(true);
+    setSubmitOnchainSig(null);
+    setSubmitError(null);
+    try {
+      const r = await fetch("/idls/xb77_gateway.json");
+      if (!r.ok) throw new Error("IDL fetch failed (" + r.status + ")");
+      const idl = await r.json();
+      const result = await window.XB77Actions.submitOrderOnchain({ idl });
+      setSubmitOnchainSig(result.signature);
+      setTxLog((prev) => [{
+        time: hhmm(),
+        from: window.XB77Keystore && window.XB77Keystore.currentAgentId() || "me",
+        to: `Order ${result.orderId.toString().slice(0, 12)}`,
+        amount: "$1.00",
+        status: "SHIELDED",
+        receipt: result.signature.slice(0, 12)
+      }, ...prev]);
+    } catch (e) {
+      setSubmitError("submit-onchain: " + (e.message || "failed"));
+    } finally {
+      setSubmittingOnchain(false);
     }
   }
   async function handleNewOrder() {
@@ -112,7 +139,7 @@ function PipelinesView() {
       setSubmitting(false);
     }
   }
-  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flex: 1, minHeight: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 320, borderRight: `1px solid ${D.border}`, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 20px", borderBottom: `1px solid ${D.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement(DS, { size: 20, italic: true }, "Pipelines"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement(DBtn, { small: true, onClick: handleAnchor, disabled: anchoring, title: "Anchor a state transition onchain (xb77_compression)" }, anchoring ? "\u2026ANCHORING" : "ANCHOR \u26D3"), /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true, onClick: handleNewOrder, disabled: submitting }, submitting ? "\u2026SUBMITTING" : "+ NEW"))), anchorSig && /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 20px", background: `${D.green || "#3a3"}18`, borderBottom: `1px solid ${D.border}`, fontFamily: "var(--mono)", fontSize: 10, color: D.green || "#3a3" } }, "onchain tx: ", anchorSig.slice(0, 16), "\u2026"), submitError && /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 20px", background: `${D.red}18`, borderBottom: `1px solid ${D.border}`, fontFamily: "var(--mono)", fontSize: 10, color: D.red } }, "submit_order: ", submitError), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto" } }, pipelines.map((p) => /* @__PURE__ */ React.createElement("div", { key: p.id, onClick: () => setSelected(p.id), style: {
+  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flex: 1, minHeight: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 320, borderRight: `1px solid ${D.border}`, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 20px", borderBottom: `1px solid ${D.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement(DS, { size: 20, italic: true }, "Pipelines"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement(DBtn, { small: true, onClick: handleAnchor, disabled: anchoring, title: "Anchor a state transition onchain (xb77_compression)" }, anchoring ? "\u2026ANCHORING" : "ANCHOR \u26D3"), /* @__PURE__ */ React.createElement(DBtn, { small: true, onClick: handleSubmitOnchain, disabled: submittingOnchain, title: "Submit a private order onchain (xb77_gateway::SubmitPrivateOrder)" }, submittingOnchain ? "\u2026SUBMITTING" : "SUBMIT \u{1F4E6}"), /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true, onClick: handleNewOrder, disabled: submitting }, submitting ? "\u2026SUBMITTING" : "+ NEW"))), anchorSig && /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 20px", background: `${D.green || "#3a3"}18`, borderBottom: `1px solid ${D.border}`, fontFamily: "var(--mono)", fontSize: 10, color: D.green || "#3a3" } }, "anchor tx: ", anchorSig.slice(0, 16), "\u2026"), submitOnchainSig && /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 20px", background: `${D.green || "#3a3"}18`, borderBottom: `1px solid ${D.border}`, fontFamily: "var(--mono)", fontSize: 10, color: D.green || "#3a3" } }, "submit tx: ", submitOnchainSig.slice(0, 16), "\u2026"), submitError && /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 20px", background: `${D.red}18`, borderBottom: `1px solid ${D.border}`, fontFamily: "var(--mono)", fontSize: 10, color: D.red } }, "submit_order: ", submitError), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto" } }, pipelines.map((p) => /* @__PURE__ */ React.createElement("div", { key: p.id, onClick: () => setSelected(p.id), style: {
     padding: "16px 20px",
     borderBottom: `1px solid ${D.border}`,
     background: selected === p.id ? D.bg3 : "transparent",

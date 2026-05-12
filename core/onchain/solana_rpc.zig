@@ -54,7 +54,7 @@ pub const SolanaRpc = struct {
         );
 
         if (parsed.value.object.get("error")) |e| {
-            std.debug.print("[SolanaRpc] RPC error: {}\n", .{e});
+            std.debug.print("[SolanaRpc] RPC error: {f}\n", .{std.json.fmt(e, .{})});
             parsed.deinit();
             return error.RpcError;
         }
@@ -204,5 +204,90 @@ pub const SolanaRpc = struct {
         const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
         const value = result.object.get("value") orelse return error.InvalidResponse;
         return @intCast(value.integer);
+    }
+
+    /// One entry from `getSignaturesForAddress`.
+    pub const SignatureEntry = struct {
+        signature: []u8, // owned
+        slot: u64,
+        block_time: ?i64,
+        err_present: bool,
+
+        pub fn deinit(self: *SignatureEntry, alloc: std.mem.Allocator) void {
+            alloc.free(self.signature);
+        }
+    };
+
+    /// Calls `getSignaturesForAddress`. Returns up to `limit` newest signatures
+    /// for `address_b58`. If `until_sig` is non-null, stops at that boundary.
+    /// Caller owns the returned slice and each entry; use `freeSignatures`.
+    pub fn getSignaturesForAddress(
+        self: *SolanaRpc,
+        address_b58: []const u8,
+        limit: u32,
+        until_sig: ?[]const u8,
+    ) ![]SignatureEntry {
+        var body_buf = std.ArrayListUnmanaged(u8){};
+        defer body_buf.deinit(self.allocator);
+        const w = body_buf.writer(self.allocator);
+        try w.print(
+            \\{{"jsonrpc":"2.0","id":{d},"method":"getSignaturesForAddress","params":["{s}",{{"limit":{d},"commitment":"confirmed"
+        ,
+            .{ self.nextId(), address_b58, limit });
+        if (until_sig) |u| try w.print("," ++ "\"until\":\"{s}\"", .{u});
+        try w.writeAll("}]}");
+
+        const parsed = try self.call(body_buf.items);
+        defer parsed.deinit();
+
+        const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
+        const arr = result.array;
+        var out = try self.allocator.alloc(SignatureEntry, arr.items.len);
+        var i: usize = 0;
+        errdefer {
+            var j: usize = 0;
+            while (j < i) : (j += 1) out[j].deinit(self.allocator);
+            self.allocator.free(out);
+        }
+        while (i < arr.items.len) : (i += 1) {
+            const obj = arr.items[i].object;
+            const sig = obj.get("signature") orelse return error.InvalidResponse;
+            const slot = obj.get("slot") orelse return error.InvalidResponse;
+            const bt = obj.get("blockTime");
+            const err = obj.get("err");
+            out[i] = .{
+                .signature = try self.allocator.dupe(u8, sig.string),
+                .slot = @intCast(slot.integer),
+                .block_time = if (bt) |v| (if (v == .null) null else @as(i64, @intCast(v.integer))) else null,
+                .err_present = if (err) |v| (v != .null) else false,
+            };
+        }
+        return out;
+    }
+
+    pub fn freeSignatures(self: *SolanaRpc, entries: []SignatureEntry) void {
+        for (entries) |*e| e.deinit(self.allocator);
+        self.allocator.free(entries);
+    }
+
+    /// Returns the account's owner pubkey (base58) if the account exists,
+    /// or null if it does not exist on chain. Caller owns the returned slice.
+    pub fn getAccountOwner(self: *SolanaRpc, pubkey_b58: []const u8) !?[]u8 {
+        const body = try std.fmt.allocPrint(
+            self.allocator,
+            \\{{"jsonrpc":"2.0","id":{d},"method":"getAccountInfo","params":["{s}",{{"commitment":"confirmed","encoding":"base64"}}]}}
+        ,
+            .{ self.nextId(), pubkey_b58 },
+        );
+        defer self.allocator.free(body);
+
+        const parsed = try self.call(body);
+        defer parsed.deinit();
+
+        const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
+        const value = result.object.get("value") orelse return null;
+        if (value == .null) return null;
+        const owner = value.object.get("owner") orelse return error.InvalidResponse;
+        return try self.allocator.dupe(u8, owner.string);
     }
 };

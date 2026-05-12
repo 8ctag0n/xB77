@@ -221,6 +221,104 @@
     return { ok: true, signature: sig, pubkey: pubkeyBase58, lamports };
   }
 
+  // High-level: submit a private order onchain via xb77_gateway::SubmitPrivateOrder.
+  // Mirrors the CLI `xb77 gateway submit-order`. The gateway program must be
+  // initialized first (one-time admin tx via scripts/init_gateway.sh).
+  //
+  // Accounts (in IDL order):
+  //   payer (signer, writable)
+  //   gatewayState PDA (seed: "gateway_state")
+  //   nullifierAccount PDA (seeds: "nullifier" || nullifier_bytes), writable
+  //   systemProgram (default Pubkey = all zeros)
+  async function submitOrderOnchain({
+    idl,
+    orderId,            // bigint, nonzero
+    amount,             // bigint, nonzero
+    tokenMint,          // Uint8Array(32), nonzero
+    recipient,          // Uint8Array(32), nonzero (default: payer pubkey)
+    nullifier,          // Uint8Array(32), nonzero (default: random)
+  } = {}) {
+    if (!idl) throw new Error("pass the xb77_gateway IDL JSON");
+    if (!G.XB77Pda) throw new Error("XB77Pda not loaded");
+    const KS = G.XB77Keystore;
+    if (!KS || !KS.currentPubkey()) throw new Error("keystore locked");
+
+    const payerBytes = new Uint8Array(KS.currentPubkey().match(/.{2}/g).map((b) => parseInt(b, 16)));
+
+    // Defaults — every field must be nonzero per the program's validation.
+    if (orderId === undefined || orderId === null) {
+      const r = G.crypto.getRandomValues(new BigUint64Array(1))[0];
+      orderId = r === 0n ? 1n : r;
+    }
+    if (typeof orderId !== "bigint") orderId = BigInt(orderId);
+    if (orderId === 0n) throw new Error("orderId must be nonzero");
+
+    if (amount === undefined || amount === null) amount = 1n;
+    if (typeof amount !== "bigint") amount = BigInt(amount);
+    if (amount === 0n) throw new Error("amount must be nonzero");
+
+    if (!tokenMint) {
+      tokenMint = new Uint8Array(32);
+      tokenMint[0] = 1; // placeholder native-mint-ish; just nonzero
+    }
+    if (!(tokenMint instanceof Uint8Array) || tokenMint.length !== 32) {
+      throw new Error("tokenMint must be Uint8Array(32)");
+    }
+
+    if (!recipient) recipient = payerBytes;
+    if (!(recipient instanceof Uint8Array) || recipient.length !== 32) {
+      throw new Error("recipient must be Uint8Array(32)");
+    }
+
+    if (!nullifier) {
+      nullifier = G.crypto.getRandomValues(new Uint8Array(32));
+      // ensure nonzero
+      if (nullifier.every((b) => b === 0)) nullifier[0] = 1;
+    }
+    if (!(nullifier instanceof Uint8Array) || nullifier.length !== 32) {
+      throw new Error("nullifier must be Uint8Array(32)");
+    }
+
+    // Derive PDAs.
+    const idlc = G.IdlClient.load(idl);
+    const programId = G.base58Decode(idlc.programId);
+
+    const gatewayStateSeed = new TextEncoder().encode("gateway_state");
+    const nullifierSeed    = new TextEncoder().encode("nullifier");
+
+    const { address: gatewayStatePda } = await G.XB77Pda.findProgramAddress(
+      [gatewayStateSeed], programId);
+    const { address: nullifierPda } = await G.XB77Pda.findProgramAddress(
+      [nullifierSeed, nullifier], programId);
+
+    const result = await sendOnchain({
+      idl,
+      instructionName: "SubmitPrivateOrder",
+      values: {
+        payload: {
+          orderId: orderId,
+          amount: amount,
+          token: tokenMint,
+          recipient: recipient,
+          nullifier: nullifier,
+        },
+      },
+      extraAccounts: [
+        { pubkey: payerBytes,      isSigner: true,  isWritable: true  },
+        { pubkey: gatewayStatePda, isSigner: false, isWritable: false },
+        { pubkey: nullifierPda,    isSigner: false, isWritable: true  },
+        { pubkey: new Uint8Array(32), isSigner: false, isWritable: false }, // system program
+      ],
+    });
+
+    return {
+      ...result,
+      orderId,
+      gatewayStatePda: toHex(gatewayStatePda),
+      nullifierPda:    toHex(nullifierPda),
+    };
+  }
+
   const Actions = {
     keystore: {
       hasKeystore: () => typeof localStorage !== "undefined" && !!localStorage.getItem(LS_KEYSTORE),
@@ -243,6 +341,7 @@
     selfAirdrop,
     sendOnchain,
     anchorState,
+    submitOrderOnchain,
   };
 
   G.XB77Actions = Actions;

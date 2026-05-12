@@ -707,6 +707,45 @@ async function handleAgentDetail(env, id) {
   }, { env });
 }
 
+// Bearer-authenticated ingest endpoint for the `xb77 gateway watch` daemon.
+// Writes one ORDERS entry per signature so handlePipelinesRecent surfaces it.
+async function handlePipelinesIngest(request, env) {
+  const expected = env.INGEST_TOKEN || env.INGEST_TOKEN_DEV || "devtoken";
+  const auth = request.headers.get("Authorization") || "";
+  if (!auth.startsWith("Bearer ") || auth.slice(7) !== expected) {
+    return jsonResponse({ error: "unauthorized" }, { status: 401, env });
+  }
+  let body;
+  try { body = await request.json(); }
+  catch { return jsonResponse({ error: "invalid_json" }, { status: 400, env }); }
+  const items = Array.isArray(body?.pipelines) ? body.pipelines : null;
+  if (!items) return jsonResponse({ error: "missing pipelines[]" }, { status: 400, env });
+
+  let accepted = 0;
+  for (const it of items) {
+    if (!it || typeof it.signature !== "string" || it.signature.length < 16) continue;
+    const ts = (it.block_time && Number(it.block_time) > 0)
+      ? Number(it.block_time) * 1000
+      : Date.now();
+    const verdict = (it.verdict === "FAILED") ? "FAILED" : "VALID";
+    const status = verdict === "FAILED" ? "completed" : "completed";
+    const record = {
+      order_id: "pipe:" + it.signature.slice(0, 12),
+      agent_id: it.agent || "onchain",
+      chunks: 1,
+      started_at: ts - 1, // ensures duration > 0 in handlePipelinesRecent
+      signature: it.signature,
+      slot: it.slot,
+      verdict,
+      status,
+    };
+    const key = "pipe:" + it.signature;
+    await env.ORDERS.put(key, JSON.stringify(record), { expirationTtl: 3600 });
+    accepted++;
+  }
+  return jsonResponse({ ok: true, accepted }, { env });
+}
+
 async function handlePipelinesRecent(env, url) {
   const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 100);
   const list = await env.ORDERS.list({ limit });
@@ -834,6 +873,7 @@ export default {
         if (path === "/api/v1/actions/submit_order") return handleSubmitOrder(request, env, gatewayKeys);
         if (path === "/api/v1/actions/claim_credits") return handleClaimCredits(request, env, gatewayKeys);
         if (path === "/api/v1/actions/query_pulse") return handleQueryPulse(request, env, gatewayKeys);
+        if (path === "/api/v1/pipelines/ingest") return handlePipelinesIngest(request, env);
         return jsonResponse({ error: "not found" }, { status: 404, env });
       }
 
