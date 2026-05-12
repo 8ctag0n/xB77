@@ -48,8 +48,10 @@ test "Orchestrator Potent E2E: Agent Lifecycle & Credit-Gating" {
     var client = core.net.http.HttpClient.init(allocator);
     client.telemetry = &hub;
     
-    // Simulate an RPC call via GET (now should record)
-    _ = client.get("http://localhost:8899") catch {}; // We don't care about the actual request failure
+    // Simulate an RPC call via GET. We use a "mock:" URI so postNative
+    // short-circuits with error.UnsupportedUriScheme before any allocation —
+    // recordRpc() still fires on entry, and the leak path is avoided.
+    _ = client.get("mock://localhost:8899") catch {};
     
     try std.testing.expectEqual(@as(u32, 1), hub.rpc_count);
     std.debug.print("\n[MAGIC]   HttpClient RPC automatically recorded in TelemetryHub.", .{});

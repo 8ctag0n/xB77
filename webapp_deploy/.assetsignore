@@ -1,0 +1,19 @@
+# Cloudflare Workers Static Assets — exclude patterns (gitignore syntax).
+# Files matching these are NOT uploaded to the edge. Keeps deploys lean
+# and avoids the 25 MiB per-file ceiling.
+
+# Remotion is the brand source-of-truth — design-time only, never served.
+# Its node_modules contains a 60 MiB rspack native binding among other large
+# binaries, none of which belongs at the edge.
+remotion/
+
+# Build script for esbuild — runs at design time, not at request time.
+build.sh
+
+# Editor / OS noise
+.DS_Store
+*.swp
+*~
+
+# Source maps are huge and we don't ship them
+**/*.map

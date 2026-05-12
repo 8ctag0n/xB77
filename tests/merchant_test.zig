@@ -33,14 +33,16 @@ test "Merchant: Generate Blink Metadata" {
     const parsed = try std.json.parseFromSlice(std.json.Value, allocator, blink_json, .{});
     defer parsed.deinit();
 
-    try std.testing.expectEqualStrings("xB77 Labs", parsed.value.object.get("title").?.string);
-    try std.testing.expectEqualStrings("Purchase", parsed.value.object.get("label").?.string);
+    try std.testing.expectEqualStrings("[ SOVEREIGN AGENT ] xB77 Labs", parsed.value.object.get("title").?.string);
+    try std.testing.expectEqualStrings("Hire Agent", parsed.value.object.get("label").?.string);
 
     const links = parsed.value.object.get("links").?.object;
     const actions = links.get("actions").?.array;
 
-    try std.testing.expectEqual(@as(usize, 2), actions.items.len);
-    try std.testing.expectEqualStrings("AI Logic Audit", actions.items[0].object.get("label").?.string);
+    // 2 services + 1 trailing "Custom Tip" action = 3 entries.
+    try std.testing.expectEqual(@as(usize, 3), actions.items.len);
+    // Service labels are "<name> - <SOL> SOL".
+    try std.testing.expectEqualStrings("AI Logic Audit - 500 SOL", actions.items[0].object.get("label").?.string);
     try std.testing.expect(std.mem.indexOf(u8, actions.items[0].object.get("href").?.string, "amount=500000000") != null);
 }
 

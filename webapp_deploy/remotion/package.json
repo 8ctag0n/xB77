@@ -1,0 +1,26 @@
+{
+  "name": "xb77-remotion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "xB77 brand source-of-truth: Remotion compositions that emit the seal mark, OG card, hero loop, and launch intro. Run `npm install` then `npx remotion studio` to design, or `npx remotion render <id> <out>` to export.",
+  "scripts": {
+    "studio": "remotion studio",
+    "render:mark": "remotion still MarkStatic out/mark.png --frame=0",
+    "render:og": "remotion still WordmarkOG out/og.png --frame=0",
+    "render:hero": "remotion render HeroLoop out/hero.mp4",
+    "render:intro": "remotion render LogoIntro out/intro.mp4",
+    "render:demo": "remotion render DemoMaster out/demo.mp4 --codec=h264 --crf=20",
+    "render:all": "npm run render:mark && npm run render:og && npm run render:hero && npm run render:intro"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "@remotion/google-fonts": "^4.0.459",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "typescript": "^5.5.0"
+  }
+}

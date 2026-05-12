@@ -1,0 +1,117 @@
+/* xB77 Design Tokens — dark default, light override via html[data-theme="light"].
+   Values mirror the original Obsidian palette exactly so the var() rewrite is
+   visually a no-op under dark. Light values are the warm-paper translation. */
+
+:root {
+  --bg:             #08080a;
+  --bg-secondary:   #101014;
+  --bg-card:        rgba(255,255,255,0.03);
+  --bg-elevated:    #1a1a1e;
+  --bg-2:           #0e0e12;
+  --bg-3:           #1a1a22;
+  --bg-4:           #28282e;
+  --text:           #e8e8ec;
+  --text-dim:       #6e6e7a;
+  --accent:         #c8ff2e;
+  --accent-hover:   #d9ff5c;
+  --accent-dim:     rgba(200,255,46,0.12);
+  --accent-faint:   rgba(200,255,46,0.02);
+  --accent-glow:    rgba(200,255,46,0.06);
+  --border:         rgba(255,255,255,0.06);
+  --border-strong:  rgba(255,255,255,0.18);
+  --border-soft:    rgba(245,245,247,0.08);
+  --text-soft:      rgba(245,245,247,0.55);
+  --nav-bg:         rgba(8,8,10,0.85);
+  --topbar-bg:      rgba(8,8,10,0.92);
+  --sidebar-bg:     #0a0a0e;
+  --overlay:        rgba(0,0,0,0.5);
+  --overlay-strong: rgba(0,0,0,0.6);
+  --terminal-bg:    #0c0c10;
+  --terminal-glow:  rgba(200,255,46,0.08);
+  --pattern-color:  rgba(200,255,46,0.03);
+}
+
+html[data-theme="light"] {
+  --bg:             #f1ece0;
+  --bg-secondary:   #e6dcc4;
+  --bg-card:        rgba(26,26,26,0.05);
+  --bg-elevated:    #e4ddc9;
+  --bg-2:           #e8e1cf;
+  --bg-3:           #d4c7a6;
+  --bg-4:           #bdac82;
+  --text:           #0e0e10;
+  --text-dim:       #4a4435;
+  --accent:         #4a6500;
+  --accent-hover:   #5d7e00;
+  --accent-dim:     rgba(74,101,0,0.16);
+  --accent-faint:   rgba(74,101,0,0.06);
+  --accent-glow:    rgba(74,101,0,0.10);
+  --border:         rgba(26,26,26,0.16);
+  --border-strong:  rgba(26,26,26,0.30);
+  --border-soft:    rgba(26,26,26,0.14);
+  --text-soft:      rgba(26,26,26,0.62);
+  --nav-bg:         rgba(241,236,224,0.88);
+  --topbar-bg:      rgba(241,236,224,0.94);
+  --sidebar-bg:     #e4ddc9;
+  --overlay:        rgba(26,26,26,0.40);
+  --overlay-strong: rgba(26,26,26,0.58);
+  --terminal-bg:    #e2dac4;
+  --terminal-glow:  rgba(74,101,0,0.10);
+  --pattern-color:  rgba(74,101,0,0.04);
+}
+
+/* Smooth swap when toggle fires; ignored on first paint. */
+html {
+  transition: background 0.2s ease, color 0.2s ease;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ── Initial body fade-in (boot.js promotes opacity to 1 on DOMContentLoaded) ── */
+body {
+  opacity: 0;
+}
+
+/* ── Boot overlay (only injected on index.html, first visit per session) ── */
+#xb77-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: var(--bg);
+  color: var(--accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  font-family: var(--mono, 'JetBrains Mono', monospace);
+  opacity: 1;
+}
+#xb77-boot-logo {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.1;
+  white-space: pre;
+  letter-spacing: 0;
+  color: var(--accent);
+  text-shadow: 0 0 12px var(--accent-glow);
+}
+#xb77-boot-lines {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-align: left;
+  min-width: 260px;
+}
+#xb77-boot-lines div {
+  padding: 2px 0;
+}
+#xb77-boot-lines div.ready {
+  color: var(--accent);
+}
+@media (max-width: 480px) {
+  #xb77-boot-logo { font-size: 9px; }
+}

@@ -1,0 +1,37 @@
+# xB77 Cloudflare Worker Toolbox — Wrangler CLI
+#
+# Self-contained image to deploy gateway.wasm to Cloudflare Workers
+# without installing Node on the host.
+#
+# Usage:
+#   podman build -t xb77-wrangler -f infra/Containerfile.wrangler .
+#   podman run --rm -it \
+#       -v "$PWD:/work" \
+#       -v "$HOME/.wrangler:/root/.wrangler" \
+#       -e CLOUDFLARE_API_TOKEN=... \
+#       -e CLOUDFLARE_ACCOUNT_ID=... \
+#       xb77-wrangler bash
+#
+# Inside the container:
+#   wrangler login                     # interactive (or use API token)
+#   wrangler deploy                    # publishes gateway/worker.js
+#   wrangler tail                      # live logs
+#
+# CI alternative: workflow .github/workflows/deploy-worker.yml runs the
+# same command on a Release event so manual deploys are optional.
+FROM node:22-bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Wrangler 3.x is the current major; pin so deploys stay reproducible.
+# Bump deliberately when Cloudflare ships breaking changes.
+RUN npm install -g wrangler@3 \
+    && wrangler --version
+
+WORKDIR /work
+
+CMD ["bash"]

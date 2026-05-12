@@ -1,0 +1,161 @@
+{
+  "section": "02_brain_shim",
+  "title": "On-Device Brain (Active)",
+  "subtitle": "QVAC shim returns real reasoning",
+  "ts_start": "2026-05-12T04:01:25Z",
+  "duration_ms": 16228,
+  "exit_code": 0,
+  "lines": [
+    {
+      "stream": "stdout",
+      "t_ms": 0,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 649,
+      "text": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0",
+      "ansi": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1298,
+      "text": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent afe52485...",
+      "ansi": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent afe52485..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1947,
+      "text": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session a2ba9a28...",
+      "ansi": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session a2ba9a28..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 2596,
+      "text": "[SOLANA]  Tx failed: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32002,\"message\":\"Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.\",\"data\":{\"accounts\":null,\"err\":\"AccountNotFound\",\"fee\":null,\"innerInstructions\":null,\"loadedAccountsDataSize\":0,\"loadedAddresses\":null,\"logs\":[],\"postBalances\":null,\"postTokenBalances\":null,\"preBalances\":null,\"preTokenBalances\":null,\"replacementBlockhash\":null,\"returnData\":null,\"unitsConsumed\":0}},\"id\":1}",
+      "ansi": "[SOLANA]  Tx failed: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32002,\"message\":\"Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.\",\"data\":{\"accounts\":null,\"err\":\"AccountNotFound\",\"fee\":null,\"innerInstructions\":null,\"loadedAccountsDataSize\":0,\"loadedAddresses\":null,\"logs\":[],\"postBalances\":null,\"postTokenBalances\":null,\"preBalances\":null,\"preTokenBalances\":null,\"replacementBlockhash\":null,\"returnData\":null,\"unitsConsumed\":0}},\"id\":1}"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 3245,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 3894,
+      "text": "[MAGIC ]  ShadowWire initialization failed: InvalidResponse. Using standard rails.",
+      "ansi": "[MAGIC ]  ShadowWire initialization failed: InvalidResponse. Using standard rails."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 4543,
+      "text": "[BRAIN ]  Consulting Gemma 3 (via TS Shim :8088)...",
+      "ansi": "[BRAIN ]  Consulting Gemma 3 (via TS Shim :8088)..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 5192,
+      "text": " XB77 INTELLIGENCE REPORT",
+      "ansi": " XB77 INTELLIGENCE REPORT"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 5841,
+      "text": "---------------------------",
+      "ansi": "---------------------------"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 6490,
+      "text": "INTENT: Target SNS: alice.sol. Asset: SOL. Using default budget 1.0. ",
+      "ansi": "INTENT: Target SNS: alice.sol. Asset: SOL. Using default budget 1.0. "
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 7139,
+      "text": "REASON: Unusual price detected. Potential front-running or drain attempt.",
+      "ansi": "REASON: Unusual price detected. Potential front-running or drain attempt."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 7788,
+      "text": "RISK: 0.80",
+      "ansi": "RISK: 0.80"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 8437,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 9086,
+      "text": " IDENTITY: Local Keypair Verified",
+      "ansi": " IDENTITY: Local Keypair Verified"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 9735,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 10384,
+      "text": " RAG: No specific rules triggered.",
+      "ansi": " RAG: No specific rules triggered."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 11033,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 11682,
+      "text": " COMPLIANCE:",
+      "ansi": " COMPLIANCE:"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 12331,
+      "text": "   pending_zk_policy_attestation",
+      "ansi": "   pending_zk_policy_attestation"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 12980,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 13629,
+      "text": " MISSION HASH: 0x4cb90ee44ce8",
+      "ansi": " MISSION HASH: 0x4cb90ee44ce8"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 14278,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 14927,
+      "text": "error(gpa): memory address 0x7ddef1440038 leaked: ",
+      "ansi": "error(gpa): memory address 0x7ddef1440038 leaked: "
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 15576,
+      "text": "Unable to print stack trace: Unable to open debug info: MissingDebugInfo",
+      "ansi": "Unable to print stack trace: Unable to open debug info: MissingDebugInfo"
+    }
+  ],
+  "extracted": {}
+}

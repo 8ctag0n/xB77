@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>xB77 — Sovereign Financial OS for AI Agents</title>
+<meta name="description" content="A terminal-native, P2P Financial OS that turns AI agents into Sovereign Entities — air-gapped reasoning, MagicBlock settlement, Noir ZK compliance on Solana." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B0B0B;
+    --bg-elev: #161616;
+    --bg-elev-2: #1c1c1c;
+    --fg: #F5F5F5;
+    --fg-soft: #d8d8d8;
+    --muted: #888;
+    --muted-dim: #555;
+    --primary: #62D67F;
+    --primary-soft: #9AE8AA;
+    --primary-dim: rgba(98,214,127,0.15);
+    --warn: #ffb259;
+    --border: #262626;
+    --border-soft: #1f1f1f;
+    --radius: 6px;
+    --mono: "Geist Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+    --sans: "Geist", -apple-system, "Inter", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.65;
+    overflow-x: hidden;
+  }
+
+  /* Geist Dots background — fixed, subtle */
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: -2;
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(98,214,127,0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(98,214,127,0.04) 0%, transparent 50%),
+      var(--bg);
+  }
+  body::after {
+    content: ""; position: fixed; inset: 0; z-index: -1;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+  }
+
+  /* Top progress bar */
+  .progress {
+    position: fixed; top: 0; left: 0; right: 0; height: 2px;
+    background: transparent; z-index: 100;
+  }
+  .progress-bar {
+    height: 100%; width: 0%;
+    background: linear-gradient(to right, var(--primary), var(--primary-soft));
+    transition: width 0.1s linear;
+    box-shadow: 0 0 12px var(--primary);
+  }
+
+  /* Side dot nav */
+  .dot-nav {
+    position: fixed; right: 28px; top: 50%; transform: translateY(-50%);
+    z-index: 50; display: flex; flex-direction: column; gap: 14px;
+  }
+  .dot-nav button {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border); border: none; cursor: pointer;
+    padding: 0; transition: all 0.3s ease;
+    position: relative;
+  }
+  .dot-nav button:hover { background: var(--muted); transform: scale(1.3); }
+  .dot-nav button.active {
+    background: var(--primary);
+    box-shadow: 0 0 12px var(--primary);
+    transform: scale(1.4);
+  }
+  .dot-nav button::after {
+    content: attr(data-label);
+    position: absolute; right: 18px; top: 50%; transform: translateY(-50%);
+    font-family: var(--mono); font-size: 0.72rem; color: var(--muted);
+    white-space: nowrap; opacity: 0; transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  .dot-nav button:hover::after { opacity: 1; }
+
+  /* Section layout */
+  .section {
+    min-height: 100vh; display: flex; flex-direction: column; justify-content: center;
+    padding: 80px 28px; position: relative;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; width: 100%; }
+
+  /* Reveal animations */
+  [data-reveal] {
+    opacity: 0; transform: translateY(24px);
+    transition: opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+                transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  [data-reveal].in {
+    opacity: 1; transform: translateY(0);
+  }
+  [data-reveal-delay="1"] { transition-delay: 0.1s; }
+  [data-reveal-delay="2"] { transition-delay: 0.2s; }
+  [data-reveal-delay="3"] { transition-delay: 0.3s; }
+  [data-reveal-delay="4"] { transition-delay: 0.4s; }
+  [data-reveal-delay="5"] { transition-delay: 0.5s; }
+
+  /* Hero */
+  #hero h1 {
+    font-size: clamp(2.4rem, 6vw, 4.4rem);
+    font-weight: 600; letter-spacing: -0.03em;
+    margin: 0 0 16px; line-height: 1.05;
+  }
+  #hero h1 .accent {
+    background: linear-gradient(120deg, var(--primary) 0%, var(--primary-soft) 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  #hero .tag {
+    color: var(--muted); font-family: var(--mono); font-size: 0.85rem;
+    letter-spacing: 0.05em; margin-bottom: 24px; display: block;
+  }
+  #hero .lead {
+    font-size: clamp(1rem, 1.6vw, 1.2rem); color: var(--fg-soft);
+    max-width: 680px; margin-bottom: 32px;
+  }
+  .typing-cursor {
+    display: inline-block; width: 0.5ch; background: var(--primary);
+    animation: blink 1s step-end infinite; margin-left: 2px;
+    vertical-align: text-bottom; height: 1em;
+  }
+  @keyframes blink {
+    0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; }
+  }
+
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .badge {
+    display: inline-block; padding: 5px 12px; border: 1px solid var(--border);
+    border-radius: 999px; font-family: var(--mono); font-size: 0.78rem;
+    background: var(--bg-elev); color: var(--primary-soft);
+    transition: all 0.3s; cursor: default;
+  }
+  .badge:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 16px rgba(98,214,127,0.3);
+    transform: translateY(-1px);
+  }
+
+  .meta { display: grid; grid-template-columns: 130px 1fr; gap: 6px 18px; font-size: 0.92rem; margin: 28px 0 0; }
+  .meta dt { color: var(--muted); font-family: var(--mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  .meta dd { margin: 0; color: var(--fg-soft); }
+
+  /* Section headers */
+  .section-num {
+    font-family: var(--mono); font-size: 0.78rem; color: var(--primary);
+    letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px;
+    display: block;
+  }
+  h2 {
+    font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 600;
+    letter-spacing: -0.02em; margin: 0 0 24px;
+  }
+  h3 {
+    font-size: 1rem; margin: 24px 0 8px;
+    color: var(--primary-soft); font-weight: 500;
+  }
+  p { margin: 0 0 16px; color: var(--fg-soft); }
+  strong { color: var(--fg); font-weight: 600; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 8px; color: var(--fg-soft); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border-soft); }
+  th { color: var(--muted); font-weight: 500; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; }
+  tr { transition: background 0.2s; }
+  tbody tr:hover { background: rgba(98,214,127,0.03); }
+  td code { color: var(--primary-soft); }
+
+  /* Code */
+  code, pre { font-family: var(--mono); }
+  code { background: var(--bg-elev); padding: 2px 6px; border-radius: 4px; font-size: 0.88em; }
+  pre {
+    background: var(--bg-elev); padding: 18px 20px; border-radius: var(--radius);
+    border: 1px solid var(--border); overflow-x: auto; font-size: 0.86rem;
+    margin: 14px 0;
+  }
+  pre code { background: transparent; padding: 0; }
+
+  blockquote {
+    border-left: 2px solid var(--primary); margin: 32px 0; padding: 6px 22px;
+    color: var(--primary-soft); font-style: italic; font-size: 1.1rem;
+  }
+
+  /* Animated terminal */
+  .terminal {
+    background: #050505; border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0; margin: 24px 0;
+    font-family: var(--mono); font-size: 0.88rem;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(98,214,127,0.1);
+    overflow: hidden;
+  }
+  .terminal-bar {
+    background: var(--bg-elev); padding: 8px 14px;
+    display: flex; align-items: center; gap: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .terminal-bar .dot {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--border-soft);
+  }
+  .terminal-bar .dot.r { background: #ff5f56; }
+  .terminal-bar .dot.y { background: #ffbd2e; }
+  .terminal-bar .dot.g { background: #27c93f; }
+  .terminal-bar .title {
+    margin-left: auto; color: var(--muted); font-size: 0.78rem;
+  }
+  .terminal-body {
+    padding: 18px 22px; min-height: 320px;
+    color: var(--fg-soft);
+  }
+  .term-line { display: block; opacity: 0; min-height: 1.5em; }
+  .term-line.shown { opacity: 1; }
+  .term-line .label { color: var(--primary); }
+  .term-line .ok { color: var(--primary); }
+  .term-line .warn { color: var(--warn); }
+  .term-line .dim { color: var(--muted); }
+  .term-line .you { color: var(--primary-soft); }
+
+  /* Wifi indicator */
+  .wifi-state {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin: 6px 0; padding: 4px 12px;
+    border: 1px solid var(--border); border-radius: 4px;
+    font-size: 0.78rem; color: var(--muted);
+    transition: all 0.4s;
+  }
+  .wifi-state.off {
+    border-color: #ff5f56; color: #ff5f56;
+  }
+  .wifi-state .indicator {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--primary); transition: background 0.4s;
+  }
+  .wifi-state.off .indicator { background: #ff5f56; }
+
+  /* Stat/counter cards */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin: 24px 0; }
+  .stat {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px;
+  }
+  .stat .num {
+    font-family: var(--mono); font-size: 1.8rem; font-weight: 600;
+    color: var(--primary); display: block; line-height: 1;
+  }
+  .stat .lbl {
+    font-family: var(--mono); font-size: 0.72rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.08em; margin-top: 6px;
+    display: block;
+  }
+
+  /* Architecture diagram */
+  .arch-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;
+    margin: 24px 0;
+  }
+  @media (min-width: 720px) { .arch-grid { grid-template-columns: repeat(4, 1fr); } }
+  .arch-card {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; text-align: center;
+    transition: all 0.3s;
+  }
+  .arch-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(98,214,127,0.1);
+  }
+  .arch-card .layer {
+    font-family: var(--mono); font-size: 0.7rem;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em;
+  }
+  .arch-card .name {
+    font-size: 1.05rem; font-weight: 600; margin: 6px 0 4px;
+    color: var(--fg);
+  }
+  .arch-card .desc { font-size: 0.8rem; color: var(--muted); }
+
+  /* Placeholders */
+  .placeholder {
+    color: var(--warn); font-family: var(--mono); font-size: 0.85em;
+    background: rgba(255,178,89,0.08); padding: 1px 6px; border-radius: 3px;
+    border: 1px dashed rgba(255,178,89,0.3);
+  }
+
+  /* Copy blocks */
+  .copy-block {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px; margin: 12px 0;
+    position: relative;
+  }
+  .copy-block .label {
+    font-family: var(--mono); font-size: 0.72rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;
+  }
+  .copy-btn {
+    position: absolute; top: 14px; right: 14px;
+    background: var(--bg-elev-2); border: 1px solid var(--border);
+    color: var(--muted); font-family: var(--mono); font-size: 0.7rem;
+    padding: 4px 10px; border-radius: 4px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .copy-btn:hover { color: var(--primary); border-color: var(--primary); }
+  .copy-btn.copied { color: var(--primary); border-color: var(--primary); }
+
+  hr { border: 0; border-top: 1px solid var(--border); margin: 40px 0; }
+
+  /* Footer */
+  .footer-note {
+    color: var(--muted); font-size: 0.85rem; margin-top: 40px;
+    padding: 16px 20px; border: 1px dashed var(--border);
+    border-radius: var(--radius);
+  }
+
+  a { color: var(--primary-soft); text-decoration: none; transition: color 0.2s; }
+  a:hover { color: var(--primary); text-decoration: underline; }
+
+  /* Hint footer */
+  .kbd-hint {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    font-family: var(--mono); font-size: 0.7rem; color: var(--muted-dim);
+    z-index: 50; pointer-events: none;
+    background: rgba(11,11,11,0.6); padding: 4px 12px; border-radius: 999px;
+    backdrop-filter: blur(8px);
+  }
+  .kbd-hint kbd {
+    background: var(--bg-elev); border: 1px solid var(--border);
+    padding: 1px 6px; border-radius: 3px; margin: 0 2px;
+    color: var(--fg-soft);
+  }
+
+  @media (max-width: 720px) {
+    .dot-nav { display: none; }
+    .meta { grid-template-columns: 100px 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-reveal] { opacity: 1; transform: none; transition: none; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+<nav class="dot-nav" aria-label="Section navigation">
+  <button data-section="hero" data-label="Intro" class="active"></button>
+  <button data-section="problem" data-label="Problem"></button>
+  <button data-section="solution" data-label="Solution"></button>
+  <button data-section="why-solana" data-label="Why Solana"></button>
+  <button data-section="tech" data-label="Tech"></button>
+  <button data-section="sponsors" data-label="Sponsors"></button>
+  <button data-section="demo" data-label="Demo"></button>
+  <button data-section="next" data-label="Next"></button>
+  <button data-section="submission" data-label="Form fields"></button>
+</nav>
+
+<!-- HERO -->
+<section class="section" id="hero">
+  <div class="wrap">
+    <span class="tag" data-reveal>colosseum solana frontier · submission</span>
+    <h1 data-reveal data-reveal-delay="1">
+      xB77 — <span class="accent">Sovereign</span><br />
+      Financial OS for AI&nbsp;Agents
+    </h1>
+    <p class="lead" data-reveal data-reveal-delay="2">
+      <span id="typedLead"></span><span class="typing-cursor" id="cursor"></span>
+    </p>
+    <div class="badges" data-reveal data-reveal-delay="3">
+      <span class="badge">Track · AI / Agents</span>
+      <span class="badge">Bounty · MagicBlock PER</span>
+      <span class="badge">Bounty · Tether QVAC</span>
+      <span class="badge">Bounty · SNS</span>
+      <span class="badge">Bounty · Tether WDK</span>
+    </div>
+    <dl class="meta" data-reveal data-reveal-delay="4">
+      <dt>Team</dt><dd>dzkinha (solo founder)</dd>
+      <dt>Status</dt><dd>Devnet pending faucet · CLI demo runs locally end-to-end</dd>
+      <dt>Stack</dt><dd>Zig 0.13 · Anchor 0.30.1 · Noir 0.36.0 · Llama.cpp · WASM</dd>
+    </dl>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section class="section" id="problem">
+  <div class="wrap">
+    <span class="section-num" data-reveal>01 · The problem</span>
+    <h2 data-reveal data-reveal-delay="1">Cloud-bound agents are dead agents.</h2>
+    <p data-reveal data-reveal-delay="2">
+      AI agents today are cloud-bound clients. They depend on third-party LLM APIs, leak strategic data to vendors, and die the moment a key gets rotated or a provider changes terms.
+    </p>
+    <p data-reveal data-reveal-delay="3">
+      There is no financial OS designed for entities that need to <strong>reason in private, transact at machine speed, and prove compliance without exposing alpha.</strong>
+    </p>
+    <p data-reveal data-reveal-delay="4">
+      A swarm of a million agents on Web2 rails is a swarm with a million single points of failure.
+    </p>
+  </div>
+</section>
+
+<!-- SOLUTION -->
+<section class="section" id="solution">
+  <div class="wrap">
+    <span class="section-num" data-reveal>02 · The solution</span>
+    <h2 data-reveal data-reveal-delay="1">A Financial OS that runs on the edge.</h2>
+    <div class="arch-grid" data-reveal data-reveal-delay="2">
+      <div class="arch-card">
+        <div class="layer">Brain</div>
+        <div class="name">QVAC</div>
+        <div class="desc">Local LLM reasoning</div>
+      </div>
+      <div class="arch-card">
+        <div class="layer">Identity</div>
+        <div class="name">SNS</div>
+        <div class="desc">.sol sovereign handle</div>
+      </div>
+      <div class="arch-card">
+        <div class="layer">Rail</div>
+        <div class="name">MagicBlock</div>
+        <div class="desc">Private Ephemeral Rollup</div>
+      </div>
+      <div class="arch-card">
+        <div class="layer">Compliance</div>
+        <div class="name">Noir ZK</div>
+        <div class="desc">Ghost Receipts</div>
+      </div>
+    </div>
+    <p data-reveal data-reveal-delay="3">
+      A merchant agent boots locally, claims a <code>.sol</code> identity via SNS, parses natural-language directives through a local QVAC brain, validates them against a cryptographically-enforced Constitution, settles intents on a MagicBlock Private Ephemeral Rollup, and emits a Noir "Ghost Receipt" that proves tax compliance to Solana mainnet <strong>without revealing amounts or counterparties.</strong>
+    </p>
+    <p data-reveal data-reveal-delay="4">
+      The full path — directive → reasoning → settlement → ZK receipt — works <strong>air-gapped</strong> except for the final settle.
+    </p>
+  </div>
+</section>
+
+<!-- WHY SOLANA -->
+<section class="section" id="why-solana">
+  <div class="wrap">
+    <span class="section-num" data-reveal>03 · Why Solana</span>
+    <h2 data-reveal data-reveal-delay="1">Impossible without these primitives.</h2>
+    <div class="stats" data-reveal data-reveal-delay="2">
+      <div class="stat"><span class="num" data-counter="740" data-suffix="ms">0ms</span><span class="lbl">PER settle p50</span></div>
+      <div class="stat"><span class="num" data-counter="8" data-suffix="ms">0ms</span><span class="lbl">SNS resolve (cached)</span></div>
+      <div class="stat"><span class="num" data-counter="0" data-suffix="" data-prefix="">0</span><span class="lbl">Packets leaked offline</span></div>
+      <div class="stat"><span class="num" data-counter="100" data-suffix="%">0%</span><span class="lbl">Local reasoning</span></div>
+    </div>
+    <ul data-reveal data-reveal-delay="3">
+      <li><strong>MagicBlock PER</strong> — sub-millisecond execution rail with mainnet-anchored settlement; agentic commerce needs this throughput, not L2 rollup economics.</li>
+      <li><strong>SNS (<code>.sol</code>)</strong> — agents need a name they can own and a counterparty whitelist they can verify offline; SNS resolves cached.</li>
+      <li><strong>Solana mainnet</strong> — the ZK-Judge contract verifies Noir Plonk proofs as the final source of truth.</li>
+      <li><strong>Anchor</strong> — onchain state anchor for the Constitution and proof commitments.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- TECH HIGHLIGHTS -->
+<section class="section" id="tech">
+  <div class="wrap">
+    <span class="section-num" data-reveal>04 · Technical highlights</span>
+    <h2 data-reveal data-reveal-delay="1">Zig core. Local brain. ZK receipts.</h2>
+    <ul data-reveal data-reveal-delay="2">
+      <li><strong>Zig core</strong> (<code>build.zig</code>, <code>core/</code>) — memory-safe, no-runtime engine: P2P gossip (Agent Wire Protocol), gRPC, local intelligence layer.</li>
+      <li><strong>QVAC brain</strong> (<code>core/intelligence/brain.zig</code>) — Llama.cpp-bound RAG that parses directives and enforces a Constitution before any packet leaves the host.</li>
+      <li><strong>MagicBlock rail</strong> (<code>core/chain/magicblock.zig</code>) — PER session adapter for sub-second intent settlement.</li>
+      <li><strong>Noir circuits</strong> (<code>circuits/</code>) — Plonk proofs for tax-compliance receipts; verifier deployed onchain as a ZK-Judge.</li>
+      <li><strong>WASM Gateway</strong> (<code>gateway/</code>) — brutalist dashboard served from the agent itself for in-browser selective-disclosure auditing.</li>
+      <li><strong>SNS gating</strong> (<code>core/security/identity.zig</code>) — counterparty whitelisting at the Constitution layer, not the RPC layer.</li>
+      <li><strong>Tether WDK</strong> (<code>core/security/wdk.zig</code>) — non-custodial vault for agent keys.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- SPONSORS -->
+<section class="section" id="sponsors">
+  <div class="wrap">
+    <span class="section-num" data-reveal>05 · Sponsor bounty alignment</span>
+    <h2 data-reveal data-reveal-delay="1">One submission. Five tracks.</h2>
+    <table data-reveal data-reveal-delay="2">
+      <thead><tr><th>Layer</th><th>Sponsor</th><th>Implementation</th><th>Code path</th></tr></thead>
+      <tbody>
+        <tr><td>Intelligence</td><td>Tether QVAC</td><td>Local LLM directive parsing + Constitutional RAG</td><td><code>core/intelligence/brain.zig</code></td></tr>
+        <tr><td>Execution</td><td>MagicBlock</td><td>Private Ephemeral Rollup settlement adapter</td><td><code>core/chain/magicblock.zig</code></td></tr>
+        <tr><td>Identity</td><td>SNS</td><td>.sol resolution + Constitution counterparty gating</td><td><code>core/security/identity.zig</code></td></tr>
+        <tr><td>Security</td><td>Tether WDK</td><td>Non-custodial agent vault</td><td><code>core/security/wdk.zig</code></td></tr>
+        <tr><td>Settlement</td><td>Solana</td><td>Anchor ZK-Judge program, mainnet anchor</td><td><code>onchain/programs/</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- DEMO TERMINAL -->
+<section class="section" id="demo">
+  <div class="wrap">
+    <span class="section-num" data-reveal>06 · The air-gapped demo</span>
+    <h2 data-reveal data-reveal-delay="1">Watch the agent reason offline.</h2>
+    <div data-reveal data-reveal-delay="2">
+      <div class="wifi-state" id="wifiState">
+        <span class="indicator"></span>
+        <span id="wifiLabel">Wi-Fi: connected</span>
+      </div>
+      <div class="terminal" id="demoTerm">
+        <div class="terminal-bar">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <span class="title">xb77 merchant — sovereign demo</span>
+        </div>
+        <div class="terminal-body" id="termBody"></div>
+      </div>
+    </div>
+
+    <h3 data-reveal data-reveal-delay="3">Run it locally (offline, &lt;90s)</h3>
+    <p data-reveal data-reveal-delay="5">Open <code>http://localhost:8080</code> to verify the Ghost Receipt with a viewing key.</p>
+  </div>
+</section>
+
+<!-- WHAT'S NEXT -->
+<section class="section" id="next">
+  <div class="wrap">
+    <span class="section-num" data-reveal>07 · What's next</span>
+    <h2 data-reveal data-reveal-delay="1">Devnet → mainnet → swarm.</h2>
+    <ul data-reveal data-reveal-delay="2">
+      <li><strong>Devnet drop:</strong> ZK-Judge program deploys the moment the faucet clears.</li>
+      <li><strong>Mainnet path:</strong> post-audit launch of the ZK-Judge; institutional Z-Node onramp for treasury integrations.</li>
+      <li><strong>Agent Mesh:</strong> scale the Agent Wire Protocol (AWP) for multi-agent swarm negotiation.</li>
+    </ul>
+    <blockquote data-reveal data-reveal-delay="3">Sovereignty is not given. It is computed.</blockquote>
+    <p data-reveal data-reveal-delay="4"><strong>dzkinha</strong> — solo founder. Engineering across Zig, Rust/Anchor, and Noir.</p>
+  </div>
+</section>
+
+<!-- COPY-PASTE FORM FIELDS -->
+<section class="section" id="submission">
+  <div class="wrap">
+    <span class="section-num" data-reveal>08 · Form fields</span>
+    <h2 data-reveal data-reveal-delay="1">Copy-paste for the Colosseum form.</h2>
+
+    <div class="copy-block" data-reveal data-reveal-delay="2">
+      <button class="copy-btn" data-copy="xB77">copy</button>
+      <div class="label">Project name</div>
+      <div class="copy-content">xB77</div>
+    </div>
+
+    <div class="copy-block" data-reveal data-reveal-delay="2">
+      <button class="copy-btn" data-copy="Sovereign Financial OS for AI agents — air-gapped reasoning, MagicBlock settlement, Noir ZK compliance on Solana.">copy</button>
+      <div class="label">Tagline (≤140 chars)</div>
+      <div class="copy-content">Sovereign Financial OS for AI agents — air-gapped reasoning, MagicBlock settlement, Noir ZK compliance on Solana.</div>
+    </div>
+
+    <div class="copy-block" data-reveal data-reveal-delay="3">
+      <button class="copy-btn" data-copy="xB77 turns AI agents into sovereign entities. They reason locally with Tether QVAC, claim a .sol identity via SNS, settle intents on MagicBlock PER, and prove compliance with Noir ZK Ghost Receipts — all from a terminal-native edge runtime in Zig.">copy</button>
+      <div class="label">Short description (≤300 chars)</div>
+      <div class="copy-content">xB77 turns AI agents into sovereign entities. They reason locally with Tether QVAC, claim a .sol identity via SNS, settle intents on MagicBlock PER, and prove compliance with Noir ZK Ghost Receipts — all from a terminal-native edge runtime in Zig.</div>
+    </div>
+
+    <div class="copy-block" data-reveal data-reveal-delay="3">
+      <button class="copy-btn" data-copy="AI / Agents — with sponsor bounty submissions for MagicBlock, Tether QVAC, SNS, Tether WDK.">copy</button>
+      <div class="label">Track</div>
+      <div class="copy-content">AI / Agents — with sponsor bounty submissions for MagicBlock, Tether QVAC, SNS, Tether WDK.</div>
+    </div>
+
+    <h3 data-reveal data-reveal-delay="4">Quick links (for judges)</h3>
+    <table data-reveal data-reveal-delay="4">
+      <tr><th>Resource</th><th>Link</th></tr>
+      <tr><td>Live demo (CLI)</td><td><code>./scripts/hackathon_demo_v2.sh</code></td></tr>
+      <tr><td>Source code</td><td><span class="placeholder">https://github.com/8ctag0n/xB77</span></td></tr>
+      <tr><td>Demo video (≤3 min)</td><td><a href="https://vimeo.com/1191004935" target="_blank">vimeo.com/1191004935</a></td></tr>
+      <tr><td>Devnet program ID</td><td><span class="placeholder">[PROGRAM_ID — pending faucet]</span></td></tr>
+    </table>
+
+  </div>
+</section>
+
+<div class="kbd-hint">
+  <kbd>↓</kbd> next · <kbd>↑</kbd> prev · <kbd>Space</kbd> auto-play
+</div>
+
+<script>
+(() => {
+  // ---- Reveal on scroll ----
+  const revealEls = document.querySelectorAll('[data-reveal]');
+  const revealObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('in');
+        revealObs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -8% 0px' });
+  revealEls.forEach(el => revealObs.observe(el));
+
+  // ---- Counters ----
+  const counterObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const el = e.target;
+      const target = parseInt(el.dataset.counter, 10);
+      const suffix = el.dataset.suffix || '';
+      const prefix = el.dataset.prefix || '';
+      const dur = 1100;
+      const t0 = performance.now();
+      const tick = (t) => {
+        const p = Math.min(1, (t - t0) / dur);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const v = Math.round(target * eased);
+        el.textContent = prefix + v + suffix;
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      counterObs.unobserve(el);
+    });
+  }, { threshold: 0.4 });
+  document.querySelectorAll('[data-counter]').forEach(el => counterObs.observe(el));
+
+  // ---- Hero typing ----
+  const lead = "A terminal-native, P2P Financial OS that turns AI agents into Sovereign Entities — air-gapped reasoning, MagicBlock settlement, Noir ZK compliance on Solana.";
+  const typedEl = document.getElementById('typedLead');
+  let i = 0;
+  const type = () => {
+    if (i < lead.length) {
+      typedEl.textContent += lead[i++];
+      setTimeout(type, 14 + Math.random() * 22);
+    } else {
+      document.getElementById('cursor').style.display = 'none';
+    }
+  };
+  setTimeout(type, 700);
+
+  // ---- Progress bar ----
+  const bar = document.getElementById('progressBar');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    const scrolled = h.scrollTop / (h.scrollHeight - h.clientHeight);
+    bar.style.width = (scrolled * 100) + '%';
+  }, { passive: true });
+
+  // ---- Dot nav ----
+  const sections = ['hero','problem','solution','why-solana','tech','sponsors','demo','next','submission'];
+  const navBtns = document.querySelectorAll('.dot-nav button');
+  navBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.section;
+      document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+  const navObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navBtns.forEach(b => b.classList.toggle('active', b.dataset.section === e.target.id));
+      }
+    });
+  }, { threshold: 0.5 });
+  sections.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) navObs.observe(el);
+  });
+
+  // ---- Keyboard nav ----
+  let autoPlay = false, autoTimer = null;
+  const goRel = (dir) => {
+    const cur = sections.findIndex(id => {
+      const r = document.getElementById(id).getBoundingClientRect();
+      return r.top >= -window.innerHeight * 0.4 && r.top < window.innerHeight * 0.5;
+    });
+    const next = Math.max(0, Math.min(sections.length - 1, (cur < 0 ? 0 : cur) + dir));
+    document.getElementById(sections[next]).scrollIntoView({ behavior: 'smooth' });
+  };
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === 'j') { e.preventDefault(); goRel(1); }
+    else if (e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'k') { e.preventDefault(); goRel(-1); }
+    else if (e.key === ' ') {
+      e.preventDefault();
+      autoPlay = !autoPlay;
+      if (autoPlay) autoTimer = setInterval(() => goRel(1), 7000);
+      else clearInterval(autoTimer);
+    }
+  });
+
+  // ---- Copy buttons ----
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+        btn.classList.add('copied');
+        const orig = btn.textContent;
+        btn.textContent = '✓ copied';
+        setTimeout(() => { btn.classList.remove('copied'); btn.textContent = orig; }, 1400);
+      } catch (err) {
+        btn.textContent = 'failed';
+      }
+    });
+  });
+
+  // ---- Animated terminal demo ----
+  const termBody = document.getElementById('termBody');
+  const wifi = document.getElementById('wifiState');
+  const wifiLabel = document.getElementById('wifiLabel');
+  const script = [
+    { t: 0,    text: '<span class="dim">$</span> <span class="you">xb77 merchant&gt; status</span>' },
+    { t: 350,  text: '<span class="ok">✓</span> agent online · vault unlocked · <span class="dim">.sol cached</span>' },
+    { t: 700,  wifi: 'off' },
+    { t: 900,  text: '<span class="warn">⚠</span> network unreachable · <span class="dim">entering air-gapped mode</span>' },
+    { t: 1300, text: '<span class="dim">$</span> <span class="you">xb77 pay vendor.dale.agent.sol $1,200 INV-042</span>' },
+    { t: 1700, text: '<span class="label">[QVAC]</span>   parsing directive ...                <span class="ok">✓ 412ms</span>' },
+    { t: 2050, text: '<span class="label">[SNS]</span>    resolving .sol (local cache) ...      <span class="ok">✓ 8ms</span>' },
+    { t: 2400, text: '<span class="label">[BRAIN]</span>  Constitution: budget OK               <span class="ok">✓</span>' },
+    { t: 2700, text: '<span class="label">[BRAIN]</span>  Constitution: counterparty OK         <span class="ok">✓</span>' },
+    { t: 3000, text: '<span class="label">[VAULT]</span>  WDK signing intent ...                <span class="ok">✓</span>' },
+    { t: 3400, text: '<span class="dim">─── 0 packets sent ───────────────────────────</span>' },
+    { t: 3900, wifi: 'on' },
+    { t: 4100, text: '<span class="label">[AWP]</span>    connection restored.' },
+    { t: 4400, text: '<span class="label">[MB-PER]</span> streaming intent → ephemeral rollup   <span class="ok">✓ 740ms</span>' },
+    { t: 4750, text: '<span class="label">[ANCHOR]</span> state committed → mainnet             <span class="ok">✓</span>' },
+    { t: 5150, text: '<span class="label">[NOIR]</span>   plonk proof generated                 <span class="ok">✓</span>' },
+    { t: 5500, text: '<span class="ok">✓ ghost receipt:</span> <span class="dim">0x7a3f...e2c1</span> <span class="dim">· tax verified · payload hidden</span>' },
+  ];
+  script.forEach(step => {
+    const line = document.createElement('span');
+    line.className = 'term-line';
+    if (step.text !== undefined) line.innerHTML = step.text;
+    termBody.appendChild(line);
+    step._el = line;
+  });
+  let played = false;
+  const playTerm = () => {
+    if (played) return; played = true;
+    script.forEach(step => {
+      setTimeout(() => {
+        if (step.text !== undefined) step._el.classList.add('shown');
+        if (step.wifi === 'off') {
+          wifi.classList.add('off');
+          wifiLabel.textContent = 'Wi-Fi: OFF · air-gapped';
+        }
+        if (step.wifi === 'on') {
+          wifi.classList.remove('off');
+          wifiLabel.textContent = 'Wi-Fi: connected';
+        }
+      }, step.t);
+    });
+  };
+  const termObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) playTerm(); });
+  }, { threshold: 0.3 });
+  termObs.observe(document.getElementById('demoTerm'));
+})();
+</script>
+</body>
+</html>

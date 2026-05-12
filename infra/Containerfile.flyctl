@@ -1,0 +1,47 @@
+# xB77 Deploy Toolbox — Fly.io + Solana CLI
+#
+# Self-contained image to run all deployment ops without polluting the
+# host. Includes:
+#   · flyctl  — deploy/manage Fly.io apps
+#   · solana  — generate wallet, request airdrop, deploy programs
+#   · jq, curl, git, openssh — utilities the deploy scripts use
+#
+# Usage:
+#   podman build -t xb77-toolbox -f infra/Containerfile.flyctl .
+#   podman run --rm -it \
+#       -v "$PWD:/work" \
+#       -v "$HOME/.fly:/root/.fly" \
+#       -v "$HOME/.config/solana:/root/.config/solana" \
+#       xb77-toolbox bash
+#
+# Inside the container:
+#   fly auth login
+#   fly deploy
+#   solana-keygen new --outfile /root/.config/solana/id.json
+#   solana airdrop 5
+#   solana program deploy zig-out/bin/xb77_core.so --program-id <kp>
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    FLYCTL_INSTALL=/usr/local/fly \
+    PATH=/usr/local/fly/bin:/root/.local/share/solana/install/active_release/bin:${PATH}
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl ca-certificates jq git openssh-client \
+        bzip2 libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# flyctl — pinned to system binary path so it survives volume mounts on $HOME.
+RUN curl -L https://fly.io/install.sh | sh \
+    && /root/.fly/bin/flyctl version \
+    && cp -R /root/.fly /usr/local/fly \
+    && ln -s /usr/local/fly/bin/flyctl /usr/local/bin/fly
+
+# Solana CLI (Agave) — same channel the on-chain programs use.
+RUN sh -c "$(curl -sSfL https://release.anza.xyz/v3.1.14/install)"
+
+WORKDIR /work
+
+# A bare bash so the user drives the workflow. The expected pattern is
+# to mount the repo at /work and the credential dirs from the host.
+CMD ["bash"]

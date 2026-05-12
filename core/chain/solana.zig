@@ -71,6 +71,8 @@ pub const SolanaClient = struct {
         };
         defer parsed.deinit();
 
+        std.debug.print("\n[SOLANA] Account Info Response: {s}", .{response.body});
+
         const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
         if (result == .null) return error.AccountNotFound;
         

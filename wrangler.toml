@@ -1,0 +1,63 @@
+# Cloudflare Worker config for the xB77 gateway.
+#
+# The gateway is a Zig binary compiled to wasm32-wasi (gateway.wasm)
+# wrapped by gateway/worker.js — the JS module shim that polyfills the
+# WASI imports CF Workers don't natively provide (clock_time_get,
+# random_get, etc.). gateway.wasm is produced by `zig build wasm`
+# and lands in zig-out/bin/gateway.wasm.
+#
+# Deploy:
+#   zig build wasm
+#   cp zig-out/bin/gateway.wasm gateway/gateway.wasm
+#   wrangler deploy
+#
+# Or via CI: pushing tag v* triggers .github/workflows/deploy-worker.yml
+# which downloads gateway.wasm from the matching Release and deploys.
+#
+# First-time setup checklist:
+#   1. Cloudflare account + Workers paid ($5/mo) is NOT required for
+#      free-tier deploys (100k req/day). Paid only buys higher limits.
+#   2. `wrangler login` once on your machine, OR set CLOUDFLARE_API_TOKEN
+#      and CLOUDFLARE_ACCOUNT_ID as env vars.
+#   3. Edit `name` below if you want a different *.workers.dev subdomain.
+
+name = "xb77-gateway"
+main = "gateway/worker.js"
+compatibility_date = "2026-05-01"
+# nodejs_compat is intentionally OFF — the worker only needs WASI
+# bindings from the wasm module, and enabling node compat blows up
+# the bundle size without benefit.
+
+# Treat gateway.wasm as a wasm module import. The path is relative to
+# `main` so worker.js does `import wasmModule from "./gateway.wasm"`.
+[[rules]]
+type = "CompiledWasm"
+globs = ["**/*.wasm"]
+fallthrough = false
+
+# Workers Logs: free tier, 7-day retention. Helps debug WASI shim
+# regressions without firing up `wrangler tail` every time.
+[observability]
+enabled = true
+
+# ─────────────────────────────────────────────────────────────────────
+# Routes (uncomment when you have a custom domain on Cloudflare)
+# ─────────────────────────────────────────────────────────────────────
+# [[routes]]
+# pattern = "gateway.your-domain.com/*"
+# zone_name = "your-domain.com"
+
+# ─────────────────────────────────────────────────────────────────────
+# Bindings (KV, R2, etc.) — empty for now. Add them as the gateway
+# grows. Example for a KV namespace storing the last processed slot:
+# ─────────────────────────────────────────────────────────────────────
+# [[kv_namespaces]]
+# binding = "STATE"
+# id = "<your-kv-namespace-id>"
+
+# ─────────────────────────────────────────────────────────────────────
+# Secrets (set via `wrangler secret put NAME` — never commit)
+# ─────────────────────────────────────────────────────────────────────
+# YELLOWSTONE_ENDPOINT
+# YELLOWSTONE_TOKEN
+# SOLANA_RPC_URL

@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="xB77 — Autonomous Financial Infrastructure">
+  <title>xB77 — Autonomous Financial Infrastructure</title>
+  <desc>Press kit / social preview card for the Solana Privacy Hackathon 2026 submission.</desc>
+
+  <defs>
+    <linearGradient id="og-g" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#c8ff2e"/>
+      <stop offset="60%"  stop-color="#7fe6a8"/>
+      <stop offset="100%" stop-color="#00f0ff"/>
+    </linearGradient>
+
+    <linearGradient id="og-rule" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#c8ff2e" stop-opacity="0"/>
+      <stop offset="20%"  stop-color="#c8ff2e" stop-opacity="0.45"/>
+      <stop offset="80%"  stop-color="#00f0ff" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#00f0ff" stop-opacity="0"/>
+    </linearGradient>
+
+    <pattern id="og-grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0 L0 0 0 40" fill="none" stroke="#00f0ff" stroke-width="0.5" stroke-opacity="0.06"/>
+    </pattern>
+
+    <!-- Compression halo for the embedded seal -->
+    <radialGradient id="og-seal-halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%"   stop-color="#c8ff2e" stop-opacity="0.23"/>
+      <stop offset="60%"  stop-color="#c8ff2e" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#c8ff2e" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Monogram glow filter — fires at compression -->
+    <filter id="og-mono-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.6" result="blur"/>
+      <feFlood flood-color="#c8ff2e" flood-opacity="0.7" result="flood"/>
+      <feComposite in="flood" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Embedded copy of the seal at cycle=0.72 (mid-compression snapshot) -->
+    <symbol id="og-seal" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="10" fill="#08080a"/>
+
+      <!-- Compression halo behind the monogram -->
+      <circle cx="32" cy="36" r="22" fill="url(#og-seal-halo)"/>
+
+      <rect x="3" y="3" width="58" height="58" rx="7"
+            fill="none" stroke="url(#og-g)" stroke-width="1.2" opacity="0.9"/>
+      <rect x="5.5" y="5.5" width="53" height="53" rx="5.5"
+            fill="none" stroke="#00f0ff" stroke-width="0.4" opacity="0.22"/>
+
+      <!-- Notch glow: agent ingressing through the bottom notch -->
+      <circle cx="32" cy="61" r="1.69" fill="#c8ff2e" opacity="0.985"/>
+
+      <!-- Agent particles — 11 in flight at cycle=0.72 -->
+      <g aria-hidden="true">
+        <circle cx="31.92" cy="30.43" r="1.18" fill="#c8ff2e" opacity="0.97"/>
+        <circle cx="32.00" cy="36.06" r="1.21" fill="#c8ff2e" opacity="0.97"/>
+        <circle cx="32.00" cy="36.95" r="0.65" fill="#c8ff2e" opacity="0.52"/>
+        <circle cx="67.76" cy="30.61" r="0.39" fill="#00f0ff" opacity="0.21"/>
+        <circle cx="30.86" cy="65.54" r="0.49" fill="#00f0ff" opacity="0.48"/>
+        <circle cx="0.46"  cy="32.12" r="0.62" fill="#00f0ff" opacity="0.78"/>
+        <circle cx="31.24" cy="0.45"  r="0.73" fill="#00f0ff" opacity="0.85"/>
+        <circle cx="61.63" cy="32.28" r="0.82" fill="#00f0ff" opacity="0.85"/>
+        <circle cx="32.14" cy="60.98" r="0.85" fill="#00f0ff" opacity="0.85"/>
+        <circle cx="12.25" cy="33.62" r="0.98" fill="#00f0ff" opacity="0.90"/>
+      </g>
+
+      <!-- Monogram with compression glow -->
+      <g filter="url(#og-mono-glow)">
+        <text x="32" y="38" text-anchor="middle"
+              font-family="ui-monospace, 'Geist Mono', 'JetBrains Mono', Menlo, monospace"
+              font-weight="900" font-size="18" letter-spacing="-1.2" fill="url(#og-g)">xB77</text>
+      </g>
+
+      <g transform="translate(44.5,7)">
+        <rect width="13" height="8" rx="1.5" fill="none" stroke="#c8ff2e" stroke-width="0.6" opacity="0.9"/>
+        <text x="3.2" y="5.8" font-family="ui-monospace, 'Geist Mono', monospace"
+              font-weight="700" font-size="4.2" fill="#c8ff2e">ZK</text>
+        <path d="M8.4 4.3 L9.5 5.5 L11.2 3.2" stroke="#c8ff2e" stroke-width="0.8"
+              stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </g>
+      <text x="7.5" y="58.5" font-family="ui-monospace, 'Geist Mono', monospace"
+            font-size="2.6" fill="#00f0ff" opacity="0.6" letter-spacing="0.4">0x77b…a9f</text>
+      <g stroke="#c8ff2e" stroke-width="0.9" stroke-linecap="round">
+        <line x1="32" y1="56.5" x2="32" y2="60.5" opacity="0.9"/>
+        <line x1="35" y1="57.5" x2="35" y2="60.5" opacity="0.65"/>
+        <line x1="38" y1="58.0" x2="38" y2="60.5" opacity="0.65"/>
+        <line x1="41" y1="57.5" x2="41" y2="60.5" opacity="0.65"/>
+        <line x1="44" y1="58.0" x2="44" y2="60.5" opacity="0.65"/>
+        <line x1="47" y1="57.5" x2="47" y2="60.5" opacity="0.65"/>
+        <line x1="50" y1="58.0" x2="50" y2="60.5" opacity="0.65"/>
+        <line x1="53" y1="57.5" x2="53" y2="60.5" opacity="0.65"/>
+        <line x1="56" y1="58.0" x2="56" y2="60.5" opacity="0.65"/>
+      </g>
+    </symbol>
+  </defs>
+
+  <!-- Plate -->
+  <rect width="1200" height="630" fill="#08080a"/>
+  <rect width="1200" height="630" fill="url(#og-grid)"/>
+
+  <!-- Soft radial vignette toward the seal side, suggested by gradient overlay -->
+  <rect width="1200" height="630" fill="#08080a" opacity="0"/>
+
+  <!-- Frame ticks at the 4 corners (industrial feel) -->
+  <g stroke="url(#og-g)" stroke-width="1.4" fill="none" opacity="0.6">
+    <path d="M40 40 L100 40 M40 40 L40 100"/>
+    <path d="M1160 40 L1100 40 M1160 40 L1160 100"/>
+    <path d="M40 590 L100 590 M40 590 L40 530"/>
+    <path d="M1160 590 L1100 590 M1160 590 L1160 530"/>
+  </g>
+
+  <!-- The Seal, large, left -->
+  <g transform="translate(110, 195)">
+    <use href="#og-seal" width="240" height="240"/>
+  </g>
+
+  <!-- Wordmark + tagline, right of seal -->
+  <g transform="translate(410, 220)">
+    <text font-family="'DM Sans', system-ui, sans-serif" font-weight="700"
+          font-size="148" fill="url(#og-g)" letter-spacing="-6">
+      <tspan x="0" y="0">xB77</tspan>
+    </text>
+
+    <!-- Rule under wordmark -->
+    <line x1="2" y1="36" x2="640" y2="36" stroke="url(#og-rule)" stroke-width="1.4"/>
+
+    <!-- Primary tagline -->
+    <text font-family="'Instrument Serif', 'Iowan Old Style', Georgia, serif"
+          font-style="italic" font-weight="400"
+          font-size="44" fill="#f4f4f5" letter-spacing="-0.5">
+      <tspan x="0" y="88">Autonomous Financial Infrastructure</tspan>
+    </text>
+
+    <!-- Secondary descriptors -->
+    <text font-family="ui-monospace, 'Geist Mono', 'JetBrains Mono', Menlo, monospace"
+          font-size="20" fill="#00f0ff" letter-spacing="0.5" opacity="0.85">
+      <tspan x="0" y="148">shielded payments</tspan>
+      <tspan x="220" y="148" fill="#52525b">·</tspan>
+      <tspan x="240" y="148">zk-compressed receipts</tspan>
+      <tspan x="528" y="148" fill="#52525b">·</tspan>
+      <tspan x="548" y="148">autonomous agents on solana</tspan>
+    </text>
+  </g>
+
+  <!-- Bottom footer strip: hackathon attribution -->
+  <line x1="40" y1="555" x2="1160" y2="555" stroke="url(#og-rule)" stroke-width="0.8"/>
+  <text x="40" y="585" font-family="ui-monospace, 'Geist Mono', monospace"
+        font-size="16" fill="#a1a1aa" letter-spacing="2">
+    SOLANA PRIVACY HACKATHON · 2026
+  </text>
+  <text x="1160" y="585" text-anchor="end"
+        font-family="ui-monospace, 'Geist Mono', monospace"
+        font-size="16" fill="#a1a1aa" letter-spacing="2">
+    xb77.network
+  </text>
+</svg>

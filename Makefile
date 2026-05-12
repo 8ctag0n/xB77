@@ -57,5 +57,19 @@ localnet-setup: localnet-verifier localnet-gateway localnet-init
 
 localnet-e2e: localnet-start-bg proof-badge localnet-setup localnet-verify
 
+deploy-app:
+	cd webapp_deploy && bunx wrangler@latest pages deploy . --project-name xb77-public-app
+
+webapp-dev:
+	cd webapp_deploy && bunx wrangler@latest pages dev . --port 8788
+
+docs-dev:
+	cd docs && npm run docs:dev
+
+docs-build:
+	cd docs && npm run docs:build
+
+# Docs ship to GitHub Pages via .github/workflows/deploy-docs.yml — no manual deploy needed.
+
 demo-payment:
 	cd sdk && bun run scripts/demo_payment.ts

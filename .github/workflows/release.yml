@@ -65,24 +65,31 @@ jobs:
           # Pin to the last stable 0.15.x release.
           version: 0.15.1
 
+      # ReleaseSafe gives ~30× smaller binaries than Debug (xb77 drops
+      # from 28 MB to <1 MB) while keeping safety checks. Use ReleaseFast
+      # only when CPU profiling justifies trading away the checks.
       - name: Build host targets
-        run: zig build install
+        run: zig build install -Doptimize=ReleaseSafe
 
       - name: Build gateway WASM
-        run: zig build wasm
+        run: zig build wasm -Doptimize=ReleaseSmall
 
       - name: Verify wasm is real
         run: |
           size=$(stat -c%s zig-out/bin/gateway.wasm)
           test "$size" -gt 50000 || (echo "::error::gateway.wasm regressed to a stub" && exit 1)
 
-      # Ship every binary `zig build install` produces so e2e runners,
-      # benches and the znode server land in the Release alongside the
-      # CLI. Glob also future-proofs the workflow against new targets.
+      # Only user-facing binaries are shipped. Internal helpers
+      # (awp-bench, e2e-anchor, mesh-*, rpc-check, sns-test, znode-e2e)
+      # stay out of the Release — they're QA tooling, not deliverables.
       - uses: actions/upload-artifact@v4
         with:
           name: zig-binaries
-          path: zig-out/bin/*
+          path: |
+            zig-out/bin/xb77
+            zig-out/bin/znode-server
+            zig-out/bin/zk-upload-e2e
+            zig-out/bin/gateway.wasm
           if-no-files-found: error
 
   bpf:
@@ -156,10 +163,10 @@ jobs:
       - name: Stage release files
         run: |
           mkdir -p release
-          # Every Zig-built binary (CLI, gateway.wasm, e2e runners,
-          # znode-server, benches). Globbing keeps the workflow honest
-          # if build.zig adds or renames targets.
-          cp -v dist/zig-binaries/*           release/
+          # User-facing Zig artifacts (the upload step in the `zig` job
+          # already filters internal QA helpers out, so we can safely
+          # copy whatever survived).
+          cp -v dist/zig-binaries/* release/
           for prog in xb77_core xb77_gateway xb77_registry xb77_compression xb77_zk_verifier; do
             cp "dist/bpf-${prog}/${prog}.so" "release/${prog}.so"
           done

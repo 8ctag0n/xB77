@@ -30,9 +30,11 @@ pub const MagicBlockSDK = struct {
     };
 
     pub fn init(allocator: std.mem.Allocator, url: []const u8) MagicBlockSDK {
+        const default_url = "https://devnet.magicblock.app";
+        const final_url = if (url.len > 0) allocator.dupe(u8, url) catch default_url else allocator.dupe(u8, default_url) catch default_url;
         return .{
             .allocator = allocator,
-            .sequencer_url = allocator.dupe(u8, url) catch "https://devnet.magicblock.app",
+            .sequencer_url = final_url,
         };
     }
 
@@ -53,6 +55,17 @@ pub const MagicBlockSDK = struct {
 
         // 2. Anclar el Escrow en Solana (L1) REAL
         if (self.sol_client) |sol| {
+            // Tests use "mock:..." endpoints to short-circuit network calls.
+            // Skip the L1 escrow anchor in that case; return a synthetic session.
+            if (std.mem.startsWith(u8, sol.endpoint, "mock:")) {
+                std.debug.print("\n[MAGIC ]  (mock endpoint — skipping L1 escrow anchor)", .{});
+                return Session{
+                    .id = session_id,
+                    .authority = agent_kp.public,
+                    .expiry = expiry,
+                    .is_active = true,
+                };
+            }
             const tx_mod = @import("../protocol/tx.zig");
             const amount: u64 = 2_000_000_000; // 2.0 SOL hardcoded for the demo session
 
@@ -128,35 +141,97 @@ pub const MagicBlockSDK = struct {
 
         std.debug.print("\n[MAGIC ]  Dispatching HFT Transaction to Sequencer {s}...", .{self.sequencer_url});
         
+        if (std.mem.startsWith(u8, self.sequencer_url, "mock:")) {
+            return try self.allocator.dupe(u8, "{\"status\":\"ok\",\"receipt\":\"mock_magicblock_receipt_v1\"}");
+        }
+
         const http_mod = @import("../mesh/http.zig");
         var client = http_mod.HttpClient.init(self.allocator);
-        // HttpClient no tiene deinit en su implementación actual
 
-        // Serialización del AWP Packet (Transferencia Efímera)
-        var body = std.ArrayListUnmanaged(u8){};
-        defer body.deinit(self.allocator);
+        // Serialización del payload compatible con el bridge de xB77
+        var body_buf = std.ArrayListUnmanaged(u8){};
+        defer body_buf.deinit(self.allocator);
         
-        try body.writer(self.allocator).print("{any}", .{std.json.fmt(.{
-            .session_id = session.id,
-            .target = tx.target,
+        try body_buf.writer(self.allocator).print("{f}", .{std.json.fmt(.{
+            .sessionId = std.fmt.bytesToHex(session.id, .lower),
+            .target = try crypto.pubkeyToString(self.allocator, &tx.target),
             .amount = tx.amount,
-            .payload_hash = tx.payload_hash,
-            .signature = tx.signature,
+            .payloadHash = std.fmt.bytesToHex(tx.payload_hash, .lower),
+            .signature = std.fmt.bytesToHex(tx.signature, .lower),
         }, .{})});
 
-        var response = try client.post(self.sequencer_url, body.items);
+        var response = try client.post(self.sequencer_url, body_buf.items);
         defer response.deinit();
 
-        // El secuenciador devuelve la firma de aceptación en el Rollup
+        if (response.status != 200) {
+            std.debug.print("\n[MAGIC ]  Sequencer Error: {d} - {s}", .{response.status, response.body});
+            return error.SequencerError;
+        }
+
+        // El secuenciador devuelve la firma de aceptación o un receipt JSON
         return try self.allocator.dupe(u8, response.body);
     }
 
     /// Cierra la sesión y hace el commit final a Solana L1.
-    pub fn commitToSolana(self: *MagicBlockSDK, session: *Session) !void {
-        _ = self;
-        std.debug.print("\n[MAGIC ]  Committing Ephemeral State to Solana L1...", .{});
+    pub fn commitToSolana(self: *MagicBlockSDK, session: *Session, agent_kp: *const types.Keypair) !void {
+        std.debug.print("\n[MAGIC ]  Committing Ephemeral State to Solana L1 for Session {x}...", .{session.id[0..4].*});
+        
+        if (self.sol_client) |sol| {
+            if (std.mem.startsWith(u8, sol.endpoint, "mock:")) {
+                session.is_active = false;
+                return;
+            }
+
+            const tx_mod = @import("../protocol/tx.zig");
+            const ix_data = try tx_mod.buildClosePerSessionInstruction(self.allocator, session.id);
+            defer self.allocator.free(ix_data);
+
+            const program_id = try crypto.stringToPubkey(self.allocator, "73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3");
+            
+            // PDA del Escrow: [b"per_escrow", agent_pubkey, session_id]
+            var seeds = [_][]const u8{ "per_escrow", &agent_kp.public, &session.id };
+            const pda_res = try crypto.findProgramAddress(&seeds, &program_id);
+            
+            const blockhash = try sol.getLatestBlockhash();
+            
+            var buf = std.ArrayListUnmanaged(u8){};
+            defer buf.deinit(self.allocator);
+            const writer = buf.writer(self.allocator);
+
+            try tx_mod.writeCompactU16(writer, 1);
+            try buf.appendNTimes(self.allocator, 0, 64);
+            
+            const message_start = buf.items.len;
+            try writer.writeByte(1); // num_sigs
+            try writer.writeByte(0); // num_signed_readonly
+            try writer.writeByte(1); // num_unsigned_readonly (program)
+            
+            try tx_mod.writeCompactU16(writer, 3); // signer, pda, program
+            try buf.appendSlice(self.allocator, &agent_kp.public);
+            try buf.appendSlice(self.allocator, &pda_res.address);
+            try buf.appendSlice(self.allocator, &program_id);
+            
+            try buf.appendSlice(self.allocator, &blockhash);
+            
+            try tx_mod.writeCompactU16(writer, 1);
+            try writer.writeByte(2); // program_id index
+            try tx_mod.writeCompactU16(writer, 2); // 2 accounts
+            try writer.writeByte(0); // signer
+            try writer.writeByte(1); // escrow pda
+            
+            try tx_mod.writeCompactU16(writer, @intCast(ix_data.len));
+            try buf.appendSlice(self.allocator, ix_data);
+
+            const message = buf.items[message_start..];
+            const signature = crypto.sign(message, agent_kp);
+            @memcpy(buf.items[1..65], &signature);
+
+            const sig = try sol.sendTransaction(buf.items);
+            std.debug.print("\n[MAGIC ]  L1 Settlement Complete. Sig: {s}", .{sig});
+            self.allocator.free(sig);
+        }
+
         session.is_active = false;
-        // Logic to trigger the sequencer's settle process...
     }
 };
 

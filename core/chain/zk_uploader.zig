@@ -52,14 +52,13 @@ pub fn uploadAndVerify(
     };
     const pda = try crypto.findProgramAddress(seeds[0..], &verifier_program_id);
 
-    std.debug.print("\n[ZK-UP] verifier: {s}", .{
-        try crypto.pubkeyToString(allocator, &verifier_program_id),
-    });
+    const verifier_str = try crypto.pubkeyToString(allocator, &verifier_program_id);
+    defer allocator.free(verifier_str);
+    std.debug.print("\n[ZK-UP] verifier: {s}", .{verifier_str});
     std.debug.print("\n[ZK-UP] proof: {d} bytes, chunks of {d}", .{ proof_bytes.len, CHUNK_SIZE });
-    std.debug.print("\n[ZK-UP] buffer PDA: {s} (bump={d})", .{
-        try crypto.pubkeyToString(allocator, &pda.address),
-        pda.bump,
-    });
+    const pda_str = try crypto.pubkeyToString(allocator, &pda.address);
+    defer allocator.free(pda_str);
+    std.debug.print("\n[ZK-UP] buffer PDA: {s} (bump={d})", .{ pda_str, pda.bump });
 
     // 1) INIT
     const init_sig = try sendInit(client, verifier_program_id, payer_kp, pda.address, salt, @intCast(proof_bytes.len));

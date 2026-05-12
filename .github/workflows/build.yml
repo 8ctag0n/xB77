@@ -55,11 +55,14 @@ jobs:
           restore-keys: |
             zig-${{ runner.os }}-
 
+      # Mirror release.yml: ReleaseSafe for binaries (small + checked),
+      # ReleaseSmall for the WASM bundle (Cloudflare Workers free tier
+      # caps the worker module at 1 MB compressed).
       - name: Build host targets (xb77 + e2e runners)
-        run: zig build install
+        run: zig build install -Doptimize=ReleaseSafe
 
       - name: Build gateway WASM
-        run: zig build wasm
+        run: zig build wasm -Doptimize=ReleaseSmall
 
       - name: Verify wasm produced is real (>50 KB, not the 120 B stub)
         run: |

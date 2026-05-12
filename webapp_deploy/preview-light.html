@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>xB77 — Light Mode Palette Preview</title>
+<style>
+  :root {
+    --mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+    --serif: 'EB Garamond', Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0;
+    font-family: var(--mono);
+    background: #0a0a0c;
+    color: #f5f5f7;
+  }
+  .head {
+    padding: 32px 40px 16px;
+    border-bottom: 1px solid #2a2a2e;
+  }
+  .head h1 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #c8ff2e;
+  }
+  .head p {
+    margin: 0;
+    font-size: 12px;
+    color: #9a9aaa;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-bottom: 1px solid #2a2a2e;
+  }
+  .opt {
+    padding: 40px 32px;
+    border-right: 1px solid #2a2a2e;
+    min-height: 600px;
+  }
+  .opt:last-child { border-right: none; }
+  .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    opacity: 0.5;
+  }
+  .heading {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 28px;
+    line-height: 1.1;
+    margin: 0 0 16px;
+  }
+  .body {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.55;
+    margin: 0 0 24px;
+    max-width: 30em;
+  }
+  .cta {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .nav {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 32px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .nav a { text-decoration: none; }
+  .swatches {
+    display: flex;
+    gap: 8px;
+    margin-top: 32px;
+    font-family: var(--mono);
+    font-size: 9px;
+  }
+  .swatch {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .chip {
+    width: 36px; height: 36px;
+    border: 1px solid currentColor;
+  }
+  .code {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
+
+  /* ─────────── Option A — Bright minimalist ─────────── */
+  .opt.A {
+    background: #fafafa;
+    color: #0a0a0a;
+  }
+  .opt.A .label { color: #6a6a6a; }
+  .opt.A .heading { color: #0a0a0a; }
+  .opt.A .body { color: #3a3a3a; }
+  .opt.A .nav a { color: #6a6a6a; }
+  .opt.A .nav a.active { color: #0a0a0a; border-bottom: 1px solid #c8ff2e; }
+  .opt.A .cta {
+    background: #c8ff2e;
+    color: #0a0a0a;
+    border: 1px solid #c8ff2e;
+  }
+  .opt.A .code { background: #eaeaea; color: #0a0a0a; }
+
+  /* ─────────── Option B — Warm paper ─────────── */
+  .opt.B {
+    background: #f4f0e8;
+    color: #1a1a1a;
+  }
+  .opt.B .label { color: #6a6450; }
+  .opt.B .heading { color: #1a1a1a; }
+  .opt.B .body { color: #3a3530; }
+  .opt.B .nav a { color: #6a6450; }
+  .opt.B .nav a.active { color: #1a1a1a; border-bottom: 1px solid #5a7a00; }
+  .opt.B .cta {
+    background: #5a7a00;
+    color: #f4f0e8;
+    border: 1px solid #5a7a00;
+  }
+  .opt.B .code { background: #e8e2d4; color: #1a1a1a; }
+
+  /* ─────────── Option C — Institutional ─────────── */
+  .opt.C {
+    background: #ffffff;
+    color: #000000;
+  }
+  .opt.C .label { color: #5a5a5a; }
+  .opt.C .heading { color: #000000; }
+  .opt.C .body { color: #2a2a2a; }
+  .opt.C .nav a { color: #5a5a5a; }
+  .opt.C .nav a.active { color: #000000; border-bottom: 1px solid #2d6e00; }
+  .opt.C .cta {
+    background: #2d6e00;
+    color: #ffffff;
+    border: 1px solid #2d6e00;
+  }
+  .opt.C .code { background: #f0f0f0; color: #000000; }
+
+  /* Dark control reference */
+  .dark {
+    padding: 40px 32px;
+    background: #08080a;
+    color: #f5f5f7;
+    border-top: 1px solid #2a2a2e;
+  }
+  .dark .label { color: #9a9aaa; }
+  .dark .heading { color: #f5f5f7; }
+  .dark .body { color: #9a9aaa; }
+  .dark .nav a { color: #9a9aaa; }
+  .dark .nav a.active { color: #c8ff2e; border-bottom: 1px solid #c8ff2e; }
+  .dark .cta { background: #c8ff2e; color: #08080a; border: 1px solid #c8ff2e; }
+  .dark .code { background: #1a1a1e; color: #c8ff2e; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>// xB77 Light Mode — Palette Preview</h1>
+  <p>Same content rendered under 3 candidate light palettes. Last row is current Obsidian dark for reference.</p>
+</div>
+
+<div class="grid">
+
+  <!-- ── A — Bright minimalist ── -->
+  <div class="opt A">
+    <div class="label">A — Bright minimalist</div>
+    <div class="nav">
+      <a href="#" class="active">Home</a>
+      <a href="#">Why</a>
+      <a href="#">Whitepaper</a>
+      <a href="#">Docs</a>
+    </div>
+    <h2 class="heading">Sovereign commerce, on-chain.</h2>
+    <p class="body">Every agent signs every step. The result is a continuous on-chain audit trail you can read with <span class="code">curl</span>. No middleware. No proprietary ledgers.</p>
+    <a href="#" class="cta">Launch App</a>
+    <div class="swatches">
+      <div class="swatch"><div class="chip" style="background:#fafafa"></div>#fafafa</div>
+      <div class="swatch"><div class="chip" style="background:#0a0a0a"></div>#0a0a0a</div>
+      <div class="swatch"><div class="chip" style="background:#c8ff2e"></div>#c8ff2e</div>
+    </div>
+  </div>
+
+  <!-- ── B — Warm paper ── -->
+  <div class="opt B">
+    <div class="label">B — Warm paper (recomendado)</div>
+    <div class="nav">
+      <a href="#" class="active">Home</a>
+      <a href="#">Why</a>
+      <a href="#">Whitepaper</a>
+      <a href="#">Docs</a>
+    </div>
+    <h2 class="heading">Sovereign commerce, on-chain.</h2>
+    <p class="body">Every agent signs every step. The result is a continuous on-chain audit trail you can read with <span class="code">curl</span>. No middleware. No proprietary ledgers.</p>
+    <a href="#" class="cta">Launch App</a>
+    <div class="swatches">
+      <div class="swatch"><div class="chip" style="background:#f4f0e8"></div>#f4f0e8</div>
+      <div class="swatch"><div class="chip" style="background:#1a1a1a"></div>#1a1a1a</div>
+      <div class="swatch"><div class="chip" style="background:#5a7a00"></div>#5a7a00</div>
+    </div>
+  </div>
+
+  <!-- ── C — Institutional ── -->
+  <div class="opt C">
+    <div class="label">C — Institutional</div>
+    <div class="nav">
+      <a href="#" class="active">Home</a>
+      <a href="#">Why</a>
+      <a href="#">Whitepaper</a>
+      <a href="#">Docs</a>
+    </div>
+    <h2 class="heading">Sovereign commerce, on-chain.</h2>
+    <p class="body">Every agent signs every step. The result is a continuous on-chain audit trail you can read with <span class="code">curl</span>. No middleware. No proprietary ledgers.</p>
+    <a href="#" class="cta">Launch App</a>
+    <div class="swatches">
+      <div class="swatch"><div class="chip" style="background:#ffffff;border-color:#aaa"></div>#ffffff</div>
+      <div class="swatch"><div class="chip" style="background:#000000"></div>#000000</div>
+      <div class="swatch"><div class="chip" style="background:#2d6e00"></div>#2d6e00</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Dark reference ── -->
+<div class="dark">
+  <div class="label">Dark — Obsidian (current, for reference)</div>
+  <div class="nav">
+    <a href="#" class="active">Home</a>
+    <a href="#">Why</a>
+    <a href="#">Whitepaper</a>
+    <a href="#">Docs</a>
+  </div>
+  <h2 class="heading">Sovereign commerce, on-chain.</h2>
+  <p class="body">Every agent signs every step. The result is a continuous on-chain audit trail you can read with <span class="code">curl</span>. No middleware. No proprietary ledgers.</p>
+  <a href="#" class="cta">Launch App</a>
+</div>
+
+</body>
+</html>

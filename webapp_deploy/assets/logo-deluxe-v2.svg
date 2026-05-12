@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 80">
+  <defs>
+    <!-- Deluxe Gradient v2 -->
+    <linearGradient id="deluxe-g-v2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c8ff2e">
+        <animate attributeName="stop-color" values="#c8ff2e; #00f0ff; #ff2e88; #c8ff2e" dur="6s" repeatCount="indefinite" />
+      </stop>
+      <stop offset="100%" stop-color="#00f0ff">
+        <animate attributeName="stop-color" values="#00f0ff; #ff2e88; #c8ff2e; #00f0ff" dur="6s" repeatCount="indefinite" />
+      </stop>
+    </linearGradient>
+
+    <!-- Glitch Filter -->
+    <filter id="glitch-filter">
+      <!-- High-frequency noise for displacement -->
+      <feTurbulence type="fractalNoise" baseFrequency="0.0001 0.0001" numOctaves="1" result="noise">
+        <animate attributeName="baseFrequency" values="0.0001 0.0001; 0.05 0.2; 0.0001 0.0001" dur="5s" repeatCount="indefinite" keyTimes="0; 0.02; 0.04" />
+      </feTurbulence>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G" result="displaced">
+        <animate attributeName="scale" values="0; 15; 0" dur="5s" repeatCount="indefinite" keyTimes="0; 0.02; 0.04" />
+      </feDisplacementMap>
+      
+      <!-- Color Split -->
+      <feOffset in="displaced" dx="-2" dy="0" result="red-shift">
+        <animate attributeName="dx" values="0; -3; 0" dur="5s" repeatCount="indefinite" keyTimes="0; 0.02; 0.04" />
+      </feOffset>
+    </filter>
+
+    <!-- Neon Glow -->
+    <filter id="neon-aura" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <!-- Pattern for tech grid -->
+    <pattern id="grid-v2" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse">
+      <path d="M 12 0 L 0 0 0 12" fill="none" stroke="#00f0ff" stroke-width="0.5" stroke-opacity="0.1" />
+    </pattern>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="240" height="80" rx="4" fill="#08080a" />
+  
+  <!-- Subtle Tech Grid -->
+  <rect width="240" height="80" rx="4" fill="url(#grid-v2)" />
+
+  <!-- The "Ghost" Aura Layer (Behind) -->
+  <g filter="url(#neon-aura)" opacity="0.3">
+    <text x="120" y="52" text-anchor="middle" font-family="monospace" font-weight="900" font-size="42" fill="url(#deluxe-g-v2)" letter-spacing="-2">
+      xB77
+      <animate attributeName="opacity" values="0.3; 0.6; 0.3" dur="3s" repeatCount="indefinite" />
+    </text>
+  </g>
+
+  <!-- Main Text with GLITCH -->
+  <g filter="url(#glitch-filter)">
+    <text x="120" y="52" text-anchor="middle" font-family="monospace" font-weight="900" font-size="42" fill="url(#deluxe-g-v2)" letter-spacing="-2">
+      xB77
+    </text>
+  </g>
+
+  <!-- Decorative Scanline -->
+  <rect width="240" height="1" fill="#c8ff2e" fill-opacity="0.2">
+    <animate attributeName="y" from="-10" to="90" dur="3s" repeatCount="indefinite" />
+  </rect>
+
+  <!-- Frame corners (Industrial look) -->
+  <path d="M10 10 L25 10 M10 10 L10 25" stroke="url(#deluxe-g-v2)" stroke-width="1.5" fill="none" />
+  <path d="M215 10 L230 10 M230 10 L230 25" stroke="url(#deluxe-g-v2)" stroke-width="1.5" fill="none" />
+  <path d="M10 70 L25 70 M10 70 L10 55" stroke="url(#deluxe-g-v2)" stroke-width="1.5" fill="none" />
+  <path d="M230 70 L215 70 M230 70 L230 55" stroke="url(#deluxe-g-v2)" stroke-width="1.5" fill="none" />
+
+  <!-- ZK Status Indicator -->
+  <circle cx="218" cy="62" r="3" fill="#c8ff2e">
+    <animate attributeName="opacity" values="1;0.2;1" dur="1.5s" repeatCount="indefinite" />
+  </circle>
+  <text x="210" y="65" text-anchor="end" font-family="monospace" font-size="8" fill="#c8ff2e" font-weight="bold" opacity="0.7">LIVE</text>
+</svg>

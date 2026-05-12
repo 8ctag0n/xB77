@@ -18,6 +18,7 @@ pub fn build(b: *std.Build) void {
             .{ .name = "awp", .module = awp_module },
         },
     });
+    core_module.addIncludePath(b.path("deps"));
 
     // --- MCP Module ---
     const mcp_module = b.addModule("mcp", .{
@@ -138,6 +139,30 @@ pub fn build(b: *std.Build) void {
     const wasm_step = b.step("wasm", "Build the Gateway WASM binary for Cloudflare Workers");
     wasm_step.dependOn(&install_wasm.step);
 
+    // --- SDK Core WASM (xb77_core.wasm) ---
+    // Stateless SDK surface compiled to wasm32-wasi. Wrappers (TS/Py/Rust)
+    // polyfill the small set of WASI imports actually used. See
+    // docs/superpowers/specs/2026-05-11-sdk-wasm-core-deluxe-design.addendum.md §A.9
+    const sdk_wasm = b.addExecutable(.{
+        .name = "xb77_core",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("sdk/wasm/exports.zig"),
+            .target = wasm_target,
+            .optimize = .ReleaseSmall,
+            .strip = true,
+        }),
+    });
+    sdk_wasm.root_module.addImport("core", core_module);
+    sdk_wasm.entry = .disabled;
+    sdk_wasm.rdynamic = true;
+
+    const install_sdk_wasm = b.addInstallArtifact(sdk_wasm, .{
+        .dest_dir = .{ .override = .{ .custom = "bin" } },
+    });
+
+    const sdk_wasm_step = b.step("sdk-wasm", "Build the xB77 SDK core WASM (xb77_core.wasm)");
+    sdk_wasm_step.dependOn(&install_sdk_wasm.step);
+
     // --- Tests ---
     const crypto_unit_tests = b.addTest(.{
         .root_module = b.createModule(.{
@@ -230,6 +255,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     brain_unit_tests.root_module.addImport("core", core_module);
+    brain_unit_tests.linkLibC();
     const run_brain_unit_tests = b.addRunArtifact(brain_unit_tests);
 
     const merchant_unit_tests = b.addTest(.{
@@ -362,6 +388,21 @@ pub fn build(b: *std.Build) void {
     zk_upload_e2e.linkLibC();
     b.installArtifact(zk_upload_e2e);
 
+    // --- E2E Compression VerifyTransition (sends real tx to xb77_compression) ---
+    const compression_e2e = b.addExecutable(.{
+        .name = "compression-e2e",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/compression_e2e.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    compression_e2e.root_module.addImport("core", core_module);
+    compression_e2e.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    compression_e2e.addIncludePath(b.path("deps"));
+    compression_e2e.linkLibC();
+    b.installArtifact(compression_e2e);
+
     // --- Mesh P2P Ping ---
     const mesh_ping_exe = b.addExecutable(.{
         .name = "mesh-ping",
@@ -463,6 +504,38 @@ pub fn build(b: *std.Build) void {
     negotiation_unit_tests.root_module.addImport("core", core_module);
     const run_negotiation_unit_tests = b.addRunArtifact(negotiation_unit_tests);
 
+    // --- Onchain unit tests (wincode + IDL client + solana_tx) ---
+    const onchain_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/onchain_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    onchain_unit_tests.root_module.addImport("core", core_module);
+    onchain_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    onchain_unit_tests.addIncludePath(b.path("deps"));
+    onchain_unit_tests.linkLibC();
+    const run_onchain_unit_tests = b.addRunArtifact(onchain_unit_tests);
+
+    // --- Trident Smoke Test ---
+    const trident_smoke = b.addExecutable(.{
+        .name = "trident-smoke",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/trident_smoke.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    trident_smoke.root_module.addImport("core", core_module);
+    trident_smoke.root_module.addIncludePath(b.path("deps"));
+    trident_smoke.linkLibC();
+    b.installArtifact(trident_smoke);
+
+    const run_trident_smoke = b.addRunArtifact(trident_smoke);
+    const trident_smoke_step = b.step("trident-smoke", "Run the Trident Integration Smoke Test");
+    trident_smoke_step.dependOn(&run_trident_smoke.step);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);
     test_step.dependOn(&run_tx_unit_tests.step);
@@ -480,4 +553,5 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_orchestrator_potent_e2e_tests.step);
     test_step.dependOn(&run_ghost_payment_e2e_tests.step);
     test_step.dependOn(&run_negotiation_unit_tests.step);
+    test_step.dependOn(&run_onchain_unit_tests.step);
 }
