@@ -8,6 +8,7 @@ export default withMermaid({
   description:
     'Privacy-first capital management for the machine economy. Shielded payments, ZK-compressed receipts, autonomous agents on Solana.',
   lang: 'en-US',
+  base: '/xB77/',
   cleanUrls: true,
   appearance: 'force-dark',
 
