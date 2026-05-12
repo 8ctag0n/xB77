@@ -22,6 +22,9 @@
 # Optional env:
 #   ZNODE_RPC_URL          Solana RPC the Worker will hit
 #                          default: https://api.devnet.solana.com
+#   WORKERS_SUBDOMAIN      account-level subdomain to claim if none exists.
+#                          default: xb77-<first 8 chars of account id>
+#                          Ignored if a subdomain is already registered.
 #   GATEWAY_PRIVKEY_HEX    pre-generated 64B hex (seed||pubkey).
 #                          If unset, this script generates a fresh keypair.
 #   INGEST_TOKEN           pre-generated bearer for /pipelines/ingest.
@@ -131,7 +134,37 @@ cf_api() {
   curl "${args[@]}" "https://api.cloudflare.com/client/v4$pth"
 }
 
-# Fetch the existing namespace list once.
+# ── Register workers.dev subdomain if missing ─────────────────────────
+# wrangler deploy fails with "register a workers.dev subdomain before
+# publishing" if the account hasn't claimed one. The dashboard onboarding
+# flow does this manually; the API endpoint does it programmatically.
+SUBDOMAIN_DESIRED="${WORKERS_SUBDOMAIN:-xb77-${CLOUDFLARE_ACCOUNT_ID:0:8}}"
+
+sub_get="$(cf_api GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain")"
+sub_current="$(printf '%s' "$sub_get" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+if d.get('success'):
+    r=d.get('result') or {}
+    print(r.get('subdomain','') or r.get('name',''))
+" 2>/dev/null || echo '')"
+
+if [[ -z "$sub_current" ]]; then
+  say "No workers.dev subdomain registered yet — claiming '$SUBDOMAIN_DESIRED'..."
+  sub_put="$(cf_api PUT "/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" "{\"subdomain\":\"$SUBDOMAIN_DESIRED\"}")"
+  sub_ok="$(printf '%s' "$sub_put" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("success"))' 2>/dev/null || echo False)"
+  if [[ "$sub_ok" != "True" ]]; then
+    printf '%s\n' "$sub_put" | head -20
+    die "couldn't register workers.dev subdomain '$SUBDOMAIN_DESIRED' — may be taken globally. Set WORKERS_SUBDOMAIN=<something-unique> and retry."
+  fi
+  sub_current="$SUBDOMAIN_DESIRED"
+  say "Subdomain claimed: $sub_current"
+else
+  say "Subdomain already registered: $sub_current"
+fi
+EXPECTED_WORKER_URL="https://${WORKER_NAME}.${sub_current}.workers.dev"
+
+# Fetch the existing KV namespace list once.
 NS_LIST_JSON="$(cf_api GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces?per_page=100")"
 ok="$(printf '%s' "$NS_LIST_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("success"))')"
 [[ "$ok" == "True" ]] || { printf '%s\n' "$NS_LIST_JSON" | head -20; die "CF API list KV failed — check token scopes"; }
@@ -203,7 +236,10 @@ deploy_exit="${PIPESTATUS[0]}"
 [[ "$deploy_exit" -eq 0 ]] || die "wrangler deploy exited $deploy_exit — see output above"
 
 WORKER_URL="$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' "$DEPLOY_LOG" | head -1 || echo '')"
-[[ -n "$WORKER_URL" ]] || die "couldn't parse Worker URL from deploy output (log: $DEPLOY_LOG)"
+# Fallback: if we couldn't parse it (output format changed), use the URL
+# we know wrangler will use based on the registered subdomain + worker name.
+[[ -z "$WORKER_URL" && -n "${EXPECTED_WORKER_URL:-}" ]] && WORKER_URL="$EXPECTED_WORKER_URL"
+[[ -n "$WORKER_URL" ]] || die "couldn't determine Worker URL (log: $DEPLOY_LOG)"
 say "Worker → $WORKER_URL"
 
 # ── Health checks ─────────────────────────────────────────────────────
