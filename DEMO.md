@@ -1,51 +1,73 @@
-# xB77 — Bidirectional Demo
+# xB77 — Sovereign Commerce Demo
 
 **Tagline.** Two clients (a CLI and a browser dApp) speak the exact same
-wire schema 1.1 against one gateway. State is shared end-to-end: an order
-submitted from the CLI shows up in the webapp's pipelines view, and an
-agent registered from the webapp appears in the CLI's fleet listing.
+protocol stack against one local Solana validator. State is shared
+end-to-end, and writes leave a real onchain footprint: agents pay their
+own fees, programs verify state transitions in Poseidon, and the gateway
+never holds a key on behalf of anyone.
 
-The crypto is real on both sides — Ed25519 signatures over canonical
-bytes, verified by the gateway with `XB77_VERIFY_SIGS=1`.
+Two layers, both real:
+1. **Wire 1.1** — header-bound Ed25519 over canonical bytes, off-chain
+   coordination layer (worker for rate limiting, aggregation, dashboards).
+2. **Onchain** — the agent's keystore IS its Solana wallet. The webapp
+   builds wincode-serialized instruction data via IDL, signs the legacy
+   Solana tx with the same Ed25519 keystore, and submits direct to the
+   validator. No mock-gateway. No worker mediating writes. No relayer
+   custody.
 
-## 5-minute pitch flow
+## 5-minute pitch flow (no-mocks variant)
+
+Boot first: `scripts/full_local_stack.sh --keep-up` — gives you validator
+(podman container) + 4 programs deployed + CF Worker (wrangler dev) +
+webapp served.
 
 | # | What you do | What you say |
 |---|---|---|
-| 1 | `scripts/demo_e2e.sh` boots gateway + webapp + builds CLI | "One gateway. Two clients. Same wire schema." |
-| 2 | CLI registers `agent_a`, submits a buy order | "CLI is signing every request — real Ed25519." |
-| 3 | Open `http://127.0.0.1:8080/app.html` → Pipelines tab | "Webapp polls the same gateway. There's the CLI's order." |
-| 4 | In the webapp click **Connect → Generate new** | "Web Crypto Ed25519. PKCS8 sealed with AES-GCM at rest. Private key never leaves the browser." |
-| 5 | Run `xb77 gateway reads fleet` from the CLI | "And the CLI sees the webapp's new agent. Bidirectional." |
-| 6 | Show the gateway log: zero `invalid_signature` lines | "Every byte verified. Single contract. No envelopes, no agent-id-in-payload, no stubs." |
+| 1 | `podman ps` shows `xb77-validator` running on :8899 | "Real Solana validator. Local podman container. 4 programs deployed onchain." |
+| 2 | Open `http://127.0.0.1:8080/app.html` in Chrome, click **Connect → Generate new** | "Web Crypto Ed25519. PKCS8 sealed with AES-GCM. Private key never leaves the browser. Same keypair is the agent's Solana wallet — sovereign." |
+| 3 | Wait for "agent registered" — console shows self-airdrop sig | "Agent automatically funded with 1 SOL on the validator so it can pay its own onchain fees. No relayer." |
+| 4 | Click **ANCHOR ⛓** in Pipelines header | "Webapp builds the wincode payload, encodes the instruction via IDL, builds a Solana legacy tx, signs with the keystore, sends direct to the validator. No worker mediation. Browser → chain in one hop." |
+| 5 | `solana logs` shows `Compression: Transition Verified via Poseidon BN254` | "Program ran Poseidon BN254 onchain. Compute units consumed. Fee debited from the agent's wallet. Verifiable in any block explorer." |
+| 6 | Show `getTransaction <sig>` from the webapp's console | "Same agent_id from the wire-1.1 layer. Same key. Two surfaces: off-chain coordination (worker) and on-chain settlement (program). One identity." |
 
 ## Architecture
 
 ```
-            ┌──────────────┐
-            │ CLI (xb77)   │  Zig binary, real Ed25519, wire 1.1
-            │ profile-keyed│
-            └──────┬───────┘
-                   │  POST /api/v1/actions/*
-                   │  X-Xb77-{Pubkey,Timestamp,Nonce,Signature}
-                   │  body = raw payload JSON (no envelope)
-                   ▼
-        ┌──────────────────────┐
-        │ mock-gateway (Bun)   │  VERIFY_SIGS=1
-        │ in-memory shared state│  derives agent_id from pubkey
-        └──────────┬───────────┘
-                   ▲
-                   │  GET /api/v1/pipelines/recent (10s poll)
-                   │  POST same headers, same canonical bytes
-                   │
-            ┌──────┴───────┐
-            │ Webapp dApp  │  Vanilla JS + Web Crypto Ed25519
-            │  XB77Keystore│  PBKDF2 + AES-GCM sealed blob in localStorage
-            │  XB77Actions │  wire 1.1 canonical bytes
-            └──────────────┘
+            ┌──────────────┐               ┌──────────────────┐
+            │ CLI (xb77)   │               │ Webapp dApp      │
+            │ Zig binary   │               │ Vanilla JS       │
+            │  - keystore  │               │  XB77Keystore    │
+            │  - wire 1.1  │               │  XB77Actions     │
+            │  - tx Zig    │               │  IdlClient       │
+            └──────┬───┬───┘               │  SolanaTx + RPC  │
+                   │   │                   └───┬──────┬───────┘
+       wire 1.1 ──►│   │                       │      │
+                   ▼   │                       ▼      │ onchain
+        ┌──────────────┴──┐                          │  (direct)
+        │ wrangler dev    │                          │
+        │ (CF Worker)     │   wire 1.1 ──────────────┘
+        │  - verify sigs  │                          │
+        │  - aggregate    │                          │
+        └────────┬────────┘                          ▼
+                 │  reads (getTransaction, etc.)
+                 ▼                          ┌──────────────┐
+       ┌──────────────────┐   sendTransaction │  validator  │
+       │  xb77-validator  │◄──────────────────│  (podman)   │
+       │  (podman)        │                   │  :8899      │
+       │  - programs:     │                   └──────────────┘
+       │    core          │
+       │    compression   │
+       │    zk_verifier   │
+       │    gateway       │
+       └──────────────────┘
 
-Canonical bytes (both clients produce identical output):
+Wire-1.1 canonical bytes (off-chain, shared by webapp + CLI):
   action(1) || ts_be_u64_ms(8) || nonce(12) || payload_bytes
+
+Onchain encoding (wincode, mirrors the program's wincode::deserialize):
+  enum disc u32 LE || struct fields in declaration order
+  Vec<T> = u64 LE len || items
+  [u8;N] = N bytes inline
 ```
 
 ## Cross-visibility narrative
@@ -86,28 +108,37 @@ Chrome and surfaces a console warning if `crypto.subtle` is missing.
 ## Running the demo
 
 ```bash
-# One-shot (boots gateway + webapp + CLI, walks you through the flow)
-scripts/demo_e2e.sh
+# No-mocks variant — real validator + real worker + real webapp.
+# Boots everything via podman, runs an onchain smoke at the end.
+scripts/full_local_stack.sh --keep-up
 
-# Manual mode (if you want to drive it yourself)
-cd sdk/ts && XB77_VERIFY_SIGS=1 bun run dev/mock-gateway.ts --port 8787 &
+# Mock-gateway variant (lighter, no container, no programs deployed)
+scripts/demo_e2e.sh                # walks you through bidirectional CLI ↔ webapp
+
+# Manual no-mocks mode:
+podman run -d --name xb77-validator --network host xb77-solana
+# (deploy programs once — see scripts/full_local_stack.sh phase 3)
+cd gateway/worker && bunx wrangler@latest dev --local --port 8787 &
 cd webapp_deploy && ./build.sh && python3 -m http.server 8080 &
 zig build
 # Then:
-#  - CLI: ./zig-out/bin/xb77 gateway register --intent merchant && \
-#         ./zig-out/bin/xb77 gateway order --side buy --amount 100 --price 10000
 #  - Webapp: open http://127.0.0.1:8080/app.html → Connect → Generate
+#  - Click ANCHOR ⛓  →  tx onchain, signature shown in pipelines header
 ```
 
 ## What's NOT in the demo (out of scope)
 
-- Real Solana onchain settlement (the mock gateway is in-memory only;
-  the real CF Worker gateway speaks the same wire and is merged but
-  not wired into this demo)
-- Sponsor integrations (QVAC / MagicBlock / SNS) — see `specs/sponsors/`
-- Response signature verification on the webapp side (mock signs
-  responses; webapp could `GET /_meta` to fetch the gateway pubkey
-  and verify — strictly optional, skipped for demo simplicity)
+- Real devnet/mainnet — everything is local (podman validator). The
+  worker's `ZNODE_RPC_URL` is configurable; switching to devnet is a
+  config change but the programs need redeploy.
+- CLI parity with webapp's IDL-driven onchain — in progress (`feat/zig-onchain-parity`
+  if dispatched, see HANDOFF for status). The webapp does it; CLI today
+  only does the wire-1.1 leg via `xb77 gateway *`.
+- Sponsor integrations (QVAC / MagicBlock / SNS) — see `specs/sponsors/`,
+  executed remotely.
+- Response signature verification on the webapp side (worker signs
+  responses; webapp could `GET /_meta` and verify — strictly optional,
+  skipped for demo simplicity).
 - Multi-device keystore sync — the sealed blob lives in
   `localStorage.xb77_keystore` on one browser; export/import via the
-  modal's import path
+  modal's import path.

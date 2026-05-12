@@ -71,6 +71,7 @@ while [[ $# -gt 0 ]]; do
     --validator-only)  VALIDATOR_ONLY=1; shift ;;
     --no-wrangler)     NO_WRANGLER=1; shift ;;
     --teardown)        TEARDOWN=1; shift ;;
+    --no-onchain-smoke) SKIP_ONCHAIN_SMOKE=1; shift ;;
     -h|--help)         sed -n '1,30p' "$0" | grep '^#' | sed 's/^# \?//'; exit 0 ;;
     *)                 echo "unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -320,6 +321,20 @@ ok "webapp on :${WEB_PORT} (PID ${WEBAPP_PID})"
 step "Smoke (gateway → validator)"
 PULSE="$(curl -fsS "http://127.0.0.1:${GW_PORT}/api/v1/network/pulse" 2>&1 || echo "")"
 [[ -n "${PULSE}" ]] && ok "GET /network/pulse: $(echo "${PULSE}" | head -c 120)…" || warn "no pulse body (check wrangler log)"
+
+# ─── 6b. Onchain smoke (webapp lib → validator, no mocks anywhere) ─────
+# Runs the bun test that builds a real Solana tx via wincode + IDL +
+# tx-builder and sends it to the validator. Proof that the no-mocks
+# path is wired end-to-end. Skipped via --no-onchain-smoke.
+if [[ "${SKIP_ONCHAIN_SMOKE:-0}" != "1" ]]; then
+  step "Onchain smoke (anchorState → xb77_compression)"
+  if ( cd "${REPO}" && bun test webapp_deploy/test/onchain-e2e.test.js 2>&1 | tee "${WORK}/onchain-smoke.log" | grep -q "1 pass" ); then
+    SIG="$(grep -oE 'anchorState tx: [1-9A-HJ-NP-Za-km-z]+' "${WORK}/onchain-smoke.log" | tail -1 | awk '{print $3}')"
+    ok "onchain tx landed: ${SIG:-???}"
+  else
+    warn "onchain-e2e test did not report pass — check ${WORK}/onchain-smoke.log"
+  fi
+fi
 
 # ─── 7. Info card ──────────────────────────────────────────────────────
 step "Stack online"

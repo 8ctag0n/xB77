@@ -1,0 +1,205 @@
+{
+  "version": "0.1.0",
+  "name": "xb77_registry",
+  "instructions": [
+    {
+      "name": "InitMerchant",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "merchantAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "payload",
+          "type": {
+            "defined": "InitMerchantPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "UpdateMerchant",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "merchantAccount",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "payload",
+          "type": {
+            "defined": "UpdateMerchantPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "AddCatalog",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "merchantAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "catalogAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "payload",
+          "type": {
+            "defined": "AddCatalogPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "UpdateCatalog",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "merchantAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "catalogAccount",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "payload",
+          "type": {
+            "defined": "UpdateCatalogPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "DeactivateCatalog",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "merchantAccount",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "catalogAccount",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "payload",
+          "type": {
+            "defined": "DeactivateCatalogPayload"
+          }
+        }
+      ]
+    }
+  ],
+  "types": [
+    {
+      "name": "InitMerchantPayload",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "merchantId", "type": "bytes" },
+          { "name": "supportedMethods", "type": "u64" }
+        ]
+      }
+    },
+    {
+      "name": "UpdateMerchantPayload",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "merchantId", "type": "bytes" },
+          { "name": "supportedMethods", "type": { "option": "u64" } }
+        ]
+      }
+    },
+    {
+      "name": "AddCatalogPayload",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "merchantId", "type": "bytes" },
+          { "name": "catalogId", "type": "u64" },
+          { "name": "category", "type": "u8" },
+          { "name": "catalogUrl", "type": "bytes" },
+          { "name": "metadataHash", "type": { "option": { "array": ["u8", 32] } } }
+        ]
+      }
+    },
+    {
+      "name": "UpdateCatalogPayload",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "merchantId", "type": "bytes" },
+          { "name": "catalogId", "type": "u64" },
+          { "name": "category", "type": { "option": "u8" } },
+          { "name": "catalogUrl", "type": { "option": "bytes" } },
+          { "name": "metadataHash", "type": { "option": { "array": ["u8", 32] } } },
+          { "name": "active", "type": { "option": "bool" } }
+        ]
+      }
+    },
+    {
+      "name": "DeactivateCatalogPayload",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "merchantId", "type": "bytes" },
+          { "name": "catalogId", "type": "u64" }
+        ]
+      }
+    }
+  ]
+}
