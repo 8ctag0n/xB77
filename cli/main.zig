@@ -13,6 +13,7 @@ const services_cmd = @import("commands/services.zig");
 const spawn_cmd = @import("commands/spawn.zig");
 const watch_cmd = @import("commands/watch.zig");
 const gateway_cmd = @import("commands/gateway.zig");
+const brain_cmd = @import("commands/brain.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};

@@ -254,6 +254,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     brain_unit_tests.root_module.addImport("core", core_module);
+    brain_unit_tests.linkLibC();
     const run_brain_unit_tests = b.addRunArtifact(brain_unit_tests);
 
     const merchant_unit_tests = b.addTest(.{
