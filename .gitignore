@@ -58,3 +58,4 @@ circuits/state_anchor/proofs/
 # Wrangler / Cloudflare Pages local cache
 .wrangler/
 **/.wrangler/
+.cf_deploy_summary
