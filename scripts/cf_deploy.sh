@@ -101,28 +101,54 @@ if [[ -z "${INGEST_TOKEN:-}" ]]; then
 fi
 say "INGEST_TOKEN generated (length=${#INGEST_TOKEN})"
 
-# ── Create / reuse 5 KV namespaces ────────────────────────────────────
+# ── Create / reuse 5 KV namespaces (via direct CF API — JSON, no text parsing) ──
+# We were parsing `wrangler kv namespace create` text output, which differs
+# between wrangler versions and breaks silently. Direct CF API returns JSON.
 cd "$WORKER_DIR"
+WORKER_NAME="$(python3 -c 'import re,pathlib; t=pathlib.Path("wrangler.toml").read_text(); m=re.search(r"^name\s*=\s*\"([^\"]+)\"", t, re.M); print(m.group(1) if m else "xb77-adapter")')"
+say "Worker name: $WORKER_NAME"
+
+cf_api() {
+  # cf_api <METHOD> <PATH> [BODY_JSON]
+  local method="$1" pth="$2" body="${3:-}"
+  local args=(-sS -X "$method"
+    -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+    -H "Content-Type: application/json")
+  [[ -n "$body" ]] && args+=(-d "$body")
+  curl "${args[@]}" "https://api.cloudflare.com/client/v4$pth"
+}
+
+# Fetch the existing namespace list once.
+NS_LIST_JSON="$(cf_api GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces?per_page=100")"
+ok="$(printf '%s' "$NS_LIST_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("success"))')"
+[[ "$ok" == "True" ]] || { printf '%s\n' "$NS_LIST_JSON" | head -20; die "CF API list KV failed — check token scopes"; }
+
 declare -A KV_IDS
 for ns in AGENTS ORDERS NONCES BUCKETS IDEMP; do
-  out="$(wrangler kv namespace create "$ns" 2>&1 || true)"
-  id="$(printf '%s\n' "$out" | grep -oE 'id = "[a-f0-9]+"' | head -1 | cut -d'"' -f2 || true)"
+  title="${WORKER_NAME}-${ns}"
+  # Reuse if title already exists
+  id="$(printf '%s' "$NS_LIST_JSON" | python3 -c "
+import json,sys
+d=json.load(sys.stdin).get('result',[])
+for n in d:
+    if n.get('title')=='$title':
+        print(n['id']); break
+")"
   if [[ -z "$id" ]]; then
-    # Already exists — fetch from the namespace list
-    list="$(wrangler kv namespace list 2>/dev/null || echo '[]')"
-    id="$(printf '%s' "$list" | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-for n in data:
-    title = n.get('title','')
-    if title.endswith('-$ns') or title == '$ns':
-        print(n['id'])
-        break
-" || true)"
+    create_json="$(cf_api POST "/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces" "{\"title\":\"$title\"}")"
+    id="$(printf '%s' "$create_json" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+if d.get('success'): print(d['result']['id'])
+else: print('ERR:'+str(d.get('errors')))
+")"
+    if [[ "$id" == ERR:* || -z "$id" ]]; then
+      printf '%s\n' "$create_json" | head -20
+      die "CF API create KV '$title' failed: $id"
+    fi
   fi
-  [[ -n "$id" ]] || die "could not resolve KV namespace id for $ns"
   KV_IDS[$ns]="$id"
-  say "  KV $ns → $id"
+  say "  KV $title → $id"
 done
 
 # ── Patch wrangler.toml: KV ids + ZNODE_RPC_URL ───────────────────────
