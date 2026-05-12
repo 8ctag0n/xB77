@@ -44,20 +44,58 @@ export const TerminalReplay: React.FC<TerminalReplayProps> = ({
   const ms = (frame / fps) * 1000 * speedMultiplier;
 
   const visible = lines.filter((l) => l.t_ms <= ms);
+  const justHitHighlight =
+    highlight !== undefined &&
+    visible.length > 0 &&
+    visible[visible.length - 1].text.includes(highlight);
+  // Pulse the inner glow for ~12 frames after a highlighted line lands
+  const lastHighlightFrame = React.useRef(0);
+  if (justHitHighlight) lastHighlightFrame.current = frame;
+  const pulseAge = frame - lastHighlightFrame.current;
+  const pulseStrength = pulseAge < 18 ? 1 - pulseAge / 18 : 0;
 
   return (
     <div
       style={{
         width,
         height,
-        background: "#0a0a0c",
-        border: `1px solid ${COLORS.rule}`,
-        boxShadow: `0 0 0 1px rgba(200,255,46,0.08), 0 24px 60px rgba(0,0,0,0.6)`,
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
+        position: "relative",
+        // 3D perspective tilt — barely-there, makes the chrome feel solid
+        transform: "perspective(1400px) rotateY(1.2deg) rotateX(0.8deg)",
+        transformStyle: "preserve-3d",
       }}
     >
+      {/* Outer bloom — sits BEHIND the terminal, blurred lime/cyan halo */}
+      <div
+        style={{
+          position: "absolute",
+          inset: -24,
+          background: `radial-gradient(ellipse at 30% 30%, rgba(200,255,46,${0.04 + pulseStrength * 0.10}) 0%, rgba(0,240,255,${0.03 + pulseStrength * 0.06}) 35%, transparent 70%)`,
+          filter: "blur(20px)",
+          pointerEvents: "none",
+        }}
+      />
+
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          background: "linear-gradient(180deg, #0c0c0f 0%, #08080a 100%)",
+          border: `1px solid ${COLORS.rule}`,
+          borderRadius: 10,
+          // Soft diffused shadow + subtle lime rim that brightens on highlight pulse
+          boxShadow: `
+            0 0 0 1px rgba(200,255,46,${0.10 + pulseStrength * 0.25}),
+            0 40px 80px rgba(0,0,0,0.55),
+            0 12px 32px rgba(0,0,0,0.35),
+            inset 0 1px 0 rgba(255,255,255,0.04)
+          `,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
       {/* macOS-style header bar with brand twist */}
       <div
         style={{
@@ -65,7 +103,7 @@ export const TerminalReplay: React.FC<TerminalReplayProps> = ({
           alignItems: "center",
           gap: 8,
           padding: "10px 14px",
-          background: "#0f0f12",
+          background: "rgba(15,15,18,0.85)",
           borderBottom: `1px solid ${COLORS.rule}`,
         }}
       >
@@ -129,6 +167,7 @@ export const TerminalReplay: React.FC<TerminalReplayProps> = ({
             }}
           />
         ) : null}
+      </div>
       </div>
     </div>
   );
