@@ -101,8 +101,8 @@ Key files:
   Deploy script:    scripts/cf_deploy.sh (one-shot bring-up)
   Wire schema spec: docs/api-contract-v1.md
 
-Gateway pubkey (Ed25519, last 32B of seed||pubkey):
-  46877b09dd8fd5e7afc068c6722a5ba9a3301a4f4dbab01742c52f01f0f1aa44
+Gateway pubkey (Ed25519, current deploy):
+  f1356a96a21ee38cda4eda8facfa068eabc3a62bb76320a5b34bc491c4dcc462
 
 Built by one operator over the hackathon window. Happy to walk through the Worker → KV → Solana RPC → response sign loop live.
 ```
