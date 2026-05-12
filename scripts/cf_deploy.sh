@@ -70,17 +70,26 @@ if [[ ! -f "$REPO/webapp_deploy/assets/js/app-tabs.js" ]]; then
 fi
 
 # ── Generate gateway Ed25519 keypair if not provided ──────────────────
+# We capture node's stdout into a single variable and split with bash
+# parameter expansion. The previous `read ... < <(node ...)` pattern was
+# brittle because process.stdout.write() doesn't emit a trailing newline,
+# which made `read` return non-zero, which with `set -e` killed the script
+# silently right after the "Generating..." line.
 if [[ -z "${GATEWAY_PRIVKEY_HEX:-}" ]]; then
   say "Generating fresh Ed25519 keypair for gateway signing..."
-  read GATEWAY_PRIVKEY_HEX GATEWAY_PUBKEY_HEX < <(node -e '
+  KEYPAIR_OUT="$(node -e '
     const c = require("crypto");
     const k = c.generateKeyPairSync("ed25519");
     const priv = k.privateKey.export({ type: "pkcs8", format: "der" });
     const pub  = k.publicKey.export({ type: "spki", format: "der" });
     const seed = priv.slice(-32);
     const pubkey = pub.slice(-32);
-    process.stdout.write(seed.toString("hex") + pubkey.toString("hex") + " " + pubkey.toString("hex"));
-  ')
+    console.log(seed.toString("hex") + pubkey.toString("hex") + " " + pubkey.toString("hex"));
+  ')"
+  GATEWAY_PRIVKEY_HEX="${KEYPAIR_OUT% *}"
+  GATEWAY_PUBKEY_HEX="${KEYPAIR_OUT##* }"
+  [[ ${#GATEWAY_PRIVKEY_HEX} -eq 128 && ${#GATEWAY_PUBKEY_HEX} -eq 64 ]] \
+    || die "keypair generation produced unexpected lengths (priv=${#GATEWAY_PRIVKEY_HEX}, pub=${#GATEWAY_PUBKEY_HEX}); node version may be too old. Need Node >= 12."
 else
   GATEWAY_PUBKEY_HEX="${GATEWAY_PRIVKEY_HEX: -64}"
 fi
