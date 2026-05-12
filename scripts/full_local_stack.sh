@@ -56,6 +56,7 @@ PROGRAMS=(
   "xb77_compression|6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN|onchain/programs/xb77_compression/target/deploy/xb77_compression.so|onchain/programs/xb77_compression/target/deploy/xb77_compression-keypair.json"
   "xb77_zk_verifier|J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ|onchain/programs/xb77_zk_verifier/target/deploy/xb77_zk_verifier.so|onchain/programs/xb77_zk_verifier/target/deploy/xb77_zk_verifier-keypair.json"
   "xb77_gateway|83nPgEhrzKaDSXCoWQCkYau66KUnVeFSQF32LPfyL3s4|onchain/programs/xb77_gateway/target/deploy/xb77_gateway.so|onchain/programs/xb77_gateway/target/deploy/xb77_gateway-keypair.json"
+  "xb77_registry|HxjcLS4gkccTWD3VeM9Vc4NkQ4rjxtDHR2Lwby6NL6b1|onchain/programs/xb77_registry/target/deploy/xb77_registry.so|onchain/programs/xb77_registry/target/deploy/xb77_registry-keypair.json"
 )
 
 # ─── Flags ─────────────────────────────────────────────────────────────

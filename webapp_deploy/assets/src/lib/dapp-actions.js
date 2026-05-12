@@ -319,6 +319,49 @@
     };
   }
 
+  // High-level: register a merchant onchain via xb77_registry::InitMerchant.
+  // Mirrors the CLI `xb77 merchant register --id <slug>`.
+  async function registerMerchantOnchain({ idl, merchantId, supportedMethods = 1n } = {}) {
+    if (!idl) throw new Error("pass the xb77_registry IDL JSON");
+    if (!G.XB77Pda) throw new Error("XB77Pda not loaded");
+    if (!merchantId || typeof merchantId !== "string" || merchantId.length === 0) {
+      throw new Error("merchantId required (string, ≤32 bytes utf-8)");
+    }
+    const idBytes = new TextEncoder().encode(merchantId);
+    if (idBytes.length > 32) throw new Error("merchantId > 32 bytes");
+
+    const KS = G.XB77Keystore;
+    if (!KS || !KS.currentPubkey()) throw new Error("keystore locked");
+    const payerBytes = new Uint8Array(KS.currentPubkey().match(/.{2}/g).map((b) => parseInt(b, 16)));
+
+    const idlc = G.IdlClient.load(idl);
+    const programId = G.base58Decode(idlc.programId);
+
+    const merchantSeed = new TextEncoder().encode("merchant");
+    const { address: merchantPda } = await G.XB77Pda.findProgramAddress(
+      [merchantSeed, idBytes], programId);
+
+    if (typeof supportedMethods !== "bigint") supportedMethods = BigInt(supportedMethods);
+
+    const result = await sendOnchain({
+      idl,
+      instructionName: "InitMerchant",
+      values: {
+        payload: {
+          merchantId: idBytes,
+          supportedMethods: supportedMethods,
+        },
+      },
+      extraAccounts: [
+        { pubkey: payerBytes,  isSigner: true,  isWritable: true  },
+        { pubkey: merchantPda, isSigner: false, isWritable: true  },
+        { pubkey: new Uint8Array(32), isSigner: false, isWritable: false }, // system
+      ],
+    });
+
+    return { ...result, merchantId, merchantPda: toHex(merchantPda) };
+  }
+
   const Actions = {
     keystore: {
       hasKeystore: () => typeof localStorage !== "undefined" && !!localStorage.getItem(LS_KEYSTORE),
@@ -342,6 +385,7 @@
     sendOnchain,
     anchorState,
     submitOrderOnchain,
+    registerMerchantOnchain,
   };
 
   G.XB77Actions = Actions;

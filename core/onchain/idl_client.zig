@@ -165,6 +165,9 @@ pub const IdlClient = struct {
             try w.i64W(self.allocator, val.i64_val);
         } else if (std.mem.eql(u8, ty, "bool")) {
             try w.boolW(self.allocator, val.bool_val);
+        } else if (std.mem.eql(u8, ty, "bytes") or std.mem.eql(u8, ty, "string")) {
+            // Vec<u8> / String — encoded as compact-u32 LE length prefix + raw bytes.
+            try w.vecU8(self.allocator, val.bytes);
         } else {
             return error.UnsupportedPrimitive;
         }

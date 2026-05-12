@@ -102,6 +102,28 @@ class SolanaRpcClient {
   async requestAirdrop(pubkeyBase58, lamports) {
     return this._call("requestAirdrop", [pubkeyBase58, lamports]);
   }
+
+  // Returns an array of { pubkey, account: { data: Uint8Array, owner, lamports, ... } }
+  async getProgramAccounts(programIdBase58, { commitment = "confirmed", dataSize } = {}) {
+    const filters = [];
+    if (typeof dataSize === "number") filters.push({ dataSize });
+    const params = [programIdBase58, { encoding: "base64", commitment, filters }];
+    const r = await this._call("getProgramAccounts", params);
+    if (!Array.isArray(r)) return [];
+    return r.map((entry) => {
+      const b64 = (entry.account.data && entry.account.data[0]) || "";
+      const data = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      return {
+        pubkey: entry.pubkey,
+        account: {
+          data,
+          owner: entry.account.owner,
+          lamports: entry.account.lamports,
+          executable: entry.account.executable,
+        },
+      };
+    });
+  }
 }
 
 const _SolanaRpc = {

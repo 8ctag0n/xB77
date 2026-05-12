@@ -123,10 +123,9 @@ pub fn merchant(cli: *const Cli, args: []const [:0]u8) !void {
         try ctx.mesh_manager.tick();
         std.debug.print(" IP Protegida. Tu agente ahora es global.\n", .{});
     } else if (std.mem.eql(u8, sub, "register")) {
-        std.debug.print(" Iniciando registro de identidad en Solana Devnet...\n", .{});
-        const sig = try ctx.registry_manager.registerMerchant(ctx.vaults.ops.sol_kp.public, 1, &ctx.vaults.ops.sol_kp);
-        std.debug.print(" Merchant registrado oficialmente. Sig: {s}\n", .{sig});
-        std.debug.print(" Tu identidad soberana ha sido anclada exitosamente.\n", .{});
+        // IDL-driven onchain registration (replaces the legacy RegistryManager path).
+        const merchant_onchain = @import("merchant_onchain.zig");
+        try merchant_onchain.register(cli, args[1..]);
     } else if (std.mem.eql(u8, sub, "dispute")) {
         if (args.len < 2) {
             std.debug.print("Uso: xb77 merchant dispute <hire_id_hex>\n", .{});

@@ -1,6 +1,9 @@
 {
   "version": "0.1.0",
   "name": "xb77_registry",
+  "metadata": {
+    "address": "HxjcLS4gkccTWD3VeM9Vc4NkQ4rjxtDHR2Lwby6NL6b1"
+  },
   "instructions": [
     {
       "name": "InitMerchant",
