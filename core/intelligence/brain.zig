@@ -29,8 +29,9 @@ pub const BrainInsight = struct {
     }
 
     pub fn formatTelegram(self: *BrainInsight) ![]const u8 {
-        var list = std.ArrayList(u8).init(self.allocator);
-        const writer = list.writer();
+        var list = std.ArrayListUnmanaged(u8){};
+        defer list.deinit(self.allocator);
+        const writer = list.writer(self.allocator);
 
         try writer.print(" XB77 INTELLIGENCE REPORT\n", .{});
         try writer.print("---------------------------\n", .{});
@@ -66,9 +67,9 @@ pub const BrainInsight = struct {
         }
 
         const id_hex = std.fmt.bytesToHex(self.directive.id, .lower);
-        try writer.print("\n MISSION HASH: 0x{s}\n", .{&id_hex[0..12]});
+        try writer.print("\n MISSION HASH: 0x{s}\n", .{id_hex[0..12]});
 
-        return list.toOwnedSlice();
+        return list.toOwnedSlice(self.allocator);
     }
 };
 
