@@ -225,11 +225,39 @@ printf '%s' "$GATEWAY_PRIVKEY_HEX" | $WRANGLER secret put GATEWAY_PRIVKEY_HEX
 say "Setting INGEST_TOKEN secret..."
 printf '%s' "$INGEST_TOKEN" | $WRANGLER secret put INGEST_TOKEN
 
+# ── Stage assets to a clean dir (skips walking remotion node_modules) ──
+# wrangler walks the entire [assets].directory tree before applying
+# .assetsignore filters. webapp_deploy/remotion/node_modules/ is ~670 MB /
+# 16K files of build-tool dependencies that get filtered out anyway but
+# eat 15-25s of walk time per deploy. Staging the production-only files
+# into /tmp first means wrangler only walks ~90 files, ~2.5 MB.
+STAGE_DIR="$(mktemp -d -t xb77-stage-XXXX)"
+say "Staging static assets to $STAGE_DIR ..."
+# rsync drops everything that .assetsignore would have excluded, plus
+# anything we know wrangler doesn't need. Fast (~1s for ~2.5 MB).
+rsync -a "$REPO/webapp_deploy/" "$STAGE_DIR/" \
+  --exclude='remotion/' \
+  --exclude='assets/src/' \
+  --exclude='build.sh' \
+  --exclude='*.map' \
+  --exclude='.DS_Store' \
+  --exclude='*.swp' \
+  --exclude='*~' \
+  > /dev/null
+stage_size_kb="$(du -sk "$STAGE_DIR" | cut -f1)"
+stage_count="$(find "$STAGE_DIR" -type f | wc -l)"
+say "  → ${stage_count} files, ${stage_size_kb} KB"
+
+# Temporarily repoint [assets].directory at the stage. Restore on EXIT
+# (trap) so a crash mid-deploy doesn't leave wrangler.toml broken.
+WRANGLER_TOML_BACKUP="$(mktemp)"
+cp wrangler.toml "$WRANGLER_TOML_BACKUP"
+trap "cp '$WRANGLER_TOML_BACKUP' '$WORKER_DIR/wrangler.toml' && rm -f '$WRANGLER_TOML_BACKUP' && rm -rf '$STAGE_DIR'" EXIT
+sed -i "s|directory = \"../../webapp_deploy\"|directory = \"$STAGE_DIR\"|" wrangler.toml
+
 # ── Deploy (Worker + Static Assets in one shot) ───────────────────────
-say "Deploying Worker (with static assets) — 30-90s on first deploy, uploads all of webapp_deploy/ ..."
+say "Deploying Worker (with staged assets) — should be fast now ..."
 # Stream output live AND capture to a tmpfile so we can parse the URL after.
-# Without this, command substitution would freeze the terminal silently while
-# wrangler uploads assets, looking like a hang.
 DEPLOY_LOG="$(mktemp -t cf_deploy_XXXX.log)"
 $WRANGLER deploy 2>&1 | tee "$DEPLOY_LOG"
 deploy_exit="${PIPESTATUS[0]}"
