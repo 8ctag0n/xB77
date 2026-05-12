@@ -50,17 +50,30 @@ die() { printf "\n\033[31;1m[cf-deploy] FAIL:\033[0m %s\n" "$*" >&2; exit 1; }
 [[ -n "${CLOUDFLARE_API_TOKEN:-}" ]]  || die "CLOUDFLARE_API_TOKEN is unset"
 [[ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ]] || die "CLOUDFLARE_ACCOUNT_ID is unset"
 
-if ! command -v wrangler >/dev/null; then
+# Wrangler v5 requires Node ≥ 22. If user is on older Node, prefer bun's
+# runtime via `bunx wrangler@latest` (bun reports Node v22 compat, so wrangler
+# passes its internal check). Otherwise use the globally installed wrangler.
+WRANGLER="wrangler"
+node_ok=0
+if command -v node >/dev/null; then
+  node_major="$(node -v 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/')"
+  [[ "$node_major" -ge 22 ]] 2>/dev/null && node_ok=1
+fi
+
+if [[ "$node_ok" -ne 1 ]] && command -v bun >/dev/null; then
+  say "Node $(node -v 2>/dev/null || echo missing) too old for wrangler v5 — using bunx wrangler"
+  WRANGLER="bunx --bun wrangler@latest"
+elif ! command -v wrangler >/dev/null; then
   say "wrangler not found — installing via npm globally..."
-  command -v npm >/dev/null || die "npm not found, install Node.js first"
+  command -v npm >/dev/null || die "neither bun nor npm found; install one"
   npm install -g wrangler@latest >/dev/null 2>&1 || die "wrangler install failed"
 fi
 
 command -v node >/dev/null    || die "node not found (needed for keypair gen)"
 command -v python3 >/dev/null || die "python3 not found (needed for toml patch)"
 
-WRANGLER_VERSION="$(wrangler --version 2>/dev/null | head -1 || echo "?")"
-say "wrangler $WRANGLER_VERSION"
+WRANGLER_VERSION="$($WRANGLER --version 2>/dev/null | head -1 || echo "?")"
+say "wrangler $WRANGLER_VERSION  (via: $WRANGLER)"
 say "Account: $CLOUDFLARE_ACCOUNT_ID"
 
 # Make sure the webapp_deploy is built (or at least the JS files exist).
@@ -174,14 +187,14 @@ PY
 
 # ── Set secrets (non-interactive) ─────────────────────────────────────
 say "Setting GATEWAY_PRIVKEY_HEX secret..."
-printf '%s' "$GATEWAY_PRIVKEY_HEX" | wrangler secret put GATEWAY_PRIVKEY_HEX
+printf '%s' "$GATEWAY_PRIVKEY_HEX" | $WRANGLER secret put GATEWAY_PRIVKEY_HEX
 
 say "Setting INGEST_TOKEN secret..."
-printf '%s' "$INGEST_TOKEN" | wrangler secret put INGEST_TOKEN
+printf '%s' "$INGEST_TOKEN" | $WRANGLER secret put INGEST_TOKEN
 
 # ── Deploy (Worker + Static Assets in one shot) ───────────────────────
 say "Deploying Worker (with static assets)..."
-deploy_out="$(wrangler deploy 2>&1)"
+deploy_out="$($WRANGLER deploy 2>&1)"
 echo "$deploy_out" | tail -20
 WORKER_URL="$(printf '%s' "$deploy_out" | grep -oE 'https://[a-z0-9.-]+\.workers\.dev' | head -1 || echo '')"
 [[ -n "$WORKER_URL" ]] || die "couldn't parse Worker URL from deploy output"
