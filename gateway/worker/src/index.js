@@ -826,48 +826,47 @@ async function handleSnsReverse(env, url) {
     return jsonResponse({ error: "invalid pubkey" }, { status: 400, env });
   }
 
-  const cacheKey = "sns:reverse:" + pubkey;
+  // Bumped cache key version (v2) — previous deploys cached null because
+  // of a parser bug against an outdated Bonfida response shape; invalidate.
+  const cacheKey = "sns:reverse:v2:" + pubkey;
   const cached = await env.BUCKETS.get(cacheKey);
   if (cached) {
     return jsonResponse({ ok: true, sol: cached === "null" ? null : cached, cached: true }, { env });
   }
 
-  // Try Bonfida's favorite-domain endpoint first; fall back to the
-  // user/domains list and take the first.
+  // Bonfida API as of 2026-05:
+  //   GET /v2/user/domains/<wallet>  →  { "<wallet>": ["domain1", "domain2", ...] }
+  //                                     (domain strings WITHOUT a .sol suffix)
+  //   /v2/user/favorite-domain/      →  404 (deprecated)
+  // We pick the first domain in the list. For wallets with no domains the
+  // wallet key may be absent or the array empty — both map to null.
   let solName = null;
   try {
-    const favRes = await fetch(`https://sns-api.bonfida.com/v2/user/favorite-domain/${pubkey}`, {
+    const listRes = await fetch(`https://sns-api.bonfida.com/v2/user/domains/${pubkey}`, {
       headers: { "accept": "application/json" },
     });
-    if (favRes.ok) {
-      const data = await favRes.json().catch(() => null);
-      if (data && data.result && data.result.reverse) {
-        solName = data.result.reverse.endsWith(".sol") ? data.result.reverse : data.result.reverse + ".sol";
-      } else if (data && data.reverse) {
-        solName = data.reverse.endsWith(".sol") ? data.reverse : data.reverse + ".sol";
-      }
-    }
-  } catch (_) { /* swallow, try fallback */ }
-
-  if (!solName) {
-    try {
-      const listRes = await fetch(`https://sns-api.bonfida.com/v2/user/domains/${pubkey}`, {
-        headers: { "accept": "application/json" },
-      });
-      if (listRes.ok) {
-        const data = await listRes.json().catch(() => null);
-        const first = Array.isArray(data?.result) && data.result.length
-          ? data.result[0]
-          : Array.isArray(data) && data.length
-            ? data[0]
-            : null;
-        if (first) {
-          const name = (first.domain || first.name || first).toString();
-          solName = name.endsWith(".sol") ? name : name + ".sol";
+    if (listRes.ok) {
+      const data = await listRes.json().catch(() => null);
+      let domains = null;
+      if (data && typeof data === "object") {
+        // Common shape: { "<wallet>": [...] }
+        if (Array.isArray(data[pubkey])) {
+          domains = data[pubkey];
+        } else if (Array.isArray(data)) {
+          domains = data;
+        } else {
+          // Fallback: pick the first array value if shape is { "<anything>": [...] }
+          const firstArr = Object.values(data).find((v) => Array.isArray(v));
+          if (firstArr) domains = firstArr;
         }
       }
-    } catch (_) { /* nothing more to try */ }
-  }
+      if (Array.isArray(domains) && domains.length > 0) {
+        const raw = domains[0];
+        const name = (typeof raw === "string" ? raw : raw?.domain || raw?.name || "").toString();
+        if (name) solName = name.endsWith(".sol") ? name : name + ".sol";
+      }
+    }
+  } catch (_) { /* network blip or shape change — return null */ }
 
   // Cache result (positive or negative) so repeat lookups don't hammer Bonfida.
   await env.BUCKETS.put(cacheKey, solName || "null", { expirationTtl: SNS_REVERSE_TTL_S });
