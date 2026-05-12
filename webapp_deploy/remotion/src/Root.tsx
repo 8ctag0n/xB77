@@ -61,8 +61,8 @@ export const RemotionRoot: React.FC = () => {
         component={DemoMaster}
         durationInFrames={2700}
         fps={FPS}
-        width={1280}
-        height={720}
+        width={854}
+        height={480}
       />
     </>
   );

@@ -1,12 +1,12 @@
 import React from "react";
 import {
   AbsoluteFill,
-  Audio,
   Sequence,
-  Series,
   delayRender,
   continueRender,
+  interpolate,
   staticFile,
+  useCurrentFrame,
   useVideoConfig,
 } from "remotion";
 import { COLORS, FONTS } from "../theme";
@@ -16,6 +16,8 @@ import { TerminalReplay, TerminalLine } from "./sections/TerminalReplay";
 import { SideBySide } from "./sections/SideBySide";
 import { KillSwitch } from "./sections/KillSwitch";
 import { SubtitleBand } from "./sections/SubtitleBand";
+import { DepthLayer } from "./sections/DepthLayer";
+import { ActionClose } from "./sections/ActionClose";
 
 type Capture = {
   section: string;
@@ -28,22 +30,27 @@ type Capture = {
 };
 
 const FILES = {
-  sns:           "captures/01_sns.json",
-  brain_shim:    "captures/02_brain_shim.json",
-  brain_fb:      "captures/03_brain_fallback.json",
-  status:        "captures/04_status.json",
-  trident:       "captures/05_trident_smoke.json",
-  mic_drop:      "captures/10_mic_drop.json",
+  sns:        "captures/01_sns.json",
+  brain_shim: "captures/02_brain_shim.json",
+  brain_fb:   "captures/03_brain_fallback.json",
+  status:     "captures/04_status.json",
+  trident:    "captures/05_trident_smoke.json",
+  mic_drop:   "captures/10_mic_drop.json",
 };
 
-// Section budget at 30fps (total 2700 frames = 90s)
+// Section budget at 30fps (total 2700 frames = 90s).
+// Adjacent sections overlap by FADE_OVERLAP frames so the cross-fade lives
+// across both, producing a seamless join instead of a hard cut.
+const FADE_OVERLAP = 14;
+
 const SECTIONS = {
-  intro:     { from: 0,    len: 150 }, // 5s
-  sns:       { from: 150,  len: 450 }, // 15s
-  brainShim: { from: 600,  len: 450 }, // 15s
-  brainFb:   { from: 1050, len: 450 }, // 15s, KillSwitch fires at 1200
-  trident:   { from: 1500, len: 600 }, // 20s
-  micDrop:   { from: 2100, len: 600 }, // 20s
+  intro:     { from: 0,    len: 150 },  // 0:00–0:05  Hero
+  sns:       { from: 150 - FADE_OVERLAP, len: 450 + FADE_OVERLAP },  // 0:05–0:20
+  brainShim: { from: 600 - FADE_OVERLAP, len: 450 + FADE_OVERLAP },  // 0:20–0:35
+  brainFb:   { from: 1050 - FADE_OVERLAP, len: 450 + FADE_OVERLAP }, // 0:35–0:50
+  trident:   { from: 1500 - FADE_OVERLAP, len: 600 + FADE_OVERLAP }, // 0:50–1:10
+  status:    { from: 2100 - FADE_OVERLAP, len: 300 + FADE_OVERLAP }, // 1:10–1:20
+  endCard:   { from: 2400 - FADE_OVERLAP, len: 300 + FADE_OVERLAP }, // 1:20–1:30
 } as const;
 
 export const DemoMaster: React.FC = () => {
@@ -70,64 +77,111 @@ export const DemoMaster: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ background: COLORS.bg }}>
-      {/* Background drone audio (optional — drop a file at public/audio/drone.mp3 to enable) */}
-      {/* <Audio src={staticFile("audio/drone.mp3")} volume={0.18} /> */}
-
-      {/* 0:00–0:05  Intro */}
+      {/* 0:00–0:05  Intro (hero depth) */}
       <Sequence from={SECTIONS.intro.from} durationInFrames={SECTIONS.intro.len}>
-        <IntroPanel />
+        <Fade len={SECTIONS.intro.len}>
+          <DepthLayer variant="hero" />
+          <IntroPanel />
+        </Fade>
       </Sequence>
 
       {/* 0:05–0:20  SNS Bonfida side-by-side */}
       <Sequence from={SECTIONS.sns.from} durationInFrames={SECTIONS.sns.len}>
-        <SnsSection capture={captures.sns} />
+        <Fade len={SECTIONS.sns.len}>
+          <DepthLayer />
+          <SnsSection capture={captures.sns} />
+        </Fade>
       </Sequence>
 
-      {/* 0:20–0:35  Brain via shim (active reasoning) */}
+      {/* 0:20–0:35  Brain via shim */}
       <Sequence from={SECTIONS.brainShim.from} durationInFrames={SECTIONS.brainShim.len}>
-        <TerminalSection
-          capture={captures.brain_shim}
-          subtitleTitle="On-Device Brain · Active"
-          subtitleSub="QVAC shim returns real reasoning"
-          terminalTitle="xb77 brain — shim live"
-        />
+        <Fade len={SECTIONS.brainShim.len}>
+          <DepthLayer />
+          <TerminalSection
+            capture={captures.brain_shim}
+            subtitleTitle="On-Device Brain · Active"
+            subtitleSub="QVAC shim returns real reasoning"
+            terminalTitle="xb77 brain — shim live"
+          />
+        </Fade>
       </Sequence>
 
-      {/* 0:35–0:50  Brain fallback with KillSwitch overlay */}
+      {/* 0:35–0:50  Brain fallback */}
       <Sequence from={SECTIONS.brainFb.from} durationInFrames={SECTIONS.brainFb.len}>
-        <BrainFallbackSection capture={captures.brain_fb} />
+        <Fade len={SECTIONS.brainFb.len}>
+          <DepthLayer />
+          <BrainFallbackSection capture={captures.brain_fb} />
+        </Fade>
       </Sequence>
 
-      {/* 0:50–1:10  Trident cross-service smoke */}
+      {/* 0:50–1:10  Trident smoke */}
       <Sequence from={SECTIONS.trident.from} durationInFrames={SECTIONS.trident.len}>
-        <TerminalSection
-          capture={captures.trident}
-          subtitleTitle="Trident · Cross-Service"
-          subtitleSub="SNS · QVAC · MagicBlock in one shot"
-          terminalTitle="trident-smoke"
-        />
+        <Fade len={SECTIONS.trident.len}>
+          <DepthLayer />
+          <TerminalSection
+            capture={captures.trident}
+            subtitleTitle="Trident · Cross-Service"
+            subtitleSub="SNS · QVAC · MagicBlock in one shot"
+            terminalTitle="trident-smoke"
+          />
+        </Fade>
       </Sequence>
 
-      {/* 1:10–1:30  Mic drop status */}
-      <Sequence from={SECTIONS.micDrop.from} durationInFrames={SECTIONS.micDrop.len}>
-        <MicDropSection capture={captures.mic_drop} />
+      {/* 1:10–1:20  Status dashboard breath */}
+      <Sequence from={SECTIONS.status.from} durationInFrames={SECTIONS.status.len}>
+        <Fade len={SECTIONS.status.len}>
+          <DepthLayer />
+          <StatusSection capture={captures.mic_drop} />
+        </Fade>
+      </Sequence>
+
+      {/* 1:20–1:30  End card with QR + URL */}
+      <Sequence from={SECTIONS.endCard.from} durationInFrames={SECTIONS.endCard.len}>
+        <Fade len={SECTIONS.endCard.len}>
+          <DepthLayer variant="endcard" />
+          <ActionClose
+            url="xb77-adapter.frontier247hack.workers.dev"
+            verb="VERIFY"
+            tagline="Five programs. Three sovereign services. One agent."
+          />
+        </Fade>
       </Sequence>
     </AbsoluteFill>
   );
 };
 
-// ── Section components ────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Cross-fade wrapper. Adjacent <Sequence>s are positioned with FADE_OVERLAP
+ * frames of overlap; this fades the wrapped content in at the start and out
+ * at the end so the seam disappears.
+ */
+const Fade: React.FC<{ len: number; children: React.ReactNode }> = ({ len, children }) => {
+  const frame = useCurrentFrame();
+  const opacity = interpolate(
+    frame,
+    [0, FADE_OVERLAP, len - FADE_OVERLAP, len],
+    [0, 1, 1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
+  return <AbsoluteFill style={{ opacity }}>{children}</AbsoluteFill>;
+};
+
+// ── Section components ──────────────────────────────────────────────
 
 const IntroPanel: React.FC = () => {
+  const frame = useCurrentFrame();
+  const sealCycle = (frame % 90) / 90;
   return (
-    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", background: COLORS.bg }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
-        <Seal size={260} progress={1} cycle={0.72} />
+    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 26 }}>
+        <Seal size={260} progress={1} cycle={sealCycle} />
         <Wordmark size={92} />
         <div
           style={{
-            fontFamily: FONTS.mono,
-            fontSize: 18,
+            fontFamily: FONTS.sans,
+            fontSize: 22,
             letterSpacing: "0.32em",
             textTransform: "uppercase",
             color: COLORS.textDim,
@@ -142,13 +196,10 @@ const IntroPanel: React.FC = () => {
 };
 
 const SnsSection: React.FC<{ capture: Capture }> = ({ capture }) => {
-  // Split the captured terminal into the two halves the binary prints:
-  // API resolution lines on the left, native PDA derivation lines on the right.
   const lines = capture.lines;
   const splitIdx = lines.findIndex((l) => l.text.includes("Natively"));
   const leftLines = splitIdx > 0 ? lines.slice(0, splitIdx) : lines.slice(0, Math.ceil(lines.length / 2));
   const rightLines = splitIdx > 0 ? lines.slice(splitIdx) : lines.slice(Math.ceil(lines.length / 2));
-
   const address = capture.extracted?.address || "Fw1ETanDZafof7xEULsnq9UY6o71Tpds89tNwPkWLb1v";
 
   return (
@@ -174,7 +225,7 @@ const TerminalSection: React.FC<{
 }> = ({ capture, subtitleTitle, subtitleSub, terminalTitle }) => {
   return (
     <AbsoluteFill>
-      <div style={{ position: "absolute", inset: "60px 80px 160px 80px" }}>
+      <div style={{ position: "absolute", inset: "70px 100px 170px 100px" }}>
         <TerminalReplay
           lines={capture.lines}
           title={terminalTitle}
@@ -188,16 +239,13 @@ const TerminalSection: React.FC<{
 };
 
 const BrainFallbackSection: React.FC<{ capture: Capture }> = ({ capture }) => {
-  // Compute when in this section the "Shim Unreachable" line lands — fire the
-  // KillSwitch just before, so the icon dies in the same beat the terminal
-  // prints the message.
   const killLineIdx = capture.lines.findIndex((l) => /Unreachable|ConnectionRefused/.test(l.text));
   const killAtMs = killLineIdx >= 0 ? capture.lines[killLineIdx].t_ms : 200;
   const killAtFrame = Math.max(6, Math.round((killAtMs / 1000) * 30 * Math.max(1, capture.duration_ms / 12000) - 6));
 
   return (
     <AbsoluteFill>
-      <div style={{ position: "absolute", inset: "60px 80px 160px 80px" }}>
+      <div style={{ position: "absolute", inset: "70px 100px 170px 100px" }}>
         <TerminalReplay
           lines={capture.lines}
           title="xb77 brain — shim killed mid-call"
@@ -211,43 +259,18 @@ const BrainFallbackSection: React.FC<{ capture: Capture }> = ({ capture }) => {
   );
 };
 
-const MicDropSection: React.FC<{ capture: Capture }> = ({ capture }) => {
-  const { fps } = useVideoConfig();
+const StatusSection: React.FC<{ capture: Capture }> = ({ capture }) => {
   return (
     <AbsoluteFill>
-      <div style={{ position: "absolute", inset: "60px 80px 220px 80px" }}>
+      <div style={{ position: "absolute", inset: "70px 100px 170px 100px" }}>
         <TerminalReplay
           lines={capture.lines}
           title="xb77 status — sovereign trident"
           fontSize={22}
-          speedMultiplier={Math.max(1, capture.duration_ms / 15000)}
+          speedMultiplier={Math.max(1, capture.duration_ms / 8000)}
         />
       </div>
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 60,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 10,
-        }}
-      >
-        <Wordmark size={48} />
-        <div
-          style={{
-            fontFamily: FONTS.mono,
-            fontSize: 16,
-            letterSpacing: "0.32em",
-            textTransform: "uppercase",
-            color: COLORS.lime,
-          }}
-        >
-          xB77 · Sovereign & Active
-        </div>
-      </div>
+      <SubtitleBand title="Sovereign & Active" subtitle="SNS . Brain . MagicBlock — all green" />
     </AbsoluteFill>
   );
 };
