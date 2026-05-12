@@ -2,7 +2,24 @@
 
 > **Sponsor**: MagicBlock
 > **Track**: Main hackathon (Colosseum Frontier)
-> **Repo branch to target**: `sponsor/magicblock` (cut from `feat/dapp-public-split`)
+> **Repo branch**: `post-frontier-enhancement`
+
+## Status — post-frontier F1 pass (commits `0b12a3a`, `29086ec`)
+
+Delta vs the original spec (read further down) — what's now in place:
+
+- **`core/chain/magicblock.zig`** names both program targets explicitly:
+  - `MAGICBLOCK_DELEGATION_PROGRAM_ID` = `DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh`
+  - `XB77_ESCROW_PROGRAM_ID` = `73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3`
+  - `openSovereignSession` and `commitToSolana` read `XB77_MAGICBLOCK_USE_DELEGATION` at runtime. Default keeps xB77 escrow (devnet-validated today); `=1` routes the L1 anchor through MagicBlock's Delegation Program so sessions surface on their explorer.
+- **`services/magicblock/server.ts`** runs in two modes:
+  - `XB77_MAGICBLOCK_LIVE=1`: real `axios.post()` against `https://devnet.magicblock.app` for `/session/open` and `/tx`. 8s timeouts, structured `live_sequencer_unreachable` / `live_dispatch_failed` errors so the Zig SDK can detect + fall back deterministically.
+  - default: synthetic responses for CI / demo capture.
+  - `/healthz` reports `{ok, sequencer, delegation_program, live}`.
+
+Open gap (honest): the Delegation Program CPI uses our existing tx scaffolding (seeds `[per_escrow, agent, session_id]`). MagicBlock's canonical Delegation account layout may differ; full ABI validation needs reflection against their live program. The env toggle keeps the safe fallback active until validated end-to-end against a real session on their explorer.
+
+---
 
 ## Why this spec exists
 
