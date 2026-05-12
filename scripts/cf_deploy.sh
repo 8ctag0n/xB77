@@ -134,33 +134,46 @@ cf_api() {
   curl "${args[@]}" "https://api.cloudflare.com/client/v4$pth"
 }
 
-# ── Register workers.dev subdomain if missing ─────────────────────────
-# wrangler deploy fails with "register a workers.dev subdomain before
-# publishing" if the account hasn't claimed one. The dashboard onboarding
-# flow does this manually; the API endpoint does it programmatically.
-SUBDOMAIN_DESIRED="${WORKERS_SUBDOMAIN:-xb77-${CLOUDFLARE_ACCOUNT_ID:0:8}}"
-
-sub_get="$(cf_api GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain")"
-sub_current="$(printf '%s' "$sub_get" | python3 -c "
+# ── Resolve / register workers.dev subdomain ──────────────────────────
+# Three modes, in order:
+#   1. WORKERS_SUBDOMAIN env var is set — TRUST it as already-registered,
+#      skip the API roundtrip entirely. This is the path for users who
+#      registered through the dashboard onboarding flow (where the API
+#      token doesn't need the extra Account Settings:Edit permission that
+#      programmatic registration requires).
+#   2. WORKERS_SUBDOMAIN not set, GET succeeds → use what CF returns.
+#   3. WORKERS_SUBDOMAIN not set, GET returns nothing → try PUT with a
+#      default name. Requires Account Settings:Edit on the token.
+if [[ -n "${WORKERS_SUBDOMAIN:-}" ]]; then
+  sub_current="$WORKERS_SUBDOMAIN"
+  say "Subdomain from env: $sub_current (trusted, skipping CF API roundtrip)"
+else
+  sub_get="$(cf_api GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain")"
+  sub_current="$(printf '%s' "$sub_get" | python3 -c "
 import json,sys
-d=json.load(sys.stdin)
-if d.get('success'):
-    r=d.get('result') or {}
-    print(r.get('subdomain','') or r.get('name',''))
+try:
+    d=json.load(sys.stdin)
+    if d.get('success'):
+        r=d.get('result') or {}
+        print(r.get('subdomain','') or r.get('name',''))
+except Exception:
+    pass
 " 2>/dev/null || echo '')"
 
-if [[ -z "$sub_current" ]]; then
-  say "No workers.dev subdomain registered yet — claiming '$SUBDOMAIN_DESIRED'..."
-  sub_put="$(cf_api PUT "/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" "{\"subdomain\":\"$SUBDOMAIN_DESIRED\"}")"
-  sub_ok="$(printf '%s' "$sub_put" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("success"))' 2>/dev/null || echo False)"
-  if [[ "$sub_ok" != "True" ]]; then
-    printf '%s\n' "$sub_put" | head -20
-    die "couldn't register workers.dev subdomain '$SUBDOMAIN_DESIRED' — may be taken globally. Set WORKERS_SUBDOMAIN=<something-unique> and retry."
+  if [[ -z "$sub_current" ]]; then
+    SUBDOMAIN_DESIRED="xb77-${CLOUDFLARE_ACCOUNT_ID:0:8}"
+    say "No subdomain detected — attempting to claim '$SUBDOMAIN_DESIRED' (needs Account Settings:Edit on token)..."
+    sub_put="$(cf_api PUT "/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" "{\"subdomain\":\"$SUBDOMAIN_DESIRED\"}")"
+    sub_ok="$(printf '%s' "$sub_put" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("success"))' 2>/dev/null || echo False)"
+    if [[ "$sub_ok" != "True" ]]; then
+      printf '%s\n' "$sub_put" | head -10
+      die "couldn't register workers.dev subdomain. Either it's taken globally (set WORKERS_SUBDOMAIN=<unique-name> and retry), the token lacks Account Settings:Edit (claim through dashboard onboarding and set WORKERS_SUBDOMAIN=<your-name>), or this is an authentication error (verify the token)."
+    fi
+    sub_current="$SUBDOMAIN_DESIRED"
+    say "Subdomain claimed: $sub_current"
+  else
+    say "Subdomain already registered: $sub_current"
   fi
-  sub_current="$SUBDOMAIN_DESIRED"
-  say "Subdomain claimed: $sub_current"
-else
-  say "Subdomain already registered: $sub_current"
 fi
 EXPECTED_WORKER_URL="https://${WORKER_NAME}.${sub_current}.workers.dev"
 
