@@ -143,7 +143,10 @@ pub const Brain = struct {
         const brain_url = std.process.getEnvVarOwned(self.allocator, "XB77_BRAIN_URL") catch try self.allocator.dupe(u8, "http://127.0.0.1:8088/evaluate");
         defer self.allocator.free(brain_url);
 
-        var response = try client.post(brain_url, body_buf.items);
+        var response = client.post(brain_url, body_buf.items) catch |err| {
+            std.debug.print("\n[BRAIN ]  Shim Unreachable: {any}. Falling back to heuristics.", .{err});
+            return self.interpret(directive);
+        };
         defer response.deinit();
 
         if (response.status != 200) {
