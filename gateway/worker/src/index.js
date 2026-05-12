@@ -811,6 +811,69 @@ async function handleWalletTransactions(env, url) {
   return jsonResponse(items, { env });
 }
 
+// ────────────────────────── SNS reverse lookup ──────────────────────────
+// Proxies to Bonfida's SNS API to resolve "what's the .sol for this wallet?"
+// — used by the dApp's ConnectionPill to swap "ag_xxx…" for "<name>.sol".
+// Cached in BUCKETS KV with a 1-hour TTL so we don't hammer Bonfida.
+
+const SNS_REVERSE_TTL_S = 3600;
+
+async function handleSnsReverse(env, url) {
+  const pubkey = (url.searchParams.get("pubkey") || "").trim();
+  if (!pubkey) return jsonResponse({ error: "missing pubkey" }, { status: 400, env });
+  // Lightweight base58 sanity — Solana addresses are 32–44 chars in base58.
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(pubkey)) {
+    return jsonResponse({ error: "invalid pubkey" }, { status: 400, env });
+  }
+
+  const cacheKey = "sns:reverse:" + pubkey;
+  const cached = await env.BUCKETS.get(cacheKey);
+  if (cached) {
+    return jsonResponse({ ok: true, sol: cached === "null" ? null : cached, cached: true }, { env });
+  }
+
+  // Try Bonfida's favorite-domain endpoint first; fall back to the
+  // user/domains list and take the first.
+  let solName = null;
+  try {
+    const favRes = await fetch(`https://sns-api.bonfida.com/v2/user/favorite-domain/${pubkey}`, {
+      headers: { "accept": "application/json" },
+    });
+    if (favRes.ok) {
+      const data = await favRes.json().catch(() => null);
+      if (data && data.result && data.result.reverse) {
+        solName = data.result.reverse.endsWith(".sol") ? data.result.reverse : data.result.reverse + ".sol";
+      } else if (data && data.reverse) {
+        solName = data.reverse.endsWith(".sol") ? data.reverse : data.reverse + ".sol";
+      }
+    }
+  } catch (_) { /* swallow, try fallback */ }
+
+  if (!solName) {
+    try {
+      const listRes = await fetch(`https://sns-api.bonfida.com/v2/user/domains/${pubkey}`, {
+        headers: { "accept": "application/json" },
+      });
+      if (listRes.ok) {
+        const data = await listRes.json().catch(() => null);
+        const first = Array.isArray(data?.result) && data.result.length
+          ? data.result[0]
+          : Array.isArray(data) && data.length
+            ? data[0]
+            : null;
+        if (first) {
+          const name = (first.domain || first.name || first).toString();
+          solName = name.endsWith(".sol") ? name : name + ".sol";
+        }
+      }
+    } catch (_) { /* nothing more to try */ }
+  }
+
+  // Cache result (positive or negative) so repeat lookups don't hammer Bonfida.
+  await env.BUCKETS.put(cacheKey, solName || "null", { expirationTtl: SNS_REVERSE_TTL_S });
+  return jsonResponse({ ok: true, sol: solName, cached: false }, { env });
+}
+
 // ────────────────────────── router ──────────────────────────
 
 export default {
@@ -894,6 +957,7 @@ export default {
         if (path === "/api/v1/pipelines/recent") return handlePipelinesRecent(env, url);
         if (path === "/api/v1/wallet/balances") return handleWalletBalances(env, url);
         if (path === "/api/v1/wallet/transactions") return handleWalletTransactions(env, url);
+        if (path === "/api/v1/sns/reverse") return handleSnsReverse(env, url);
         return jsonResponse({ error: "not found" }, { status: 404, env });
       }
 
