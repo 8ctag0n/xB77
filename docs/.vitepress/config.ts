@@ -3,6 +3,7 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 // https://vitepress.dev/reference/site-config
 export default withMermaid({
   title: 'xB77',
+  base: '/xB77v2/',
   titleTemplate: ':title // xB77 — Autonomous Financial Infrastructure',
   description:
     'Privacy-first capital management for the machine economy. Shielded payments, ZK-compressed receipts, autonomous agents on Solana.',

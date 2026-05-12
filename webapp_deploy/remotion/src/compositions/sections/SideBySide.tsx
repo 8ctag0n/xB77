@@ -78,16 +78,15 @@ export const SideBySide: React.FC<SideBySideProps> = ({
             position: "relative",
           }}
         >
-          {/* Bloom halo */}
+          {/* Bloom halo — radial gradient, no blur (cheap version) */}
           <div
             style={{
               position: "absolute",
-              width: 220,
-              height: 220,
+              width: 280,
+              height: 280,
               borderRadius: "50%",
-              background: `radial-gradient(circle, ${COLORS.lime} 0%, transparent 65%)`,
-              filter: "blur(28px)",
-              opacity: bloomOpacity * 0.5,
+              background: `radial-gradient(circle, ${COLORS.lime} 0%, rgba(200,255,46,0.3) 30%, transparent 70%)`,
+              opacity: bloomOpacity * 0.35,
               transform: `scale(${1.1 + stampEnter * 0.5})`,
             }}
           />

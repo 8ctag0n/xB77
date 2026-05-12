@@ -65,13 +65,12 @@ export const TerminalReplay: React.FC<TerminalReplayProps> = ({
         transformStyle: "preserve-3d",
       }}
     >
-      {/* Outer bloom — sits BEHIND the terminal, blurred lime/cyan halo */}
+      {/* Outer bloom — radial gradient, no blur filter (cheap-to-render version) */}
       <div
         style={{
           position: "absolute",
-          inset: -24,
-          background: `radial-gradient(ellipse at 30% 30%, rgba(200,255,46,${0.04 + pulseStrength * 0.10}) 0%, rgba(0,240,255,${0.03 + pulseStrength * 0.06}) 35%, transparent 70%)`,
-          filter: "blur(20px)",
+          inset: -40,
+          background: `radial-gradient(ellipse at 30% 30%, rgba(200,255,46,${0.05 + pulseStrength * 0.12}) 0%, rgba(0,240,255,${0.03 + pulseStrength * 0.06}) 50%, transparent 80%)`,
           pointerEvents: "none",
         }}
       />

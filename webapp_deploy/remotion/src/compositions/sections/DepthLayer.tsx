@@ -22,7 +22,7 @@ export type DepthLayerProps = {
  */
 export const DepthLayer: React.FC<DepthLayerProps> = ({ variant = "default", drift = 0.4 }) => {
   const frame = useCurrentFrame();
-  const { fps, width, height } = useVideoConfig();
+  const { fps } = useVideoConfig();
 
   const t = frame / fps;
   // Slow horizontal drift on the radial center — keeps frames from feeling static
@@ -61,19 +61,6 @@ export const DepthLayer: React.FC<DepthLayerProps> = ({ variant = "default", dri
           }}
         />
       ) : null}
-
-      {/* SVG-noise overlay — 3% opacity, keeps frames from looking digital-flat */}
-      <svg
-        width={width}
-        height={height}
-        style={{ position: "absolute", inset: 0, opacity: 0.045, mixBlendMode: "overlay" }}
-      >
-        <filter id="noise-filter">
-          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" />
-          <feColorMatrix type="saturate" values="0" />
-        </filter>
-        <rect width="100%" height="100%" filter="url(#noise-filter)" />
-      </svg>
 
       {/* Vignette — corners darkened ~12% */}
       <div

@@ -6,7 +6,35 @@ name: Build
 on:
   push:
     branches: ["bedrock", "main", "merge/**"]
+    paths:
+      - "build.zig"
+      - "build.zig.zon"
+      - "core/**"
+      - "cli/**"
+      - "gateway/**"
+      - "znode/**"
+      - "onchain/**"
+      - "circuits/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "infra/Containerfile.zk"
+      - "infra/Containerfile.solana_slim"
+      - ".github/workflows/build.yml"
   pull_request:
+    paths:
+      - "build.zig"
+      - "build.zig.zon"
+      - "core/**"
+      - "cli/**"
+      - "gateway/**"
+      - "znode/**"
+      - "onchain/**"
+      - "circuits/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "infra/Containerfile.zk"
+      - "infra/Containerfile.solana_slim"
+      - ".github/workflows/build.yml"
   workflow_dispatch:
 
 concurrency:
