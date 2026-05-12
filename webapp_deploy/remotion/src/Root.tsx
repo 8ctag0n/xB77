@@ -5,6 +5,10 @@ import { WordmarkOG } from "./compositions/WordmarkOG";
 import { HeroLoop } from "./compositions/HeroLoop";
 import { LogoIntro } from "./compositions/LogoIntro";
 import { DemoMaster } from "./compositions/DemoMaster";
+import { DemoBonfida } from "./compositions/DemoBonfida";
+import { DemoMagicblock } from "./compositions/DemoMagicblock";
+import { DemoQvac } from "./compositions/DemoQvac";
+import { DemoSolana } from "./compositions/DemoSolana";
 import { FPS } from "./theme";
 
 /**
@@ -59,6 +63,42 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="DemoMaster"
         component={DemoMaster}
+        durationInFrames={2700}
+        fps={FPS}
+        width={854}
+        height={480}
+      />
+
+      <Composition
+        id="DemoBonfida"
+        component={DemoBonfida}
+        durationInFrames={2700}
+        fps={FPS}
+        width={854}
+        height={480}
+      />
+
+      <Composition
+        id="DemoMagicblock"
+        component={DemoMagicblock}
+        durationInFrames={2700}
+        fps={FPS}
+        width={854}
+        height={480}
+      />
+
+      <Composition
+        id="DemoQvac"
+        component={DemoQvac}
+        durationInFrames={2700}
+        fps={FPS}
+        width={854}
+        height={480}
+      />
+
+      <Composition
+        id="DemoSolana"
+        component={DemoSolana}
         durationInFrames={2700}
         fps={FPS}
         width={854}
