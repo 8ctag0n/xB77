@@ -33,8 +33,8 @@ pub const Identity = struct {
 
     // --- SNS (Solana Name Service) Native Resolver ---
 
-    pub const SNS_PROGRAM_ID = "namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX";
-    pub const SOL_TLD_REGISTRY = "58PwtjSDuFHuUkYjH9BYnnQKHfwo9reZhC2zMJv9JPkx";
+    pub const SNS_PROGRAM_ID = "namesLPneUptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX";
+    pub const SOL_TLD_REGISTRY = "58P4uabLsZVWwTZaAtyuA3Pn4Re8dfmsND2Sjz37xYdE";
 
     /// Resuelve un dominio .sol nativamente usando RPC de Solana.
     pub fn resolveSnsNative(allocator: std.mem.Allocator, solana: *solana_mod.SolanaClient, domain_name: []const u8) !types.Pubkey {
@@ -52,10 +52,13 @@ pub const Identity = struct {
 
         var seeds = [_][]const u8{ &hashed_name, &name_class, &parent_name };
 
+        // SNS NameRegistry usa findProgramAddress con bump.
         const result = try crypto.findProgramAddress(&seeds, &program_id);
         const pda = result.address;
         const pda_str = try crypto.pubkeyToString(allocator, &pda);
         defer allocator.free(pda_str);
+
+        // std.debug.print("\n[CRYPTO] SNS Registry PDA for {s}: {s} (bump: {d})", .{name, pda_str, result.bump});
 
         const data = try solana.getAccountInfo(pda_str);
         defer allocator.free(data);
