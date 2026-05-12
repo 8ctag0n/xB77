@@ -20,9 +20,17 @@ const HttpClient = core.mesh.http.HttpClient;
 const HttpHeader = core.mesh.http.HttpHeader;
 
 const GATEWAY_PROGRAM_ID = "83nPgEhrzKaDSXCoWQCkYau66KUnVeFSQF32LPfyL3s4";
+const VERIFIER_PROGRAM_ID = "J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ";
 const DEFAULT_RPC = "http://127.0.0.1:8899";
 const DEFAULT_GW = "http://127.0.0.1:8787";
 const DEFAULT_TOKEN = "devtoken";
+
+const ProgramTarget = struct {
+    name: []const u8,
+    pubkey: []const u8,
+    kind: []const u8, // "gateway" or "zk"
+    cursor: ?[]u8 = null,
+};
 
 pub fn watch(cli: *const Cli, args: []const [:0]u8) !void {
     const allocator = cli.allocator;
@@ -90,8 +98,11 @@ pub fn watch(cli: *const Cli, args: []const [:0]u8) !void {
         }
     }
 
-    var cursor_owned: ?[]u8 = null;
-    defer if (cursor_owned) |c| allocator.free(c);
+    var targets = [_]ProgramTarget{
+        .{ .name = "gateway",  .pubkey = GATEWAY_PROGRAM_ID,  .kind = "gateway" },
+        .{ .name = "verifier", .pubkey = VERIFIER_PROGRAM_ID, .kind = "zk" },
+    };
+    defer for (&targets) |*t| if (t.cursor) |c| allocator.free(c);
 
     const auth_header = try std.fmt.allocPrint(allocator, "Bearer {s}", .{token});
     defer allocator.free(auth_header);
@@ -99,16 +110,18 @@ pub fn watch(cli: *const Cli, args: []const [:0]u8) !void {
     defer allocator.free(ingest_url);
 
     while (true) {
-        const sigs = rpc.getSignaturesForAddress(GATEWAY_PROGRAM_ID, limit, cursor_owned) catch |e| {
-            std.debug.print("[WATCH] rpc error: {any}\n", .{e});
-            if (once) return;
-            std.Thread.sleep(interval_s * std.time.ns_per_s);
-            continue;
-        };
-        defer rpc.freeSignatures(sigs);
+        for (&targets) |*t| {
+            const sigs = rpc.getSignaturesForAddress(t.pubkey, limit, t.cursor) catch |e| {
+                std.debug.print("[WATCH] rpc error ({s}): {any}\n", .{ t.name, e });
+                continue;
+            };
+            defer rpc.freeSignatures(sigs);
 
-        if (sigs.len > 0) {
-            // sigs are newest-first; iterate reverse so we POST oldest-first.
+            if (sigs.len == 0) {
+                std.debug.print("[WATCH] {s}: 0 new sigs\n", .{t.name});
+                continue;
+            }
+
             var payload = std.ArrayListUnmanaged(u8){};
             defer payload.deinit(allocator);
             const w = payload.writer(allocator);
@@ -122,9 +135,9 @@ pub fn watch(cli: *const Cli, args: []const [:0]u8) !void {
                 first = false;
                 const verdict: []const u8 = if (e.err_present) "FAILED" else "VALID";
                 try w.print(
-                    \\{{"signature":"{s}","slot":{d},"block_time":{?d},"verdict":"{s}"}}
+                    \\{{"signature":"{s}","slot":{d},"block_time":{?d},"verdict":"{s}","kind":"{s}"}}
                 ,
-                    .{ e.signature, e.slot, e.block_time, verdict });
+                    .{ e.signature, e.slot, e.block_time, verdict, t.kind });
             }
             try w.writeAll("]}");
 
@@ -133,21 +146,16 @@ pub fn watch(cli: *const Cli, args: []const [:0]u8) !void {
                 .{ .name = "Authorization", .value = auth_header },
             };
             var resp = http.postWithHeaders(ingest_url, payload.items, &headers) catch |e| {
-                std.debug.print("[WATCH] ingest error: {any}\n", .{e});
-                if (once) return;
-                std.Thread.sleep(interval_s * std.time.ns_per_s);
+                std.debug.print("[WATCH] ingest error ({s}): {any}\n", .{ t.name, e });
                 continue;
             };
             defer resp.deinit();
 
-            std.debug.print("[WATCH] tick: {d} new sigs, latest={s} (HTTP {d})\n",
-                .{ sigs.len, sigs[0].signature[0..@min(sigs[0].signature.len, 12)], resp.status });
+            std.debug.print("[WATCH] {s}: {d} new sigs, latest={s} (HTTP {d})\n",
+                .{ t.name, sigs.len, sigs[0].signature[0..@min(sigs[0].signature.len, 12)], resp.status });
 
-            // Advance cursor to newest signature.
-            if (cursor_owned) |c| allocator.free(c);
-            cursor_owned = try allocator.dupe(u8, sigs[0].signature);
-        } else {
-            std.debug.print("[WATCH] tick: 0 new sigs\n", .{});
+            if (t.cursor) |c| allocator.free(c);
+            t.cursor = try allocator.dupe(u8, sigs[0].signature);
         }
 
         if (once) return;

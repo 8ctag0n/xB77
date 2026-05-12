@@ -13,6 +13,7 @@ const services_cmd = @import("commands/services.zig");
 const spawn_cmd = @import("commands/spawn.zig");
 const watch_cmd = @import("commands/watch.zig");
 const gateway_cmd = @import("commands/gateway.zig");
+const zk_cmd = @import("commands/zk.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -77,6 +78,8 @@ pub fn main() !void {
         try watch_cmd.watch(cli);
     } else if (std.mem.eql(u8, command, "gateway")) {
         try gateway_cmd.run(cli, cmd_args);
+    } else if (std.mem.eql(u8, command, "zk")) {
+        try zk_cmd.run(cli, cmd_args);
     } else {
         std.debug.print("Comando desconocido: {s}\n", .{command});
         flags.printUsage();

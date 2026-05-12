@@ -729,6 +729,7 @@ async function handlePipelinesIngest(request, env) {
       : Date.now();
     const verdict = (it.verdict === "FAILED") ? "FAILED" : "VALID";
     const status = verdict === "FAILED" ? "completed" : "completed";
+    const kind = (typeof it.kind === "string" && it.kind.length < 16) ? it.kind : "gateway";
     const record = {
       order_id: "pipe:" + it.signature.slice(0, 12),
       agent_id: it.agent || "onchain",
@@ -738,6 +739,7 @@ async function handlePipelinesIngest(request, env) {
       slot: it.slot,
       verdict,
       status,
+      kind,
     };
     const key = "pipe:" + it.signature;
     await env.ORDERS.put(key, JSON.stringify(record), { expirationTtl: 3600 });
@@ -760,9 +762,12 @@ async function handlePipelinesRecent(env, url) {
         agent: o.agent_id,
         chunks: o.chunks,
         status: duration > 5000 ? "completed" : "running",
-        verdict: duration > 5000 ? "VALID" : "PENDING",
+        verdict: o.verdict || (duration > 5000 ? "VALID" : "PENDING"),
         duration_ms: duration > 5000 ? duration : null,
         started_at: o.started_at,
+        signature: o.signature,
+        slot: o.slot,
+        kind: o.kind || "gateway",
       };
     } catch { return null; }
   }));
