@@ -22,6 +22,51 @@
     query_pulse:    0x04,
   });
 
+  // Cached gateway pubkey for response signature verification. Populated lazily
+  // by `fetchGatewayPubkey()` on first signed-response check.
+  let _gatewayPubkeyBytes = null;
+  let _gatewayPubkeyPromise = null;
+
+  async function fetchGatewayPubkey() {
+    if (_gatewayPubkeyBytes) return _gatewayPubkeyBytes;
+    if (_gatewayPubkeyPromise) return _gatewayPubkeyPromise;
+    _gatewayPubkeyPromise = (async () => {
+      try {
+        const r = await fetch(`${gateway()}/api/v1`, { method: "GET", mode: "cors" });
+        if (!r.ok) throw new Error("meta " + r.status);
+        const j = await r.json();
+        const hex = j && (j.data?.gateway_pubkey || j.gateway_pubkey);
+        if (!hex || hex.length !== 64) throw new Error("bad gateway_pubkey");
+        _gatewayPubkeyBytes = new Uint8Array(hex.match(/.{2}/g).map((b) => parseInt(b, 16)));
+        return _gatewayPubkeyBytes;
+      } catch (e) {
+        _gatewayPubkeyPromise = null;
+        throw e;
+      }
+    })();
+    return _gatewayPubkeyPromise;
+  }
+
+  // Verifies a response sig:  Ed25519.verify(pubkey, sig, actionByte || ts_be_u64 || body_bytes).
+  // Returns true on valid signature, false on missing/mismatch. Errors bubble.
+  async function verifyResponseSig(actionByte, response, bodyBytes) {
+    const tsStr = response.headers.get("x-xb77-gateway-timestamp");
+    const sigHex = response.headers.get("x-xb77-gateway-signature");
+    if (!tsStr || !sigHex) return false; // unsigned endpoint
+    const pubkey = await fetchGatewayPubkey();
+    const ts = BigInt(tsStr);
+    const tsBytes = new Uint8Array(8);
+    const dv = new DataView(tsBytes.buffer);
+    dv.setBigUint64(0, ts, false);
+    const canonical = new Uint8Array(1 + 8 + bodyBytes.length);
+    canonical[0] = actionByte;
+    canonical.set(tsBytes, 1);
+    canonical.set(bodyBytes, 9);
+    const sig = new Uint8Array(sigHex.match(/.{2}/g).map((b) => parseInt(b, 16)));
+    const key = await G.crypto.subtle.importKey("raw", pubkey, "Ed25519", false, ["verify"]);
+    return G.crypto.subtle.verify("Ed25519", key, sig, canonical);
+  }
+
   const gateway = () => G.XB77_GATEWAY || "http://127.0.0.1:8787";
 
   const toHex = (b) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
@@ -102,7 +147,31 @@
       (G.dispatchEvent || (() => {})).call(G, new CustomEvent("xb77:rate-limited", { detail }));
       throw new Error("rate_limited");
     }
-    const body = await r.json().catch(() => ({}));
+    const bodyText = await r.text();
+    let body;
+    try { body = JSON.parse(bodyText); } catch { body = {}; }
+
+    // Best-effort response-sig verification. Failures log a warning but don't
+    // raise — keeps the dApp working against unsigned dev endpoints and during
+    // /_meta outages. Set window.XB77_STRICT_RESP_SIG=true to enforce.
+    const actionByte = ACTION_BYTES[action];
+    if (actionByte != null) {
+      try {
+        const bodyBytes = new TextEncoder().encode(bodyText);
+        const ok = await verifyResponseSig(actionByte, r, bodyBytes);
+        if (ok === false) {
+          if (G.XB77_STRICT_RESP_SIG) throw new Error("gateway response signature missing or invalid");
+        }
+        if (G.__xb77RespSigStatus !== ok) {
+          G.__xb77RespSigStatus = ok;
+          if (ok) console.info("[XB77Actions] gateway response signature OK");
+        }
+      } catch (e) {
+        if (G.XB77_STRICT_RESP_SIG) throw e;
+        console.warn("[XB77Actions] response sig check failed (non-strict):", e.message);
+      }
+    }
+
     if (!r.ok || body.ok === false) {
       const err = (body && body.error) || { code: "http_" + r.status, message: r.statusText };
       const e = new Error(err.message || err.code);
