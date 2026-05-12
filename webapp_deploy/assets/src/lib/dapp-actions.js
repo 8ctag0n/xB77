@@ -455,6 +455,34 @@
     anchorState,
     submitOrderOnchain,
     registerMerchantOnchain,
+    identity: {
+      /**
+       * SNS reverse lookup for the connected agent's pubkey. Returns
+       * "<name>.sol" or null. The browser-side derivation mirrors what
+       * core/security/identity.zig does on the Zig side.
+       *
+       * Best-effort: returns null on any failure, never throws. ConnectionPill
+       * uses this to swap "ag_xxx..." for "<name>.sol" once it lands.
+       *
+       * Hook for a browser-side SNS reverse-lookup: assign window.XB77SnsReverseLookup
+       * to a (pubkey: Uint8Array) => Promise<string|null> function and the
+       * pill will pick it up automatically.
+       */
+      resolveFavoriteDomain: async () => {
+        try {
+          if (!G.XB77Keystore?.currentPubkey) return null;
+          const pubkey = G.XB77Keystore.currentPubkey();
+          if (!pubkey) return null;
+          if (typeof G.XB77SnsReverseLookup === "function") {
+            return await G.XB77SnsReverseLookup(pubkey);
+          }
+          return null;
+        } catch (e) {
+          console.warn("[XB77Actions.identity] reverse lookup failed:", e?.message || e);
+          return null;
+        }
+      },
+    },
   };
 
   G.XB77Actions = Actions;

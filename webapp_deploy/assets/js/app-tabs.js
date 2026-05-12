@@ -17,25 +17,61 @@ function _appParseHash() {
 }
 function ConnectionPill() {
   const [agentId, setAgentId] = _appUseState(() => window.XB77Actions?.keystore.agentId || null);
+  const [solDomain, setSolDomain] = _appUseState(() => window.__XB77_SOL_DOMAIN__ || null);
   _appUseEffect(() => {
-    const onConn = (ev) => setAgentId(ev?.detail?.agent_id || window.XB77Actions?.keystore.agentId || null);
+    const onConn = (ev) => {
+      setAgentId(ev?.detail?.agent_id || window.XB77Actions?.keystore.agentId || null);
+      try {
+        window.XB77Actions?.identity?.resolveFavoriteDomain?.().then((name) => {
+          if (name) {
+            window.__XB77_SOL_DOMAIN__ = name;
+            window.dispatchEvent(new CustomEvent("xb77:domain-resolved", { detail: { sol_domain: name } }));
+          }
+        }).catch(() => {
+        });
+      } catch (_) {
+      }
+    };
+    const onDomain = (ev) => setSolDomain(ev?.detail?.sol_domain || null);
+    const onDisconn = () => {
+      setAgentId(null);
+      setSolDomain(null);
+      window.__XB77_SOL_DOMAIN__ = null;
+    };
     window.addEventListener("xb77:connected", onConn);
-    return () => window.removeEventListener("xb77:connected", onConn);
+    window.addEventListener("xb77:domain-resolved", onDomain);
+    window.addEventListener("xb77:disconnected", onDisconn);
+    return () => {
+      window.removeEventListener("xb77:connected", onConn);
+      window.removeEventListener("xb77:domain-resolved", onDomain);
+      window.removeEventListener("xb77:disconnected", onDisconn);
+    };
   }, []);
   const open = () => window.dispatchEvent(new CustomEvent("xb77:open-keystore"));
   const connected = !!agentId;
-  return /* @__PURE__ */ React.createElement("button", { onClick: open, title: connected ? "Manage keystore" : "Connect agent", style: {
-    fontFamily: "var(--mono)",
-    fontSize: 10,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    padding: "6px 12px",
-    background: connected ? "rgba(127,191,63,0.12)" : "transparent",
-    color: connected ? "var(--green, #7fbf3f)" : "var(--accent, #c97a3a)",
-    border: `1px solid ${connected ? "rgba(127,191,63,0.4)" : "var(--accent, #c97a3a)"}`,
-    cursor: "pointer",
-    whiteSpace: "nowrap"
-  } }, connected ? `\u25CF ${agentId.slice(0, 14)}\u2026` : "\u25CB Connect");
+  const label = !connected ? "\u25CB Connect" : solDomain ? `\u25CF ${solDomain}` : `\u25CF ${agentId.slice(0, 14)}\u2026`;
+  const sovereign = !!solDomain;
+  return /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: open,
+      title: connected ? sovereign ? `Sovereign identity: ${solDomain} (Native SNS) \u2014 manage keystore` : "Manage keystore" : "Connect agent",
+      style: {
+        fontFamily: "var(--mono)",
+        fontSize: 10,
+        letterSpacing: "0.1em",
+        textTransform: "uppercase",
+        padding: "6px 12px",
+        background: sovereign ? "rgba(200,255,46,0.14)" : connected ? "rgba(127,191,63,0.12)" : "transparent",
+        color: sovereign ? "var(--lime, #c8ff2e)" : connected ? "var(--green, #7fbf3f)" : "var(--accent, #c97a3a)",
+        border: `1px solid ${sovereign ? "rgba(200,255,46,0.45)" : connected ? "rgba(127,191,63,0.4)" : "var(--accent, #c97a3a)"}`,
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+        textShadow: sovereign ? "0 0 8px rgba(200,255,46,0.4)" : "none"
+      }
+    },
+    label
+  );
 }
 function AppView() {
   const [active, setActive] = _appUseState(_appParseHash() || "agents");
