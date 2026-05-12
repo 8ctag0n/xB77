@@ -59,3 +59,4 @@ circuits/state_anchor/proofs/
 .wrangler/
 **/.wrangler/
 .cf_deploy_summary
+webapp_deploy/remotion/out/
