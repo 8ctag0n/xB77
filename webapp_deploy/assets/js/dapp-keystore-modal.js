@@ -36,6 +36,12 @@ function KeystoreModal() {
     try {
       window.XB77Actions.keystore.saveSealedBlob(sealedBlob);
       const data = await window.XB77Actions.registerAgent(pubkey, intent);
+      try {
+        const ad = await window.XB77Actions.selfAirdrop();
+        if (ad && ad.ok) console.info("[xB77] self-airdrop:", ad.signature);
+      } catch (e2) {
+        console.warn("[xB77] self-airdrop failed (non-fatal):", e2.message);
+      }
       setResult({ agent_id: data.agent_id, tier: data.tier, credits: data.credits });
       setStep("done");
       window.dispatchEvent(new CustomEvent("xb77:connected", { detail: { agent_id: data.agent_id } }));
