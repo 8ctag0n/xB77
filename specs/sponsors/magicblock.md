@@ -73,11 +73,11 @@ reader has the contract pinned.
 
 **Findings template** (fill in then commit):
 ```
-DEVNET_SEQUENCER_URL = "TODO"
-DELEGATION_PROGRAM_ID = "TODO"
-SESSION_DURATION_DEFAULT = "TODO seconds"
-AUTH_MODEL = "TODO"
-EXPLORER_URL_FOR_SESSION = "TODO"
+DEVNET_SEQUENCER_URL = "https://devnet.magicblock.app"
+DELEGATION_PROGRAM_ID = "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh"
+SESSION_DURATION_DEFAULT = "3600 seconds"
+AUTH_MODEL = "Delegation-instruction signature"
+EXPLORER_URL_FOR_SESSION = "https://explorer.magicblock.gg/session/"
 ```
 
 ### 2. CLI: `xb77 magicblock <sub>`

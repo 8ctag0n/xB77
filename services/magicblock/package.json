@@ -1,0 +1,19 @@
+{
+  "name": "magicblock",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@solana/kit": "^6.9.0",
+    "axios": "^1.16.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "solana-agent-kit": "^2.0.10"
+  }
+}
