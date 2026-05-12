@@ -36,6 +36,15 @@ copy_lib() {
   fi
 }
 
+copy_idls() {
+  # The dApp loads IDL JSON via fetch (e.g. /idls/xb77_compression.json).
+  # Keep webapp_deploy/idls/ in sync with the repo-root idls/.
+  if [[ -d ../idls ]]; then
+    mkdir -p idls
+    cp -f ../idls/*.json idls/ 2>/dev/null || true
+  fi
+}
+
 # Clean derived output so deleted sources don't leave orphan .js files.
 # assets/js/ is fully regenerated from assets/src/ on every build.
 clean_out() {
@@ -46,9 +55,11 @@ clean_out() {
 if [[ "${1:-}" == "--watch" ]]; then
   clean_out
   copy_lib
+  copy_idls
   exec bunx esbuild "${ARGS[@]}" --watch
 fi
 
 clean_out
 bunx esbuild "${ARGS[@]}"
 copy_lib
+copy_idls

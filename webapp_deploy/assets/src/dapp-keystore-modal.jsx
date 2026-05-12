@@ -1,27 +1,8 @@
 /* xB77 dApp — Keystore modal (generate / import + password).
- * Crypto is a STUB until the SDK is vendored: pubkey is random bytes,
- * the "sealed blob" is a base64 placeholder. Swap signEnvelope +
- * derivePubkey + seal/unseal when sdk/ts/dist/* lands. */
+ * Wire schema 1.1 — real Web Crypto Ed25519 via window.XB77Keystore.
+ * Sealed blob = AES-GCM(PBKDF2(pw)) over PKCS8 private key. */
 
 const _ksHooks = { useState: React.useState, useEffect: React.useEffect, useRef: React.useRef };
-
-const _ksRandHex = (n) => {
-  const a = new Uint8Array(n);
-  (crypto || window.crypto).getRandomValues(a);
-  return Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
-};
-
-// Stub seal/unseal — replace with sdk.keystore.seal/unseal when available.
-const _ksSeal = (pubkey, password) =>
-  btoa(JSON.stringify({ v: 1, kind: 'stub', pubkey, salt: _ksRandHex(8), pwLen: password.length }));
-
-const _ksUnseal = (blob) => {
-  try {
-    const obj = JSON.parse(atob(blob));
-    if (obj.kind !== 'stub' || !obj.pubkey) throw new Error('bad blob');
-    return { pubkey: obj.pubkey };
-  } catch { return null; }
-};
 
 function KeystoreModal() {
   const [open, setOpen] = _ksHooks.useState(false);
@@ -56,29 +37,45 @@ function KeystoreModal() {
     try {
       window.XB77Actions.keystore.saveSealedBlob(sealedBlob);
       const data = await window.XB77Actions.registerAgent(pubkey, intent);
-      window.XB77Actions.keystore.saveAgent({ agent_id: data.agent_id, pubkey });
+      // Self-airdrop SOL on localhost so the agent can pay onchain fees later.
+      // Silent on failure — wire-1.1 still works without it.
+      try {
+        const ad = await window.XB77Actions.selfAirdrop();
+        if (ad && ad.ok) console.info('[xB77] self-airdrop:', ad.signature);
+      } catch (e2) {
+        console.warn('[xB77] self-airdrop failed (non-fatal):', e2.message);
+      }
       setResult({ agent_id: data.agent_id, tier: data.tier, credits: data.credits });
       setStep('done');
       window.dispatchEvent(new CustomEvent('xb77:connected', { detail: { agent_id: data.agent_id } }));
     } catch (e) {
       setError(e.message || 'register failed');
-      setStep(step === 'working' ? 'choose' : step);
+      setStep('choose');
     }
   }
 
-  function handleGenerate() {
+  async function handleGenerate() {
     if (!password || password.length < 4) return setError('password too short (min 4)');
     if (password !== confirmPw) return setError('passwords don\'t match');
-    const pubkey = _ksRandHex(32); // stub: real SDK derives from ed25519 keypair
-    finalize(pubkey, _ksSeal(pubkey, password));
+    setError(null);
+    try {
+      const r = await window.XB77Keystore.generate(password);
+      finalize(r.pubkeyHex, r.sealedBlob);
+    } catch (e) {
+      setError(e.message || 'keystore generate failed');
+    }
   }
 
-  function handleImport() {
+  async function handleImport() {
     if (!password) return setError('enter password');
     if (!importBlob) return setError('pick a keystore file');
-    const u = _ksUnseal(importBlob);
-    if (!u) return setError('invalid keystore blob');
-    finalize(u.pubkey, importBlob);
+    setError(null);
+    try {
+      const r = await window.XB77Keystore.import(importBlob, password);
+      finalize(r.pubkeyHex, r.sealedBlob);
+    } catch (e) {
+      setError(/invalid_password/.test(e.message) ? 'wrong password' : (e.message || 'import failed'));
+    }
   }
 
   function onFile(e) {
@@ -144,7 +141,7 @@ function KeystoreModal() {
                 <button style={btn(false)} onClick={() => { setError(null); setStep('import'); }}>Import existing</button>
               </div>
               <p style={{ fontSize: 9, color: 'var(--text-soft)', marginTop: 18, opacity: 0.7 }}>
-                ⚠ stub crypto · real signing arrives with the SDK build
+                wire 1.1 · Ed25519 via Web Crypto · AES-GCM at rest
               </p>
             </>
           )}

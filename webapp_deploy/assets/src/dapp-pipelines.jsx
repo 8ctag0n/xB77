@@ -31,8 +31,65 @@ function PipelinesView() {
   const [txLog, setTxLog] = React.useState(TXLOG_SEED);
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState(null);
+  const [anchoring, setAnchoring] = React.useState(false);
+  const [anchorSig, setAnchorSig] = React.useState(null);
+  const [submittingOnchain, setSubmittingOnchain] = React.useState(false);
+  const [submitOnchainSig, setSubmitOnchainSig] = React.useState(null);
 
   const sel = pipelines.find(p => p.id === selected);
+
+  async function handleAnchor() {
+    if (anchoring) return;
+    setAnchoring(true);
+    setAnchorSig(null);
+    setSubmitError(null);
+    try {
+      // Load compression IDL on demand from the static server.
+      const r = await fetch('/idls/xb77_compression.json');
+      if (!r.ok) throw new Error('IDL fetch failed (' + r.status + ')');
+      const idl = await r.json();
+      const result = await window.XB77Actions.anchorState({ idl });
+      setAnchorSig(result.signature);
+      setTxLog(prev => [{
+        time: hhmm(),
+        from: window.XB77Keystore && window.XB77Keystore.currentAgentId() || 'me',
+        to: 'xb77_compression onchain',
+        amount: 'verify',
+        status: 'VERIFIED',
+        receipt: result.signature.slice(0, 12),
+      }, ...prev]);
+    } catch (e) {
+      setSubmitError('anchor: ' + (e.message || 'failed'));
+    } finally {
+      setAnchoring(false);
+    }
+  }
+
+  async function handleSubmitOnchain() {
+    if (submittingOnchain) return;
+    setSubmittingOnchain(true);
+    setSubmitOnchainSig(null);
+    setSubmitError(null);
+    try {
+      const r = await fetch('/idls/xb77_gateway.json');
+      if (!r.ok) throw new Error('IDL fetch failed (' + r.status + ')');
+      const idl = await r.json();
+      const result = await window.XB77Actions.submitOrderOnchain({ idl });
+      setSubmitOnchainSig(result.signature);
+      setTxLog(prev => [{
+        time: hhmm(),
+        from: window.XB77Keystore && window.XB77Keystore.currentAgentId() || 'me',
+        to: `Order ${result.orderId.toString().slice(0, 12)}`,
+        amount: '$1.00',
+        status: 'SHIELDED',
+        receipt: result.signature.slice(0, 12),
+      }, ...prev]);
+    } catch (e) {
+      setSubmitError('submit-onchain: ' + (e.message || 'failed'));
+    } finally {
+      setSubmittingOnchain(false);
+    }
+  }
 
   async function handleNewOrder() {
     if (submitting) return;
@@ -65,10 +122,28 @@ function PipelinesView() {
       <div style={{ width: 320, borderRight: `1px solid ${D.border}`, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${D.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <DS size={20} italic>Pipelines</DS>
-          <DBtn small primary onClick={handleNewOrder} disabled={submitting}>
-            {submitting ? '…SUBMITTING' : '+ NEW'}
-          </DBtn>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <DBtn small onClick={handleAnchor} disabled={anchoring} title="Anchor a state transition onchain (xb77_compression)">
+              {anchoring ? '…ANCHORING' : 'ANCHOR ⛓'}
+            </DBtn>
+            <DBtn small onClick={handleSubmitOnchain} disabled={submittingOnchain} title="Submit a private order onchain (xb77_gateway::SubmitPrivateOrder)">
+              {submittingOnchain ? '…SUBMITTING' : 'SUBMIT 📦'}
+            </DBtn>
+            <DBtn small primary onClick={handleNewOrder} disabled={submitting}>
+              {submitting ? '…SUBMITTING' : '+ NEW'}
+            </DBtn>
+          </div>
         </div>
+        {anchorSig && (
+          <div style={{ padding: '6px 20px', background: `${D.green || '#3a3'}18`, borderBottom: `1px solid ${D.border}`, fontFamily: 'var(--mono)', fontSize: 10, color: D.green || '#3a3' }}>
+            anchor tx: {anchorSig.slice(0, 16)}…
+          </div>
+        )}
+        {submitOnchainSig && (
+          <div style={{ padding: '6px 20px', background: `${D.green || '#3a3'}18`, borderBottom: `1px solid ${D.border}`, fontFamily: 'var(--mono)', fontSize: 10, color: D.green || '#3a3' }}>
+            submit tx: {submitOnchainSig.slice(0, 16)}…
+          </div>
+        )}
         {submitError && (
           <div style={{ padding: '6px 20px', background: `${D.red}18`, borderBottom: `1px solid ${D.border}`, fontFamily: 'var(--mono)', fontSize: 10, color: D.red }}>
             submit_order: {submitError}

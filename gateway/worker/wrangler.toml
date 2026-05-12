@@ -17,10 +17,27 @@ compatibility_flags = ["nodejs_compat"]
 [observability]
 enabled = true
 
+# ─────────────────────────────────────────────────────────────────────
+# Static assets — serves the dApp under the SAME origin as the API.
+# Modern Cloudflare pattern (post-Pages, May 2026):
+#   /             → webapp_deploy/index.html
+#   /app.html     → webapp_deploy/app.html
+#   /assets/*     → webapp_deploy/assets/*
+#   /idls/*       → webapp_deploy/idls/*
+#   /api/v1/*     → src/index.js fetch() handler
+#
+# Default routing: requests check static assets first. If the path matches
+# a file under `directory`, it's served from the edge. Otherwise the
+# Worker's fetch() runs. Path is relative to this wrangler.toml.
+# ─────────────────────────────────────────────────────────────────────
+[assets]
+directory = "../../webapp_deploy"
+not_found_handling = "none"
+
 [vars]
 # Dev default: solana-test-validator on host (accessible from wrangler dev).
 # In prod set via `wrangler secret put ZNODE_RPC_URL` to znode.xb77.dev.
-ZNODE_RPC_URL = "http://127.0.0.1:8899"
+ZNODE_RPC_URL = "https://api.devnet.solana.com"
 ALLOWED_ORIGIN = "*"
 # Wire-schema acceptance. Set to "false" in prod to reject SDK ≤1.0.
 ACCEPT_SCHEMA_1_0 = "false"
@@ -30,6 +47,9 @@ ACCEPT_SCHEMA_1_0 = "false"
 GATEWAY_PRIVKEY_HEX_DEV = "b80585950ebd968b6230907202fcbf6d9329328cf1c00f8eb09bdef422a1785f0b7695d319c619c0c80bb667407765107c4538f1a6cc2df1e5701acf1255822c"
 # Dev gateway pubkey (last 32B of the seed||pubkey above):
 #   0b7695d319c619c0c80bb667407765107c4538f1a6cc2df1e5701acf1255822c
+# Shared bearer secret for the gateway-watch daemon → /api/v1/pipelines/ingest.
+# Prod overrides via: wrangler secret put INGEST_TOKEN
+INGEST_TOKEN_DEV = "devtoken"
 
 # ─────────────────────────────────────────────────────────────────────
 # KV namespaces. For local dev (`wrangler dev --local`), the placeholder IDs
@@ -40,20 +60,20 @@ GATEWAY_PRIVKEY_HEX_DEV = "b80585950ebd968b6230907202fcbf6d9329328cf1c00f8eb09bd
 
 [[kv_namespaces]]
 binding = "AGENTS"
-id = "agents_local_placeholder"
+id = "45549aeb92e34331aa9207f1c12b2e9e"
 
 [[kv_namespaces]]
 binding = "ORDERS"
-id = "orders_local_placeholder"
+id = "07ffb238187b4739b603870a9cc60785"
 
 [[kv_namespaces]]
 binding = "NONCES"
-id = "nonces_local_placeholder"
+id = "d1fa1577a07f46b8a02d1b1894886621"
 
 [[kv_namespaces]]
 binding = "BUCKETS"
-id = "buckets_local_placeholder"
+id = "d8ac84aa137a4564aaf8f2df91c3e914"
 
 [[kv_namespaces]]
 binding = "IDEMP"
-id = "idemp_local_placeholder"
+id = "d0d44b8bf8714f6f93633e72e8a8d05b"

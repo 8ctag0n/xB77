@@ -1,0 +1,78 @@
+{
+  "version": "0.1.0",
+  "name": "xb77_compression",
+  "metadata": {
+    "address": "6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN",
+    "encoding": "wincode",
+    "notes": "Pure-compute program, no accounts mutated. Verifies a state transition (old_root -> new_root) by reconstructing the leaf via Poseidon BN254 and walking the Merkle path from the supplied siblings. No CPI dependencies; the whole proof is in instruction_data."
+  },
+  "instructions": [
+    {
+      "name": "VerifyTransition",
+      "accounts": [],
+      "args": [
+        {
+          "name": "payload",
+          "type": {
+            "defined": "VerifyTransitionPayload"
+          }
+        }
+      ]
+    }
+  ],
+  "types": [
+    {
+      "name": "VerifyTransitionPayload",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "old_root",
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "new_root",
+            "type": {
+              "array": ["u8", 32]
+            }
+          },
+          {
+            "name": "index",
+            "type": "u64"
+          },
+          {
+            "name": "siblings",
+            "type": {
+              "vec": {
+                "array": ["u8", 32]
+              }
+            }
+          },
+          {
+            "name": "leaf_preimage_amount",
+            "type": "u64"
+          },
+          {
+            "name": "leaf_preimage_type",
+            "type": "u8"
+          },
+          {
+            "name": "leaf_preimage_tx_hash",
+            "type": {
+              "array": ["u8", 32]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 0,
+      "name": "ArithmeticOverflow",
+      "msg": "Transition verification failed (Merkle path did not reduce to new_root or Poseidon hash mismatch)."
+    }
+  ]
+}

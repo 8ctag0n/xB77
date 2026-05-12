@@ -424,6 +424,8 @@ window._ExAgentsView = window.AgentsView;
 <script src="assets/js/dapp-mesh.js"></script>
 <script src="assets/js/dapp-agents.js"></script>
 <script src="assets/js/dapp-pipelines.js"></script>
+<script src="assets/js/dapp-proofs.js"></script>
+<script src="assets/js/dapp-merchants.js"></script>
 <script src="assets/js/dapp-wallet.js"></script>
 <script src="assets/js/dapp-keystore-modal.js"></script>
 
@@ -434,6 +436,14 @@ window._ExAgentsView = window.AgentsView;
 <!-- Data infra (W3): gateway adapter + DataSource client + /network page -->
 <script>window.XB77_GATEWAY = window.XB77_GATEWAY || "http://127.0.0.1:8787";</script>
 <script src="assets/js/lib/data-source.js"></script>
+<!-- Onchain primitives (load before dapp-actions which depends on these globals) -->
+<script src="assets/js/lib/wincode.js"></script>
+<script src="assets/js/lib/base58.js"></script>
+<script src="assets/js/lib/solana-rpc.js"></script>
+<script src="assets/js/lib/solana-tx.js"></script>
+<script src="assets/js/lib/idl-client.js"></script>
+<script src="assets/js/lib/pda.js"></script>
+<script src="assets/js/lib/keystore.js"></script>
 <script src="assets/js/lib/dapp-actions.js"></script>
 <script src="assets/js/lib/rate-limit-toast.js"></script>
 <script src="assets/js/lib/debug-strip.js"></script>

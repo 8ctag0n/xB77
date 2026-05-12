@@ -4,6 +4,7 @@ import { MarkStatic } from "./compositions/MarkStatic";
 import { WordmarkOG } from "./compositions/WordmarkOG";
 import { HeroLoop } from "./compositions/HeroLoop";
 import { LogoIntro } from "./compositions/LogoIntro";
+import { DemoMaster } from "./compositions/DemoMaster";
 import { FPS } from "./theme";
 
 /**
@@ -53,6 +54,15 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1920}
         height={1080}
+      />
+
+      <Composition
+        id="DemoMaster"
+        component={DemoMaster}
+        durationInFrames={2700}
+        fps={FPS}
+        width={1280}
+        height={720}
       />
     </>
   );

@@ -29,8 +29,9 @@ pub const BrainInsight = struct {
     }
 
     pub fn formatTelegram(self: *BrainInsight) ![]const u8 {
-        var list = std.ArrayList(u8).init(self.allocator);
-        const writer = list.writer();
+        var list = std.ArrayListUnmanaged(u8){};
+        defer list.deinit(self.allocator);
+        const writer = list.writer(self.allocator);
 
         try writer.print(" XB77 INTELLIGENCE REPORT\n", .{});
         try writer.print("---------------------------\n", .{});
@@ -66,9 +67,9 @@ pub const BrainInsight = struct {
         }
 
         const id_hex = std.fmt.bytesToHex(self.directive.id, .lower);
-        try writer.print("\n MISSION HASH: 0x{s}\n", .{&id_hex[0..12]});
+        try writer.print("\n MISSION HASH: 0x{s}\n", .{id_hex[0..12]});
 
-        return list.toOwnedSlice();
+        return list.toOwnedSlice(self.allocator);
     }
 };
 
@@ -142,7 +143,10 @@ pub const Brain = struct {
         const brain_url = std.process.getEnvVarOwned(self.allocator, "XB77_BRAIN_URL") catch try self.allocator.dupe(u8, "http://127.0.0.1:8088/evaluate");
         defer self.allocator.free(brain_url);
 
-        var response = try client.post(brain_url, body_buf.items);
+        var response = client.post(brain_url, body_buf.items) catch |err| {
+            std.debug.print("\n[BRAIN ]  Shim Unreachable: {any}. Falling back to heuristics.", .{err});
+            return self.interpret(directive);
+        };
         defer response.deinit();
 
         if (response.status != 200) {

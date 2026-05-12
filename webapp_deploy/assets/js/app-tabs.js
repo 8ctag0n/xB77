@@ -3,6 +3,8 @@ const _APP_TABS = [
   { id: "wallet", label: "Wallet" },
   { id: "agents", label: "Agents" },
   { id: "pipelines", label: "Pipelines" },
+  { id: "proofs", label: "Proofs" },
+  { id: "merchants", label: "Merchants" },
   { id: "mesh", label: "Mesh" },
   { id: "explorer", label: "Explorer" }
 ];
@@ -61,6 +63,8 @@ function AppView() {
       wallet: window.WalletTab,
       agents: window.AgentsTab,
       pipelines: window.PipelinesTab,
+      proofs: window.ProofsTab,
+      merchants: window.MerchantsTab,
       mesh: window.MeshTab,
       explorer: window.ExplorerTab
     };
