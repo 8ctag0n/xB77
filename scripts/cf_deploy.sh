@@ -134,33 +134,46 @@ cf_api() {
   curl "${args[@]}" "https://api.cloudflare.com/client/v4$pth"
 }
 
-# ── Register workers.dev subdomain if missing ─────────────────────────
-# wrangler deploy fails with "register a workers.dev subdomain before
-# publishing" if the account hasn't claimed one. The dashboard onboarding
-# flow does this manually; the API endpoint does it programmatically.
-SUBDOMAIN_DESIRED="${WORKERS_SUBDOMAIN:-xb77-${CLOUDFLARE_ACCOUNT_ID:0:8}}"
-
-sub_get="$(cf_api GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain")"
-sub_current="$(printf '%s' "$sub_get" | python3 -c "
+# ── Resolve / register workers.dev subdomain ──────────────────────────
+# Three modes, in order:
+#   1. WORKERS_SUBDOMAIN env var is set — TRUST it as already-registered,
+#      skip the API roundtrip entirely. This is the path for users who
+#      registered through the dashboard onboarding flow (where the API
+#      token doesn't need the extra Account Settings:Edit permission that
+#      programmatic registration requires).
+#   2. WORKERS_SUBDOMAIN not set, GET succeeds → use what CF returns.
+#   3. WORKERS_SUBDOMAIN not set, GET returns nothing → try PUT with a
+#      default name. Requires Account Settings:Edit on the token.
+if [[ -n "${WORKERS_SUBDOMAIN:-}" ]]; then
+  sub_current="$WORKERS_SUBDOMAIN"
+  say "Subdomain from env: $sub_current (trusted, skipping CF API roundtrip)"
+else
+  sub_get="$(cf_api GET "/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain")"
+  sub_current="$(printf '%s' "$sub_get" | python3 -c "
 import json,sys
-d=json.load(sys.stdin)
-if d.get('success'):
-    r=d.get('result') or {}
-    print(r.get('subdomain','') or r.get('name',''))
+try:
+    d=json.load(sys.stdin)
+    if d.get('success'):
+        r=d.get('result') or {}
+        print(r.get('subdomain','') or r.get('name',''))
+except Exception:
+    pass
 " 2>/dev/null || echo '')"
 
-if [[ -z "$sub_current" ]]; then
-  say "No workers.dev subdomain registered yet — claiming '$SUBDOMAIN_DESIRED'..."
-  sub_put="$(cf_api PUT "/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" "{\"subdomain\":\"$SUBDOMAIN_DESIRED\"}")"
-  sub_ok="$(printf '%s' "$sub_put" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("success"))' 2>/dev/null || echo False)"
-  if [[ "$sub_ok" != "True" ]]; then
-    printf '%s\n' "$sub_put" | head -20
-    die "couldn't register workers.dev subdomain '$SUBDOMAIN_DESIRED' — may be taken globally. Set WORKERS_SUBDOMAIN=<something-unique> and retry."
+  if [[ -z "$sub_current" ]]; then
+    SUBDOMAIN_DESIRED="xb77-${CLOUDFLARE_ACCOUNT_ID:0:8}"
+    say "No subdomain detected — attempting to claim '$SUBDOMAIN_DESIRED' (needs Account Settings:Edit on token)..."
+    sub_put="$(cf_api PUT "/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" "{\"subdomain\":\"$SUBDOMAIN_DESIRED\"}")"
+    sub_ok="$(printf '%s' "$sub_put" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("success"))' 2>/dev/null || echo False)"
+    if [[ "$sub_ok" != "True" ]]; then
+      printf '%s\n' "$sub_put" | head -10
+      die "couldn't register workers.dev subdomain. Either it's taken globally (set WORKERS_SUBDOMAIN=<unique-name> and retry), the token lacks Account Settings:Edit (claim through dashboard onboarding and set WORKERS_SUBDOMAIN=<your-name>), or this is an authentication error (verify the token)."
+    fi
+    sub_current="$SUBDOMAIN_DESIRED"
+    say "Subdomain claimed: $sub_current"
+  else
+    say "Subdomain already registered: $sub_current"
   fi
-  sub_current="$SUBDOMAIN_DESIRED"
-  say "Subdomain claimed: $sub_current"
-else
-  say "Subdomain already registered: $sub_current"
 fi
 EXPECTED_WORKER_URL="https://${WORKER_NAME}.${sub_current}.workers.dev"
 
@@ -225,11 +238,39 @@ printf '%s' "$GATEWAY_PRIVKEY_HEX" | $WRANGLER secret put GATEWAY_PRIVKEY_HEX
 say "Setting INGEST_TOKEN secret..."
 printf '%s' "$INGEST_TOKEN" | $WRANGLER secret put INGEST_TOKEN
 
+# ── Stage assets to a clean dir (skips walking remotion node_modules) ──
+# wrangler walks the entire [assets].directory tree before applying
+# .assetsignore filters. webapp_deploy/remotion/node_modules/ is ~670 MB /
+# 16K files of build-tool dependencies that get filtered out anyway but
+# eat 15-25s of walk time per deploy. Staging the production-only files
+# into /tmp first means wrangler only walks ~90 files, ~2.5 MB.
+STAGE_DIR="$(mktemp -d -t xb77-stage-XXXX)"
+say "Staging static assets to $STAGE_DIR ..."
+# rsync drops everything that .assetsignore would have excluded, plus
+# anything we know wrangler doesn't need. Fast (~1s for ~2.5 MB).
+rsync -a "$REPO/webapp_deploy/" "$STAGE_DIR/" \
+  --exclude='remotion/' \
+  --exclude='assets/src/' \
+  --exclude='build.sh' \
+  --exclude='*.map' \
+  --exclude='.DS_Store' \
+  --exclude='*.swp' \
+  --exclude='*~' \
+  > /dev/null
+stage_size_kb="$(du -sk "$STAGE_DIR" | cut -f1)"
+stage_count="$(find "$STAGE_DIR" -type f | wc -l)"
+say "  → ${stage_count} files, ${stage_size_kb} KB"
+
+# Temporarily repoint [assets].directory at the stage. Restore on EXIT
+# (trap) so a crash mid-deploy doesn't leave wrangler.toml broken.
+WRANGLER_TOML_BACKUP="$(mktemp)"
+cp wrangler.toml "$WRANGLER_TOML_BACKUP"
+trap "cp '$WRANGLER_TOML_BACKUP' '$WORKER_DIR/wrangler.toml' && rm -f '$WRANGLER_TOML_BACKUP' && rm -rf '$STAGE_DIR'" EXIT
+sed -i "s|directory = \"../../webapp_deploy\"|directory = \"$STAGE_DIR\"|" wrangler.toml
+
 # ── Deploy (Worker + Static Assets in one shot) ───────────────────────
-say "Deploying Worker (with static assets) — 30-90s on first deploy, uploads all of webapp_deploy/ ..."
+say "Deploying Worker (with staged assets) — should be fast now ..."
 # Stream output live AND capture to a tmpfile so we can parse the URL after.
-# Without this, command substitution would freeze the terminal silently while
-# wrangler uploads assets, looking like a hang.
 DEPLOY_LOG="$(mktemp -t cf_deploy_XXXX.log)"
 $WRANGLER deploy 2>&1 | tee "$DEPLOY_LOG"
 deploy_exit="${PIPESTATUS[0]}"

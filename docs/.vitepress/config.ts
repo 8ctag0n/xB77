@@ -3,7 +3,7 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 // https://vitepress.dev/reference/site-config
 export default withMermaid({
   title: 'xB77',
-  base: '/xB77v2/',
+  base: '/xB77/',
   titleTemplate: ':title // xB77 — Autonomous Financial Infrastructure',
   description:
     'Privacy-first capital management for the machine economy. Shielded payments, ZK-compressed receipts, autonomous agents on Solana.',
@@ -104,6 +104,25 @@ export default withMermaid({
             { text: 'Proof Format', link: '/reference/proof-format' },
             { text: 'Data Infrastructure', link: '/reference/data-infra' },
             { text: 'Glossary', link: '/reference/glossary' },
+          ],
+        },
+        {
+          text: 'Sponsor Integrations',
+          collapsed: false,
+          items: [
+            { text: 'Overview',                link: '/specs/sponsors/' },
+            { text: 'SNS — Native Identity',   link: '/specs/sponsors/sns' },
+            { text: 'QVAC — On-Device Brain',  link: '/specs/sponsors/qvac' },
+            { text: 'MagicBlock — PER Rail',   link: '/specs/sponsors/magicblock' },
+          ],
+        },
+        {
+          text: 'Hackathon Submissions',
+          collapsed: true,
+          items: [
+            { text: 'SNS',        link: '/submissions/SNS' },
+            { text: 'QVAC',       link: '/submissions/QVAC' },
+            { text: 'MagicBlock', link: '/submissions/MAGICBLOCK' },
           ],
         },
       ],

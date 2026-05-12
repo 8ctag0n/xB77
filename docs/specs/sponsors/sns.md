@@ -2,7 +2,25 @@
 
 > **Sponsor**: Solana Name Service (Bonfida) / AllDomains
 > **Track**: Main hackathon (Colosseum Frontier)
-> **Repo branch to target**: `sponsor/sns` (cut from `feat/dapp-public-split`)
+> **Repo branch**: `post-frontier-enhancement`
+
+## Status — post-frontier SNS end-to-end pass (commits `29086ec`, `a13ea9d`)
+
+What landed in F6 + SNS end-to-end pass after the original spec was written:
+
+- **Native PDA derivation in Zig**: `core/security/identity.zig:resolveSnsNative` matches Bonfida mainnet byte-for-byte. Validated by `zig build sns-test` against live mainnet RPC + Bonfida API (the side-by-side MATCH stamp in the demo video).
+- **Worker reverse-lookup endpoint**: `GET /api/v1/sns/reverse?pubkey=<base58>` in `gateway/worker/src/index.js`:
+  - Tries Bonfida's `/v2/user/favorite-domain/<wallet>` first (canonical primary)
+  - Falls back to `/v2/user/domains/<wallet>[0]`
+  - Cached in BUCKETS KV (1h TTL, positive + negative). No retry-storm hammering.
+- **Browser helper**: `webapp_deploy/assets/src/lib/sns-reverse.js` exposes `window.XB77SnsReverseLookup(pubkey)` → `<name>.sol | null`. sessionStorage cache (1h TTL).
+- **ConnectionPill swap (F6)**: `webapp_deploy/assets/src/app-tabs.jsx:ConnectionPill` now listens for `xb77:domain-resolved` and swaps `ag_xxx…` for `<name>.sol` in lime with glow. `dapp-actions.js:identity.resolveFavoriteDomain` orchestrates the lookup post-`xb77:connected` and dispatches the event when a name lands.
+
+Result: when a judge visits `/app` and connects via keystore, the ConnectionPill upgrades from `ag_77b9e2…` to `<theirname>.sol` automatically — what F6 wired structurally, this pass made functional.
+
+Honest delta: the **register** flow (mint a fresh `.sol` from the dApp) is still pending — current scope is read-only (resolve + reverse). Spec for the register-via-unsigned-tx flow is documented further down.
+
+---
 
 ## Why this spec exists
 

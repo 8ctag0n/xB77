@@ -2,7 +2,7 @@ name: sdk
 
 on:
   push:
-    branches: [bedrock,main, "merge/**", "feat/sdk-**"]
+    branches: [bedrock,"main", "merge/**", "feat/sdk-**"]
     tags: ["sdk-v*"]
     paths:
       - "core/keystore/**"

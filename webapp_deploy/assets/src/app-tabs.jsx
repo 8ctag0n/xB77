@@ -22,23 +22,65 @@ function _appParseHash() {
 
 function ConnectionPill() {
   const [agentId, setAgentId] = _appUseState(() => (window.XB77Actions?.keystore.agentId) || null);
+  // SNS native resolution surfaces here as <name>.sol once it lands.
+  // Source: dapp-actions.js fires 'xb77:domain-resolved' after the keystore
+  // reverse-looks-up the agent's favorite domain via core/security/identity.
+  const [solDomain, setSolDomain] = _appUseState(() => window.__XB77_SOL_DOMAIN__ || null);
   _appUseEffect(() => {
-    const onConn = (ev) => setAgentId(ev?.detail?.agent_id || window.XB77Actions?.keystore.agentId || null);
+    const onConn = (ev) => {
+      setAgentId(ev?.detail?.agent_id || window.XB77Actions?.keystore.agentId || null);
+      // Kick off an SNS reverse-lookup if XB77Actions exposes it. Non-blocking.
+      try {
+        window.XB77Actions?.identity?.resolveFavoriteDomain?.()
+          .then((name) => {
+            if (name) {
+              window.__XB77_SOL_DOMAIN__ = name;
+              window.dispatchEvent(new CustomEvent('xb77:domain-resolved', { detail: { sol_domain: name } }));
+            }
+          })
+          .catch(() => {});
+      } catch (_) {}
+    };
+    const onDomain = (ev) => setSolDomain(ev?.detail?.sol_domain || null);
+    const onDisconn = () => { setAgentId(null); setSolDomain(null); window.__XB77_SOL_DOMAIN__ = null; };
     window.addEventListener('xb77:connected', onConn);
-    return () => window.removeEventListener('xb77:connected', onConn);
+    window.addEventListener('xb77:domain-resolved', onDomain);
+    window.addEventListener('xb77:disconnected', onDisconn);
+    return () => {
+      window.removeEventListener('xb77:connected', onConn);
+      window.removeEventListener('xb77:domain-resolved', onDomain);
+      window.removeEventListener('xb77:disconnected', onDisconn);
+    };
   }, []);
   const open = () => window.dispatchEvent(new CustomEvent('xb77:open-keystore'));
   const connected = !!agentId;
+  // Display priority: <name>.sol if resolved (native, no API roundtrip),
+  // else truncated agent id, else "Connect".
+  const label = !connected
+    ? '○ Connect'
+    : solDomain
+      ? `● ${solDomain}`
+      : `● ${agentId.slice(0, 14)}…`;
+  const sovereign = !!solDomain;
   return (
-    <button onClick={open} title={connected ? 'Manage keystore' : 'Connect agent'} style={{
-      fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
-      padding: '6px 12px',
-      background: connected ? 'rgba(127,191,63,0.12)' : 'transparent',
-      color: connected ? 'var(--green, #7fbf3f)' : 'var(--accent, #c97a3a)',
-      border: `1px solid ${connected ? 'rgba(127,191,63,0.4)' : 'var(--accent, #c97a3a)'}`,
-      cursor: 'pointer', whiteSpace: 'nowrap',
-    }}>
-      {connected ? `● ${agentId.slice(0, 14)}…` : '○ Connect'}
+    <button
+      onClick={open}
+      title={
+        connected
+          ? (sovereign ? `Sovereign identity: ${solDomain} (Native SNS) — manage keystore` : 'Manage keystore')
+          : 'Connect agent'
+      }
+      style={{
+        fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase',
+        padding: '6px 12px',
+        background: sovereign ? 'rgba(200,255,46,0.14)' : connected ? 'rgba(127,191,63,0.12)' : 'transparent',
+        color: sovereign ? 'var(--lime, #c8ff2e)' : connected ? 'var(--green, #7fbf3f)' : 'var(--accent, #c97a3a)',
+        border: `1px solid ${sovereign ? 'rgba(200,255,46,0.45)' : connected ? 'rgba(127,191,63,0.4)' : 'var(--accent, #c97a3a)'}`,
+        cursor: 'pointer', whiteSpace: 'nowrap',
+        textShadow: sovereign ? '0 0 8px rgba(200,255,46,0.4)' : 'none',
+      }}
+    >
+      {label}
     </button>
   );
 }

@@ -10,6 +10,11 @@ remotion/
 # Build script for esbuild — runs at design time, not at request time.
 build.sh
 
+# JSX sources — esbuild compiles them to assets/js/ at design time.
+# Production only needs the compiled JS; the JSX sources are ~540 KB of
+# dev-only noise that shouldn't ride to the edge.
+assets/src/
+
 # Editor / OS noise
 .DS_Store
 *.swp

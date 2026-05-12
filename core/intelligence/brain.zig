@@ -14,18 +14,39 @@ pub const BrainInsight = struct {
     relevant_rules: [][]const u8,
     decision_trace: []const u8,
     allocator: std.mem.Allocator,
-    
-    // Extended fields for local reasoning
+
+    // Extended fields for local reasoning. `decision` and `reasoning` may
+    // be either string literals (cheap path) or heap-allocated dupes (when
+    // they come from JSON parsing or shim responses). The *_owned flags
+    // track ownership so deinit frees exactly what we allocated.
     decision: []const u8 = "approve",
+    decision_owned: bool = false,
     risk_score: f32 = 0.0,
     reasoning: []const u8 = "",
+    reasoning_owned: bool = false,
 
     pub fn deinit(self: *BrainInsight) void {
         for (self.relevant_rules) |rule| self.allocator.free(rule);
         self.allocator.free(self.relevant_rules);
         self.allocator.free(self.decision_trace);
-        if (self.reasoning.len > 0) self.allocator.free(self.reasoning);
-        // decision is usually a literal or part of decision_trace
+        if (self.reasoning_owned and self.reasoning.len > 0) self.allocator.free(self.reasoning);
+        if (self.decision_owned and self.decision.len > 0) self.allocator.free(self.decision);
+    }
+
+    /// Helper: replace `reasoning` with an allocated dupe, freeing the previous
+    /// allocation only if it was owned. Use this instead of bare assignment.
+    pub fn setReasoning(self: *BrainInsight, text: []const u8) !void {
+        if (self.reasoning_owned and self.reasoning.len > 0) self.allocator.free(self.reasoning);
+        self.reasoning = try self.allocator.dupe(u8, text);
+        self.reasoning_owned = true;
+    }
+
+    /// Helper: replace `decision` with an allocated dupe, freeing the previous
+    /// allocation only if it was owned. Literal defaults are left untouched.
+    pub fn setDecision(self: *BrainInsight, text: []const u8) !void {
+        if (self.decision_owned and self.decision.len > 0) self.allocator.free(self.decision);
+        self.decision = try self.allocator.dupe(u8, text);
+        self.decision_owned = true;
     }
 
     pub fn formatTelegram(self: *BrainInsight) ![]const u8 {
@@ -112,15 +133,14 @@ pub const Brain = struct {
         for (directive, 0..) |char, i| lower[i] = std.ascii.toLower(char);
 
         if (std.mem.indexOf(u8, lower, "austerity") != null or std.mem.indexOf(u8, lower, "low balance") != null) {
-            insight.decision = "approve";
             insight.risk_score = 0.1;
-            insight.reasoning = try self.allocator.dupe(u8, "Austerity Mode detected. Evaluation prioritized for micro-loan swarm rescue.");
+            try insight.setReasoning("Austerity Mode detected. Evaluation prioritized for micro-loan swarm rescue.");
             insight.directive.zk_proof = "qvac_austerity_override_v1";
         } else {
-            insight.decision = "approve";
             insight.risk_score = 0.05;
-            insight.reasoning = try self.allocator.dupe(u8, "Direct autonomous execution authorized by Sovereign Brain.");
+            try insight.setReasoning("Direct autonomous execution authorized by Sovereign Brain.");
         }
+        // decision stays "approve" (literal default) — no ownership change needed.
 
         return insight;
     }
@@ -163,10 +183,9 @@ pub const Brain = struct {
         defer parsed.deinit();
 
         var insight = try self.interpret(directive);
-        insight.decision = try self.allocator.dupe(u8, parsed.value.decision);
+        try insight.setDecision(parsed.value.decision);
         insight.risk_score = parsed.value.risk_score;
-        if (insight.reasoning.len > 0) self.allocator.free(insight.reasoning);
-        insight.reasoning = try self.allocator.dupe(u8, parsed.value.reasoning);
+        try insight.setReasoning(parsed.value.reasoning);
 
         return insight;
     }

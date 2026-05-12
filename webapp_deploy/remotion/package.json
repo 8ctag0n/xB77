@@ -10,7 +10,11 @@
     "render:hero": "remotion render HeroLoop out/hero.mp4",
     "render:intro": "remotion render LogoIntro out/intro.mp4",
     "render:demo": "remotion render DemoMaster out/demo.mp4 --codec=h264 --crf=20",
-    "render:all": "npm run render:mark && npm run render:og && npm run render:hero && npm run render:intro"
+    "render:all": "npm run render:mark && npm run render:og && npm run render:hero && npm run render:intro",
+    "render:bonfida": "remotion render DemoBonfida out/demo_bonfida.mp4 --codec=h264 --crf=20",
+    "render:magicblock": "remotion render DemoMagicblock out/demo_magicblock.mp4 --codec=h264 --crf=20",
+    "render:qvac": "remotion render DemoQvac out/demo_qvac.mp4 --codec=h264 --crf=20",
+    "render:solana": "remotion render DemoSolana out/demo_solana.mp4 --codec=h264 --crf=20"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.0",

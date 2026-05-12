@@ -3,7 +3,7 @@
   "title": "Trident Status",
   "subtitle": "SNS . Brain . MagicBlock \u2014 all sovereign",
   "ts_start": "2026-05-12T04:01:56Z",
-  "duration_ms": 13190,
+  "duration_ms": 13188,
   "exit_code": 0,
   "lines": [
     {
@@ -14,91 +14,79 @@
     },
     {
       "stream": "stdout",
-      "t_ms": 824,
+      "t_ms": 942,
       "text": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0",
       "ansi": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0"
     },
     {
       "stream": "stdout",
-      "t_ms": 1648,
+      "t_ms": 1884,
       "text": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent afe52485...",
       "ansi": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent afe52485..."
     },
     {
       "stream": "stdout",
-      "t_ms": 2472,
+      "t_ms": 2826,
       "text": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session 5146bb5d...",
       "ansi": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session 5146bb5d..."
     },
     {
       "stream": "stdout",
-      "t_ms": 3296,
-      "text": "[SOLANA]  Tx failed: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32002,\"message\":\"Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.\",\"data\":{\"accounts\":null,\"err\":\"AccountNotFound\",\"fee\":null,\"innerInstructions\":null,\"loadedAccountsDataSize\":0,\"loadedAddresses\":null,\"logs\":[],\"postBalances\":null,\"postTokenBalances\":null,\"preBalances\":null,\"preTokenBalances\":null,\"replacementBlockhash\":null,\"returnData\":null,\"unitsConsumed\":0}},\"id\":1}",
-      "ansi": "[SOLANA]  Tx failed: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32002,\"message\":\"Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.\",\"data\":{\"accounts\":null,\"err\":\"AccountNotFound\",\"fee\":null,\"innerInstructions\":null,\"loadedAccountsDataSize\":0,\"loadedAddresses\":null,\"logs\":[],\"postBalances\":null,\"postTokenBalances\":null,\"preBalances\":null,\"preTokenBalances\":null,\"replacementBlockhash\":null,\"returnData\":null,\"unitsConsumed\":0}},\"id\":1}"
-    },
-    {
-      "stream": "stdout",
-      "t_ms": 4120,
+      "t_ms": 3768,
       "text": "",
       "ansi": ""
     },
     {
       "stream": "stdout",
-      "t_ms": 4944,
-      "text": "[MAGIC ]  ShadowWire initialization failed: InvalidResponse. Using standard rails.",
-      "ansi": "[MAGIC ]  ShadowWire initialization failed: InvalidResponse. Using standard rails."
-    },
-    {
-      "stream": "stdout",
-      "t_ms": 5768,
+      "t_ms": 4710,
       "text": "--- xB77 SOVEREIGN AGENT STATUS (megademo) ---",
       "ansi": "\u001b[33;1m--- xB77 SOVEREIGN AGENT STATUS (megademo) ---\u001b[0m"
     },
     {
       "stream": "stdout",
-      "t_ms": 6592,
+      "t_ms": 5652,
       "text": "[IDENTITY] Anonymous Agent",
       "ansi": "\u001b[36m[IDENTITY]\u001b[0m Anonymous Agent"
     },
     {
       "stream": "stdout",
-      "t_ms": 7416,
+      "t_ms": 6594,
       "text": "[BRAIN   ] Gemma 3 (Active via TS Shim :8088)",
       "ansi": "\u001b[36m[BRAIN   ]\u001b[0m Gemma 3 \u001b[32m(Active via TS Shim :8088)\u001b[0m"
     },
     {
       "stream": "stdout",
-      "t_ms": 8240,
+      "t_ms": 7536,
       "text": "[HFT RAIL ] MagicBlock (Live Sequencer)",
       "ansi": "\u001b[36m[HFT RAIL ]\u001b[0m MagicBlock \u001b[32m(Live Sequencer)\u001b[0m"
     },
     {
       "stream": "stdout",
-      "t_ms": 9064,
+      "t_ms": 8478,
       "text": "--------------------------------------------------",
       "ansi": "--------------------------------------------------"
     },
     {
       "stream": "stdout",
-      "t_ms": 9888,
+      "t_ms": 9420,
       "text": "Solana L1: Cqd17sbnd58rv1JzoLYNQqMdkfsXhpMU5PbvjvxDw7zV",
       "ansi": "Solana L1: Cqd17sbnd58rv1JzoLYNQqMdkfsXhpMU5PbvjvxDw7zV"
     },
     {
       "stream": "stdout",
-      "t_ms": 10712,
+      "t_ms": 10362,
       "text": "Base EVM:  0x5919efc62c37c551c47653cc569c1bbb2fa76550",
       "ansi": "Base EVM:  0x5919efc62c37c551c47653cc569c1bbb2fa76550"
     },
     {
       "stream": "stdout",
-      "t_ms": 11536,
+      "t_ms": 11304,
       "text": "ZK Ledger: Root 0x0ce8... (0 entries)",
       "ansi": "ZK Ledger: Root 0x0ce8... (0 entries)"
     },
     {
       "stream": "stdout",
-      "t_ms": 12360,
+      "t_ms": 12246,
       "text": "Status:    SOVEREIGN & ACTIVE",
       "ansi": "Status:    \u001b[32;1mSOVEREIGN & ACTIVE\u001b[0m"
     }

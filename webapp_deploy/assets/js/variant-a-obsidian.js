@@ -36,7 +36,7 @@ function ObsidianVariant({ theme }) {
     justifyContent: "space-between",
     padding: "0 " + (bp.mobile ? "16px" : "40px"),
     height: 56
-  } }, /* @__PURE__ */ React.createElement(window.LogoDeluxe, { size: 40 }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: bp.mobile ? 12 : 28, alignItems: "center" } }, !bp.mobile && [
+  } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontWeight: 700, fontSize: 20, color: t.accent, letterSpacing: "0.08em" } }, "xB77"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: bp.mobile ? 12 : 28, alignItems: "center" } }, !bp.mobile && [
     { label: "Why xB77", href: "/index.html#why" },
     { label: "Docs", href: "/index.html#docs" },
     { label: "Whitepaper", href: "/index.html#whitepaper" },

@@ -811,6 +811,68 @@ async function handleWalletTransactions(env, url) {
   return jsonResponse(items, { env });
 }
 
+// ────────────────────────── SNS reverse lookup ──────────────────────────
+// Proxies to Bonfida's SNS API to resolve "what's the .sol for this wallet?"
+// — used by the dApp's ConnectionPill to swap "ag_xxx…" for "<name>.sol".
+// Cached in BUCKETS KV with a 1-hour TTL so we don't hammer Bonfida.
+
+const SNS_REVERSE_TTL_S = 3600;
+
+async function handleSnsReverse(env, url) {
+  const pubkey = (url.searchParams.get("pubkey") || "").trim();
+  if (!pubkey) return jsonResponse({ error: "missing pubkey" }, { status: 400, env });
+  // Lightweight base58 sanity — Solana addresses are 32–44 chars in base58.
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(pubkey)) {
+    return jsonResponse({ error: "invalid pubkey" }, { status: 400, env });
+  }
+
+  // Bumped cache key version (v2) — previous deploys cached null because
+  // of a parser bug against an outdated Bonfida response shape; invalidate.
+  const cacheKey = "sns:reverse:v2:" + pubkey;
+  const cached = await env.BUCKETS.get(cacheKey);
+  if (cached) {
+    return jsonResponse({ ok: true, sol: cached === "null" ? null : cached, cached: true }, { env });
+  }
+
+  // Bonfida API as of 2026-05:
+  //   GET /v2/user/domains/<wallet>  →  { "<wallet>": ["domain1", "domain2", ...] }
+  //                                     (domain strings WITHOUT a .sol suffix)
+  //   /v2/user/favorite-domain/      →  404 (deprecated)
+  // We pick the first domain in the list. For wallets with no domains the
+  // wallet key may be absent or the array empty — both map to null.
+  let solName = null;
+  try {
+    const listRes = await fetch(`https://sns-api.bonfida.com/v2/user/domains/${pubkey}`, {
+      headers: { "accept": "application/json" },
+    });
+    if (listRes.ok) {
+      const data = await listRes.json().catch(() => null);
+      let domains = null;
+      if (data && typeof data === "object") {
+        // Common shape: { "<wallet>": [...] }
+        if (Array.isArray(data[pubkey])) {
+          domains = data[pubkey];
+        } else if (Array.isArray(data)) {
+          domains = data;
+        } else {
+          // Fallback: pick the first array value if shape is { "<anything>": [...] }
+          const firstArr = Object.values(data).find((v) => Array.isArray(v));
+          if (firstArr) domains = firstArr;
+        }
+      }
+      if (Array.isArray(domains) && domains.length > 0) {
+        const raw = domains[0];
+        const name = (typeof raw === "string" ? raw : raw?.domain || raw?.name || "").toString();
+        if (name) solName = name.endsWith(".sol") ? name : name + ".sol";
+      }
+    }
+  } catch (_) { /* network blip or shape change — return null */ }
+
+  // Cache result (positive or negative) so repeat lookups don't hammer Bonfida.
+  await env.BUCKETS.put(cacheKey, solName || "null", { expirationTtl: SNS_REVERSE_TTL_S });
+  return jsonResponse({ ok: true, sol: solName, cached: false }, { env });
+}
+
 // ────────────────────────── router ──────────────────────────
 
 export default {
@@ -894,6 +956,7 @@ export default {
         if (path === "/api/v1/pipelines/recent") return handlePipelinesRecent(env, url);
         if (path === "/api/v1/wallet/balances") return handleWalletBalances(env, url);
         if (path === "/api/v1/wallet/transactions") return handleWalletTransactions(env, url);
+        if (path === "/api/v1/sns/reverse") return handleSnsReverse(env, url);
         return jsonResponse({ error: "not found" }, { status: 404, env });
       }
 

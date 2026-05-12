@@ -125,7 +125,7 @@ export const TerminalReplay: React.FC<TerminalReplayProps> = ({
         <div style={{ width: 36 }} />
       </div>
 
-      {/* Body — lines scroll in */}
+      {/* Body — lines scroll in, then the whole content slides up so latest lines stay visible */}
       <div
         style={{
           flex: 1,
@@ -136,8 +136,10 @@ export const TerminalReplay: React.FC<TerminalReplayProps> = ({
           color: COLORS.textHi,
           overflow: "hidden",
           whiteSpace: "pre",
+          position: "relative",
         }}
       >
+        <TerminalScroller fontSize={fontSize} visible={visible}>
         {visible.map((line, i) => {
           const enterMs = Math.max(ms - line.t_ms, 0);
           const opacity = Math.min(enterMs / 80, 1);
@@ -166,8 +168,37 @@ export const TerminalReplay: React.FC<TerminalReplayProps> = ({
             }}
           />
         ) : null}
+        </TerminalScroller>
       </div>
       </div>
+    </div>
+  );
+};
+
+/**
+ * TerminalScroller — slides the content up so the newest line is always
+ * visible. We can't measure DOM in Remotion (deterministic frame rendering),
+ * so the offset is computed from line count × line-height. After
+ * VISIBLE_LINES are on screen, every new line shifts the stack up by one
+ * lineHeight via a CSS transition.
+ */
+const TerminalScroller: React.FC<{
+  fontSize: number;
+  visible: TerminalLine[];
+  children: React.ReactNode;
+}> = ({ fontSize, visible, children }) => {
+  const VISIBLE_LINES = 10;       // 480p body fits ~10 lines comfortably
+  const lineHeight = fontSize * 1.45;
+  const excess = Math.max(0, visible.length - VISIBLE_LINES);
+  const offsetPx = excess * lineHeight;
+  return (
+    <div
+      style={{
+        transform: `translateY(-${offsetPx}px)`,
+        transition: "transform 240ms ease-out",
+      }}
+    >
+      {children}
     </div>
   );
 };

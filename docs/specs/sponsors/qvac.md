@@ -3,7 +3,21 @@
 > **Sponsor**: Tether
 > **Track**: Side prize — Frontier builders who integrate QVAC into their project ($10k pool)
 > **Submission deadline**: May 11, 2026 (Superteam Earn listing)
-> **Repo branch to target**: `sponsor/qvac` (cut from `feat/dapp-public-split`)
+> **Repo branch**: `post-frontier-enhancement`
+
+## Status — post-frontier brain ownership pass (commits `de0a2c8`, `c138869`, `29086ec`)
+
+What landed for QVAC after the original spec:
+
+- **Schema match** (`de0a2c8`): the TS shim's `/evaluate` now accepts both `{directive}` (what the Zig brain sends) and the original `{scenario, context}` form. `directiveToScenario()` parses Spanish/English intent + amount and synthesizes the heuristic input. Before this, every Zig→shim call returned 400 and fell to fallback.
+- **Connection error handling** (`c138869`): `reasonWithShim()` now catches `ConnectionRefused` (shim killed mid-call) and falls back to heuristics with no crash. Demo's kill-switch beat (real, recordable).
+- **Memory ownership flags** (`29086ec`): `BrainInsight` got `decision_owned` and `reasoning_owned` bools plus `setDecision()` / `setReasoning()` helpers that free the previous allocation only when owned. Closes the GPA leak warning that previously showed up in `xb77 brain "..."` captures — the noise that made demo videos look broken.
+
+Result: `XB77_USE_BRAIN_SHIM=1 xb77 brain "transferir 50 SOL"` now returns real shim-driven reasoning (risk 0.80, "Unusual price detected" — actual response from `services/qvac_brain/server.ts`). With the shim killed, the same command falls back to heuristics with the same structured output shape.
+
+Open gap: native Gemma inference still gated (`loadModel({modelSrc: GEMMA_3_4B_IT_Q4_0})` commented out in `services/qvac_brain/server.ts`). Heuristic engine is the active path — high-fidelity but not actual LLM. Runpod T4 (~$0.30/hr) deploy unlocks it.
+
+---
 
 ## Why this spec exists
 
