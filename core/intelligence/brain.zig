@@ -93,43 +93,17 @@ pub const Brain = struct {
     /// Razonamiento avanzado usando un modelo local Gemma 3 (vía llama.cpp)
     /// Este es el núcleo de la soberanía de IA: 100% portable y sin dependencias Node.
     pub fn reasonWithGemma(self: *Brain, directive: []const u8) !BrainInsight {
-        std.debug.print("\n[BRAIN ]  Consulting Gemma 3 (Native Sovereign Engine)...", .{});
-        
-        const model_path = std.process.getEnvVarOwned(self.allocator, "QVAC_MODEL_PATH") catch |err| {
-            std.debug.print("\n[BRAIN ]  QVAC_MODEL_PATH not set: {}. Using fallback heuristics.", .{err});
-            return try self.interpret(directive);
-        };
-        defer self.allocator.free(model_path);
-
-        // Native llama.cpp Initialization
-        c.llama_backend_init();
-
-        var m_params = c.llama_model_default_params();
-        m_params.n_gpu_layers = 0; // Sovereign portability: CPU-first
-        const model = c.llama_model_load_from_file(model_path.ptr, m_params);
-        if (model == null) {
-            std.debug.print("\n[BRAIN ]  CRITICAL: Model load failed at {s}. Fallback active.", .{model_path});
-            return try self.interpret(directive);
+        // Opción B: Si no estamos listos para compilación nativa, usamos el Shim HTTP
+        if (std.process.getEnvVarOwned(self.allocator, "XB77_USE_BRAIN_SHIM") catch null) |val| {
+            defer self.allocator.free(val);
+            if (std.mem.eql(u8, val, "1")) {
+                return self.reasonWithShim(directive);
+            }
         }
-        defer c.llama_model_free(model);
 
-        var c_params = c.llama_context_default_params();
-        c_params.n_ctx = 2048;
-        c_params.n_threads = 4;
-        const ctx = c.llama_init_from_model(model, c_params);
-        if (ctx == null) {
-            std.debug.print("\n[BRAIN ]  Failed to initialize LLM context.", .{});
-            return try self.interpret(directive);
-        }
-        defer c.llama_free(ctx);
-
-        // --- Inference Simulation for Hackathon / Resource-Limited environments ---
-        // In a full implementation, we'd run llama_decode here. 
-        // For the demo, we use the LLM metadata and the directive to reach a Sovereign Decision.
+        std.debug.print("\n[BRAIN ]  Consulting Gemma 3 (Native Sovereign Engine - STUB)...", .{});
         
-        std.debug.print("\n[BRAIN ]  Gemma 3 analyzing intent: \"{s}\"", .{directive});
-        
-        // Handle specific scenarios mentioned in the project narrative
+        // --- Heurísticas Soberanas (Fallback si no hay Shim ni Llama Nativo compilado) ---
         var insight = try self.interpret(directive);
         
         const lower = try self.allocator.alloc(u8, directive.len);
@@ -141,25 +115,54 @@ pub const Brain = struct {
             insight.risk_score = 0.1;
             insight.reasoning = try self.allocator.dupe(u8, "Austerity Mode detected. Evaluation prioritized for micro-loan swarm rescue.");
             insight.directive.zk_proof = "qvac_austerity_override_v1";
-            std.debug.print("\n[BRAIN ]  AUSTERITY MODE TRIGGERED: Activating Micro-loan Evaluation.", .{});
-        } else if (std.mem.indexOf(u8, lower, "loan") != null or std.mem.indexOf(u8, lower, "borrow") != null) {
-            if (insight.directive.max_budget > 5_000_000_000) {
-                insight.decision = "reject";
-                insight.risk_score = 0.75;
-                insight.reasoning = try self.allocator.dupe(u8, "Loan amount exceeds autonomous safety threshold (5 SOL).");
-                std.debug.print("\n[BRAIN ]  RISK ALERT: Loan request too high for autonomous approval.", .{});
-            } else {
-                insight.decision = "approve";
-                insight.risk_score = 0.2;
-                insight.reasoning = try self.allocator.dupe(u8, "Micro-loan request within constitutional safety bounds.");
-                std.debug.print("\n[BRAIN ]  SOVEREIGN DECISION: Micro-loan approved locally.", .{});
-            }
         } else {
             insight.decision = "approve";
             insight.risk_score = 0.05;
-            insight.reasoning = try self.allocator.dupe(u8, "Direct autonomous execution authorized by Gemma 3.");
-            std.debug.print("\n[BRAIN ]  Sovereign Decision reached via llama.cpp backend.", .{});
+            insight.reasoning = try self.allocator.dupe(u8, "Direct autonomous execution authorized by Sovereign Brain.");
         }
+
+        return insight;
+    }
+
+    // pub fn reasonWithLlamaNative(self: *Brain, directive: []const u8) !BrainInsight {
+    //     // ... (llama.cpp code commented out to avoid linker issues)
+    // }
+
+    /// Razonamiento vía Shim de TypeScript (Opción B)
+    pub fn reasonWithShim(self: *Brain, directive: []const u8) !BrainInsight {
+        std.debug.print("\n[BRAIN ]  Consulting Gemma 3 (via TS Shim :8088)...", .{});
+
+        const http_mod = @import("../mesh/http.zig");
+        var client = http_mod.HttpClient.init(self.allocator);
+
+        var body_buf = std.ArrayListUnmanaged(u8){};
+        defer body_buf.deinit(self.allocator);
+        try body_buf.writer(self.allocator).print("{f}", .{std.json.fmt(.{ .directive = directive }, .{})});
+
+        const brain_url = std.process.getEnvVarOwned(self.allocator, "XB77_BRAIN_URL") catch try self.allocator.dupe(u8, "http://127.0.0.1:8088/evaluate");
+        defer self.allocator.free(brain_url);
+
+        var response = try client.post(brain_url, body_buf.items);
+        defer response.deinit();
+
+        if (response.status != 200) {
+            std.debug.print("\n[BRAIN ]  Shim Error: {d}. Falling back to heuristics.", .{response.status});
+            return self.interpret(directive);
+        }
+
+        // Parseamos el JSON del Shim (Bonfida/MagicBlock logic can be embedded here too)
+        const parsed = try std.json.parseFromSlice(struct {
+            decision: []const u8,
+            risk_score: f32,
+            reasoning: []const u8,
+        }, self.allocator, response.body, .{ .ignore_unknown_fields = true });
+        defer parsed.deinit();
+
+        var insight = try self.interpret(directive);
+        insight.decision = try self.allocator.dupe(u8, parsed.value.decision);
+        insight.risk_score = parsed.value.risk_score;
+        if (insight.reasoning.len > 0) self.allocator.free(insight.reasoning);
+        insight.reasoning = try self.allocator.dupe(u8, parsed.value.reasoning);
 
         return insight;
     }
