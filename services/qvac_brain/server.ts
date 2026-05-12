@@ -39,9 +39,35 @@ app.get("/healthz", (req, res) => {
   });
 });
 
+// Map a free-text directive to a (scenario, context) tuple. The Zig brain
+// (core/intelligence/brain.zig) sends {directive: "..."} so we parse intent
+// here instead of forcing the agent to pre-classify on its side.
+function directiveToScenario(directive: string): { scenario: string; context: any } {
+  const d = directive.toLowerCase();
+  const amountMatch = d.match(/(\d+(?:[.,]\d+)?)\s*(sol|lamport|usdt|usdc)?/);
+  const raw = amountMatch ? parseFloat(amountMatch[1].replace(",", ".")) : 0;
+  const unit = (amountMatch?.[2] || "sol").toLowerCase();
+  const lamports = unit === "lamport" ? Math.round(raw) : Math.round(raw * 1e9);
+
+  if (/(loan|prestamo|préstamo|borrow|crédito|credito)/.test(d)) {
+    return { scenario: "loan_request", context: { amount: lamports } };
+  }
+  if (/(transfer|transferir|enviar|send|pay|pagar|swap|trade|order|orden)/.test(d)) {
+    return { scenario: "submit_order", context: { price: lamports } };
+  }
+  return { scenario: "generic_intent", context: { amount: lamports, directive } };
+}
+
 app.post("/evaluate", async (req, res) => {
-  const { scenario, context } = req.body;
-  if (!scenario) return res.status(400).json({ error: "Missing scenario" });
+  let { scenario, context } = req.body;
+
+  // Accept the Zig brain's {directive: "..."} schema too — parse intent here.
+  if (!scenario && typeof req.body?.directive === "string") {
+    const parsed = directiveToScenario(req.body.directive);
+    scenario = parsed.scenario;
+    context = parsed.context;
+  }
+  if (!scenario) return res.status(400).json({ error: "Missing scenario or directive" });
 
   console.log(`[QVAC] Evaluating scenario: ${scenario}`);
   
