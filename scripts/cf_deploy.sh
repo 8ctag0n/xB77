@@ -1,23 +1,28 @@
 #!/usr/bin/env bash
-# scripts/cf_deploy.sh — one-shot Cloudflare deploy for xB77.
+# scripts/cf_deploy.sh — one-shot Cloudflare Worker deploy for xB77.
 #
-# Deploys:
-#   1. Worker  → https://xb77-adapter.<your-account>.workers.dev
-#   2. Pages   → https://xb77-app.pages.dev  (or your project name)
+# Deploys a SINGLE Worker that serves:
+#   /             → webapp_deploy/index.html      (CF static assets, edge-cached)
+#   /app.html     → webapp_deploy/app.html
+#   /assets/*     → webapp_deploy/assets/*
+#   /idls/*       → webapp_deploy/idls/*
+#   /api/v1/*     → src/index.js fetch handler    (gateway logic)
+#
+# This is the modern Cloudflare pattern (May 2026) — Pages is in maintenance
+# mode, Workers Static Assets serves the same role plus colocated API. One URL.
 #
 # Required env:
 #   CLOUDFLARE_API_TOKEN   token with scopes:
 #                            Workers Scripts:Edit
 #                            Workers KV Storage:Edit
-#                            Cloudflare Pages:Edit
 #                            Account Settings:Read
+#                          (Pages scope NOT required anymore)
 #   CLOUDFLARE_ACCOUNT_ID  your account ID (dash.cloudflare.com → right sidebar)
 #
 # Optional env:
 #   ZNODE_RPC_URL          Solana RPC the Worker will hit
 #                          default: https://api.devnet.solana.com
-#   PAGES_PROJECT_NAME     default: xb77-app
-#   GATEWAY_PRIVKEY_HEX    pre-generated 64-byte hex (seed||pubkey).
+#   GATEWAY_PRIVKEY_HEX    pre-generated 64B hex (seed||pubkey).
 #                          If unset, this script generates a fresh keypair.
 #   INGEST_TOKEN           pre-generated bearer for /pipelines/ingest.
 #                          If unset, generated random.
@@ -34,11 +39,9 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKER_DIR="$REPO/gateway/worker"
-PAGES_DIR="$REPO/webapp_deploy"
 SUMMARY_FILE="$REPO/.cf_deploy_summary"
 
 ZNODE_RPC_URL="${ZNODE_RPC_URL:-https://api.devnet.solana.com}"
-PAGES_PROJECT_NAME="${PAGES_PROJECT_NAME:-xb77-app}"
 
 # ── Pre-flight ────────────────────────────────────────────────────────
 say() { printf "\n\033[33;1m[cf-deploy]\033[0m %s\n" "$*"; }
@@ -50,15 +53,21 @@ die() { printf "\n\033[31;1m[cf-deploy] FAIL:\033[0m %s\n" "$*" >&2; exit 1; }
 if ! command -v wrangler >/dev/null; then
   say "wrangler not found — installing via npm globally..."
   command -v npm >/dev/null || die "npm not found, install Node.js first"
-  npm install -g wrangler >/dev/null 2>&1 || die "wrangler install failed"
+  npm install -g wrangler@latest >/dev/null 2>&1 || die "wrangler install failed"
 fi
 
-command -v node >/dev/null   || die "node not found (needed for keypair gen)"
+command -v node >/dev/null    || die "node not found (needed for keypair gen)"
 command -v python3 >/dev/null || die "python3 not found (needed for toml patch)"
 
 WRANGLER_VERSION="$(wrangler --version 2>/dev/null | head -1 || echo "?")"
 say "wrangler $WRANGLER_VERSION"
-say "Token has access to account $CLOUDFLARE_ACCOUNT_ID"
+say "Account: $CLOUDFLARE_ACCOUNT_ID"
+
+# Make sure the webapp_deploy is built (or at least the JS files exist).
+if [[ ! -f "$REPO/webapp_deploy/assets/js/app-tabs.js" ]]; then
+  say "webapp_deploy/assets/js/ missing — running build.sh"
+  (cd "$REPO/webapp_deploy" && bash build.sh)
+fi
 
 # ── Generate gateway Ed25519 keypair if not provided ──────────────────
 if [[ -z "${GATEWAY_PRIVKEY_HEX:-}" ]]; then
@@ -73,7 +82,6 @@ if [[ -z "${GATEWAY_PRIVKEY_HEX:-}" ]]; then
     process.stdout.write(seed.toString("hex") + pubkey.toString("hex") + " " + pubkey.toString("hex"));
   ')
 else
-  # Derive pubkey from the provided 64-byte hex (last 32 bytes)
   GATEWAY_PUBKEY_HEX="${GATEWAY_PRIVKEY_HEX: -64}"
 fi
 say "Gateway pubkey (32B hex): $GATEWAY_PUBKEY_HEX"
@@ -88,18 +96,16 @@ say "INGEST_TOKEN generated (length=${#INGEST_TOKEN})"
 cd "$WORKER_DIR"
 declare -A KV_IDS
 for ns in AGENTS ORDERS NONCES BUCKETS IDEMP; do
-  # Try create; if already exists, list and grep.
   out="$(wrangler kv namespace create "$ns" 2>&1 || true)"
   id="$(printf '%s\n' "$out" | grep -oE 'id = "[a-f0-9]+"' | head -1 | cut -d'"' -f2 || true)"
   if [[ -z "$id" ]]; then
-    # Maybe already exists — query the list
+    # Already exists — fetch from the namespace list
     list="$(wrangler kv namespace list 2>/dev/null || echo '[]')"
     id="$(printf '%s' "$list" | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
 for n in data:
     title = n.get('title','')
-    # wrangler appends '-<binding>' to the worker name; ours is xb77-adapter-<NS>
     if title.endswith('-$ns') or title == '$ns':
         print(n['id'])
         break
@@ -110,23 +116,21 @@ for n in data:
   say "  KV $ns → $id"
 done
 
-# ── Patch wrangler.toml in place: KV ids + ZNODE_RPC_URL + ACCEPT_SCHEMA_1_0 ──
+# ── Patch wrangler.toml: KV ids + ZNODE_RPC_URL ───────────────────────
 say "Patching wrangler.toml with prod KV IDs + RPC..."
 python3 - <<PY
 import re, pathlib
 p = pathlib.Path("wrangler.toml")
 toml = p.read_text()
-
 ids = {"AGENTS": "${KV_IDS[AGENTS]}", "ORDERS": "${KV_IDS[ORDERS]}", "NONCES": "${KV_IDS[NONCES]}", "BUCKETS": "${KV_IDS[BUCKETS]}", "IDEMP": "${KV_IDS[IDEMP]}"}
 
-def replace_kv_block(name, real_id, text):
+def replace_kv(name, real_id, text):
     pat = re.compile(r'(\[\[kv_namespaces\]\]\nbinding = "' + name + r'"\nid = ")[^"]+(")')
     return pat.sub(lambda m: m.group(1) + real_id + m.group(2), text, count=1)
 
 for name, real_id in ids.items():
-    toml = replace_kv_block(name, real_id, toml)
+    toml = replace_kv(name, real_id, toml)
 
-# RPC override
 toml = re.sub(r'ZNODE_RPC_URL = "[^"]*"', f'ZNODE_RPC_URL = "${ZNODE_RPC_URL}"', toml)
 
 p.write_text(toml)
@@ -140,36 +144,26 @@ printf '%s' "$GATEWAY_PRIVKEY_HEX" | wrangler secret put GATEWAY_PRIVKEY_HEX
 say "Setting INGEST_TOKEN secret..."
 printf '%s' "$INGEST_TOKEN" | wrangler secret put INGEST_TOKEN
 
-# ── Deploy Worker ─────────────────────────────────────────────────────
-say "Deploying Worker..."
+# ── Deploy (Worker + Static Assets in one shot) ───────────────────────
+say "Deploying Worker (with static assets)..."
 deploy_out="$(wrangler deploy 2>&1)"
 echo "$deploy_out" | tail -20
 WORKER_URL="$(printf '%s' "$deploy_out" | grep -oE 'https://[a-z0-9.-]+\.workers\.dev' | head -1 || echo '')"
 [[ -n "$WORKER_URL" ]] || die "couldn't parse Worker URL from deploy output"
 say "Worker → $WORKER_URL"
 
-# ── Health check the Worker ───────────────────────────────────────────
+# ── Health checks ─────────────────────────────────────────────────────
 say "Health-checking $WORKER_URL/api/v1 ..."
-curl -fsSL "$WORKER_URL/api/v1" | head -3 || die "Worker /api/v1 not responding"
-
-# ── Deploy Pages ──────────────────────────────────────────────────────
-cd "$PAGES_DIR"
-say "Deploying Pages project '$PAGES_PROJECT_NAME'..."
-# Create project if doesn't exist (idempotent)
-wrangler pages project create "$PAGES_PROJECT_NAME" --production-branch=main 2>&1 \
-  | grep -vE "already exists" || true
-
-pages_out="$(wrangler pages deploy . --project-name "$PAGES_PROJECT_NAME" --branch main --commit-dirty=true 2>&1)"
-echo "$pages_out" | tail -10
-PAGES_URL="$(printf '%s' "$pages_out" | grep -oE 'https://[a-z0-9.-]+\.pages\.dev' | head -1 || echo '')"
-[[ -n "$PAGES_URL" ]] || die "couldn't parse Pages URL"
-say "Pages → $PAGES_URL"
+curl -fsSL "$WORKER_URL/api/v1" | head -c 400 || die "Worker /api/v1 not responding"
+echo ""
+say "Health-checking $WORKER_URL/app.html (static asset) ..."
+curl -fsSL -I "$WORKER_URL/app.html" | head -3 || die "static asset /app.html not served"
 
 # ── Summary ───────────────────────────────────────────────────────────
 cat > "$SUMMARY_FILE" <<EOF
 {
   "worker_url":         "$WORKER_URL",
-  "pages_url":          "$PAGES_URL",
+  "dapp_url":           "$WORKER_URL/app.html",
   "gateway_pubkey_hex": "$GATEWAY_PUBKEY_HEX",
   "ingest_token":       "$INGEST_TOKEN",
   "rpc_url":            "$ZNODE_RPC_URL",
@@ -189,19 +183,22 @@ cat <<EOF
 xB77 DEPLOYED — ready for capture + render
 ================================================================
 
-  Worker:  $WORKER_URL
-  Pages:   $PAGES_URL
+  Landing:  $WORKER_URL
+  dApp:     $WORKER_URL/app.html
+  API:      $WORKER_URL/api/v1
+  RPC:      $ZNODE_RPC_URL
 
-  Gateway pubkey (32B hex): $GATEWAY_PUBKEY_HEX
+  Gateway pubkey (32B hex):  $GATEWAY_PUBKEY_HEX
   Ingest token (keep secret): $INGEST_TOKEN
 
   Summary saved to: $SUMMARY_FILE  (gitignored)
 
-  Test it:
+  Smoke test:
     curl -s "$WORKER_URL/api/v1" | jq
     curl -s "$WORKER_URL/api/v1/network/pulse" | jq
+    open  "$WORKER_URL/app.html"
 
-  Next:
+  Next step (capture devnet sections):
     export XB77_GATEWAY="$WORKER_URL"
     export INGEST_TOKEN="$INGEST_TOKEN"
     scripts/demo_capture.sh --rpc "$ZNODE_RPC_URL" --profile devnetdemo

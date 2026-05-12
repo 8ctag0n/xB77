@@ -17,6 +17,23 @@ compatibility_flags = ["nodejs_compat"]
 [observability]
 enabled = true
 
+# ─────────────────────────────────────────────────────────────────────
+# Static assets — serves the dApp under the SAME origin as the API.
+# Modern Cloudflare pattern (post-Pages, May 2026):
+#   /             → webapp_deploy/index.html
+#   /app.html     → webapp_deploy/app.html
+#   /assets/*     → webapp_deploy/assets/*
+#   /idls/*       → webapp_deploy/idls/*
+#   /api/v1/*     → src/index.js fetch() handler
+#
+# Default routing: requests check static assets first. If the path matches
+# a file under `directory`, it's served from the edge. Otherwise the
+# Worker's fetch() runs. Path is relative to this wrangler.toml.
+# ─────────────────────────────────────────────────────────────────────
+[assets]
+directory = "../../webapp_deploy"
+not_found_handling = "none"
+
 [vars]
 # Dev default: solana-test-validator on host (accessible from wrangler dev).
 # In prod set via `wrangler secret put ZNODE_RPC_URL` to znode.xb77.dev.
