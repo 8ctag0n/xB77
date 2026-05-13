@@ -183,7 +183,7 @@ pub fn buildAddCatalogInstruction(
 }
 
 /// Construye la data de la instrucción 'AnchorStateZk' para el programa xB77 (Batch Mode).
-/// Formato: [Discriminador (1)] + [Payload serializado con Borsh]
+/// Formato: [Discriminador (4)] + [Payload serializado con Borsh]
 pub fn buildAnchorStateZkInstruction(
     allocator: std.mem.Allocator,
     initial_root: [32]u8,
@@ -200,8 +200,8 @@ pub fn buildAnchorStateZkInstruction(
     errdefer buf.deinit(allocator);
     const writer = buf.writer(allocator);
 
-    // 1. Discriminador del Enum CoreInstruction::AnchorStateZk (4)
-    try writer.writeByte(4);
+    // 1. Discriminador del Enum CoreInstruction::AnchorStateZk (4) - 4 bytes LE
+    try writer.writeInt(u32, 4, .little);
 
     // 2. Payload serializado (Borsh-compatible)
     try writer.writeAll(&initial_root);
@@ -240,8 +240,8 @@ pub fn buildOpenPerSessionInstruction(
     errdefer buf.deinit(allocator);
     const writer = buf.writer(allocator);
 
-    // 1. Discriminador del Enum CoreInstruction::OpenPerSession (5)
-    try writer.writeByte(5);
+    // 1. Discriminador del Enum CoreInstruction::OpenPerSession (5) - 4 bytes LE
+    try writer.writeInt(u32, 5, .little);
 
     // 2. Payload serializado
     try borsh.writeU64(writer, amount);
@@ -261,8 +261,8 @@ pub fn buildRegisterAgentInstruction(
     errdefer buf.deinit(allocator);
     const writer = buf.writer(allocator);
 
-    // 1. Discriminador del Enum CoreInstruction::RegisterAgent (1)
-    try writer.writeByte(1);
+    // 1. Discriminador del Enum CoreInstruction::RegisterAgent (1) - 4 bytes LE
+    try writer.writeInt(u32, 1, .little);
 
     // 2. Payload serializado
     try writer.writeAll(&agent_id);
@@ -537,7 +537,7 @@ pub fn buildRequestPaymentInstruction(
 
     // 1. Discriminador del Enum CoreInstruction::RequestPayment
     // Rust Enum: InitCore=0, RegisterAgent=1, VerifyAndCredit=2, RequestPayment=3
-    try writer.writeByte(3);
+    try writer.writeInt(u32, 3, .little);
 
     // 2. Payload
     try borsh.writeU64(writer, request_id);

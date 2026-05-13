@@ -1,0 +1,25 @@
+# xB77 Native Orchestrator
+.PHONY: dev-up dev-down agent-dev gateway-dev validator-dev
+
+dev-up:
+	@echo "Starting native xB77 dev stack..."
+	$(MAKE) validator-dev
+	sleep 5
+	$(MAKE) gateway-dev &
+	$(MAKE) agent-dev &
+	@echo "Stack live."
+
+validator-dev:
+	nohup solana-test-validator --reset --quiet > validator.log 2>&1 &
+
+gateway-dev:
+	cd gateway/worker && bunx wrangler dev --local --port 8787
+
+agent-dev:
+	./zig-out/bin/xb77 agent --run-local
+
+dev-down:
+	pkill -f solana-test-validator || true
+	pkill -f wrangler || true
+	pkill -f xb77 || true
+	@echo "Stack stopped."

@@ -212,32 +212,51 @@ function MeshViz({ events }) {
 }
 function DashboardView() {
   const [events, setEvents] = React.useState([]);
+  const [pulse, setPulse] = React.useState({ agentsOnline: 0, proofsVerified24h: 0, _rpcLive: false });
+
   React.useEffect(() => {
-    const pool = [
-      { icon: "\u{1F916}", text: "cfo-alpha executed swap: 240 USDC \u2192 SOL", color: D.text },
-      { icon: "\u{1F512}", text: "pipe_sw_001 shielded 3 transactions", color: D.dim },
-      { icon: "\u{1F4E6}", text: "Caf\xE9 Sovereign: order from ag_worker_03", color: D.cyan },
-      { icon: "\u26A1", text: "ag_worker_04 discovered 2 merchants", color: "#fbbf24" },
-      { icon: "\u{1F6E1}\uFE0F", text: "ZK-receipt compressed: zk_rcpt_a3f1", color: D.dim },
-      { icon: "\u{1F514}", text: "Governance: tx $8,200 needs approval", color: "#fbbf24" },
-      { icon: "\u2705", text: "ag_worker_01 treasury rebalance done", color: D.green },
-      { icon: "\u{1F310}", text: "Znode zn_12 synced \u2014 28ms", color: D.dim },
-      { icon: "\u{1F916}", text: "cfo-alpha opened yield position: 500 USDC", color: D.text },
-      { icon: "\u{1F512}", text: "xB77 ZK Engine: proof batch complete", color: D.dim }
-    ];
-    let i = 0;
-    const add = () => {
-      const ev = pool[i % pool.length];
-      const now = /* @__PURE__ */ new Date();
-      const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-      setEvents((prev) => [{ ...ev, time, id: Date.now() + "_" + i + "_" + Math.random() }, ...prev].slice(0, 30));
-      i++;
+    let active = true;
+    const fetchEvents = async () => {
+      try {
+        const res = await fetch('http://localhost:8787/api/v1/pipelines/recent?limit=30');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.pipelines && active) {
+          const formatted = data.pipelines.map((p) => {
+            const time = new Date(p.started_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            let icon = "⚡";
+            let color = D.dim;
+            if (p.verdict === "FAILED") { icon = "⚠️"; color = D.red; }
+            else if (p.status === "completed") { icon = "✅"; color = D.green; }
+            return {
+              id: p.signature || Math.random().toString(),
+              icon,
+              text: `${p.agent || 'system'} \u2014 ${p.kind}: ${p.verdict}`,
+              color,
+              time
+            };
+          });
+          setEvents(formatted);
+        }
+      } catch (err) {
+        console.error("Gateway fetch failed:", err);
+      }
     };
-    add();
-    add();
-    add();
-    const id = setInterval(add, 3500);
-    return () => clearInterval(id);
+    const fetchPulse = async () => {
+      try {
+        const res = await fetch('/api/v1/network/pulse');
+        if (res.ok) {
+          const data = await res.json();
+          if (active) setPulse(data);
+        }
+      } catch (err) {}
+    };
+
+    fetchEvents();
+    fetchPulse();
+    const id1 = setInterval(fetchEvents, 5000);
+    const id2 = setInterval(fetchPulse, 10000);
+    return () => { active = false; clearInterval(id1); clearInterval(id2); };
   }, []);
   const sparkTxns = [3, 5, 4, 7, 6, 8, 5, 9, 11, 8, 12, 10, 14, 11, 13, 15, 12, 14, 16, 14];
   return /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 } }, /* @__PURE__ */ React.createElement("div", { style: {
@@ -247,11 +266,11 @@ function DashboardView() {
     borderBottom: `1px solid ${D.border}`,
     flexShrink: 0
   } }, [
-    { label: "TREASURY", value: "$24,847", change: "+$2,103" },
-    { label: "AGENTS", value: "5 / 5", sub: "SWARM ONLINE" },
-    { label: "PIPELINES", value: "3", sub: "2 active, 1 paused" },
-    { label: "TXNS TODAY", value: "47", change: "+12" },
-    { label: "VOLUME 24H", value: "$5,120", change: "+34%" }
+    { label: "TREASURY", value: "$24,847", change: "SECURED" },
+    { label: "AGENTS", value: `${pulse.agentsOnline}`, sub: pulse._rpcLive ? "SWARM ONLINE" : "OFFLINE" },
+    { label: "PIPELINES", value: `${events.length}`, sub: "active ingest" },
+    { label: "TXNS TODAY", value: `${pulse.proofsVerified24h}`, change: "+LIVE" },
+    { label: "NETWORK", value: pulse._rpcLive ? "CONNECTED" : "OFFLINE", change: "Localnet" }
   ].map((s, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
     padding: "14px 18px",
     borderRight: i < 4 ? `1px solid ${D.border}` : "none"

@@ -76,7 +76,12 @@ pub const AgentContext = struct {
         defer allocator.free(sol_addr);
         
         var agent_id: [32]u8 = [_]u8{0} ** 32;
-        @memcpy(agent_id[0..@min(sol_addr.len, 32)], sol_addr[0..@min(sol_addr.len, 32)]);
+        // Proper pubkey parsing if possible, otherwise fallback to bytes
+        if (crypto.stringToPubkey(allocator, sol_addr)) |pk| {
+            @memcpy(&agent_id, &pk);
+        } else |_| {
+            @memcpy(agent_id[0..@min(sol_addr.len, 32)], sol_addr[0..@min(sol_addr.len, 32)]);
+        }
 
         const s = try store.Store.init(allocator, config.vaults.path);
         const merchant_path = try std.fs.path.join(allocator, &[_][]const u8{ config.vaults.path, "merchant.json" });
@@ -92,8 +97,11 @@ pub const AgentContext = struct {
 
         var registry_id: [32]u8 = [_]u8{0} ** 32;
         if (config.registry_program_id) |rid| {
-            _ = try crypto.stringToPubkey(allocator, rid); // MOCK: should actually copy bytes
-            @memcpy(registry_id[0..@min(rid.len, 32)], rid[0..@min(rid.len, 32)]);
+            if (crypto.stringToPubkey(allocator, rid)) |pk| {
+                @memcpy(&registry_id, &pk);
+            } else |_| {
+                @memcpy(registry_id[0..@min(rid.len, 32)], rid[0..@min(rid.len, 32)]);
+            }
         }
 
         var ctx = AgentContext{
@@ -104,7 +112,7 @@ pub const AgentContext = struct {
             .evm_client = evm.EvmClient.init(allocator, config.rpc.base),
             .mb_client = mb.MagicBlockSDK.init(allocator, "https://devnet.magicblock.app"),
             .constitution = const_mod.Constitution.init(allocator),
-            .compliance = compliance.ComplianceEngine.init(allocator, [_]u8{0} ** 32),
+            .compliance = compliance.ComplianceEngine.init(allocator),
             .store = s,
             .router = undefined, 
             .mesh_manager = try mesh.MeshManager.init(allocator, undefined, agent_id),

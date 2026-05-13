@@ -74,6 +74,10 @@ id = "d1fa1577a07f46b8a02d1b1894886621"
 binding = "BUCKETS"
 id = "d8ac84aa137a4564aaf8f2df91c3e914"
 
-[[kv_namespaces]]
-binding = "IDEMP"
-id = "d0d44b8bf8714f6f93633e72e8a8d05b"
+[[d1_databases]]
+binding = "DB"
+database_name = "xb77-billing"
+database_id = "local-db"
+
+[triggers]
+crons = ["* * * * *"]

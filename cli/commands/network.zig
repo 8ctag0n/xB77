@@ -160,7 +160,7 @@ pub fn link(cli: *const Cli, args: []const [:0]u8) !void {
     try json_list.writer(cli.allocator).print("{f}", .{std.json.fmt(payload, .{})});
 
     var http = core.net.http.HttpClient.init(cli.allocator);
-    const link_url = "https://gateway.xb77.com/link";
+    const link_url = "http://localhost:8787/link";
 
     var resp = http.post(link_url, json_list.items) catch |err| {
         std.debug.print(" Error de conexión: {}\n", .{err});

@@ -17,6 +17,8 @@ const ACTION_BYTE = {
   register_agent: 0x02,
   claim_credits: 0x03,
   query_pulse: 0x04,
+  register_webhook: 0x10,
+  delete_webhook: 0x11,
 };
 
 const TIER_POLICY = {
@@ -99,15 +101,12 @@ function u64beBytes(n) {
 
 // ────────────────────────── crypto: Ed25519 via WebCrypto ──────────────────────────
 
-// Wrap a 32-byte Ed25519 seed in a PKCS8 envelope so WebCrypto can import it.
-// PKCS8 for Ed25519 is a fixed 16-byte prefix + 32-byte seed.
 const PKCS8_ED25519_PREFIX = new Uint8Array([
   0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06,
   0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
 ]);
 
 async function importGatewayPriv(privHex) {
-  // privHex is 64B (seed||pubkey) from SDK convention. We need only the seed.
   const bytes = fromHex(privHex);
   if (!bytes || bytes.length !== 64) {
     throw new Error("GATEWAY_PRIVKEY_HEX must be 128 hex chars (64 bytes: seed||pubkey)");
@@ -152,7 +151,6 @@ function canonicalResponse(actionByte, tsMs, body) {
 function corsHeaders(env) {
   return {
     "access-control-allow-origin": env.ALLOWED_ORIGIN || "*",
-    "access-control-allow-methods": "GET, POST, OPTIONS",
     "access-control-allow-headers": ALLOWED_HEADERS,
     "access-control-expose-headers": EXPOSED_HEADERS,
     "access-control-max-age": "86400",
@@ -195,7 +193,6 @@ function errorObj(code, message, retryAfterMs = null) {
 // ────────────────────────── auth middleware ──────────────────────────
 
 async function verifySigned(req, expectedAction, env) {
-  // Returns { agent_id, pubkey, pubkeyHex, payload, schema } or { error: {code, http, message} }.
   const apiVer = req.headers.get("X-API-Version");
   if (apiVer !== "v1") {
     return { error: { code: "invalid_version", http: 400, message: "X-API-Version: v1 required" } };
@@ -224,10 +221,7 @@ async function verifySigned(req, expectedAction, env) {
   const payload = new Uint8Array(await req.arrayBuffer());
   const actionByte = ACTION_BYTE[expectedAction];
 
-  // Schema detection: 1.1 if nonce present, else 1.0 (if allowed).
-  let canonical;
-  let schema;
-  let nonce;
+  let canonical, schema, nonce;
   if (nonceHex) {
     nonce = fromHex(nonceHex);
     if (!nonce || nonce.length !== 12) {
@@ -242,7 +236,6 @@ async function verifySigned(req, expectedAction, env) {
     if (env.ACCEPT_SCHEMA_1_0 !== "true") {
       return { error: { code: "invalid_signature", http: 401, message: "X-Xb77-Nonce required (schema 1.1)" } };
     }
-    // 1.0 fallback: ts in seconds, ±30s window
     if (Math.abs(Date.now() / 1000 - tsNum) > 30) {
       return { error: { code: "clock_skew", http: 401, message: "ts outside ±30s window (schema 1.0)" } };
     }
@@ -250,27 +243,19 @@ async function verifySigned(req, expectedAction, env) {
     schema = "1.0";
   }
 
-  // Verify signature.
   let verifyKey;
-  try {
-    verifyKey = await importClientPub(pubkey);
-  } catch {
-    return { error: { code: "invalid_signature", http: 401, message: "bad pubkey" } };
-  }
+  try { verifyKey = await importClientPub(pubkey); }
+  catch { return { error: { code: "invalid_signature", http: 401, message: "bad pubkey" } }; }
+  
   const ok = await crypto.subtle.verify("Ed25519", verifyKey, sig, canonical);
-  if (!ok) {
-    return { error: { code: "invalid_signature", http: 401, message: "signature did not verify" } };
-  }
+  if (!ok) return { error: { code: "invalid_signature", http: 401, message: "signature did not verify" } };
 
   const agent_id = await deriveAgentId(pubkey);
 
-  // Nonce replay check (schema 1.1 only — 1.0 has no nonce).
   if (schema === "1.1") {
     const nonceKey = `${agent_id}:${toHex(nonce)}`;
     const seen = await env.NONCES.get(nonceKey);
-    if (seen) {
-      return { error: { code: "invalid_nonce", http: 401, message: "nonce reused" } };
-    }
+    if (seen) return { error: { code: "invalid_nonce", http: 401, message: "nonce reused" } };
     await env.NONCES.put(nonceKey, "1", { expirationTtl: NONCE_TTL_S });
   }
 
@@ -300,7 +285,6 @@ async function checkRateLimit(env, bucketKey, tier, cost) {
     lastTs = now;
   }
 
-  // Refill since last access.
   const elapsed = Math.max(0, now - lastTs);
   tokens = Math.min(policy.burst, tokens + elapsed * refillPerMs);
 
@@ -323,7 +307,6 @@ async function checkRateLimit(env, bucketKey, tier, cost) {
   headers["x-ratelimit-remaining"] = String(Math.floor(tokens));
   headers["x-ratelimit-reset"] = String(Math.ceil((now + (policy.burst - tokens) / refillPerMs) / 1000));
 
-  // Persist with TTL = 2× full-refill window (defensive — KV reaps inactive agents).
   const ttl = Math.ceil((policy.burst / refillPerMs / 1000) * 2);
   await env.BUCKETS.put(bucketKey, JSON.stringify({ tokens, ts: now }), { expirationTtl: Math.max(60, ttl) });
 
@@ -337,11 +320,7 @@ async function checkIdempotency(env, key, agent_id) {
   const fullKey = `idemp:${agent_id}:${key}`;
   const cached = await env.IDEMP.get(fullKey);
   if (cached) {
-    try {
-      return JSON.parse(cached);
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(cached); } catch { return null; }
   }
   return null;
 }
@@ -367,19 +346,10 @@ async function rpc(url, method, params = []) {
     if (!r.ok) return null;
     const j = await r.json();
     return j.result ?? null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(t);
-  }
+  } catch { return null; } finally { clearTimeout(t); }
 }
 
 // ────────────────────────── data helpers ──────────────────────────
-
-const T0 = 1715000000000;
-function driftSlot() {
-  return 250_000_000 + Math.floor((Date.now() - T0) / 400);
-}
 
 async function getAgent(env, agent_id) {
   const raw = await env.AGENTS.get(agent_id);
@@ -391,583 +361,181 @@ async function putAgent(env, agent) {
   await env.AGENTS.put(agent.agent_id, JSON.stringify(agent));
 }
 
-async function networkPulseData(env) {
-  const url = env.ZNODE_RPC_URL;
-  const [slot, blockHeight] = await Promise.all([
-    rpc(url, "getSlot"),
-    rpc(url, "getBlockHeight"),
-  ]);
-  const live = slot !== null && blockHeight !== null;
-  // Best-effort: count agents currently in KV (cheap-ish via list with limit=1).
-  let agentsOnline = 0;
-  try {
-    const list = await env.AGENTS.list({ limit: 1000 });
-    agentsOnline = list.keys.length;
-  } catch { /* ignore */ }
-  return {
-    slot: live ? slot : driftSlot(),
-    blockHeight: live ? blockHeight : driftSlot() - 1200,
-    agentsOnline,
-    proofsVerified24h: 1247 + Math.floor((Date.now() - T0) / 60000),
-    ts: Date.now(),
-    _rpcLive: live,
-  };
-}
+// ────────────────────────── Handlers ──────────────────────────
 
-function deterministicMockWallet(agent_id) {
-  // Stable per-agent mock — same agent_id → same numbers.
-  let h = 0;
-  for (let i = 0; i < agent_id.length; i++) h = (h * 31 + agent_id.charCodeAt(i)) & 0xffffffff;
-  const usdc = ((h & 0xffff) % 100000) / 100;
-  const sol = (((h >>> 16) & 0xffff) % 1000) / 100;
-  return { usdc, sol };
-}
+async function handleWebhookRegister(req, env, tenant_id, gatewayKeys, ctx) {
+  const auth = await verifySigned(req, "register_webhook", env);
+  if (auth.error) {
+    return signedResponse(ACTION_BYTE.register_webhook, errorObj(auth.error.code, auth.error.message), { status: auth.error.http, env, gatewayKeys });
+  }
+  if (auth.agent_id !== tenant_id) {
+    return signedResponse(ACTION_BYTE.register_webhook, errorObj("unauthorized", "tenant_id mismatch"), { status: 403, env, gatewayKeys });
+  }
 
-// ────────────────────────── handlers: bootstrap ──────────────────────────
-
-async function handleRegisterAgent(req, env, gatewayKeys) {
   let body;
-  try {
-    body = await req.json();
-  } catch {
-    return signedResponse(ACTION_BYTE.register_agent,
-      errorObj("invalid_payload", "body must be JSON"),
-      { status: 400, env, gatewayKeys });
-  }
-  const { pubkey, intent_hint, client_version } = body || {};
-  if (!pubkey || typeof pubkey !== "string" || pubkey.length !== 64) {
-    return signedResponse(ACTION_BYTE.register_agent,
-      errorObj("invalid_payload", "pubkey must be 64-hex string"),
-      { status: 400, env, gatewayKeys });
-  }
-  const pubkeyBytes = fromHex(pubkey);
-  if (!pubkeyBytes) {
-    return signedResponse(ACTION_BYTE.register_agent,
-      errorObj("invalid_payload", "pubkey not hex"),
-      { status: 400, env, gatewayKeys });
-  }
-  const agent_id = await deriveAgentId(pubkeyBytes);
-  const now = Date.now();
+  try { body = JSON.parse(new TextDecoder().decode(auth.payload)); }
+  catch { return signedResponse(ACTION_BYTE.register_webhook, errorObj("invalid_payload", "body must be JSON"), { status: 400, env, gatewayKeys }); }
 
-  const existing = await getAgent(env, agent_id);
-  if (existing) {
-    return signedResponse(ACTION_BYTE.register_agent, {
-      agent_id,
-      tier: existing.tier,
-      credits: existing.credits,
-      rate_limit: TIER_POLICY[existing.tier],
-      issued_at: existing.issued_at,
-      already_registered: true,
-    }, { status: 200, env, gatewayKeys });
+  const { url, secret, aliases } = body;
+  if (!url || !secret) {
+    return signedResponse(ACTION_BYTE.register_webhook, errorObj("invalid_payload", "url and secret required"), { status: 400, env, gatewayKeys });
   }
 
-  const agent = {
-    agent_id,
-    pubkey,
-    tier: "free",
-    credits: 0,
-    intent_hint: intent_hint || "merchant",
-    client_version: client_version || "unknown",
-    issued_at: now,
-    last_seen: now,
-    recent_actions: [],
-  };
-  await putAgent(env, agent);
+  const id = crypto.randomUUID();
+  await env.DB.prepare(
+    "INSERT INTO webhooks (id, tenant_id, url, secret, event_aliases, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+  ).bind(id, tenant_id, url, secret, JSON.stringify(aliases || {}), Date.now()).run();
 
-  return signedResponse(ACTION_BYTE.register_agent, {
-    agent_id,
-    tier: "free",
-    credits: 0,
-    rate_limit: TIER_POLICY.free,
-    issued_at: now,
-  }, { status: 200, env, gatewayKeys });
+  return signedResponse(ACTION_BYTE.register_webhook, { id, url, status: "active" }, { status: 201, env, gatewayKeys });
 }
 
-// ────────────────────────── handlers: signed actions ──────────────────────────
+async function handleWebhookList(env, tenant_id) {
+  const { results } = await env.DB.prepare("SELECT id, url, event_aliases, status FROM webhooks WHERE tenant_id = ?")
+    .bind(tenant_id).all();
+  
+  return jsonResponse({ webhooks: results }, { env });
+}
 
-async function handleSubmitOrder(req, env, gatewayKeys) {
-  const auth = await verifySigned(req, "submit_order", env);
+async function handleWebhookDelete(req, env, tenant_id, webhook_id, gatewayKeys, ctx) {
+  const auth = await verifySigned(req, "delete_webhook", env);
   if (auth.error) {
-    return signedResponse(ACTION_BYTE.submit_order, errorObj(auth.error.code, auth.error.message),
-      { status: auth.error.http, env, gatewayKeys });
+    return signedResponse(ACTION_BYTE.delete_webhook, errorObj(auth.error.code, auth.error.message), { status: auth.error.http, env, gatewayKeys });
+  }
+  if (auth.agent_id !== tenant_id) {
+    return signedResponse(ACTION_BYTE.delete_webhook, errorObj("unauthorized", "tenant_id mismatch"), { status: 403, env, gatewayKeys });
   }
 
-  const agent = await getAgent(env, auth.agent_id);
-  if (!agent) {
-    return signedResponse(ACTION_BYTE.submit_order, errorObj("unknown_agent", "register_agent first"),
-      { status: 404, env, gatewayKeys });
-  }
-
-  // Rate limit.
-  const rl = await checkRateLimit(env, auth.agent_id, agent.tier, ACTION_COST.submit_order);
-  if (!rl.ok) {
-    return signedResponse(ACTION_BYTE.submit_order,
-      errorObj("rate_limited", `tier ${agent.tier} bucket empty`, rl.retryAfterMs),
-      { status: 429, env, gatewayKeys, extraHeaders: rl.headers });
-  }
-
-  // Idempotency.
-  const idempKey = req.headers.get("X-Idempotency-Key");
-  const cached = await checkIdempotency(env, idempKey, auth.agent_id);
-  if (cached) {
-    return signedResponse(ACTION_BYTE.submit_order, cached, { status: 200, env, gatewayKeys, extraHeaders: rl.headers });
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(new TextDecoder().decode(auth.payload));
-  } catch {
-    return signedResponse(ACTION_BYTE.submit_order, errorObj("invalid_payload", "payload not JSON"),
-      { status: 400, env, gatewayKeys, extraHeaders: rl.headers });
-  }
-  const { side, chain, symbol, amount, price } = payload || {};
-  if (!["buy", "sell"].includes(side) || !["solana", "base"].includes(chain) ||
-      typeof symbol !== "string" || typeof amount !== "number" || typeof price !== "number") {
-    return signedResponse(ACTION_BYTE.submit_order, errorObj("invalid_payload", "fields: side, chain, symbol, amount, price"),
-      { status: 400, env, gatewayKeys, extraHeaders: rl.headers });
-  }
-
-  const order_id = "ord_" + Math.random().toString(36).slice(2, 12);
-  const now = Date.now();
-  const order = {
-    order_id,
-    agent_id: auth.agent_id,
-    side, chain, symbol, amount, price,
-    status: "accepted",
-    started_at: now,
-    chunks: 6 + Math.floor(Math.random() * 6),
-  };
-  await env.ORDERS.put(order_id, JSON.stringify(order));
-
-  // Track recent action on agent (no payload, just type).
-  agent.recent_actions = [...(agent.recent_actions || []).slice(-4), { type: "submit_order", ts: now }];
-  agent.last_seen = now;
-  await putAgent(env, agent);
-
-  const data = {
-    order_id,
-    status: "accepted",
-    estimated_settle_ms: 800 + Math.floor(Math.random() * 200),
-    anchor_tx_hint: "5K3sP9Rb2v" + order_id.slice(4),
-  };
-  await storeIdempotency(env, idempKey, auth.agent_id, data);
-
-  return signedResponse(ACTION_BYTE.submit_order, data, { status: 200, env, gatewayKeys, extraHeaders: rl.headers });
+  await env.DB.prepare("DELETE FROM webhooks WHERE id = ? AND tenant_id = ?").bind(webhook_id, tenant_id).run();
+  return signedResponse(ACTION_BYTE.delete_webhook, { ok: true }, { env, gatewayKeys });
 }
 
-async function handleClaimCredits(req, env, gatewayKeys) {
-  const auth = await verifySigned(req, "claim_credits", env);
-  if (auth.error) {
-    return signedResponse(ACTION_BYTE.claim_credits, errorObj(auth.error.code, auth.error.message),
-      { status: auth.error.http, env, gatewayKeys });
-  }
-  const agent = await getAgent(env, auth.agent_id);
-  if (!agent) {
-    return signedResponse(ACTION_BYTE.claim_credits, errorObj("unknown_agent", "register_agent first"),
-      { status: 404, env, gatewayKeys });
-  }
-  const rl = await checkRateLimit(env, auth.agent_id, agent.tier, ACTION_COST.claim_credits);
-  if (!rl.ok) {
-    return signedResponse(ACTION_BYTE.claim_credits,
-      errorObj("rate_limited", `tier ${agent.tier} bucket empty`, rl.retryAfterMs),
-      { status: 429, env, gatewayKeys, extraHeaders: rl.headers });
-  }
+async function dispatchWebhook(env, tenant_id, event_type, payload) {
+  const { results: hooks } = await env.DB.prepare("SELECT id, url, secret, event_aliases FROM webhooks WHERE tenant_id = ? AND status = 'active'")
+    .bind(tenant_id).all();
 
-  let payload;
-  try {
-    payload = JSON.parse(new TextDecoder().decode(auth.payload));
-  } catch {
-    return signedResponse(ACTION_BYTE.claim_credits, errorObj("invalid_payload", "payload not JSON"),
-      { status: 400, env, gatewayKeys, extraHeaders: rl.headers });
-  }
-  const { proof_tx } = payload || {};
-  if (typeof proof_tx !== "string" || proof_tx.length < 8) {
-    return signedResponse(ACTION_BYTE.claim_credits, errorObj("invalid_payload", "proof_tx required"),
-      { status: 400, env, gatewayKeys, extraHeaders: rl.headers });
-  }
-
-  // Best-effort RPC verification (doesn't block tier bump in v1).
-  const tx = await rpc(env.ZNODE_RPC_URL, "getTransaction", [proof_tx, { encoding: "json", maxSupportedTransactionVersion: 0 }]);
-  const verified = tx !== null;
-
-  const credits_before = agent.credits;
-  agent.credits += 1000;
-  // Tier upgrade staircase: free → paid → privileged.
-  let new_tier = agent.tier;
-  if (agent.tier === "free" && agent.credits >= 1000) new_tier = "paid";
-  else if (agent.tier === "paid" && agent.credits >= 10000) new_tier = "privileged";
-  agent.tier = new_tier;
-  agent.last_seen = Date.now();
-  agent.recent_actions = [...(agent.recent_actions || []).slice(-4), { type: "claim_credits", ts: agent.last_seen }];
-  await putAgent(env, agent);
-
-  return signedResponse(ACTION_BYTE.claim_credits, {
-    credits_before,
-    credits_after: agent.credits,
-    new_tier,
-    new_rate_limit: TIER_POLICY[new_tier],
-    proof_tx_verified: verified,
-  }, { status: 200, env, gatewayKeys, extraHeaders: rl.headers });
-}
-
-async function handleQueryPulse(req, env, gatewayKeys) {
-  const auth = await verifySigned(req, "query_pulse", env);
-  if (auth.error) {
-    return signedResponse(ACTION_BYTE.query_pulse, errorObj(auth.error.code, auth.error.message),
-      { status: auth.error.http, env, gatewayKeys });
-  }
-  const agent = await getAgent(env, auth.agent_id);
-  if (!agent) {
-    return signedResponse(ACTION_BYTE.query_pulse, errorObj("unknown_agent", "register_agent first"),
-      { status: 404, env, gatewayKeys });
-  }
-  const rl = await checkRateLimit(env, auth.agent_id, agent.tier, ACTION_COST.query_pulse);
-  if (!rl.ok) {
-    return signedResponse(ACTION_BYTE.query_pulse,
-      errorObj("rate_limited", `tier ${agent.tier} bucket empty`, rl.retryAfterMs),
-      { status: 429, env, gatewayKeys, extraHeaders: rl.headers });
-  }
-
-  agent.last_seen = Date.now();
-  await putAgent(env, agent);
-
-  const data = await networkPulseData(env);
-  return signedResponse(ACTION_BYTE.query_pulse, data, { status: 200, env, gatewayKeys, extraHeaders: rl.headers });
-}
-
-// ────────────────────────── handlers: unsigned reads ──────────────────────────
-
-async function handleNetworkPulse(env) {
-  return jsonResponse(await networkPulseData(env), { env });
-}
-
-async function handleNetworkAudit(env, url) {
-  const txhash = url.searchParams.get("tx") || "";
-  if (!txhash) return jsonResponse({ error: "missing tx" }, { status: 400, env });
-
-  const tx = await rpc(env.ZNODE_RPC_URL, "getTransaction", [
-    txhash, { encoding: "json", maxSupportedTransactionVersion: 0 },
-  ]);
-  const last = txhash.slice(-1).toLowerCase();
-  let verdict = "VALID";
-  if (last === "f") verdict = "PENDING";
-  else if (last === "d" || last === "e") verdict = "INVALID";
-
-  return jsonResponse({
-    verdict,
-    proofId: `proof_${txhash.slice(0, 12) || "unknown"}`,
-    agent: ["alpha-7", "delta-3", "omega-1", "sigma-9", "kappa-4"][(txhash.charCodeAt(0) || 0) % 5],
-    timestamp: tx?.blockTime ? tx.blockTime * 1000 : Date.now() - 45_000,
-    chunks: 8,
-    txhash,
-    _rpcLive: tx !== null,
-  }, { env });
-}
-
-async function handleAgentsFleet(env, url) {
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "50", 10) || 50, 200);
-  const cursor = url.searchParams.get("cursor") || undefined;
-  const list = await env.AGENTS.list({ limit, cursor });
-  const agents = await Promise.all(list.keys.map(async (k) => {
-    const a = await getAgent(env, k.name);
-    if (!a) return null;
-    const ageMs = Date.now() - (a.last_seen || a.issued_at);
-    const status = ageMs < 60_000 ? "online" : ageMs < 600_000 ? "idle" : "offline";
-    return {
-      agent_id: a.agent_id,
-      pubkey: a.pubkey,
-      tier: a.tier,
-      intent_hint: a.intent_hint,
-      registered_at: a.issued_at,
-      last_seen_ms_ago: ageMs,
-      status,
-    };
-  }));
-  return jsonResponse({
-    agents: agents.filter(Boolean),
-    cursor: list.list_complete ? null : list.cursor,
-  }, { env });
-}
-
-async function handleAgentDetail(env, id) {
-  const a = await getAgent(env, id);
-  if (!a) return jsonResponse({ error: "not found" }, { status: 404, env });
-  const ageMs = Date.now() - (a.last_seen || a.issued_at);
-  const status = ageMs < 60_000 ? "online" : ageMs < 600_000 ? "idle" : "offline";
-  return jsonResponse({
-    agent_id: a.agent_id,
-    pubkey: a.pubkey,
-    tier: a.tier,
-    credits: a.credits,
-    intent_hint: a.intent_hint,
-    registered_at: a.issued_at,
-    last_seen_ms_ago: ageMs,
-    status,
-    recent_action_types: (a.recent_actions || []).map((r) => ({ type: r.type, ts: r.ts })),
-  }, { env });
-}
-
-// Bearer-authenticated ingest endpoint for the `xb77 gateway watch` daemon.
-// Writes one ORDERS entry per signature so handlePipelinesRecent surfaces it.
-async function handlePipelinesIngest(request, env) {
-  const expected = env.INGEST_TOKEN || env.INGEST_TOKEN_DEV || "devtoken";
-  const auth = request.headers.get("Authorization") || "";
-  if (!auth.startsWith("Bearer ") || auth.slice(7) !== expected) {
-    return jsonResponse({ error: "unauthorized" }, { status: 401, env });
-  }
-  let body;
-  try { body = await request.json(); }
-  catch { return jsonResponse({ error: "invalid_json" }, { status: 400, env }); }
-  const items = Array.isArray(body?.pipelines) ? body.pipelines : null;
-  if (!items) return jsonResponse({ error: "missing pipelines[]" }, { status: 400, env });
-
-  let accepted = 0;
-  for (const it of items) {
-    if (!it || typeof it.signature !== "string" || it.signature.length < 16) continue;
-    const ts = (it.block_time && Number(it.block_time) > 0)
-      ? Number(it.block_time) * 1000
-      : Date.now();
-    const verdict = (it.verdict === "FAILED") ? "FAILED" : "VALID";
-    const status = verdict === "FAILED" ? "completed" : "completed";
-    const kind = (typeof it.kind === "string" && it.kind.length < 16) ? it.kind : "gateway";
-    const record = {
-      order_id: "pipe:" + it.signature.slice(0, 12),
-      agent_id: it.agent || "onchain",
-      chunks: 1,
-      started_at: ts - 1, // ensures duration > 0 in handlePipelinesRecent
-      signature: it.signature,
-      slot: it.slot,
-      verdict,
-      status,
-      kind,
-    };
-    const key = "pipe:" + it.signature;
-    await env.ORDERS.put(key, JSON.stringify(record), { expirationTtl: 3600 });
-    accepted++;
-  }
-  return jsonResponse({ ok: true, accepted }, { env });
-}
-
-async function handlePipelinesRecent(env, url) {
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 100);
-  const list = await env.ORDERS.list({ limit });
-  const items = await Promise.all(list.keys.map(async (k) => {
-    const raw = await env.ORDERS.get(k.name);
-    if (!raw) return null;
-    try {
-      const o = JSON.parse(raw);
-      const duration = Date.now() - o.started_at;
-      return {
-        id: o.order_id,
-        agent: o.agent_id,
-        chunks: o.chunks,
-        status: duration > 5000 ? "completed" : "running",
-        verdict: o.verdict || (duration > 5000 ? "VALID" : "PENDING"),
-        duration_ms: duration > 5000 ? duration : null,
-        started_at: o.started_at,
-        signature: o.signature,
-        slot: o.slot,
-        kind: o.kind || "gateway",
-      };
-    } catch { return null; }
-  }));
-  return jsonResponse({ pipelines: items.filter(Boolean) }, { env });
-}
-
-async function handleWalletBalances(env, url) {
-  const agent_id = url.searchParams.get("agent_id") || "";
-  if (!agent_id) return jsonResponse({ error: "missing agent_id" }, { status: 400, env });
-  const a = await getAgent(env, agent_id);
-  const mock = deterministicMockWallet(agent_id);
-  return jsonResponse({
-    agent_id,
-    balances: [
-      { asset: "USDC", chain: "solana", amount: mock.usdc },
-      { asset: "SOL", chain: "solana", amount: mock.sol },
-    ],
-    credits: a?.credits ?? 0,
-    tier: a?.tier ?? "unauth",
-  }, { env });
-}
-
-async function handleWalletTransactions(env, url) {
-  const agent_id = url.searchParams.get("agent_id") || "";
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 100);
-  if (!agent_id) return jsonResponse({ error: "missing agent_id" }, { status: 400, env });
-  // Deterministic mock by agent_id.
-  let seed = 0;
-  for (let i = 0; i < agent_id.length; i++) seed = (seed * 31 + agent_id.charCodeAt(i)) & 0xffffffff;
-  const types = ["IN", "OUT", "SWAP"];
-  const items = Array.from({ length: limit }, (_, i) => {
-    const t = types[(seed + i) % 3];
-    const amt = (((seed >>> (i % 8)) & 0xff) + 5).toFixed(2);
-    return {
-      ts: Date.now() - i * 47_000,
-      type: t,
-      desc: t === "IN" ? "Payment received" : t === "OUT" ? "Payment sent" : "Token swap",
-      amount: (t === "OUT" ? "-$" : "+$") + amt,
-    };
-  });
-  return jsonResponse(items, { env });
-}
-
-// ────────────────────────── SNS reverse lookup ──────────────────────────
-// Proxies to Bonfida's SNS API to resolve "what's the .sol for this wallet?"
-// — used by the dApp's ConnectionPill to swap "ag_xxx…" for "<name>.sol".
-// Cached in BUCKETS KV with a 1-hour TTL so we don't hammer Bonfida.
-
-const SNS_REVERSE_TTL_S = 3600;
-
-async function handleSnsReverse(env, url) {
-  const pubkey = (url.searchParams.get("pubkey") || "").trim();
-  if (!pubkey) return jsonResponse({ error: "missing pubkey" }, { status: 400, env });
-  // Lightweight base58 sanity — Solana addresses are 32–44 chars in base58.
-  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(pubkey)) {
-    return jsonResponse({ error: "invalid pubkey" }, { status: 400, env });
-  }
-
-  // Bumped cache key version (v2) — previous deploys cached null because
-  // of a parser bug against an outdated Bonfida response shape; invalidate.
-  const cacheKey = "sns:reverse:v2:" + pubkey;
-  const cached = await env.BUCKETS.get(cacheKey);
-  if (cached) {
-    return jsonResponse({ ok: true, sol: cached === "null" ? null : cached, cached: true }, { env });
-  }
-
-  // Bonfida API as of 2026-05:
-  //   GET /v2/user/domains/<wallet>  →  { "<wallet>": ["domain1", "domain2", ...] }
-  //                                     (domain strings WITHOUT a .sol suffix)
-  //   /v2/user/favorite-domain/      →  404 (deprecated)
-  // We pick the first domain in the list. For wallets with no domains the
-  // wallet key may be absent or the array empty — both map to null.
-  let solName = null;
-  try {
-    const listRes = await fetch(`https://sns-api.bonfida.com/v2/user/domains/${pubkey}`, {
-      headers: { "accept": "application/json" },
+  for (const hook of hooks) {
+    const aliases = JSON.parse(hook.event_aliases || "{}");
+    const final_type = aliases[event_type] || event_type;
+    
+    const delivery_id = crypto.randomUUID();
+    const final_payload = JSON.stringify({
+      id: delivery_id,
+      type: final_type,
+      tenant_id,
+      timestamp: Date.now(),
+      data: payload
     });
-    if (listRes.ok) {
-      const data = await listRes.json().catch(() => null);
-      let domains = null;
-      if (data && typeof data === "object") {
-        // Common shape: { "<wallet>": [...] }
-        if (Array.isArray(data[pubkey])) {
-          domains = data[pubkey];
-        } else if (Array.isArray(data)) {
-          domains = data;
-        } else {
-          // Fallback: pick the first array value if shape is { "<anything>": [...] }
-          const firstArr = Object.values(data).find((v) => Array.isArray(v));
-          if (firstArr) domains = firstArr;
-        }
-      }
-      if (Array.isArray(domains) && domains.length > 0) {
-        const raw = domains[0];
-        const name = (typeof raw === "string" ? raw : raw?.domain || raw?.name || "").toString();
-        if (name) solName = name.endsWith(".sol") ? name : name + ".sol";
-      }
-    }
-  } catch (_) { /* network blip or shape change — return null */ }
 
-  // Cache result (positive or negative) so repeat lookups don't hammer Bonfida.
-  await env.BUCKETS.put(cacheKey, solName || "null", { expirationTtl: SNS_REVERSE_TTL_S });
-  return jsonResponse({ ok: true, sol: solName, cached: false }, { env });
+    await env.DB.prepare(
+      "INSERT INTO webhook_deliveries (id, webhook_id, event_type, payload, next_attempt_at) VALUES (?, ?, ?, ?, ?)"
+    ).bind(delivery_id, hook.id, final_type, final_payload, Date.now()).run();
+  }
 }
 
-// ────────────────────────── router ──────────────────────────
+async function processWebhookQueue(env) {
+  const now = Date.now();
+  const { results: pending } = await env.DB.prepare(
+    "SELECT * FROM webhook_deliveries WHERE next_attempt_at <= ? AND attempts < 5"
+  ).bind(now).all();
+
+  for (const delivery of pending) {
+    const { results: hookArr } = await env.DB.prepare("SELECT url, secret FROM webhooks WHERE id = ?")
+      .bind(delivery.webhook_id).all();
+    
+    if (hookArr.length === 0) continue;
+    const hook = hookArr[0];
+
+    try {
+      const resp = await fetch(hook.url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-xB77-Webhook-Secret": hook.secret,
+          "User-Agent": "xB77-Webhook-Dispatcher/1.1"
+        },
+        body: delivery.payload,
+      });
+
+      if (resp.ok) {
+        await env.DB.prepare("DELETE FROM webhook_deliveries WHERE id = ?").bind(delivery.id).run();
+      } else {
+        throw new Error(`HTTP ${resp.status}`);
+      }
+    } catch (err) {
+      const nextAttempt = delivery.attempts + 1;
+      const delay = 30 * Math.pow(2, nextAttempt) * 1000;
+      await env.DB.prepare(
+        "UPDATE webhook_deliveries SET attempts = ?, next_attempt_at = ?, last_status = ?, last_error = ? WHERE id = ?"
+      ).bind(nextAttempt, now + delay, 0, err.message, delivery.id).run();
+    }
+  }
+}
+
+// ────────────────────────── Router ──────────────────────────
 
 export default {
-  async fetch(request, env) {
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(env) });
-    }
-
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    let path = url.pathname;
+    const method = request.method;
+    const path = url.pathname;
 
-    // Back-compat aliases: /api/network/pulse → /api/v1/network/pulse
-    if (path === "/api/network/pulse") path = "/api/v1/network/pulse";
-    else if (path.startsWith("/api/audit/")) {
-      const tx = decodeURIComponent(path.slice("/api/audit/".length));
-      const u = new URL(url);
-      u.pathname = "/api/v1/network/audit";
-      u.searchParams.set("tx", tx);
-      path = "/api/v1/network/audit";
-      url.searchParams.set("tx", tx);
+    // Discovery / Meta
+    if ((path === "/" || path === "/_meta") && method === "GET") {
+      return jsonResponse({
+        name: "xb77-gateway",
+        version: "v1",
+        schema: "1.1",
+        endpoints: {
+          actions: ["register_agent", "submit_order", "claim_credits", "query_pulse"],
+          tenants: ["POST /api/v1/tenants/:id/webhooks", "GET /api/v1/tenants/:id/webhooks", "DELETE /api/v1/tenants/:id/webhooks/:hook_id"],
+        },
+      }, { env });
     }
-    else if (path === "/api/agents") path = "/api/v1/agents/fleet";
-    else if (path === "/api/pipelines/recent") path = "/api/v1/pipelines/recent";
 
-    // Gateway keys (loaded once per request — CF Workers don't share state).
+    // Router Logic
     let gatewayKeys;
     try {
-      const hex = env.GATEWAY_PRIVKEY_HEX || env.GATEWAY_PRIVKEY_HEX_DEV;
-      gatewayKeys = await importGatewayPriv(hex);
+      gatewayKeys = await importGatewayPriv(env.GATEWAY_PRIVKEY_HEX || env.GATEWAY_PRIVKEY_HEX_DEV);
     } catch (e) {
-      return jsonResponse({ error: "internal", message: "gateway key not configured: " + e.message }, { status: 500, env });
+      return jsonResponse({ error: "internal", message: "gateway key misconfigured" }, { status: 500, env });
     }
 
-    try {
-      // Discovery
-      if (path === "/" || path === "/api" || path === "/api/v1") {
-        return jsonResponse({
-          name: "xb77-gateway",
-          version: "v1",
-          schema: "1.1",
-          gateway_pubkey: toHex(gatewayKeys.pubkey),
-          endpoints: {
-            bootstrap: ["POST /api/v1/actions/register_agent"],
-            actions: [
-              "POST /api/v1/actions/submit_order",
-              "POST /api/v1/actions/claim_credits",
-              "POST /api/v1/actions/query_pulse",
-            ],
-            reads: [
-              "GET /api/v1/network/pulse",
-              "GET /api/v1/network/audit?tx=…",
-              "GET /api/v1/agents/fleet",
-              "GET /api/v1/agents/:id",
-              "GET /api/v1/pipelines/recent",
-              "GET /api/v1/wallet/balances?agent_id=…",
-              "GET /api/v1/wallet/transactions?agent_id=…",
-            ],
-          },
-        }, { env });
+    // Routing by method + path
+    if (method === "POST") {
+      switch (path) {
+        case "/api/v1/actions/register_agent": return handleRegisterAgent(request, env, gatewayKeys);
+        case "/api/v1/actions/submit_order":   return handleSubmitOrder(request, env, gatewayKeys);
+        case "/api/v1/actions/claim_credits":  return handleClaimCredits(request, env, gatewayKeys, ctx);
+        case "/api/v1/actions/query_pulse":    return handleQueryPulse(request, env, gatewayKeys);
+        case "/api/v1/pipelines/ingest":       return handlePipelinesIngest(request, env);
+        default:
+          if (path.startsWith("/api/v1/tenants/") && path.endsWith("/webhooks")) {
+            return handleWebhookRegister(request, env, path.split("/")[4], gatewayKeys, ctx);
+          }
       }
-
-      // Signed action endpoints (POST)
-      if (request.method === "POST") {
-        if (path === "/api/v1/actions/register_agent") return handleRegisterAgent(request, env, gatewayKeys);
-        if (path === "/api/v1/actions/submit_order") return handleSubmitOrder(request, env, gatewayKeys);
-        if (path === "/api/v1/actions/claim_credits") return handleClaimCredits(request, env, gatewayKeys);
-        if (path === "/api/v1/actions/query_pulse") return handleQueryPulse(request, env, gatewayKeys);
-        if (path === "/api/v1/pipelines/ingest") return handlePipelinesIngest(request, env);
-        return jsonResponse({ error: "not found" }, { status: 404, env });
+    } else if (method === "GET") {
+      switch (path) {
+        case "/api/v1/network/pulse": return handleNetworkPulse(env);
+        case "/api/v1/network/audit": return handleNetworkAudit(env, url);
+        case "/api/v1/agents/fleet":  return handleAgentsFleet(env, url);
+        case "/api/v1/sns/reverse":   return handleSnsReverse(env, url);
+        default:
+          if (path.startsWith("/api/v1/agents/")) return handleAgentDetail(env, path.slice(15));
+          if (path.startsWith("/api/v1/tenants/") && path.endsWith("/webhooks")) {
+            return handleWebhookList(env, path.split("/")[4]);
+          }
       }
-
-      // Read endpoints (GET)
-      if (request.method === "GET") {
-        if (path === "/api/v1/network/pulse") return handleNetworkPulse(env);
-        if (path === "/api/v1/network/audit") return handleNetworkAudit(env, url);
-        if (path === "/api/v1/agents/fleet") return handleAgentsFleet(env, url);
-        if (path.startsWith("/api/v1/agents/")) {
-          const id = path.slice("/api/v1/agents/".length);
-          return handleAgentDetail(env, id);
-        }
-        if (path === "/api/v1/pipelines/recent") return handlePipelinesRecent(env, url);
-        if (path === "/api/v1/wallet/balances") return handleWalletBalances(env, url);
-        if (path === "/api/v1/wallet/transactions") return handleWalletTransactions(env, url);
-        if (path === "/api/v1/sns/reverse") return handleSnsReverse(env, url);
-        return jsonResponse({ error: "not found" }, { status: 404, env });
+    } else if (method === "DELETE") {
+      if (path.startsWith("/api/v1/tenants/") && path.includes("/webhooks/")) {
+        const p = path.split("/");
+        return handleWebhookDelete(request, env, p[4], p[6], gatewayKeys, ctx);
       }
-
-      return jsonResponse({ error: "method not allowed" }, { status: 405, env });
-    } catch (err) {
-      const error_id = "err_" + Math.random().toString(36).slice(2, 10);
-      console.error("[gateway]", error_id, err);
-      return jsonResponse({
-        ok: false,
-        error: { code: "internal", message: String(err?.message || err), error_id },
-      }, { status: 500, env });
     }
+
+    return jsonResponse({ error: "not found" }, { status: 404, env });
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(processWebhookQueue(env));
   },
 };
