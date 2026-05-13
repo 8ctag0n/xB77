@@ -17,6 +17,7 @@ const ACTION_BYTE = {
   register_agent: 0x02,
   claim_credits: 0x03,
   query_pulse: 0x04,
+  link_agent: 0x05,
   register_webhook: 0x10,
   delete_webhook: 0x11,
 };
@@ -33,6 +34,7 @@ const ACTION_COST = {
   query_pulse: 1,
   claim_credits: 1,
   register_agent: 1,
+  link_agent: 1,
 };
 
 const TS_SKEW_MS = 30_000;
@@ -361,6 +363,34 @@ async function putAgent(env, agent) {
   await env.AGENTS.put(agent.agent_id, JSON.stringify(agent));
 }
 
+async function handleLinkAgent(req, env, gatewayKeys) {
+  let body;
+  try {
+    body = await req.json();
+  } catch (e) {
+    return jsonResponse({ error: "invalid_json" }, { status: 400, env });
+  }
+
+  const { agent_id, link_code, signature } = body;
+  if (!agent_id || !link_code || !signature) {
+    return jsonResponse({ error: "missing_fields" }, { status: 400, env });
+  }
+
+  // In a real implementation, we would verify the signature here.
+  // For the local "unblurred" demo, we'll just store the link code.
+  const agentIdHex = toHex(new Uint8Array(Object.values(agent_id)));
+  const agentKey = `agent:${agentIdHex}`;
+  
+  let agent = await getAgent(env, agentKey) || { agent_id: agentIdHex, created_at: Date.now() };
+  agent.linked = true;
+  agent.link_code = link_code;
+  agent.last_seen = Date.now();
+
+  await env.AGENTS.put(agentKey, JSON.stringify(agent));
+
+  return jsonResponse({ ok: true, agent_id: agentIdHex }, { env });
+}
+
 // ────────────────────────── Handlers ──────────────────────────
 
 async function handleWebhookRegister(req, env, tenant_id, gatewayKeys, ctx) {
@@ -503,6 +533,7 @@ export default {
     // Routing by method + path
     if (method === "POST") {
       switch (path) {
+        case "/link": return handleLinkAgent(request, env, gatewayKeys);
         case "/api/v1/actions/register_agent": return handleRegisterAgent(request, env, gatewayKeys);
         case "/api/v1/actions/submit_order":   return handleSubmitOrder(request, env, gatewayKeys);
         case "/api/v1/actions/claim_credits":  return handleClaimCredits(request, env, gatewayKeys, ctx);

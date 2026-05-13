@@ -144,8 +144,9 @@ pub fn link(cli: *const Cli, args: []const [:0]u8) !void {
     defer ctx.deinit();
 
     const sol_kp = ctx.vaults.ops.sol_kp;
-
-    std.debug.print("\n Vinculando Agente {s} con Telegram...\n", .{try core.crypto.pubkeyToString(cli.allocator, &sol_kp.public)});
+    const pubkey_str = try core.crypto.pubkeyToString(cli.allocator, &sol_kp.public);
+    defer cli.allocator.free(pubkey_str);
+    std.debug.print("\n Vinculando Agente {s} con Telegram...\n", .{pubkey_str});
 
     const signature = core.crypto.sign(code, &sol_kp);
 
@@ -160,6 +161,7 @@ pub fn link(cli: *const Cli, args: []const [:0]u8) !void {
     try json_list.writer(cli.allocator).print("{f}", .{std.json.fmt(payload, .{})});
 
     var http = core.net.http.HttpClient.init(cli.allocator);
+    defer http.deinit();
     const link_url = "http://localhost:8787/link";
 
     var resp = http.post(link_url, json_list.items) catch |err| {

@@ -9,8 +9,11 @@ use solana_program::{
     declare_id,
     entrypoint::ProgramResult,
     msg,
+    program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
+    rent::Rent,
+    sysvar::Sysvar,
 };
 
 use verifier_lib::{proof::Groth16Proof, verifier::Groth16Verifier, witness::Groth16Witness};
@@ -50,24 +53,39 @@ fn init(program_id: &Pubkey, accounts: &[AccountInfo], data: &[u8]) -> ProgramRe
     let mut accounts_iter = accounts.iter();
     let payer = next_account_info(&mut accounts_iter)?;
     let buffer = next_account_info(&mut accounts_iter)?;
-    let _system_program = next_account_info(&mut accounts_iter)?;
+    let system_program = next_account_info(&mut accounts_iter)?;
 
     if data.len() < 12 {
         return Err(ProgramError::InvalidInstructionData);
     }
 
-    let _salt = &data[0..8];
+    let salt = &data[0..8];
     let declared_len = u32::from_le_bytes(data[8..12].try_into().unwrap());
 
-    // For simplicity in this real-zk refactor, we assume the PDA is correctly derived by the caller.
+    let seeds: &[&[u8]] = &[b"proof_buf", payer.key.as_ref(), salt];
+    let (expected_pda, bump) = Pubkey::find_program_address(seeds, program_id);
+    if expected_pda != *buffer.key {
+        return Err(ProgramError::InvalidSeeds);
+    }
+
+    let space = HEADER_LEN + declared_len as usize;
+    let lamports = Rent::get()?.minimum_balance(space);
+
+    msg!("[ZK-REAL] Creating buffer account for {} bytes", declared_len);
     
-    msg!("[ZK-REAL] Initializing buffer for {} bytes", declared_len);
+    invoke_signed(
+        &solana_program::system_instruction::create_account(
+            payer.key,
+            buffer.key,
+            lamports,
+            space as u64,
+            program_id,
+        ),
+        &[payer.clone(), buffer.clone(), system_program.clone()],
+        &[&[b"proof_buf", payer.key.as_ref(), salt, &[bump]]],
+    )?;
     
     let mut buf_data = buffer.data.borrow_mut();
-    if buf_data.len() < HEADER_LEN {
-        return Err(ProgramError::AccountDataTooSmall);
-    }
-    
     buf_data[0..4].copy_from_slice(&declared_len.to_le_bytes());
     buf_data[4..8].copy_from_slice(&0u32.to_le_bytes());
 
