@@ -60,3 +60,6 @@ circuits/state_anchor/proofs/
 **/.wrangler/
 .cf_deploy_summary
 webapp_deploy/remotion/out/
+
+# isolated worktrees for in-session dev
+.worktrees/
