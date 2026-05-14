@@ -2,7 +2,6 @@
 
 extern crate alloc;
 use alloc::format;
-use alloc::vec::Vec;
 
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -139,26 +138,53 @@ fn verify(_program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
         return Err(ProgramError::InvalidInstructionData);
     }
 
-    let proof_bytes = &buf_data[HEADER_LEN..HEADER_LEN + declared_len];
+    let mut proof_bytes = &buf_data[HEADER_LEN..HEADER_LEN + declared_len];
     
     // --- REAL CRYPTOGRAPHIC VERIFICATION ---
     msg!("[ZK-REAL] Starting Groth16 verification...");
-    
-    let proof_size = 256; 
-    if proof_bytes.len() < proof_size {
-        msg!("[ZK-REAL] Proof bytes too short");
-        return Err(ProgramError::InvalidInstructionData);
+    msg!("[ZK-REAL] Total bytes received: {}", proof_bytes.len());
+
+    // 1. Barretenberg Header Detection (4 bytes for num_inputs)
+    // If it starts with [0, 0, 0, nr_pubinputs], it's a standard bb proof file.
+    if proof_bytes.len() >= 4 && proof_bytes[0..4] == (VK.nr_pubinputs as u32).to_be_bytes() {
+        msg!("[ZK-REAL] Detected Barretenberg header (4 bytes), skipping...");
+        proof_bytes = &proof_bytes[4..];
     }
 
-    let proof = Groth16Proof::from_bytes(&proof_bytes[0..proof_size]).map_err(|_| {
-        msg!("[ZK-REAL] Failed to parse Groth16Proof");
-        ProgramError::InvalidInstructionData
-    })?;
+    let witness_size = VK.nr_pubinputs as usize * 32;
+    let proof_size = 256; 
 
-    let witness = Groth16Witness::from_bytes(&proof_bytes[proof_size..]).map_err(|_| {
-        msg!("[ZK-REAL] Failed to parse Groth16Witness");
-        ProgramError::InvalidInstructionData
-    })?;
+    // 2. Proof & Witness extraction
+    // Barretenberg layout is typically [Witness] [Proof]
+    // Sunspot legacy might have used [Proof] [Witness]
+    let (proof, witness) = if proof_bytes.len() >= witness_size + proof_size {
+        // Try Barretenberg layout: [Witness (32*N)] [Proof (256)]
+        msg!("[ZK-REAL] Attempting Barretenberg layout [Witness][Proof]");
+        let w = Groth16Witness::from_bytes(&proof_bytes[0..witness_size]).map_err(|_| {
+            msg!("[ZK-REAL] Failed to parse Groth16Witness (BB-style)");
+            ProgramError::InvalidInstructionData
+        })?;
+        let p = Groth16Proof::from_bytes(&proof_bytes[witness_size..witness_size + proof_size]).map_err(|_| {
+            msg!("[ZK-REAL] Failed to parse Groth16Proof (BB-style)");
+            ProgramError::InvalidInstructionData
+        })?;
+        (p, w)
+    } else if proof_bytes.len() >= proof_size {
+        // Fallback to Legacy layout: [Proof (256)] [Witness (...)]
+        msg!("[ZK-REAL] Attempting Legacy layout [Proof][Witness]");
+        let p = Groth16Proof::from_bytes(&proof_bytes[0..proof_size]).map_err(|_| {
+            msg!("[ZK-REAL] Failed to parse Groth16Proof (Legacy)");
+            ProgramError::InvalidInstructionData
+        })?;
+        let w = Groth16Witness::from_bytes(&proof_bytes[proof_size..]).map_err(|_| {
+            msg!("[ZK-REAL] Failed to parse Groth16Witness (Legacy)");
+            ProgramError::InvalidInstructionData
+        })?;
+        (p, w)
+    } else {
+        msg!("[ZK-REAL] Error: Proof bytes too short (expected at least 256)");
+        return Err(ProgramError::InvalidInstructionData);
+    };
 
     let mut verifier: Groth16Verifier<1> = Groth16Verifier::new(&VK);
     

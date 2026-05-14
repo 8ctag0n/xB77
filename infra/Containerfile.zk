@@ -65,9 +65,9 @@ if [ "${1:-}" == "prove" ]; then
   echo "[zk-bridge] witness: $WITNESS"
 
   # 4. Prove with bb
-  echo "[zk-bridge] proving with bb..."
-  bb prove -b "$CIRCUIT" -w "$WITNESS" -o "./proofs/${PKG}.proof"
-  bb write_vk -b "$CIRCUIT" -o "./proofs/${PKG}.vk" || true
+  echo "[zk-bridge] proving with bb (Groth16)..."
+  bb prove -b "$CIRCUIT" -w "$WITNESS" -o "./proofs/${PKG}.proof" -s groth16
+  bb write_vk -b "$CIRCUIT" -o "./proofs/${PKG}.vk" -s groth16 || true
   echo "[zk-bridge] proof generated: ./proofs/${PKG}.proof"
   ls -la ./proofs
 else

@@ -5,37 +5,55 @@ def extract_vk_points(vk_path, output_rs_path):
     with open(vk_path, 'rb') as f:
         data = f.read()
 
-    # [u32 version] [u32 n] [u32 num_inputs] [u32 num_points]
-    header = struct.unpack('>IIII', data[0:16])
-    print(f"Header: version={header[0]}, n={header[1]}, inputs={header[2]}, points={header[3]}")
-    
-    offset = 16
     points = {}
-    
-    for i in range(header[3]):
-        if offset + 4 > len(data): break
-        name_len = struct.unpack('>I', data[offset:offset+4])[0]
-        offset += 4
-        
-        name = data[offset:offset+name_len].decode('ascii', errors='ignore')
-        offset += name_len
-        
-        # BN254 G1 point is 64 bytes, G2 is 128 bytes
-        point_len = 64 
-        if "g2" in name.lower() or "beta" in name.lower() or "gamma" in name.lower() or "delta" in name.lower():
-            # Standard Groth16 points in G2 are usually 128 bytes
-            pass
+    nr_pubinputs = 0
 
-        # Wait, bb Plonk VK points are all G1 except G2_X which is G2
-        if "g2" in name.lower():
-            point_len = 128
+    # Detection logic: Barretenberg Groth16 vs Plonk
+    # Groth16 VK for 1 input is usually ~500-600 bytes.
+    # Plonk VK is much larger.
+    if len(data) < 2000:
+        print(f"Detected potential Groth16 VK (size={len(data)})")
+        # Standard Groth16 binary layout:
+        # [Alpha_G1: 64] [Beta_G2: 128] [Gamma_G2: 128] [Delta_G2: 128] [num_ic: 4] [ic[0]: 64] ...
+        # Some versions might have a 16-byte header still.
+        offset = 0
+        if data[0:4] == b'\x00\x00\x00\x00': # Version/Header check
+            print("Skipping 16-byte Barretenberg header...")
+            offset = 16
+        
+        points["alpha_g1"] = data[offset : offset + 64]
+        points["beta_g2"] = data[offset + 64 : offset + 64 + 128]
+        points["gamma_g2"] = data[offset + 192 : offset + 192 + 128]
+        points["delta_g2"] = data[offset + 320 : offset + 320 + 128]
+        
+        ic_count_offset = offset + 448
+        nr_pubinputs = struct.unpack('>I', data[ic_count_offset : ic_count_offset + 4])[0] - 1
+        points["k"] = data[ic_count_offset + 4 : ic_count_offset + 4 + 64]
+    else:
+        # [u32 version] [u32 n] [u32 num_inputs] [u32 num_points]
+        header = struct.unpack('>IIII', data[0:16])
+        print(f"Header: version={header[0]}, n={header[1]}, inputs={header[2]}, points={header[3]}")
+        nr_pubinputs = header[2]
+        
+        offset = 16
+        for i in range(header[3]):
+            if offset + 4 > len(data): break
+            name_len = struct.unpack('>I', data[offset:offset+4])[0]
+            offset += 4
             
-        if offset + point_len > len(data): break
-        point_data = data[offset:offset+point_len]
-        points[name] = point_data
-        offset += point_len
+            name = data[offset:offset+name_len].decode('ascii', errors='ignore')
+            offset += name_len
+            
+            point_len = 64 
+            if "g2" in name.lower() or "beta" in name.lower() or "gamma" in name.lower() or "delta" in name.lower():
+                point_len = 128
+                
+            if offset + point_len > len(data): break
+            point_data = data[offset:offset+point_len]
+            points[name] = point_data
+            offset += point_len
 
-    print(f"Extracted {len(points)} points: {', '.join(points.keys())}")
+    print(f"Extracted points: {', '.join(points.keys())}")
 
     with open(output_rs_path, 'w') as f:
         f.write("// === xB77 Sovereign ZK-Receipt Verifying Key ===\n")
@@ -43,19 +61,16 @@ def extract_vk_points(vk_path, output_rs_path):
         f.write("use verifier_lib::vk::Groth16Verifyingkey;\n\n")
         f.write("#[rustfmt::skip]\n")
         f.write("pub const VK: Groth16Verifyingkey<'static> = Groth16Verifyingkey {\n")
-        f.write(f"    nr_pubinputs: {header[2]},\n")
+        f.write(f"    nr_pubinputs: {nr_pubinputs},\n")
         
         def fmt_bytes(b):
             return ", ".join([f"0x{x:02x}" for x in b])
 
-        # xB77 on-chain expects Groth16 points. 
-        # If we are in Plonk land, we map selectors to where they'd fit or just use stubs
-        # but with REAL ENTROPY from the circuit.
-        alpha = points.get("ID_1", b'\x00'*64)
-        beta = points.get("g2_x", b'\x00'*128) # Try to find G2
-        gamma = points.get("Q_1", b'\x00'*128) # Mock G2
-        delta = points.get("Q_2", b'\x00'*128) # Mock G2
-        k = points.get("ID_2", b'\x00'*64)
+        alpha = points.get("alpha_g1", points.get("ID_1", b'\x00'*64))
+        beta = points.get("beta_g2", points.get("g2_x", b'\x00'*128))
+        gamma = points.get("gamma_g2", points.get("Q_1", b'\x00'*128))
+        delta = points.get("delta_g2", points.get("Q_2", b'\x00'*128))
+        k = points.get("k", points.get("ID_2", b'\x00'*64))
 
         f.write(f"    alpha_g1: [{fmt_bytes(alpha[:64])}],\n")
         f.write(f"    beta_g2: [{fmt_bytes(beta[:128] if len(beta)>=128 else beta + b'\x00'*64)}],\n")
