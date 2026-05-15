@@ -184,11 +184,17 @@ export fn xb77_merchant_get_blink(sdk: *MerchantSDK, out_len: *usize) ?[*]const 
     return blink.ptr;
 }
 
-export fn xb77_merchant_publish(sdk: *MerchantSDK, out_len: *usize) ?[*]const u8 {
-    _ = sdk;
+export fn xb77_merchant_publish(out_len: *usize) ?[*]const u8 {
     // En una implementación real pasaríamos el puntero al IPFS client
     // Por ahora simulamos la salida del CID
     const cid = "QmSovereignStatexB77FakeCID111";
     out_len.* = cid.len;
     return cid.ptr;
+}
+
+/// Libera memoria asignada por el SDK y entregada al host.
+/// Esencial para evitar memory leaks en integraciones FFI.
+export fn xb77_free_buffer(ptr: [*]u8, len: usize) void {
+    const allocator = std.heap.page_allocator;
+    allocator.free(ptr[0..len]);
 }

@@ -61,6 +61,7 @@ pub const PaymentRouter = struct {
 
     fn calculateInfraOverhead(self: *PaymentRouter, amount: u64) u64 {
         _ = self;
+        // bps / 100000 -> 2011 / 100000 = 0.02011 (2.011%)
         return (amount * INFRA_TAX_BPS) / 100000;
     }
 

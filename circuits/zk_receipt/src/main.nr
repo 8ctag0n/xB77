@@ -6,8 +6,8 @@ fn main(
     recipient_pubkey: Field,
     secret_salt: Field
 ) -> pub Field {
-    // 1. Validar que el Tax es de al menos el 2.011% (211 Basis Points)
-    let min_tax = (amount * 211) / 10000;
+    // 1. Validar que el Tax es de al menos el 2.011% (2011/100000)
+    let min_tax = (amount * 2011) / 100000;
     assert(tax_paid >= min_tax);
 
     // 2. El pago debe ser positivo

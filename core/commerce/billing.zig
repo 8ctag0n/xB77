@@ -10,18 +10,10 @@ pub const CreditStatus = struct {
 
 pub const BillingManager = struct {
     allocator: std.mem.Allocator,
-    
-    // Costos base en Sovereign Credits (SC)
-    // Estos valores se ajustan según el costo real de los proveedores + nuestro margen
-    pub const DEPLOY_FEE_SC = 2000;    
-    
-    // Unidades de costo dinámico
-    pub const COMPUTE_UNIT_SC = 1;     // x ms de Cloudflare Worker
-    pub const AI_TOKEN_SC = 5;         // Por 1k tokens de inferencia
-    pub const DATA_RPC_SC = 10;        // Por cada llamada a Quicknode/Helius
 
-    // Margen de Facilitación (11% sobre el costo de infra)
-    pub const INFRA_MARKUP_BPS = 1100;
+    pub const SOVEREIGN_TAX_BPS = 2011;    // 2.011%
+    pub const PROTOCOL_SHARE_BPS = 1005;   // 1.0055% (miti)
+    pub const OPERATOR_SHARE_BPS = 1006;   // 1.0055% (miti)
 
     // Ratio de conversión: 1 SOL = 1,000,000 SC
     pub const SC_PER_SOL = 1_000_000;
@@ -30,14 +22,10 @@ pub const BillingManager = struct {
         return .{ .allocator = allocator };
     }
 
-    /// Calcula el costo total de una operación basado en el uso de recursos
-    pub fn calculateOperationCost(compute_ms: u64, ai_tokens: u64, rpc_calls: u64) u64 {
-        const base_cost = (compute_ms * COMPUTE_UNIT_SC) + 
-                          ((ai_tokens * AI_TOKEN_SC) / 1000) + 
-                          (rpc_calls * DATA_RPC_SC);
-        
-        const markup = (base_cost * INFRA_MARKUP_BPS) / 10000;
-        return base_cost + markup;
+    /// Calcula el tax soberano para una transacción
+    pub fn calculateTax(amount: u64) u64 {
+        // 2011 / 100000 = 0.02011
+        return (amount * SOVEREIGN_TAX_BPS) / 100000;
     }
 
     /// Calcula cuántos créditos se obtienen por un depósito de SOL
