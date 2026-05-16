@@ -131,14 +131,11 @@ pub const Vault = struct {
 
             std.debug.print("\n[Vault]  Bunker Vault inicializado y cifrado con AES-GCM.\n", .{});
         } else {
-            // Guardado inseguro (legacy/dev)
-            const file = try std.fs.cwd().createFile(key_path, .{});
-            defer file.close();
-            try file.writeAll(&self.sol_kp.secret);
-            try file.writeAll(&self.eth_kp.?.secret);
-            if (!isQuietMode(self.allocator)) {
-                std.debug.print("\n[Vault] ️ ADVERTENCIA: Vault guardado en texto plano (Modo Inseguro).\n", .{});
-            }
+            // En modo Deluxe, la soberanía requiere responsabilidad.
+            // Prohibimos el guardado en texto plano para proteger al usuario.
+            std.debug.print("\n[Vault] ️ ERROR CRÍTICO: No se puede inicializar el Vault sin un Master Password.\n", .{});
+            std.debug.print("         La seguridad es obligatoria en el protocolo xB77.\n", .{});
+            return error.EncryptionRequired;
         }
     }
 

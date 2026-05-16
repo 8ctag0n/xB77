@@ -22,7 +22,8 @@ test "APP: Complete Flow (Quote -> Hire -> Escrow)" {
     try std.fs.cwd().writeFile(.{ .sub_path = config_path, .data = config_content });
 
     // 1. Setup Context (Mocked)
-    var ctx = try core.context.AgentContext.init(allocator, config_path, null);
+    const password = "test_password_deluxe";
+    var ctx = try core.context.AgentContext.init(allocator, config_path, password);
     defer ctx.deinit();
 
     // Sobreescribir endpoint para evitar llamadas reales

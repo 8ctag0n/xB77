@@ -8,11 +8,17 @@ pub const TelemetryReport = struct {
     timestamp: i64,
     
     pub fn calculateCost(self: TelemetryReport) u64 {
-        _ = self;
-        // En el modelo Deluxe All-Inclusive (2.011%), no cobramos por 
-        // MS de cómputo o tokens de inferencia. El tax se captura 
-        // exclusivamente en los pagos económicos (Sovereign Tax).
-        return 0;
+        // Modelo Deluxe (2.22% protocol margin)
+        // Costes base (en Sovereign Credits):
+        // - 1 ms compute = 1 SC
+        // - 1000 AI tokens = 5 SC
+        // - 1 RPC call = 10 SC
+        const base_cost = self.compute_ms * 1 + (self.ai_tokens * 5 / 1000) + (self.rpc_calls * 10);
+        
+        // Protocol Margin: 2.22% (222 / 10000)
+        const margin = (base_cost * 222) / 10000;
+        
+        return base_cost + margin;
     }
 };
 

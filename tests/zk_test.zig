@@ -10,7 +10,7 @@ test "Ghost Strategy: Generate ZK Prover File" {
 
     const amount: u64 = 1_000_000_000; // 1 SOL
     const tax: u64 = 20_110_000;      // 2.011%
-    const recipient_pk = [_]u8{0xAB} ** 32;
+    const recipient_pk = [_]u8{0x11} ** 32;
 
     const r = try receipt.ZkReceipt.generate(amount, tax, .{ .sol = recipient_pk });
     
@@ -25,6 +25,6 @@ test "Ghost Strategy: Generate ZK Prover File" {
 
     try std.testing.expect(std.mem.indexOf(u8, content, "amount = 1000000000") != null);
     try std.testing.expect(std.mem.indexOf(u8, content, "tax_paid = 20110000") != null);
-    try std.testing.expect(std.mem.indexOf(u8, content, "recipient_pubkey = \"0xab") != null);
+    try std.testing.expect(std.mem.indexOf(u8, content, "recipient_pubkey = \"0x11") != null);
     try std.testing.expect(std.mem.indexOf(u8, content, "secret_salt = \"0x") != null);
 }

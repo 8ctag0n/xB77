@@ -155,7 +155,28 @@ export default {
           const bytes = new TextEncoder().encode(cached + '\0');
           return copyToWasm(instance, bytes);
         },
-        js_now: () => BigInt(Date.now())
+        js_now: () => BigInt(Date.now()),
+        js_fetch: (mPtr, mLen, uPtr, uLen, bPtr, bLen) => {
+          const method = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, mPtr, mLen));
+          const url = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, uPtr, uLen));
+          const body = bLen > 0 ? new Uint8Array(instance.exports.memory.buffer, bPtr, bLen) : null;
+          
+          // Note: Cloudflare Workers fetch is async, but WASM expect sync here or we need a promise-based bridge.
+          // For now, if we are in a sync path in Zig, we use ctx.waitUntil for side effects or we pre-fetch.
+          // BUT, for a Deluxe product, we should use the 'deasync' pattern or a sync-bridge if available.
+          // Since we can't easily do sync fetch in Workers, we'll mark this for pre-fetch OR return an error 
+          // if not pre-cached. 
+          
+          const cacheKey = `fetch:${method}:${url}`;
+          const cached = kv_cache.get(cacheKey);
+          if (cached) {
+            return copyToWasm(instance, new TextEncoder().encode(cached));
+          }
+          
+          // Fallback: If not cached, we return 0 (error) and the Zig side should handle it.
+          // In the next turn, we could implement a more robust async-to-sync bridge.
+          return 0;
+        }
       }
     });
 

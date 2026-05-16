@@ -6,6 +6,7 @@ const core = @import("core");
 const mcp_server = @import("mcp");
 const Cli = @import("../flags.zig").Cli;
 const network = @import("network.zig");
+const esc = "\x1b";
 
 pub fn mcp(cli: *const Cli) !void {
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
@@ -17,8 +18,15 @@ pub fn serve(cli: *const Cli) !void {
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
     defer ctx.deinit();
 
-    // Re-bind the router to ctx's stable address (not the temporary returned
-    // by AgentContext.init's stack frame).
+    std.debug.print("\n" ++ esc ++ "[1;36m[SYSTEM]" ++ esc ++ "[0m Initializing Sovereign Node Engine...\n", .{});
+    std.debug.print(esc ++ "[1;30m         Mode:     " ++ esc ++ "[1;32mAutonomous / Full-Stack" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;30m         Profile:  " ++ esc ++ "[1;33m{s}" ++ esc ++ "[0m\n", .{cli.profile});
+    std.debug.print(esc ++ "[1;30m         Network:  " ++ esc ++ "[1;36mSolana Devnet + Mesh" ++ esc ++ "[0m\n\n", .{});
+
+    std.debug.print(esc ++ "[1;32m>> AGENT ACTIVE & LISTENING <<" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;30m--------------------------------------------------" ++ esc ++ "[0m\n", .{});
+
+    // Re-bind the router to ctx's stable address
     ctx.router = core.pay.PaymentRouter.init(
         cli.allocator,
         &ctx.sol_client,

@@ -22,6 +22,9 @@ test "Orchestrator E2E: Full Billing Lifecycle" {
     const lamports = 1_000_000_000; 
     try orch.creditDeposit(agent_id, lamports);
     
+    // Bypass lease for test
+    try orch.last_sync_ts.put(allocator, agent_id, std.time.milliTimestamp());
+    
     try std.testing.expect(orch.canOperate(agent_id));
     const initial_balance = orch.balances.get(agent_id).?;
     try std.testing.expectEqual(@as(u64, 1_000_000), initial_balance);
@@ -42,11 +45,11 @@ test "Orchestrator E2E: Full Billing Lifecycle" {
     
     // 5. Calculate Expected Cost
     // Base: (500ms * 1) + (2000 * 5 / 1000) + (50 * 10) = 500 + 10 + 500 = 1010 SC
-    // Markup (11%): 111 SC
-    // Total: 1121 SC
+    // Markup (2.22%): 22 SC
+    // Total: 1032 SC
     const expected_cost = report.calculateCost();
     std.debug.print("\n[TEST] Simulated Operation Cost: {d} SC", .{expected_cost});
-    try std.testing.expect(expected_cost >= 1121); // >= because sleep might be slightly longer
+    try std.testing.expect(expected_cost >= 1032); // >= because sleep might be slightly longer
 
     // 6. Process Billing
     const new_balance = try orch.processUsage(agent_id, report);

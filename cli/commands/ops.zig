@@ -6,6 +6,8 @@ const std = @import("std");
 const core = @import("core");
 const Cli = @import("../flags.zig").Cli;
 
+const esc = "\x1b";
+
 pub fn pay(cli: *const Cli, args: []const [:0]u8) !void {
     if (args.len < 2) {
         std.debug.print("Usage: xb77 pay <destination_pubkey> <amount_in_lamports>\n", .{});
@@ -27,9 +29,9 @@ pub fn pay(cli: *const Cli, args: []const [:0]u8) !void {
         return;
     };
 
-    std.debug.print("\n[DeFi  ] Initiating Autonomous Transfer...\n", .{});
-    std.debug.print("         Target: {s}\n", .{dest_str});
-    std.debug.print("         Amount: {d} lamports\n", .{amount});
+    std.debug.print("\n" ++ esc ++ "[1;36m[SYSTEM]" ++ esc ++ "[0m Initiating Autonomous DeFi Transaction...\n", .{});
+    std.debug.print(esc ++ "[1;30m         Target: " ++ esc ++ "[1;37m{s}" ++ esc ++ "[0m\n", .{dest_str});
+    std.debug.print(esc ++ "[1;30m         Amount: " ++ esc ++ "[1;32m{d} lamports" ++ esc ++ "[0m\n\n", .{amount});
 
     const mb_client = core.chain.magicblock.MagicBlockClient.init(cli.allocator, "https://api.devnet.solana.com");
     var router = core.commerce.pay.PaymentRouter.init(
@@ -50,15 +52,21 @@ pub fn pay(cli: *const Cli, args: []const [:0]u8) !void {
     };
 
     const result = router.pay(request) catch |err| {
-        std.debug.print("\n\x1b[1;31m[ERROR]\x1b[0m Transaction failed: {s}\n", .{@errorName(err)});
+        std.debug.print("\n" ++ esc ++ "[1;31m╔══════════════════════════════════════════════════╗" ++ esc ++ "[0m\n", .{});
+        std.debug.print(esc ++ "[1;31m║  TRANSACTION FAILED: {s: <27} ║" ++ esc ++ "[0m\n", .{@errorName(err)});
+        std.debug.print(esc ++ "[1;31m╚══════════════════════════════════════════════════╝" ++ esc ++ "[0m\n\n", .{});
         return;
     };
 
-    std.debug.print("\n\x1b[1;32m[SUCCESS]\x1b[0m Transfer completed via {s} strategy!\n", .{@tagName(result.strategy)});
-    std.debug.print("          Signature: {s}\n", .{result.tx_signature});
-    std.debug.print("          Sovereign Tax Paid (2.011%): {d} lamports\n", .{result.fee_paid});
-    std.debug.print("\n          Ghost Receipt generated in circuits/zk_receipt/Prover.toml.\n", .{});
-    std.debug.print("          Use 'xb77 receipt' to view audit trail.\n\n", .{});
+    std.debug.print(esc ++ "[1;32m╔══════════════════════════════════════════════════╗" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;32m║  SETTLEMENT SUCCESSFUL                           ║" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;32m╠══════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;32m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mStrategy: " ++ esc ++ "[1;37m{s: <37}" ++ esc ++ "[1;32m║" ++ esc ++ "[0m\n", .{@tagName(result.strategy)});
+    std.debug.print(esc ++ "[1;32m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mTax (2.011%): " ++ esc ++ "[1;32m{d: <33}" ++ esc ++ "[1;32m║" ++ esc ++ "[0m\n", .{result.fee_paid});
+    std.debug.print(esc ++ "[1;32m╠══════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;32m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mSignature: " ++ esc ++ "[1;36m{s}..." ++ esc ++ "[1;32m║" ++ esc ++ "[0m\n", .{result.tx_signature[0..36]});
+    std.debug.print(esc ++ "[1;32m╚══════════════════════════════════════════════════╝" ++ esc ++ "[0m\n", .{});
+    std.debug.print("\n   " ++ esc ++ "[1;36mGHOST RECEIPT" ++ esc ++ "[0m generated. Audit trail ready.\n\n", .{});
 }
 
 pub fn batch(cli: *const Cli, args: []const [:0]u8) !void {
@@ -127,7 +135,7 @@ pub fn receipt(cli: *const Cli, args: []const [:0]u8) !void {
     const chain = if (obj.get("chain")) |v| v.string else "solana";
 
     const sig_short = if (tx_hash.len > 16) tx_hash[0..16] else tx_hash;
-    const audit_url = try std.fmt.allocPrint(cli.allocator, "https://gateway.xb77.com/audit/{s}", .{tx_hash});
+    const audit_url = try std.fmt.allocPrint(cli.allocator, "https://xb77.io/network?audit={s}", .{tx_hash});
     defer cli.allocator.free(audit_url);
 
     // Neon-green card. Layout unchanged from monolith.

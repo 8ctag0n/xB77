@@ -12,23 +12,20 @@ dev-up:
 	$(MAKE) -f Makefile.native agent-dev &
 	@echo "Stack live."
 
-validator-dev:
-	nohup solana-test-validator --reset --quiet > validator.log 2>&1 &
+swarm-up:
+	@echo "Launching Sovereign Swarm on Host..."
+	@./zig-out/bin/xb77 serve --run-local &
+	@sleep 2
+	@XB77_PASSWORD=demo-pw ./zig-out/bin/xb77 -p alpha-1 init
+	@XB77_PASSWORD=demo-pw ./zig-out/bin/xb77 -p alpha-2 init
+	@echo "Swarm Active. Dashboard: http://localhost:8080/app.html"
 
-gateway-dev:
-	@echo "Starting Gateway..."
-	cd gateway/worker && bunx wrangler dev --local --port 8787 --ip 127.0.0.1
-
-agent-dev:
-	@echo "Starting Agent..."
-	./zig-out/bin/xb77 serve --run-local
-
-zk-gen:
-	@echo "Generating xB77 Sovereign ZK-Receipt VK..."
-	cd circuits/zk_receipt && nargo compile
-	cd circuits/zk_receipt && bb write_vk -b target/zk_receipt.json -o target/vk -s groth16
+zk-gen-native:
+	@echo "Generating ZK VK (Native)..."
+	bash scripts/nargo-native.sh compile --program-dir circuits/zk_receipt
+	# Note: bb needs to be installed natively too
+	bb write_vk -b circuits/zk_receipt/target/zk_receipt.json -o circuits/zk_receipt/target/vk -s groth16
 	python3 scripts/extract_vk.py circuits/zk_receipt/target/vk onchain/programs/xb77_zk_verifier/src/vk.rs
-	@echo "ZK pipeline complete."
 
 dev-down:
 	@echo "Stopping stack..."

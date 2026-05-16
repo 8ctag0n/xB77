@@ -79,6 +79,7 @@ const ACTION = struct {
     const CLAIM_CREDITS: u8 = 0x03;
     const QUERY_PULSE: u8 = 0x04;
     const LINK_AGENT: u8 = 0x05;
+    const REPORT_USAGE: u8 = 0x06;
 };
 
 // --- Core Logic ---
@@ -126,6 +127,7 @@ export fn handle_request(
         else if (std.mem.eql(u8, req.path, "/api/v1/actions/claim_credits")) ACTION.CLAIM_CREDITS
         else if (std.mem.eql(u8, req.path, "/api/v1/actions/query_pulse")) ACTION.QUERY_PULSE
         else if (std.mem.eql(u8, req.path, "/api/v1/actions/link_agent")) ACTION.LINK_AGENT
+        else if (std.mem.eql(u8, req.path, "/api/v1/actions/report_usage")) ACTION.REPORT_USAGE
         else 0;
 
         if (action_byte != 0) return handle_action(allocator, req, action_byte);
@@ -183,6 +185,7 @@ fn handle_action(allocator: std.mem.Allocator, req: Request, action_byte: u8) *R
         ACTION.REGISTER_AGENT => exec_register(allocator, agent_id, req.pubkey.?, req.body),
         ACTION.QUERY_PULSE => handle_pulse_signed(allocator, agent_id),
         ACTION.LINK_AGENT => exec_link(allocator, agent_id, req.body),
+        ACTION.REPORT_USAGE => exec_report_usage(allocator, agent_id, req.body),
         else => build_error(allocator, 501, "not_implemented", "Action logic pending in Zig core"),
     };
 }
@@ -250,6 +253,39 @@ fn exec_link(allocator: std.mem.Allocator, agent_id: []const u8, body: []const u
     js_telegram_send(chat_id, " Agent Linked Successfully! Protocol xB77 active.", 46);
 
     return build_signed_response(allocator, 200, ACTION.LINK_AGENT, "{\"ok\":true}");
+}
+
+fn exec_report_usage(allocator: std.mem.Allocator, agent_id: []const u8, body: []const u8) *Response {
+    const usage = std.json.parseFromSlice(struct { cost: u64 }, allocator, body, .{}) catch return build_error(allocator, 400, "bad_payload", "invalid usage report");
+    defer usage.deinit();
+
+    const agent_key = std.fmt.allocPrint(allocator, "agent:{s}", .{agent_id}) catch return build_error(allocator, 500, "internal", "mem");
+    defer allocator.free(agent_key);
+
+    const existing = get_kv(allocator, agent_key) orelse return build_error(allocator, 404, "not_found", "agent not registered");
+    defer allocator.free(existing);
+
+    // Parsing the existing agent data and updating credits
+    // Since Zig JSON parsing is a bit verbose for just updating one field in a blob,
+    // and we want to keep it simple, we'll parse the whole object.
+    const AgentData = struct { agent_id: []const u8, pubkey: []const u8, tier: []const u8, credits: u64, issued_at: i64 };
+    const parsed_agent = std.json.parseFromSlice(AgentData, allocator, existing, .{ .ignore_unknown_fields = true }) catch return build_error(allocator, 500, "internal", "bad_kv_data");
+    defer parsed_agent.deinit();
+
+    if (parsed_agent.value.credits < usage.value.cost) return build_error(allocator, 402, "insufficient_credits", "gateway balance exhausted");
+
+    const new_credits = parsed_agent.value.credits - usage.value.cost;
+    
+    const updated_json = std.fmt.allocPrint(allocator, 
+        \\{{"agent_id":"{s}","pubkey":"{s}","tier":"{s}","credits":{d},"issued_at":{d}}}
+    , .{parsed_agent.value.agent_id, parsed_agent.value.pubkey, parsed_agent.value.tier, new_credits, parsed_agent.value.issued_at}) catch return build_error(allocator, 500, "internal", "mem");
+    defer allocator.free(updated_json);
+    
+    js_kv_put(agent_key.ptr, agent_key.len, updated_json.ptr, updated_json.len, 0);
+
+    const response_json = std.fmt.allocPrint(allocator, "{{\"ok\":true,\"new_balance\":{d}}}", .{new_credits}) catch "{\"ok\":true}";
+    
+    return build_signed_response(allocator, 200, ACTION.REPORT_USAGE, response_json);
 }
 
 // --- Read Handlers ---

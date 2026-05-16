@@ -5,8 +5,21 @@ const std = @import("std");
 const core = @import("core");
 const Cli = @import("../flags.zig").Cli;
 
+const esc = "\x1b";
+
 pub fn init(cli: *const Cli) !void {
-    std.debug.print("\n[INIT  ]  Generating Sovereign Identity for profile '{s}'...\n", .{cli.profile});
+    const banner = 
+        "\n" ++
+        "    " ++ esc ++ "[1;32m██╗  ██╗" ++ esc ++ "[1;36m██████╗ " ++ esc ++ "[1;32m███████╗" ++ esc ++ "[1;36m███████╗\n" ++
+        "    " ++ esc ++ "[1;32m╚██╗██╔╝" ++ esc ++ "[1;36m██╔══██╗╚══███╔╝╚══███╔╝\n" ++
+        "    " ++ esc ++ "[1;32m ╚███╔╝ " ++ esc ++ "[1;36m██████╔╝  ███╔╝   ███╔╝ \n" ++
+        "    " ++ esc ++ "[1;32m ██╔██╗ " ++ esc ++ "[1;36m██╔══██╗ ███╔╝   ███╔╝  \n" ++
+        "    " ++ esc ++ "[1;32m██╔╝ ██╗" ++ esc ++ "[1;36m██████╔╝" ++ esc ++ "[1;32m███████╗" ++ esc ++ "[1;36m███████╗\n" ++
+        "    " ++ esc ++ "[1;32m╚═╝  ╚═╝" ++ esc ++ "[1;36m╚═════╝ ╚══════╝╚══════╝" ++ esc ++ "[0m\n" ++
+        "    " ++ esc ++ "[1;30m>> SOVEREIGN FINANCIAL INFRASTRUCTURE <<" ++ esc ++ "[0m\n\n";
+    
+    std.debug.print("{s}", .{banner});
+    std.debug.print("[INIT]  Generating Sovereign Identity for profile " ++ esc ++ "[1;33m'{s}'" ++ esc ++ "[0m...\n", .{cli.profile});
 
     // Aseguramos que la carpeta profiles exista
     std.fs.cwd().makePath("profiles") catch {};
@@ -14,53 +27,39 @@ pub fn init(cli: *const Cli) !void {
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
     defer ctx.deinit();
 
-    // Actualizamos el vault_path en la config para que sea específico del perfil
-    const profile_vault_path = try std.fmt.allocPrint(cli.allocator, "./.xb77/{s}", .{cli.profile});
-    defer cli.allocator.free(profile_vault_path);
-    
-    // Si la config era por defecto (archivo no existía), la guardamos
-    if (std.fs.cwd().access(cli.config_path, .{})) |_| {} else |_| {
-        ctx.config.vaults.path = profile_vault_path;
-        try ctx.config.save(cli.allocator, cli.config_path);
-        std.debug.print("[CONFIG]  Saved profile configuration to {s}\n", .{cli.config_path});
-        
-        // Re-inicializamos el contexto con la nueva config para que los vaults apunten bien
-        ctx.deinit();
-        ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
-    }
-
     const sol_kp = ctx.vaults.ops.sol_kp;
     const sol_addr = try core.crypto.pubkeyToString(cli.allocator, &sol_kp.public);
     defer cli.allocator.free(sol_addr);
     const eth_addr = try ctx.vaults.ops.address(.base, cli.allocator);
     defer cli.allocator.free(eth_addr);
 
-    std.debug.print("\n[SUCCESS] Profile '{s}' initialized!\n", .{cli.profile});
-    std.debug.print("          --------------------------------------\n", .{});
-    std.debug.print("          Solana (L1/PER):  {s}\n", .{sol_addr});
-    std.debug.print("          Base (EVM/Sett):  {s}\n", .{eth_addr});
-    std.debug.print("          --------------------------------------\n", .{});
+    std.debug.print("\n" ++ esc ++ "[1;32m[SUCCESS]" ++ esc ++ "[0m Profile " ++ esc ++ "[1;37m'{s}'" ++ esc ++ "[0m initialized!\n", .{cli.profile});
+    std.debug.print("          " ++ esc ++ "[1;30m┌──────────────────────────────────────┐" ++ esc ++ "[0m\n", .{});
+    std.debug.print("          " ++ esc ++ "[1;30m│" ++ esc ++ "[0m Solana (L1):  " ++ esc ++ "[1;36m{s}" ++ esc ++ "[1;30m │" ++ esc ++ "[0m\n", .{sol_addr});
+    std.debug.print("          " ++ esc ++ "[1;30m│" ++ esc ++ "[0m Base (EVM):    " ++ esc ++ "[1;35m{s}" ++ esc ++ "[1;30m │" ++ esc ++ "[0m\n", .{eth_addr[0..eth_addr.len]});
+    std.debug.print("          " ++ esc ++ "[1;30m└──────────────────────────────────────┘" ++ esc ++ "[0m\n", .{});
 
     // --- Deluxe Registration & Credit Check ---
     std.debug.print("\n[SYNC  ]  Synchronizing with xB77 Sovereign Gateway...", .{});
     
-    const balance = ctx.orchestrator.registerAgent(sol_kp.public, &sol_kp) catch |err| blk: {
-        std.debug.print("\n[WARN  ]  Gateway registration failed: {s}. Checking existing balance...", .{@errorName(err)});
-        break :blk ctx.orchestrator.syncBalance(sol_kp.public) catch 0;
+    const balance = ctx.orchestrator.registerAgent(sol_kp.public, &sol_kp) catch blk: {
+        std.debug.print(" " ++ esc ++ "[1;33m[WARN] ConnectionRefused" ++ esc ++ "[0m\n", .{});
+        break :blk ctx.orchestrator.balances.get(sol_kp.public) orelse 0;
     };
-
-    std.debug.print("\n[CREDIT]  Current Balance: {d} SC\n", .{balance});
+    
+    std.debug.print(" " ++ esc ++ "[1;32mDONE" ++ esc ++ "[0m\n", .{});
+    std.debug.print("[CREDIT]  Current Balance: " ++ esc ++ "[1;37m{d} SC" ++ esc ++ "[0m\n", .{balance});
 
     if (balance < 50) {
-        std.debug.print("\n{s} ACTION REQUIRED: Insufficient Credits {s}\n", .{ "\x1b[31;1m", "\x1b[0m" });
+        std.debug.print("\n " ++ esc ++ "[1;31mACTION REQUIRED: Insufficient Credits" ++ esc ++ "[0m \n", .{});
         std.debug.print("  Your agent needs at least 50 SC to operate in the mesh.\n", .{});
         std.debug.print("  Fund your agent instantly via this Blink (Solana Action):\n", .{});
-        std.debug.print("  \x1b[36mhttps://dial.to/?action=solana-action:https://gateway.xb77.com/api/v1/actions/pay?agent={s}&tier=standard\x1b[0m\n", .{sol_addr});
+        std.debug.print("  " ++ esc ++ "[1;36mhttps://dial.to/?action=solana-action:https://gateway.xb77.com/api/v1/actions/pay?agent={s}&tier=standard" ++ esc ++ "[0m\n", .{sol_addr});
     }
 
     std.debug.print("\nNext Steps:\n", .{});
     std.debug.print("  1. Link to Telegram: xb77 -p {s} link <CODE>\n", .{cli.profile});
-    std.debug.print("  2. Start operating:  xb77 -p {s} serve\n", .{cli.profile});
+    std.debug.print("  2. Start operating:  xb77 -p {s} serve\n\n", .{cli.profile});
 }
 
 pub fn status(cli: *const Cli) !void {
@@ -72,23 +71,25 @@ pub fn status(cli: *const Cli) !void {
     const eth_addr = try ctx.vaults.ops.address(.base, cli.allocator);
     defer cli.allocator.free(eth_addr);
 
-    std.debug.print("\n{s}--- xB77 SOVEREIGN AGENT STATUS ({s}) ---{s}\n", .{ "\x1b[33;1m", cli.profile, "\x1b[0m" });
+    std.debug.print("\n" ++ esc ++ "[1;30m╔══════════════════════════════════════════════════╗" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m  " ++ esc ++ "[1;33mxB77 SOVEREIGN AGENT" ++ esc ++ "[0m: " ++ esc ++ "[1;37m{s: <20}" ++ esc ++ "[0m  " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{cli.profile});
+    std.debug.print(esc ++ "[1;30m╠══════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
     
     // --- [1] SOVEREIGN IDENTITY (SNS) ---
     if (ctx.config.name) |name| {
-        std.debug.print("{s}[IDENTITY]{s} {s}.xb77 / {s}.sol", .{ "\x1b[36m", "\x1b[0m", name, name });
+        std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;36m[IDENTITY]" ++ esc ++ "[0m " ++ esc ++ "[1;37m{s}.xb77" ++ esc ++ "[0m / " ++ esc ++ "[1;32m{s}.sol" ++ esc ++ "[0m", .{ name, name });
         // Intentar resolución nativa rápida de su propio nombre (si fuera .sol)
         const name_sol = try std.fmt.allocPrint(cli.allocator, "{s}.sol", .{name});
         defer cli.allocator.free(name_sol);
         if (core.business.identity.Identity.resolveSnsNative(cli.allocator, &ctx.sol_client, name_sol)) |pk| {
             const pk_str = try core.crypto.pubkeyToString(cli.allocator, &pk);
             defer cli.allocator.free(pk_str);
-            std.debug.print(" -> {s} {s}(Native Verified){s}\n", .{ pk_str[0..8], "\x1b[32m", "\x1b[0m" });
+            std.debug.print(" " ++ esc ++ "[1;32m(Verified)" ++ esc ++ "[0m " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{});
         } else |_| {
-            std.debug.print(" {s}(Local Only){s}\n", .{ "\x1b[90m", "\x1b[0m" });
+            std.debug.print(" " ++ esc ++ "[1;30m(Local)   ║" ++ esc ++ "[0m\n", .{});
         }
     } else {
-        std.debug.print("{s}[IDENTITY]{s} Anonymous Agent\n", .{ "\x1b[36m", "\x1b[0m" });
+        std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;36m[IDENTITY]" ++ esc ++ "[0m " ++ esc ++ "[1;90mAnonymous Sovereign Agent          " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{});
     }
 
     // --- [2] SOVEREIGN BRAIN (QVAC) ---
@@ -98,25 +99,24 @@ pub fn status(cli: *const Cli) !void {
         break :blk is_shim;
     } else false;
 
-    std.debug.print("{s}[BRAIN   ]{s} Gemma 3 {s}\n", .{ 
-        "\x1b[36m", "\x1b[0m", 
-        if (use_shim) "\x1b[32m(Active via TS Shim :8088)\x1b[0m" else "\x1b[33m(Heuristics Fallback)\x1b[0m" 
+    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;36m[BRAIN   ]" ++ esc ++ "[0m " ++ esc ++ "[1;37mGemma 3" ++ esc ++ "[0m {s}         " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{ 
+        if (use_shim) esc ++ "[1;32m(LIVE_SHIM)" ++ esc ++ "[0m" else esc ++ "[1;33m(HEURISTIC)" ++ esc ++ "[0m" 
     });
 
     // --- [3] HFT RAIL (MagicBlock) ---
     const mb_active = !std.mem.startsWith(u8, ctx.mb_client.sequencer_url, "mock:");
-    std.debug.print("{s}[HFT RAIL ]{s} MagicBlock {s}\n", .{ 
-        "\x1b[36m", "\x1b[0m",
-        if (mb_active) "\x1b[32m(Live Sequencer)\x1b[0m" else "\x1b[33m(Simulated/Mock)\x1b[0m"
+    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;36m[HFT RAIL ]" ++ esc ++ "[0m " ++ esc ++ "[1;37mMagicBlock" ++ esc ++ "[0m {s}      " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{ 
+        if (mb_active) esc ++ "[1;32m(ACTIVE)" ++ esc ++ "[0m" else esc ++ "[1;90m(MOCKED)" ++ esc ++ "[0m"
     });
 
-    std.debug.print("--------------------------------------------------\n", .{});
-    std.debug.print("Solana L1: {s}\n", .{sol_addr});
-    std.debug.print("Base EVM:  {s}\n", .{eth_addr});
+    std.debug.print(esc ++ "[1;30m╠══════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mSolana:" ++ esc ++ "[0m " ++ esc ++ "[1;37m{s}" ++ esc ++ "[0m " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{sol_addr});
+    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mBase:  " ++ esc ++ "[0m " ++ esc ++ "[1;37m{s}" ++ esc ++ "[0m " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{eth_addr});
     
     const root = ctx.store.tree.getRoot();
-    std.debug.print("ZK Ledger: Root 0x{x:0>2}{x:0>2}... ({d} entries)\n", .{ root[0], root[1], ctx.store.tree.rightmost_index });
-    std.debug.print("Status:    {s}SOVEREIGN & ACTIVE{s}\n", .{ "\x1b[32;1m", "\x1b[0m" });
+    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mZK Root:" ++ esc ++ "[0m " ++ esc ++ "[1;32m0x{x:0>2}{x:0>2}..." ++ esc ++ "[0m (" ++ esc ++ "[1;37m{d} txs" ++ esc ++ "[0m)                 " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{ root[0], root[1], ctx.store.tree.rightmost_index });
+    std.debug.print(esc ++ "[1;30m╚══════════════════════════════════════════════════╝" ++ esc ++ "[0m\n", .{});
+    std.debug.print("   STATUS: " ++ esc ++ "[1;32mSOVEREIGN & COMPUTING" ++ esc ++ "[0m\n\n", .{});
 }
 
 pub fn state(cli: *const Cli) !void {
@@ -135,7 +135,12 @@ pub fn state(cli: *const Cli) !void {
     std.debug.print("\nIntegrity:   Sovereign & Verified\n", .{});
 }
 
-pub fn credits(cli: *const Cli) !void {
+pub fn credits(cli: *const Cli, args: []const [:0]u8) !void {
+    if (args.len > 0 and std.mem.eql(u8, args[0], "topup")) {
+        try topup(cli);
+        return;
+    }
+
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
     defer ctx.deinit();
 
@@ -143,22 +148,44 @@ pub fn credits(cli: *const Cli) !void {
     const sol_addr = try core.crypto.pubkeyToString(cli.allocator, &sol_kp.public);
     defer cli.allocator.free(sol_addr);
 
-    std.debug.print("\n[CREDIT]  Sovereign Credits Balance for {s}\n", .{sol_addr});
-
-    const balance = ctx.orchestrator.syncBalance(sol_kp.public) catch |err| {
-        std.debug.print("\n[ERROR ]  Gateway Sync Failed: {s}. Falling back to local cache.\n", .{@errorName(err)});
-        return;
+    const balance = ctx.orchestrator.syncBalance(sol_kp.public) catch |err| blk: {
+        std.debug.print("\n" ++ esc ++ "[1;33m[WARN]" ++ esc ++ "[0m Gateway Sync Failed: {s}. Using local cache.\n", .{@errorName(err)});
+        break :blk ctx.orchestrator.balances.get(sol_kp.public) orelse 0;
     };
 
-    std.debug.print("          Balance: {d} SC\n", .{balance});
-    std.debug.print("          Status:  {s}\n", .{if (balance >= 50) "\x1b[32mActive & Funded\x1b[0m" else "\x1b[31mLow Credits\x1b[0m"});
+    std.debug.print("\n" ++ esc ++ "[1;30m╔══════════════════════════════════════════════════╗" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m  " ++ esc ++ "[1;36mSOVEREIGN CREDIT STATEMENT" ++ esc ++ "[0m                      " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;30m╠══════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mAgent:" ++ esc ++ "[0m " ++ esc ++ "[1;37m{s: <40}" ++ esc ++ "[1;30m ║" ++ esc ++ "[0m\n", .{sol_addr[0..40]});
+    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mStatus:" ++ esc ++ "[0m {s: <47}" ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{if (balance >= 50) esc ++ "[1;32mACTIVE & FUNDED" ++ esc ++ "[0m" else esc ++ "[1;31mCREDITS_LOW" ++ esc ++ "[0m"});
+    std.debug.print(esc ++ "[1;30m╠══════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m  " ++ esc ++ "[1;33mAVAILABLE BALANCE:" ++ esc ++ "[0m " ++ esc ++ "[1;37m{d: <18} SC" ++ esc ++ "[0m  " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{balance});
+    std.debug.print(esc ++ "[1;30m╚══════════════════════════════════════════════════╝" ++ esc ++ "[0m\n", .{});
 
-    if (balance < 50) {
-        std.debug.print("\nHow to Fund:\n", .{});
-        std.debug.print("  1. Send SOL to: {s}\n", .{sol_addr});
-        std.debug.print("  2. Fund via Blink (Solana Action):\n", .{});
-        std.debug.print("     \x1b[36mhttps://dial.to/?action=solana-action:https://gateway.xb77.com/api/v1/actions/pay?agent={s}\x1b[0m\n", .{sol_addr});
-    }
+    std.debug.print("\n" ++ esc ++ "[1;30m>> ACTIONS:" ++ esc ++ "[0m\n", .{});
+    std.debug.print("   " ++ esc ++ "[1;32m•" ++ esc ++ "[0m Run " ++ esc ++ "[1;36m'xb77 credits topup'" ++ esc ++ "[0m to fund instantly via Blink.\n\n", .{});
+}
+
+fn topup(cli: *const Cli) !void {
+    var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
+    defer ctx.deinit();
+
+    const sol_kp = ctx.vaults.ops.sol_kp;
+    const sol_addr = try core.crypto.pubkeyToString(cli.allocator, &sol_kp.public);
+    defer cli.allocator.free(sol_addr);
+
+    const blink_url = try std.fmt.allocPrint(cli.allocator, "https://dial.to/?action=solana-action:https://gateway.xb77.io/api/v1/actions/pay?agent={s}", .{sol_addr});
+    defer cli.allocator.free(blink_url);
+
+    std.debug.print("\n" ++ esc ++ "[1;33m╔══════════════════════════════════════════════════════════════╗" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;33m║" ++ esc ++ "[0m          " ++ esc ++ "[1;37mGENERATE SOVEREIGN CREDITS TOPUP" ++ esc ++ "[0m          " ++ esc ++ "[1;33m║" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;33m╠══════════════════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;33m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mTarget Agent:" ++ esc ++ "[0m  " ++ esc ++ "[1;36m{s}" ++ esc ++ "[0m " ++ esc ++ "[1;33m║" ++ esc ++ "[0m\n", .{sol_addr});
+    std.debug.print(esc ++ "[1;33m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mMethod:      " ++ esc ++ "[0m  " ++ esc ++ "[1;32mSolana Actions (Blinks)" ++ esc ++ "[0m              " ++ esc ++ "[1;33m║" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;33m╠══════════════════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;33m║" ++ esc ++ "[0m " ++ esc ++ "[1;37mOpen this URL to pay:" ++ esc ++ "[0m                               " ++ esc ++ "[1;33m║" ++ esc ++ "[0m\n", .{});
+    std.debug.print(esc ++ "[1;33m║" ++ esc ++ "[0m " ++ esc ++ "[1;36m{s}" ++ esc ++ "[0m " ++ esc ++ "[1;33m║" ++ esc ++ "[0m\n", .{blink_url});
+    std.debug.print(esc ++ "[1;33m╚══════════════════════════════════════════════════════════════╝" ++ esc ++ "[0m\n", .{});
 }
 
 pub fn identity(cli: *const Cli, args: []const [:0]u8) !void {
@@ -202,7 +229,7 @@ pub fn identity(cli: *const Cli, args: []const [:0]u8) !void {
         try json_list.writer(cli.allocator).print("{any}", .{std.json.fmt(payload, .{})});
 
         var http = core.net.http.HttpClient.init(cli.allocator);
-        const url = "https://gateway.xb77.com/identity/claim";
+        const url = "https://gateway.xb77.io/identity/claim";
 
         var resp = http.post(url, json_list.items) catch |err| {
             std.debug.print(" Error de conexión: {}\n", .{err});
@@ -237,7 +264,7 @@ pub fn identity(cli: *const Cli, args: []const [:0]u8) !void {
             };
         };
 
-        const pk_str = try core.crypto.encodeBase58(cli.allocator, &pubkey);
+        const pk_str = try core.crypto.pubkeyToString(cli.allocator, &pubkey);
         defer cli.allocator.free(pk_str);
         std.debug.print(" Dueño de {s}: {s}\n", .{ domain, pk_str });
     }

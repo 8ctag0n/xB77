@@ -46,7 +46,7 @@ pub fn main() !void {
     } else if (std.mem.eql(u8, command, "state")) {
         try identity_cmd.state(cli);
     } else if (std.mem.eql(u8, command, "credits")) {
-        try identity_cmd.credits(cli);
+        try identity_cmd.credits(cli, cmd_args);
     } else if (std.mem.eql(u8, command, "identity")) {
         try identity_cmd.identity(cli, cmd_args);
     } else if (std.mem.eql(u8, command, "pay")) {
@@ -71,10 +71,6 @@ pub fn main() !void {
         try services_cmd.mcp(cli);
     } else if (std.mem.eql(u8, command, "serve")) {
         try services_cmd.serve(cli);
-    } else if (std.mem.eql(u8, command, "merchant")) {
-        try merchant_cmd.merchant(cli, cmd_args);
-    } else if (std.mem.eql(u8, command, "intent")) {
-        try intent_cmd.execute(cli, cmd_args);
     } else if (std.mem.eql(u8, command, "spawn")) {
         try spawn_cmd.spawn(cli, cmd_args);
     } else if (std.mem.eql(u8, command, "watch")) {
@@ -86,11 +82,6 @@ pub fn main() !void {
     } else if (std.mem.eql(u8, command, "brain")) {
         try brain_cmd.think(cli, cmd_args);
     } else {
-        std.debug.print("Comando desconocido: {s}\n", .{command});
-        flags.printUsage();
-    }
-}
-  } else {
         std.debug.print("Comando desconocido: {s}\n", .{command});
         flags.printUsage();
     }
