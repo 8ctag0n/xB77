@@ -8,11 +8,11 @@ pub const TelemetryReport = struct {
     timestamp: i64,
     
     pub fn calculateCost(self: TelemetryReport) u64 {
-        return billing.BillingManager.calculateOperationCost(
-            self.compute_ms,
-            self.ai_tokens,
-            self.rpc_calls,
-        );
+        _ = self;
+        // En el modelo Deluxe All-Inclusive (2.011%), no cobramos por 
+        // MS de cómputo o tokens de inferencia. El tax se captura 
+        // exclusivamente en los pagos económicos (Sovereign Tax).
+        return 0;
     }
 };
 

@@ -115,16 +115,13 @@ pub const Brain = struct {
     /// Razonamiento avanzado usando un modelo local Gemma 3 (vía llama.cpp)
     /// Este es el núcleo de la soberanía de IA: 100% portable y sin dependencias Node.
     pub fn reasonWithGemma(self: *Brain, directive: []const u8) !BrainInsight {
-        // Opción B: Si no estamos listos para compilación nativa, usamos el Shim HTTP
-        if (std.process.getEnvVarOwned(self.allocator, "XB77_USE_BRAIN_SHIM") catch null) |val| {
-            defer self.allocator.free(val);
-            if (std.mem.eql(u8, val, "1")) {
-                return self.reasonWithShim(directive);
-            }
+        // Intentamos usar el Shim HTTP primero (QVAC Brain server)
+        if (self.reasonWithShim(directive)) |insight| {
+            return insight;
+        } else |err| {
+            std.debug.print("\n[BRAIN ]  QVAC Shim unavailable ({any}). Falling back to Native Sovereign Heuristics...", .{err});
         }
 
-        std.debug.print("\n[BRAIN ]  Consulting Gemma 3 (Native Sovereign Engine - STUB)...", .{});
-        
         // --- Heurísticas Soberanas (Fallback si no hay Shim ni Llama Nativo compilado) ---
         var insight = try self.interpret(directive);
         

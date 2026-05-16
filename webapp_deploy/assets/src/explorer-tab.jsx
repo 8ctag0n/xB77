@@ -18,10 +18,24 @@ function ExplorerTab() {
   const [search, setSearch] = React.useState('');
   const [tab, setTab] = React.useState('pipelines');
   const [sel, setSel] = React.useState(null);
+
+  const [liveAgents, setLiveAgents] = React.useState(null);
+  const [livePipelines, setLivePipelines] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!window.DataSource) return;
+    const unsub1 = window.DataSource.subscribe('agents', setLiveAgents, 10000);
+    const unsub2 = window.DataSource.subscribe('pipelinesRecent', setLivePipelines, 5000);
+    return () => { unsub1(); unsub2(); };
+  }, []);
+
+  const agentData = liveAgents?.agents || MOCK_AGENTS_V2;
+  const pipelineData = livePipelines?.pipelines || MOCK_PIPELINES;
+
   const tabs = [
-    { id: 'pipelines', label: 'Pipelines', count: MOCK_PIPELINES.length },
+    { id: 'pipelines', label: 'Pipelines', count: pipelineData.length },
     { id: 'poseidon',  label: 'Poseidon',  count: MOCK_POSEIDON.length },
-    { id: 'agents',    label: 'Agents',    count: MOCK_AGENTS_V2.length },
+    { id: 'agents',    label: 'Agents',    count: agentData.length },
     { id: 'merchants', label: 'Merchants', count: MOCK_MERCHANTS.length },
     { id: 'znodes',    label: 'Znodes',    count: MOCK_ZNODES.length },
   ];
@@ -38,11 +52,11 @@ function ExplorerTab() {
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 1, background: 'var(--nav-bg)', backdropFilter: 'blur(12px)', borderTop: `1px solid ${T.border}` }}>
           {[
             { label: 'TVL',              value: '$12.4M',  change: '+2.3%', spark: _expSparkTVL },
-            { label: 'PIPELINES',        value: '48,291',  change: '+847',  spark: _expSparkPipe },
+            { label: 'PIPELINES',        value: pipelineData.length.toLocaleString(), spark: _expSparkPipe },
             { label: 'POSEIDON COMMITS', value: '14,820',  change: '+312',  spark: _expSparkPos, color: T.cyan },
             { label: 'ZNODES',           value: '28 / 32' },
             { label: 'AVG LATENCY',      value: '34ms',    change: '-3ms',  spark: _expSparkLat, color: T.cyan },
-            { label: 'MERCHANTS',        value: '12',      change: '+2' },
+            { label: 'MERCHANTS',        value: MOCK_MERCHANTS.length.toString() },
           ].map((s, i) => (
             <div key={i} style={{ borderRight: i < 5 ? `1px solid ${T.border}` : 'none' }}>
               <StatCard {...s} sparkData={s.spark} />
@@ -63,9 +77,9 @@ function ExplorerTab() {
             <div style={{ marginTop: 14 }}><Tabs tabs={tabs} active={tab} onChange={setTab} /></div>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px' }}>
-            {tab === 'pipelines' && <ExPipelinesView data={MOCK_PIPELINES} search={search} onSelect={setSel} />}
+            {tab === 'pipelines' && <ExPipelinesView data={pipelineData} search={search} onSelect={setSel} />}
             {tab === 'poseidon'  && <PoseidonView    data={MOCK_POSEIDON}   search={search} onSelect={setSel} />}
-            {tab === 'agents'    && <AgentsRichView  data={MOCK_AGENTS_V2}  search={search} onSelect={setSel} />}
+            {tab === 'agents'    && <AgentsRichView  data={agentData}  search={search} onSelect={setSel} />}
             {tab === 'merchants' && <MerchantsView   data={MOCK_MERCHANTS}  search={search} onSelect={setSel} />}
             {tab === 'znodes'    && <ZnodesView      data={MOCK_ZNODES}     search={search} onSelect={setSel} />}
           </div>
