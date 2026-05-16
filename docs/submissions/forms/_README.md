@@ -45,5 +45,5 @@ Five deployed programs (devnet):
 | xb77_core | `73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3` |
 | xb77_gateway | `83nPgEhrzKaDSXCoWQCkYau66KUnVeFSQF32LPfyL3s4` |
 | xb77_registry | `HxjcLS4gkccTWD3VeM9Vc4NkQ4rjxtDHR2Lwby6NL6b1` |
-| xb77_compression | `6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN` |
+| xb77.iopression | `6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN` |
 | xb77_zk_verifier | `J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ` |

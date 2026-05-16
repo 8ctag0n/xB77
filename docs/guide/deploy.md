@@ -124,7 +124,7 @@ as sensitive — they're pinned to the program address forever.
 
 ```bash
 # From inside the toolbox container, /work is the repo root.
-for prog in xb77_core xb77_gateway xb77_registry xb77_compression xb77_zk_verifier; do
+for prog in xb77_core xb77_gateway xb77_registry xb77.iopression xb77_zk_verifier; do
   cd /work/onchain/programs/$prog
   cargo build-sbf
   solana program deploy \
@@ -138,7 +138,7 @@ Confirm:
 ```bash
 solana program show 73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3   # xb77_core
 solana program show 4gDQBWwzncRdTspJW37NoH56mGELj8UTqdC8VLdu7BGC   # xb77_gateway
-solana program show 6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN   # xb77_compression
+solana program show 6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN   # xb77.iopression
 solana program show J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ   # xb77_zk_verifier
 # (look up xb77_registry pubkey in onchain/programs/xb77_registry/src/lib.rs)
 ```

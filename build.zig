@@ -388,7 +388,7 @@ pub fn build(b: *std.Build) void {
     zk_upload_e2e.linkLibC();
     b.installArtifact(zk_upload_e2e);
 
-    // --- E2E Compression VerifyTransition (sends real tx to xb77_compression) ---
+    // --- E2E Compression VerifyTransition (sends real tx to xb77.iopression) ---
     const compression_e2e = b.addExecutable(.{
         .name = "compression-e2e",
         .root_module = b.createModule(.{

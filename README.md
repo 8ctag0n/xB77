@@ -20,11 +20,11 @@
 ###  Quick Links
 
 *   **[Live Demo](https://xb77-adapter.frontier247hack.workers.dev/)** — Explore the xB77 adapter in action.
-*   **[Documentation](https://8ctag0n.github.io/xB77/)** — Integration guides and API references.
+*   **[Documentation](https://xb77-adapter.frontier247hack.workers.dev/docs/)** — Integration guides and API references.
 *   **[Pitch Deck](http://xb77-adapter.frontier247hack.workers.dev/#pitch)** — Our vision and strategy.
 *   **[Manifesto](https://xb77-adapter.frontier247hack.workers.dev/#whitepaper)** — The philosophy behind the protocol (Whitepaper).
 *   **[Why xB77?](https://xb77-adapter.frontier247hack.workers.dev/#why)** — Core values and problem-solving.
-*   **[Legacy (V1)](https://8ctag0n.github.io/xB77/v1/)** — Access previous version archives.
+*   **[Legacy (V1)](https://xb77-adapter.frontier247hack.workers.dev/docs/v1/)** — Access previous version archives.
 ---
 
 ##  The "God Mode" Features

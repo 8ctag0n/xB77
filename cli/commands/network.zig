@@ -111,7 +111,7 @@ pub fn deploy(cli: *const Cli, args: []const [:0]u8) !void {
     const json_body = json_list.items;
 
     var http = core.net.http.HttpClient.init(cli.allocator);
-    const gateway_url = "https://gateway.xb77.com/deploy";
+    const gateway_url = "https://gateway.xb77.io/deploy";
 
     std.debug.print(" Sincronizando con el Edge en {s}...\n", .{gateway_url});
     var resp = http.post(gateway_url, json_body) catch |err| {

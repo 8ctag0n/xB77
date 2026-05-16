@@ -160,7 +160,7 @@ if grep -q "Sovereign Batch Anchored" .xb77/hack-demo/agent.log; then
     echo -e "${GREEN}L1 Signature: ${SIG}${NC}"
     sponsor "SOLANA" "verifier program J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ · verdict GREEN · ~16,659 CU"
     echo -e "\n${CYAN}AUDIT: View the mathematical verification at:${NC}"
-    echo -e "${CYAN}${BOLD}https://gateway.xb77.com/audit/${SIG}${NC}"
+    echo -e "${CYAN}${BOLD}https://gateway.xb77.io/audit/${SIG}${NC}"
     sponsor "CLOUDFLARE WORKERS" "audit portal pulls tx + slot + blockTime via real RPC fetch from the edge"
 else
     # Fallback: hardcoded sig from a prior real anchor (set at demo prep time)
@@ -168,7 +168,7 @@ else
     if [ -n "$SIG_FALLBACK" ]; then
         echo -e "${YELLOW}[FALLBACK] Live anchor timed out. Using verified prior signature for demo.${NC}"
         echo -e "${GREEN}L1 Signature: ${SIG_FALLBACK}${NC}"
-        echo -e "\n${CYAN}AUDIT: ${BOLD}https://gateway.xb77.com/audit/${SIG_FALLBACK}${NC}"
+        echo -e "\n${CYAN}AUDIT: ${BOLD}https://gateway.xb77.io/audit/${SIG_FALLBACK}${NC}"
     else
         echo -e "${RED}[ERROR] Anchoring timed out and no XB77_DEMO_SIG fallback set. Check .xb77/hack-demo/agent.log${NC}"
     fi

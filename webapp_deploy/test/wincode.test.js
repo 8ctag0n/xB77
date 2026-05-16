@@ -1,7 +1,7 @@
 // Tests for webapp_deploy/assets/src/lib/wincode.js
 //
 // Source of truth: tests/compression_e2e.zig (the production Zig client that
-// the on-chain xb77_compression program accepts) produces exactly 125 bytes
+// the on-chain xb77.iopression program accepts) produces exactly 125 bytes
 // for CompressionInstruction::VerifyTransition with a minimal payload.
 //
 // Layout (per tests/wincode_layout.rs + compression_e2e.zig):

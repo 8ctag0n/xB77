@@ -121,7 +121,7 @@ Four Anchor programs are deployed on Solana. Each has a fixed program ID pinned 
 |---|---|---|
 | `xb77_core` | `73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3` | Central state, CMT anchoring, CPI hub |
 | `xb77_gateway` | `4gDQBWwzncRdTspJW37NoH56mGELj8UTqdC8VLdu7BGC` | Entry point, Blink routing, merchant lookup |
-| `xb77_compression` | `6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN` | State-delta compression and receipt anchoring |
+| `xb77.iopression` | `6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN` | State-delta compression and receipt anchoring |
 | `xb77_zk_verifier` | `J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ` | Proof acceptance via chunked PDA buffer |
 
 See [On-Chain Programs reference](/reference/programs) for full instruction sets.
@@ -177,7 +177,7 @@ graph LR
         CORE["xb77_core"]
         VF2["xb77_zk_verifier"]
         REG["xb77_registry"]
-        COMP["xb77_compression"]
+        COMP["xb77.iopression"]
     end
 
     AG --> GW

@@ -50,8 +50,8 @@ function generateMerchant(m, i) {
     sparkVolume: Array.from({ length: 14 }, () => Math.random() * 1e3 + 100)
   };
 }
-const MOCK_MERCHANTS = MOCK_MERCHANTS_LIST.map((m, i) => generateMerchant(m, i));
-const MOCK_POSEIDON = Array.from({ length: 150 }, (_, i) => generatePoseidonCommit(i));
+var MOCK_MERCHANTS = MOCK_MERCHANTS_LIST.map((m, i) => generateMerchant(m, i));
+var MOCK_POSEIDON = Array.from({ length: 150 }, (_, i) => generatePoseidonCommit(i));
 function enhanceAgent(a, i) {
   return {
     ...a,
@@ -72,7 +72,7 @@ function enhanceAgent(a, i) {
     totalEarnings: (Math.random() * 5e4 + 500).toFixed(0)
   };
 }
-const MOCK_AGENTS_V2 = MOCK_AGENTS.map((a, i) => enhanceAgent(a, i));
+var MOCK_AGENTS_V2 = MOCK_AGENTS.map((a, i) => enhanceAgent(a, i));
 const TELEGRAM_EVENTS = [
   { type: "COMMAND", msg: "/status \u2014 all systems nominal", agent: "CFO_ALPHA" },
   { type: "ALERT", msg: "\u26A0 Governance lockdown triggered on pipeline pip-3a8f", agent: "COMPLIANCE" },

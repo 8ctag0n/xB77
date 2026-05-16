@@ -1,4 +1,4 @@
-const MESH_NODES = [
+var MESH_NODES = [
   { id: "cfo-alpha", label: "cfo-alpha", type: "LEAD", x: 50, y: 28, color: "var(--accent)", status: "online" },
   { id: "worker-01", label: "worker_01", type: "TREASURY", x: 24, y: 50, color: "#34d399", status: "online" },
   { id: "worker-02", label: "worker_02", type: "TRADING", x: 76, y: 50, color: "#4de8d0", status: "online" },
@@ -11,7 +11,7 @@ const MESH_NODES = [
   { id: "cafe", label: "Caf\xE9 Sovereign", type: "MERCHANT", x: 12, y: 80, color: "#fbbf24", status: "indexed", ext: true },
   { id: "pool", label: "Privacy Pool", type: "OBFUSCATION", x: 88, y: 80, color: "var(--accent)", status: "active", ext: true }
 ];
-const MESH_EDGES = [
+var MESH_EDGES = [
   ["cfo-alpha", "worker-01"],
   ["cfo-alpha", "worker-02"],
   ["cfo-alpha", "worker-03"],

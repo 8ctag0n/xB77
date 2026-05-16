@@ -50,7 +50,7 @@ STEPS:
   1  agent up         xb77 context daemon (podman background)
   2  znode-e2e        AWP order matching
   3  e2e-anchor       sovereign state anchor (onchain tx → xb77_core)
-  3b compression      state transition VerifyTransition (onchain tx → xb77_compression)
+  3b compression      state transition VerifyTransition (onchain tx → xb77.iopression)
   4  nargo prove      ZK proof generation (xb77-zk container)
   5  zk-upload-e2e    chunked proof upload + verdict GREEN (xb77_zk_verifier)
   6  solana logs      tail compression + verifier logs (10s)

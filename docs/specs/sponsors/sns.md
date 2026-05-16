@@ -59,7 +59,7 @@ This spec turns that 22-line proof-of-concept into:
 3. **`scripts/verify_sns.ts`** — the 22-line existing PoC. Read it; this
    is the algorithm
 4. **`cli/commands/identity.zig`** — has `identity claim/resolve`
-   subcommands today that go to `gateway.xb77.com/identity/claim` (legacy
+   subcommands today that go to `gateway.xb77.io/identity/claim` (legacy
    stub). Replace with real SNS calls
 5. **`webapp_deploy/assets/src/app-tabs.jsx`** — `ConnectionPill`
    component is where the display swap happens

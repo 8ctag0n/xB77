@@ -45,7 +45,7 @@ function PipelinesView() {
     setSubmitError(null);
     try {
       // Load compression IDL on demand from the static server.
-      const r = await fetch('/idls/xb77_compression.json');
+      const r = await fetch('/idls/xb77.iopression.json');
       if (!r.ok) throw new Error('IDL fetch failed (' + r.status + ')');
       const idl = await r.json();
       const result = await window.XB77Actions.anchorState({ idl });
@@ -53,7 +53,7 @@ function PipelinesView() {
       setTxLog(prev => [{
         time: hhmm(),
         from: window.XB77Keystore && window.XB77Keystore.currentAgentId() || 'me',
-        to: 'xb77_compression onchain',
+        to: 'xb77.iopression onchain',
         amount: 'verify',
         status: 'VERIFIED',
         receipt: result.signature.slice(0, 12),
@@ -123,7 +123,7 @@ function PipelinesView() {
         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${D.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <DS size={20} italic>Pipelines</DS>
           <div style={{ display: 'flex', gap: 6 }}>
-            <DBtn small onClick={handleAnchor} disabled={anchoring} title="Anchor a state transition onchain (xb77_compression)">
+            <DBtn small onClick={handleAnchor} disabled={anchoring} title="Anchor a state transition onchain (xb77.iopression)">
               {anchoring ? '…ANCHORING' : 'ANCHOR ⛓'}
             </DBtn>
             <DBtn small onClick={handleSubmitOnchain} disabled={submittingOnchain} title="Submit a private order onchain (xb77_gateway::SubmitPrivateOrder)">

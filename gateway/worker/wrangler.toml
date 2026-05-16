@@ -35,6 +35,7 @@ directory = "../../webapp_deploy"
 not_found_handling = "none"
 
 [vars]
+API_URL = "https://xb77-adapter.frontier247hack.workers.dev"
 # Dev default: solana-test-validator on host (accessible from wrangler dev).
 # In prod set via `wrangler secret put ZNODE_RPC_URL` to znode.xb77.dev.
 ZNODE_RPC_URL = "https://api.devnet.solana.com"
@@ -73,11 +74,6 @@ id = "d1fa1577a07f46b8a02d1b1894886621"
 [[kv_namespaces]]
 binding = "BUCKETS"
 id = "d8ac84aa137a4564aaf8f2df91c3e914"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "xb77-billing"
-database_id = "local-db"
 
 [triggers]
 crons = ["* * * * *"]

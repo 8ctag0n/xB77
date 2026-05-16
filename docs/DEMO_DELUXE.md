@@ -29,7 +29,7 @@ containers (agent, solana CLI, zk toolchain).
    writes to `target/deploy/` end up on the **host** in the same path. The
    demo's step 0 mounts the same volume and finds them there.
    ```bash
-   for p in xb77_core xb77_gateway xb77_compression xb77_registry xb77_zk_verifier; do
+   for p in xb77_core xb77_gateway xb77.iopression xb77_registry xb77_zk_verifier; do
      podman run --rm \
        -v "$PWD:/work:Z" \
        -w "/work/onchain/programs/$p" \

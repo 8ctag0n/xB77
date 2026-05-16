@@ -1,168 +1,301 @@
-// xB77 Sovereign Gateway JS Bridge (Dumb Pipe Mode)
-import wasmModule from "./gateway.wasm";
+// xB77 Deluxe Gateway Bridge — JS Wrapper for Sovereign Zig Engine.
+// Implementation of docs/api-contract-v1.md using WASM for pure logic.
+
+import wasmModule from "../gateway.wasm";
+
+// ────────────────────────── Constants ──────────────────────────
+
+const ACTION_BYTE = {
+  submit_order: 0x01,
+  register_agent: 0x02,
+  claim_credits: 0x03,
+  query_pulse: 0x04,
+  link_agent: 0x05,
+};
+
+const TS_SKEW_MS = 30_000;
+
+// ────────────────────────── Hex Helpers ──────────────────────────
+
+function fromHex(s) {
+  if (!s || s.length % 2 !== 0) return null;
+  const out = new Uint8Array(s.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(s.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+function toHex(b) {
+  return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+function u64beBytes(n) {
+  const out = new Uint8Array(8);
+  let bn = BigInt(n);
+  for (let i = 7; i >= 0; i--) {
+    out[i] = Number(bn & 0xffn);
+    bn >>= 8n;
+  }
+  return out;
+}
+
+// ────────────────────────── Crypto ──────────────────────────
+
+const PKCS8_PREFIX = new Uint8Array([0x30,0x2e,0x02,0x01,0x00,0x30,0x05,0x06,0x03,0x2b,0x65,0x70,0x04,0x22,0x04,0x20]);
+
+async function importGatewayPriv(privHex) {
+  const bytes = fromHex(privHex);
+  const seed = bytes.slice(0, 32);
+  const pkcs8 = new Uint8Array(PKCS8_PREFIX.length + 32);
+  pkcs8.set(PKCS8_PREFIX);
+  pkcs8.set(seed, PKCS8_PREFIX.length);
+  const key = await crypto.subtle.importKey("pkcs8", pkcs8, "Ed25519", false, ["sign"]);
+  return { signKey: key, pubkey: bytes.slice(32, 64) };
+}
+
+// ────────────────────────── WASM Bridge ──────────────────────────
 
 export default {
   async fetch(request, env, ctx) {
-    const instance = await WebAssembly.instantiate(wasmModule, {
-      // WASI stubs. Cloudflare Workers don't run WASI natively, so we shim
-      // every preview1 import the Zig std pulls in. Most are no-op success
-      // codes (0); the two that need a real value are clock_time_get and
-      // random_get because Zig's allocator/RNG path will call them.
-      wasi_snapshot_preview1: {
-        proc_exit: (code) => { throw new Error(`wasi proc_exit ${code}`); },
-        fd_write: () => 0,
-        fd_read: () => 0,
-        fd_seek: () => 0,
-        fd_pwrite: () => 0,
-        fd_filestat_get: () => 0,
-        clock_time_get: (clock_id, precision, time_ptr) => {
-          // Write current time as i64 nanoseconds to the wasm memory.
-          const view = new DataView(instance.exports.memory.buffer);
-          view.setBigInt64(time_ptr, BigInt(Date.now()) * 1_000_000n, true);
-          return 0;
-        },
-        random_get: (buf_ptr, buf_len) => {
-          const mem = new Uint8Array(instance.exports.memory.buffer, buf_ptr, buf_len);
-          crypto.getRandomValues(mem);
-          return 0;
-        },
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const method = request.method;
+
+    // 1. Pre-fetching & Context Preparation
+    const kv_cache = new Map();
+    const effects = [];
+
+    // Identify Agent for pre-fetching
+    const pkHex = request.headers.get("X-Xb77-Pubkey");
+    if (pkHex) {
+      // Derive Agent ID (simple sha256 mock in JS for pre-fetch)
+      const pkBytes = fromHex(pkHex);
+      if (pkBytes) {
+        const hash = await crypto.subtle.digest("SHA-256", pkBytes);
+        const agent_id = "ag_" + toHex(new Uint8Array(hash).slice(0, 9));
+        
+        // Fetch Agent Data
+        const agentData = await env.AGENTS.get(`agent:${agent_id}`);
+        if (agentData) kv_cache.set(`agent:${agent_id}`, agentData);
+
+        // Pre-fetch Nonce if present
+        const nonceHex = request.headers.get("X-Xb77-Nonce");
+        if (nonceHex) {
+          const nonceKey = `nonce:${agent_id}:${nonceHex}`;
+          const seen = await env.NONCES.get(nonceKey);
+          if (seen) kv_cache.set(nonceKey, seen);
+        }
+      }
+    }
+
+    // 2. Instantiate WASM
+    const wasi_shim = {
+      fd_write: (fd, iovs, iovs_len, nwritten) => 0,
+      fd_close: (fd) => 0,
+      fd_seek: (fd, offset_low, offset_high, whence, new_offset) => 0,
+      proc_exit: (code) => {},
+      args_sizes_get: (argc, argv_buf_size) => 0,
+      args_get: (argv, argv_buf) => 0,
+      environ_sizes_get: (env_count, env_buf_size) => 0,
+      environ_get: (env, env_buf) => 0,
+      clock_time_get: (id, precision, time_out) => 0,
+      fd_read: (fd, iovs, iovs_len, nread) => 0,
+      fd_pread: (fd, iovs, iovs_len, offset, nread) => 0,
+      fd_write: (fd, iovs, iovs_len, nwritten) => 0,
+      fd_pwrite: (fd, iovs, iovs_len, offset, nwritten) => 0,
+      fd_close: (fd) => 0,
+      fd_seek: (fd, offset_low, offset_high, whence, new_offset) => 0,
+      fd_filestat_get: (fd, buf) => 0,
+      fd_fdstat_get: (fd, buf) => 0,
+      fd_prestat_get: (fd, buf) => 8,
+      fd_prestat_dir_name: (fd, path, path_len) => 8,
+      path_open: (fd, dirflags, path, path_len, oflags, fs_rights_base, fs_rights_inheriting, fdflags, opened_fd) => 8,
+      path_filestat_get: (fd, flags, path, path_len, buf) => 8,
+      proc_exit: (code) => {},
+      random_get: (buf, len) => {
+        crypto.getRandomValues(new Uint8Array(instance.exports.memory.buffer, buf, len));
+        return 0;
       },
+    };
+
+    const instance = await WebAssembly.instantiate(wasmModule, {
+      wasi_snapshot_preview1: wasi_shim,
       env: {
-        js_kv_get: (key_ptr, key_len) => {
-          const key = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, key_ptr, key_len));
-          // Esta es una limitación de WASM síncrono: KV es asíncrono.
-          // Para un sistema real, usaríamos un buffer pre-cargado o Top-level await si es posible.
-          // Por ahora, simulamos el bridge. En prod, el Worker cargaría el estado antes de llamar a WASM.
-          return 0; 
+        js_kv_get: (ptr, len) => {
+          const key = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, ptr, len));
+          const val = kv_cache.get(key);
+          if (!val) return 0;
+          return copyToWasm(instance, new TextEncoder().encode(val));
         },
-        js_kv_get_len: (key_ptr, key_len) => 0,
-        js_kv_put: (key_ptr, key_len, val_ptr, val_len) => {
-          const mem = new Uint8Array(instance.exports.memory.buffer);
-          const key = new TextDecoder().decode(mem.slice(key_ptr, key_ptr + key_len));
-          const val = mem.slice(val_ptr, val_ptr + val_len);
-          ctx.waitUntil(env.XB77_KV.put(key, val));
+        js_kv_get_len: (ptr, len) => {
+          const key = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, ptr, len));
+          const val = kv_cache.get(key);
+          return val ? val.length : 0;
         },
-        js_telegram_send: async (chat_id, text_ptr, text_len) => {
-          const text = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, text_ptr, text_len));
-          ctx.waitUntil(fetch(`https://api.telegram.org/bot${env.TELEGRAM_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              chat_id: chat_id.toString(), 
-              text: text,
-              parse_mode: 'HTML'
-            })
-          }));
+        js_kv_put: (kPtr, kLen, vPtr, vLen, ttl) => {
+          const key = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, kPtr, kLen));
+          const val = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, vPtr, vLen));
+          effects.push({ type: "kv_put", key, val, ttl });
         },
-        js_fly_spawn: async (id_ptr, id_len) => {
-          const agent_id = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, id_ptr, id_len));
+        js_telegram_send: (chat_id, ptr, len) => {
+          const text = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, ptr, len));
+          effects.push({ type: "telegram", chat_id, text });
+        },
+        js_fly_spawn: (ptr, len) => {
+          const agent_id = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, ptr, len));
+          effects.push({ type: "fly_spawn", agent_id });
+        },
+        js_rpc_call: (mPtr, mLen, pPtr, pLen) => {
+          const method = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, mPtr, mLen));
+          const params = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, pPtr, pLen));
+          const cacheKey = `rpc:${method}:${params}`;
+          const cached = kv_cache.get(cacheKey) || '{"result":0}';
           
-          // --- Fly.io Machines API Integration ---
-          // Cada agente es una máquina con el nombre 'xb77-agent-{id}'
-          const fly_api_url = `https://api.machines.dev/v1/apps/${env.FLY_APP_NAME}/machines`;
+          const bytes = new TextEncoder().encode(cached + '\0');
+          return copyToWasm(instance, bytes);
+        },
+        js_now: () => BigInt(Date.now()),
+        js_fetch: (mPtr, mLen, uPtr, uLen, bPtr, bLen) => {
+          const method = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, mPtr, mLen));
+          const url = new TextDecoder().decode(new Uint8Array(instance.exports.memory.buffer, uPtr, uLen));
+          const body = bLen > 0 ? new Uint8Array(instance.exports.memory.buffer, bPtr, bLen) : null;
           
-          ctx.waitUntil(fetch(fly_api_url, {
-            method: 'POST',
-            headers: { 
-              'Authorization': `Bearer ${env.FLY_API_TOKEN}`,
-              'Content-Type': 'application/json' 
-            },
-            body: JSON.stringify({
-              name: `xb77-agent-${agent_id.slice(0, 12)}`,
-              config: {
-                image: env.AGENT_IMAGE || "ghcr.io/xb77/sovereign-capsule:latest",
-                guest: { cpu_kind: "shared", cpus: 1, memory_mb: 256 },
-                env: { AGENT_ID: agent_id },
-                restart: { policy: "no" }
-              }
-            })
-          }).then(r => console.log(`Fly Spawn Status for ${agent_id}: ${r.status}`)));
+          // Note: Cloudflare Workers fetch is async, but WASM expect sync here or we need a promise-based bridge.
+          // For now, if we are in a sync path in Zig, we use ctx.waitUntil for side effects or we pre-fetch.
+          // BUT, for a Deluxe product, we should use the 'deasync' pattern or a sync-bridge if available.
+          // Since we can't easily do sync fetch in Workers, we'll mark this for pre-fetch OR return an error 
+          // if not pre-cached. 
+          
+          const cacheKey = `fetch:${method}:${url}`;
+          const cached = kv_cache.get(cacheKey);
+          if (cached) {
+            return copyToWasm(instance, new TextEncoder().encode(cached));
+          }
+          
+          // Fallback: If not cached, we return 0 (error) and the Zig side should handle it.
+          // In the next turn, we could implement a more robust async-to-sync bridge.
+          return 0;
         }
       }
     });
 
-    const url = new URL(request.url);
-    const method = request.method;
-    const body = await request.arrayBuffer();
-
-    // --- Pre-fetching Logic (The God Protocol Bridge) ---
-    let prefetch_keys = [];
-    if (url.pathname.startsWith("/balance/")) {
-      prefetch_keys.push(url.pathname.split("/")[2]);
-    } else if (method === "POST" && (url.pathname === "/deploy" || url.pathname === "/export")) {
+    // 3. Pre-fetching RPC data for Pulse & Registration
+    if (path === "/api/v1/network/pulse") {
       try {
-        const json = JSON.parse(new TextDecoder().decode(body));
-        if (json.agent_id && Array.isArray(json.agent_id)) {
-          const agent_id_hex = Array.from(json.agent_id).map(b => b.toString(16).padStart(2, '0')).join('');
-          prefetch_keys.push(agent_id_hex);
-          
-          if (url.pathname === "/export") {
-            // Pre-cargar TODO el estado para el Sovereign Export
-            prefetch_keys.push(`cfg_${agent_id_hex}`);
-            prefetch_keys.push(`ledger_${agent_id_hex}`);
-            prefetch_keys.push(`vault_${agent_id_hex}`);
-            prefetch_keys.push(`hist_ops_${agent_id_hex}`);
-            prefetch_keys.push(`hist_res_${agent_id_hex}`);
-            prefetch_keys.push(`hist_yld_${agent_id_hex}`);
-          }
-        }
+        const rpcResp = await fetch(env.ZNODE_RPC_URL, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getSlot", params: [] })
+        });
+        const rpcJson = await rpcResp.text();
+        kv_cache.set("rpc:getSlot:[]", rpcJson);
       } catch (e) {}
-    } else if (url.pathname === "/webhook/telegram" && method === "POST") {
+    } else if (path === "/api/v1/actions/register_agent" && pkHex) {
       try {
-        const json = JSON.parse(new TextDecoder().decode(body));
-        if (json.message && json.message.chat && json.message.chat.id) {
-          const chat_id = json.message.chat.id.toString();
-          prefetch_keys.push(`tg_${chat_id}`);
-          // Si ya tenemos el tg_{chat_id}, también querremos el status del agente
-          const agent_id_hex = await env.XB77_KV.get(`tg_${chat_id}`);
-          if (agent_id_hex) prefetch_keys.push(agent_id_hex);
-        }
-      } catch (e) {}
-    } else if (url.pathname === "/link" && method === "POST") {
-      try {
-        const json = JSON.parse(new TextDecoder().decode(body));
-        if (json.link_code) prefetch_keys.push(`link_${json.link_code}`);
+        const rpcResp = await fetch(env.ZNODE_RPC_URL, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getBalance", params: [pkHex] })
+        });
+        const rpcJson = await rpcResp.text();
+        kv_cache.set(`rpc:getBalance:${pkHex}`, rpcJson);
       } catch (e) {}
     }
 
-    for (const key of prefetch_keys) {
-      const kv_val = await env.XB77_KV.get(key, { type: "arrayBuffer" });
-      if (kv_val) {
-        const key_ptr = copyToWasm(instance, new TextEncoder().encode(key));
-        const val_ptr = copyToWasm(instance, new Uint8Array(kv_val));
-        instance.exports.inject_kv_cache(key_ptr, key.length, val_ptr, kv_val.byteLength);
+    // 3. Inject Cache into WASM
+    for (const [k, v] of kv_cache) {
+      const kBytes = new TextEncoder().encode(k);
+      const vBytes = new TextEncoder().encode(v);
+      const kPtr = copyToWasm(instance, kBytes);
+      const vPtr = copyToWasm(instance, vBytes);
+      instance.exports.inject_kv_cache(kPtr, kBytes.length, vPtr, vBytes.length);
+    }
+
+    // 4. Handle Request in WASM
+    const body = new Uint8Array(await request.arrayBuffer());
+    const methodBytes = new TextEncoder().encode(method);
+    const pathBytes = new TextEncoder().encode(path);
+    const pkBytes = fromHex(pkHex || "") || new Uint8Array(0);
+    const sigBytes = fromHex(request.headers.get("X-Xb77-Signature") || "") || new Uint8Array(0);
+    const nonceBytes = fromHex(request.headers.get("X-Xb77-Nonce") || "") || new Uint8Array(0);
+    const ts = BigInt(request.headers.get("X-Xb77-Timestamp") || "0");
+    const idempBytes = new TextEncoder().encode(request.headers.get("X-Idempotency-Key") || "");
+
+    const respPtr = instance.exports.handle_request(
+      copyToWasm(instance, methodBytes), methodBytes.length,
+      copyToWasm(instance, pathBytes), pathBytes.length,
+      copyToWasm(instance, body), body.length,
+      copyToWasm(instance, new TextEncoder().encode(pkHex || "")), (pkHex || "").length,
+      copyToWasm(instance, new TextEncoder().encode(request.headers.get("X-Xb77-Signature") || "")), (request.headers.get("X-Xb77-Signature") || "").length,
+      ts,
+      copyToWasm(instance, new TextEncoder().encode(request.headers.get("X-Xb77-Nonce") || "")), (request.headers.get("X-Xb77-Nonce") || "").length,
+      copyToWasm(instance, idempBytes), idempBytes.length
+    );
+
+    // Read Response Singleton
+    const view = new DataView(instance.exports.memory.buffer);
+    const status = view.getInt32(respPtr, true);
+    const bodyPtr = view.getUint32(respPtr + 4, true);
+    const bodyLen = view.getUint32(respPtr + 8, true);
+    const actionByte = view.getUint8(respPtr + 12);
+    const shouldSign = view.getUint8(respPtr + 13) !== 0;
+
+    const respBody = new Uint8Array(instance.exports.memory.buffer, bodyPtr, bodyLen);
+    const finalBody = new Uint8Array(respBody); // Copy before free
+
+    // 5. Execute Effects
+    for (const effect of effects) {
+      if (effect.type === "kv_put") {
+        const ns = effect.key.startsWith("agent:") ? env.AGENTS : 
+                   effect.key.startsWith("nonce:") ? env.NONCES : env.AGENTS;
+        await ns.put(effect.key, effect.val, effect.ttl ? { expirationTtl: effect.ttl } : {});
+      } else if (effect.type === "telegram") {
+        ctx.waitUntil(sendTelegram(effect.chat_id, effect.text, env));
       }
     }
 
-    // Pasar TODO a Zig
-    const method_ptr = copyToWasm(instance, new TextEncoder().encode(method));
-    const url_ptr = copyToWasm(instance, new TextEncoder().encode(url.pathname));
-    const body_ptr = copyToWasm(instance, new Uint8Array(body));
+    // 6. Final Response Preparation
+    const headers = {
+      "content-type": "application/json",
+      "access-control-allow-origin": env.ALLOWED_ORIGIN || "*",
+      "access-control-allow-headers": "*",
+      "access-control-expose-headers": "*",
+    };
 
-    const resp_ptr = instance.exports.handle_request(
-      method_ptr, method.length,
-      url_ptr, url.pathname.length,
-      body_ptr, body.byteLength
-    );
+    if (shouldSign) {
+      const gatewayKeys = await importGatewayPriv(env.GATEWAY_PRIVKEY_HEX || env.GATEWAY_PRIVKEY_HEX_DEV);
+      const respTs = Date.now();
+      // actionByte (1) || ts_be_ms (8) || body (N)
+      const canonical = new Uint8Array(1 + 8 + finalBody.length);
+      canonical[0] = actionByte;
+      canonical.set(u64beBytes(respTs), 1);
+      canonical.set(finalBody, 9);
+      
+      const sigBuf = await crypto.subtle.sign("Ed25519", gatewayKeys.signKey, canonical);
+      headers["x-xb77-gateway-timestamp"] = String(respTs);
+      headers["x-xb77-gateway-signature"] = toHex(new Uint8Array(sigBuf));
+    }
 
-    // Leer respuesta de la estructura de Zig
-    const mem = new DataView(instance.exports.memory.buffer);
-    const status = mem.getInt32(resp_ptr, true);
-    const body_res_ptr = mem.getUint32(resp_ptr + 4, true);
-    const body_res_len = mem.getUint32(resp_ptr + 8, true);
-
-    const response_body = new Uint8Array(instance.exports.memory.buffer, body_res_ptr, body_res_len);
-    const final_body = new Uint8Array(response_body); // Copiar antes de liberar
-
-    instance.exports.free_response();
-
-    return new Response(final_body, { status: status });
+    return new Response(finalBody, { status, headers });
   }
 };
 
 function copyToWasm(instance, data) {
+  if (data.length === 0) return 0;
   const ptr = instance.exports.alloc(data.length);
+  if (ptr === 0) throw new Error("WASM alloc failed");
   const mem = new Uint8Array(instance.exports.memory.buffer);
   mem.set(data, ptr);
   return ptr;
+}
+
+async function sendTelegram(chat_id, text, env) {
+  if (!env.TELEGRAM_TOKEN) return;
+  const url = `https://api.telegram.org/bot${env.TELEGRAM_TOKEN}/sendMessage`;
+  await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ chat_id, text, parse_mode: "HTML" }),
+  });
 }

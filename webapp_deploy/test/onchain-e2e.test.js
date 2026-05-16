@@ -1,7 +1,7 @@
 // E2E onchain smoke: webapp → validator, direct.
 //
 // Validates that XB77Actions.anchorState builds a tx that the on-chain
-// xb77_compression program accepts. Skips if the validator isn't running.
+// xb77.iopression program accepts. Skips if the validator isn't running.
 
 import { test, expect, beforeAll } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -20,7 +20,7 @@ if (typeof globalThis.window === "undefined") globalThis.window = globalThis;
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../..");
-const compressionIdl = JSON.parse(readFileSync(path.join(repoRoot, "idls/xb77_compression.json"), "utf8"));
+const compressionIdl = JSON.parse(readFileSync(path.join(repoRoot, "idls/xb77.iopression.json"), "utf8"));
 
 const RPC_URL = "http://127.0.0.1:8899";
 let live = false;

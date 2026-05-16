@@ -12,7 +12,7 @@ xB77 deploys four Anchor programs on Solana. All program IDs are pinned via `dec
 |---|---|---|
 | `xb77_core` | `73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3` | Deployed, active |
 | `xb77_gateway` | `4gDQBWwzncRdTspJW37NoH56mGELj8UTqdC8VLdu7BGC` | Deployed, active |
-| `xb77_compression` | `6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN` | Deployed, active |
+| `xb77.iopression` | `6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN` | Deployed, active |
 | `xb77_zk_verifier` | `J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ` | Deployed, active (honest stub) |
 
 Verify on-chain status:
@@ -83,7 +83,7 @@ bump:              u8
 
 ---
 
-## xb77_compression
+## xb77.iopression
 
 **Address:** `6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN`
 
@@ -171,7 +171,7 @@ graph LR
         GW["xb77_gateway\n4gDQ..."]
         VF["xb77_zk_verifier\nJ2Q4..."]
         CORE["xb77_core\n73vh..."]
-        COMP["xb77_compression\n6ZN4..."]
+        COMP["xb77.iopression\n6ZN4..."]
     end
 
     AGENT -->|"Blink payment"| GW

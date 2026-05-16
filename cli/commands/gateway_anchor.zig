@@ -1,4 +1,4 @@
-//! `xb77 gateway anchor` — anchor a state transition on xb77_compression.
+//! `xb77 gateway anchor` — anchor a state transition on xb77.iopression.
 //!
 //! Equivalent to XB77Actions.anchorState() in the webapp:
 //!   1. Load agent keypair from profile vault.
@@ -19,14 +19,14 @@ const crypto_mod = core.crypto;
 const context_mod = core.context;
 const onchain = core.onchain;
 
-// Compression program ID (from idls/xb77_compression.json metadata.address).
+// Compression program ID (from idls/xb77.iopression.json metadata.address).
 const COMPRESSION_PROGRAM_ID = "6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN";
 
 // Precomputed new_root for the minimal fixture (same as compression_e2e.zig).
 const NEW_ROOT_HEX = "0b859c423aef971e249bb83755ec80caaf15e9030864bc9251561c372ee0b44f";
 
 const DEFAULT_RPC = "http://127.0.0.1:8899";
-const DEFAULT_IDL = "idls/xb77_compression.json";
+const DEFAULT_IDL = "idls/xb77.iopression.json";
 
 pub fn anchor(cli: *const Cli, args: []const [:0]u8) !void {
     const allocator = cli.allocator;
@@ -138,7 +138,7 @@ pub fn anchor(cli: *const Cli, args: []const [:0]u8) !void {
 
     // Build transaction with two instructions:
     //   ix0: ComputeBudget::SetComputeUnitLimit
-    //   ix1: xb77_compression::VerifyTransition
+    //   ix1: xb77.iopression::VerifyTransition
     const cb_ix = onchain.Instruction{
         .program_id = cb_program_id,
         .accounts = &.{},

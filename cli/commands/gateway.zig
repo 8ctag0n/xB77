@@ -64,7 +64,7 @@ fn usage() void {
         \\  pulse                      POST query_pulse (signed)
         \\  reads <pulse|fleet|recent|wallet>     unsigned GET endpoints
         \\  anchor [--rpc <url>] [--idl <path>]
-        \\                             Anchor a state transition on xb77_compression (onchain)
+        \\                             Anchor a state transition on xb77.iopression (onchain)
         \\  submit-order [--rpc <url>] [--idl <path>] [--amount N] [--order-id N]
         \\                             Submit a private order on xb77_gateway (onchain)
         \\  init [--rpc <url>] [--idl <path>]

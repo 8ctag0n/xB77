@@ -15,7 +15,7 @@ name: Release
 #   gateway.wasm (Cloudflare Worker bundle)
 #   zk-upload-e2e (devnet driver)
 #   xb77_core.so / xb77_gateway.so / xb77_registry.so /
-#     xb77_compression.so / xb77_zk_verifier.so
+#     xb77.iopression.so / xb77_zk_verifier.so
 #   zk_receipt.json (compiled Noir circuit)
 #
 # Program *-keypair.json files are intentionally NOT attached. They
@@ -107,7 +107,7 @@ jobs:
           - xb77_core
           - xb77_gateway
           - xb77_registry
-          - xb77_compression
+          - xb77.iopression
           - xb77_zk_verifier
     steps:
       - uses: actions/checkout@v4
@@ -167,7 +167,7 @@ jobs:
           # already filters internal QA helpers out, so we can safely
           # copy whatever survived).
           cp -v dist/zig-binaries/* release/
-          for prog in xb77_core xb77_gateway xb77_registry xb77_compression xb77_zk_verifier; do
+          for prog in xb77_core xb77_gateway xb77_registry xb77.iopression xb77_zk_verifier; do
             cp "dist/bpf-${prog}/${prog}.so" "release/${prog}.so"
           done
           cp dist/zk-circuit/zk_receipt.json  release/zk_receipt.json

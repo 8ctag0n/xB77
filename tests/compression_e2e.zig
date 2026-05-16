@@ -1,4 +1,4 @@
-// compression_e2e.zig — sends a real VerifyTransition tx to xb77_compression onchain.
+// compression_e2e.zig — sends a real VerifyTransition tx to xb77.iopression onchain.
 //
 // Payload is the minimal one validated by tests/wincode_layout.rs:
 //   - siblings = []      (empty Merkle proof: new_root == leaf hash)
@@ -7,7 +7,7 @@
 //   - tx_hash  = zeros
 //   - new_root = Poseidon([(amount<<8)|type, tx_hash]) — precomputed.
 //
-// The xb77_compression program's verify_transition() returns true for this
+// The xb77.iopression program's verify_transition() returns true for this
 // payload, so the tx confirms and emits "Compression: Transition Verified via
 // Poseidon BN254." in program logs.
 //
@@ -22,7 +22,7 @@ const crypto = core.crypto;
 const solana = core.solana;
 const tx_mod = core.tx;
 
-// Program ID of xb77_compression (matches declare_id! in the Rust source).
+// Program ID of xb77.iopression (matches declare_id! in the Rust source).
 const COMPRESSION_PROGRAM_ID = "6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN";
 
 // new_root precomputed by tests/wincode_layout.rs (`new_leaf` for amount=1, type=0, tx_hash=zeros).

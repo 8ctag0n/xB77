@@ -188,7 +188,7 @@ A data artifact (not a cryptographic key in the asymmetric sense) that allows an
 
 ### ZK-Batch
 
-A single CMT root anchor that commits to N transaction intents. The primary scalability mechanism: N agents produce 1 on-chain transaction. The batch is closed via `xb77_compression`'s `close_batch` instruction.
+A single CMT root anchor that commits to N transaction intents. The primary scalability mechanism: N agents produce 1 on-chain transaction. The batch is closed via `xb77.iopression`'s `close_batch` instruction.
 
 ### ZK Judge
 

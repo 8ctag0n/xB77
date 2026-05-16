@@ -41,7 +41,7 @@ xB77 is sovereign agent commerce infrastructure built natively on Solana. Five i
     Merchant registry. InitMerchant + AddCatalog + UpdateMerchant.
     Decoded in-browser via pure-JS wincode (no @solana/web3 dep for read).
 
-  xb77_compression (6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN)
+  xb77.iopression (6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN)
     Poseidon BN254 state transitions (anchorState). The ZK plane's base.
 
   xb77_zk_verifier (J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ)
@@ -102,14 +102,14 @@ Five programs (all on devnet, all in explorer.solana.com/?cluster=devnet):
   xb77_core         73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3
   xb77_gateway      83nPgEhrzKaDSXCoWQCkYau66KUnVeFSQF32LPfyL3s4
   xb77_registry     HxjcLS4gkccTWD3VeM9Vc4NkQ4rjxtDHR2Lwby6NL6b1
-  xb77_compression  6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN
+  xb77.iopression  6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN
   xb77_zk_verifier  J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ
 
 IDLs in idls/*.json. Each is consumed by the Zig CLI (core/onchain/idl_client.zig) AND the dApp (webapp_deploy/assets/js/lib/idl-client.js — same wire format, two implementations).
 
 Honest delta:
   • xb77_zk_verifier::verify() is a stub. We anchor proof bytes + commitment hash today; real cryptographic verification (Groth16 or Honk on SBF) is the next pass.
-  • xb77_compression batches state anchors via Poseidon BN254 but doesn't yet expose the rollup-style sequence interface — that's the layer the brain will exercise post-MVP.
+  • xb77.iopression batches state anchors via Poseidon BN254 but doesn't yet expose the rollup-style sequence interface — that's the layer the brain will exercise post-MVP.
 
 Worker: https://xb77-adapter.frontier247hack.workers.dev/api/v1
 dApp:    https://xb77-adapter.frontier247hack.workers.dev/app

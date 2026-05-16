@@ -117,7 +117,7 @@ if grep -q "Sovereign Batch Anchored" .xb77/hack-demo/agent.log; then
     echo -e "${GREEN}${BOLD}[VERIFIED] Batch anchored successfully!${NC}"
     echo -e "${GREEN}L1 Signature: ${SIG}${NC}"
     echo -e "\n${CYAN}AUDIT: View the mathematical verification at:${NC}"
-    echo -e "${CYAN}https://gateway.xb77.com/audit/${SIG}${NC}"
+    echo -e "${CYAN}https://gateway.xb77.io/audit/${SIG}${NC}"
 else
     echo -e "${RED}[ERROR] Anchoring timed out. Check .xb77/hack-demo/agent.log${NC}"
 fi

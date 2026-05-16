@@ -91,9 +91,9 @@ function generateAgent(i) {
     governanceLevel: ["STANDARD", "ELEVATED", "LOCKDOWN"][Math.floor(Math.random() * 3)]
   };
 }
-const MOCK_PIPELINES = Array.from({ length: 200 }, (_, i) => generatePipeline(i + 1));
-const MOCK_ZNODES = Array.from({ length: 32 }, (_, i) => generateZnode(i + 1));
-const MOCK_AGENTS = Array.from({ length: 12 }, (_, i) => generateAgent(i));
+var MOCK_PIPELINES = Array.from({ length: 200 }, (_, i) => generatePipeline(i + 1));
+var MOCK_ZNODES = Array.from({ length: 32 }, (_, i) => generateZnode(i + 1));
+var MOCK_AGENTS = Array.from({ length: 12 }, (_, i) => generateAgent(i));
 const GLOBAL_STATS = {
   tvl: "$12.4M",
   totalPipelines: "48,291",

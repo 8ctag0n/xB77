@@ -108,6 +108,7 @@ export fn handle_request(
 
     // 1. Discovery / Public Reads
     if (std.mem.eql(u8, req.method, "GET")) {
+        if (std.mem.eql(u8, req.path, "/api/v1")) return build_response(allocator, 200, "{\"ok\":true,\"v\":\"2.0.11\",\"m\":\"xB77 Sovereign Gateway Active\"}", false, 0);
         if (std.mem.eql(u8, req.path, "/api/v1/network/pulse")) return handle_pulse(allocator);
         if (std.mem.startsWith(u8, req.path, "/api/v1/network/audit")) return handle_audit(allocator, req.path);
         if (std.mem.eql(u8, req.path, "/api/v1/agents/fleet")) return handle_fleet(allocator);
