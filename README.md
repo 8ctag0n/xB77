@@ -76,26 +76,44 @@ zig build run -- gateway &
 
 ---
 
-##  Build & CI
+##  Sovereign Infrastructure (DePIN)
 
-The CI pipeline runs the heavy toolchain jobs (BPF compile, Noir compile) **inside our pinned container images** published to GHCR. This keeps `Noir 0.36.0`, `bb 0.58.0`, and `Agave 3.1.14` byte-identical between local development and CI — no version drift.
+xB77 is designed as a Decentralized Physical Infrastructure Network (DePIN). We don't just provide a dApp; we provide the **Z-Node**, a high-performance sovereign server that any user can deploy to power the agentic economy.
 
-**First-time setup** after cloning to a new GitHub org/repo:
+### 1. The "Miti-Miti" Partnership (50/50 Tax Split)
+Every economic transaction on xB77 carries a **2.011% Sovereign Tax**. 
+- **1.0055%** goes to the Protocol (xB77 Treasury).
+- **1.0055%** goes directly to the **Z-Node Operator**.
+By running a node, you become a 50/50 partner in the infrastructure revenue.
 
-1. Push the code to your repo.
-2. Go to **Actions → Infra Images → Run workflow** (`workflow_dispatch`). This builds and pushes `xb77-zk` and `xb77-solana` to `ghcr.io/<owner>/...`. ~5–10 min.
-3. From there on, every push runs `Build` (Zig host + 5 BPF programs + Noir circuit) automatically using those images.
+### 2. One-Click Swarm Deployment
+Deploy your own Z-Node and a local swarm of agents in seconds:
+```bash
+# Start your Z-Node + 2 Agents + Live Dashboard
+make node-up
+```
 
-**Tagging a release** (`git tag v0.x.y && git push --tags`) triggers the full build plus a **GitHub Release** with attached artifacts:
-- `xb77` (CLI binary, Linux x86_64)
-- `gateway.wasm` (Cloudflare Worker bundle)
-- `xb77_*.so` (5 BPF programs ready to deploy)
-- `zk_receipt.json` (compiled Noir circuit)
+---
 
-Program keypairs (`*-keypair.json`) intentionally stay out of releases — they determine the on-chain program ID and must remain private.
+##  Release & Distribution
+
+The xB77 CLI is available as a pre-compiled binary for zero-friction onboarding.
+
+### Download the Latest Release
+- **[Linux x86_64](https://github.com/dzkinha/xB77/releases/download/v0.11.0/xb77-0.11.0-Sovereign-linux-x64.tar.gz)** — Production-ready binary.
+- **[Source Code](https://github.com/dzkinha/xB77/releases/download/v0.11.0/xb77-0.11.0-Sovereign-source.tar.gz)** — Build from scratch with Zig 0.15.
+
+---
+
+##  The "God Mode" Roadmap (May 2026)
+
+1.  **[DONE] Sovereign Engine:** Native Ed25519 verification in WASM/Edge.
+2.  **[DONE] Zero-Friction Init:** Automatic agent registration with 100 SC kickstart.
+3.  **[DONE] Live Pulse Dashboard:** Real-time Solana slot synchronization.
+4.  **[WIP] ZK-Audit Proofs:** Real-time Noir proof generation for every Ghost Receipt.
 
 ---
 
 <div align="center">
-  <p><i>xB77: True sovereignty for the agentic economy. Built for Solana Frontier & Dev3Pack.</i></p>
+  <p><i>xB77: True sovereignty for the agentic economy. Built for Solana Frontier, a16z Speedrun & Alliance DAO.</i></p>
 </div>
