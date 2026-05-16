@@ -75,24 +75,26 @@ pub fn merchant(cli: *const Cli, args: []const [:0]u8) !void {
     defer ctx.deinit();
 
     if (std.mem.eql(u8, sub, "status")) {
-        std.debug.print("\n" ++ WHT ++ "MERCHANT_CATALOG: " ++ GOLD ++ "{s}" ++ RST ++ "\n", .{ctx.merchant.business_name});
-        std.debug.print(DIM ++ "──────────────────────────────────────────────────" ++ RST ++ "\n", .{});
+        std.debug.print("\n" ++ DIM ++ "┌──────────────────────────────────────────────────┐" ++ RST ++ "\n", .{});
+        std.debug.print(DIM ++ "│" ++ RST ++ "  " ++ GOLD ++ "MERCHANT_CATALOG" ++ RST ++ " // " ++ WHT ++ "{s: <24}" ++ RST ++ DIM ++ "│" ++ RST ++ "\n", .{ctx.merchant.business_name});
+        std.debug.print(DIM ++ "├──────────────────────────────────────────────────┤" ++ RST ++ "\n", .{});
         if (ctx.merchant.services.len == 0) {
-            std.debug.print(DIM ++ "No hay servicios definidos." ++ RST ++ "\n", .{});
+            std.debug.print(DIM ++ "│" ++ RST ++ " " ++ RED ++ "ERROR: NO_SERVICES_DEFINED                        " ++ RST ++ DIM ++ "│" ++ RST ++ "\n", .{});
         }
         for (ctx.merchant.services) |s| {
-            std.debug.print(" " ++ WHT ++ "{s: <20}" ++ RST ++ " | " ++ LIME ++ "{d: >12} lamports" ++ RST ++ "\n", .{ s.name, s.price_lamports });
+            std.debug.print(DIM ++ "│" ++ RST ++ " " ++ WHT ++ "{s: <20}" ++ RST ++ " | " ++ LIME ++ "{d: >12} lamports" ++ RST ++ DIM ++ " │" ++ RST ++ "\n", .{ s.name, s.price_lamports });
         }
 
         if (ctx.app_manager.plans.count() > 0) {
-            std.debug.print("\n" ++ CYAN ++ "PLANES_RECURRENTES:" ++ RST ++ "\n", .{});
+            std.debug.print(DIM ++ "├──────────────────────────────────────────────────┤" ++ RST ++ "\n", .{});
+            std.debug.print(DIM ++ "│" ++ RST ++ " " ++ CYAN ++ "PLANES_RECURRENTES:" ++ RST ++ "                            " ++ DIM ++ "│" ++ RST ++ "\n", .{});
             var it = ctx.app_manager.plans.iterator();
             while (it.next()) |entry| {
                 const p = entry.value_ptr;
-                std.debug.print("  " ++ DIM ++ "Plan {x}:" ++ RST ++ " " ++ LIME ++ "{d} lamports" ++ RST ++ DIM ++ " cada {d}s" ++ RST ++ "\n", .{ p.plan_id[0..4].*, p.amount_per_period, p.period_sec });
+                std.debug.print(DIM ++ "│" ++ RST ++ "  " ++ DIM ++ "Plan {x}:" ++ RST ++ " " ++ LIME ++ "{d: >9} lam" ++ RST ++ DIM ++ " cada {d: >4}s" ++ RST ++ DIM ++ "    │" ++ RST ++ "\n", .{ p.plan_id[0..4].*, p.amount_per_period, p.period_sec });
             }
         }
-        std.debug.print(DIM ++ "──────────────────────────────────────────────────" ++ RST ++ "\n\n", .{});
+        std.debug.print(DIM ++ "└──────────────────────────────────────────────────┘" ++ RST ++ "\n\n", .{});
     } else if (std.mem.eql(u8, sub, "setup-shop")) {
         try setupShop(cli, &ctx);
     }
@@ -110,22 +112,23 @@ fn readUntilDelimiterOrEof(reader: anytype, delimiter: u8) !?[]const u8 {
 fn setupShop(cli: *const Cli, ctx: *core.context.AgentContext) !void {
     const stdin = std.io.getStdIn().reader();
 
-    std.debug.print("\n " ++ MAG ++ "xB77_SOVEREIGN_MERCHANT_ORCHESTRATOR" ++ RST ++ " \n", .{});
-    std.debug.print(DIM ++ "──────────────────────────────────────────────────" ++ RST ++ "\n", .{});
+    std.debug.print("\n " ++ MAG ++ "╔══════════════════════════════════════════════════╗" ++ RST ++ " \n", .{});
+    std.debug.print(" " ++ MAG ++ "║" ++ RST ++ "    " ++ WHT ++ "xB77_SOVEREIGN_MERCHANT_ORCHESTRATOR" ++ RST ++ "        " ++ MAG ++ "║" ++ RST ++ " \n", .{});
+    std.debug.print(" " ++ MAG ++ "╚══════════════════════════════════════════════════╝" ++ RST ++ " \n", .{});
 
-    std.debug.print(CYAN ++ "Nombre del Negocio: " ++ RST, .{});
+    std.debug.print("\n" ++ CYAN ++ ">> BUSINESS_NAME: " ++ RST, .{});
     const name_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
     const name = std.mem.trim(u8, name_raw, " \r\n\t");
 
-    std.debug.print(CYAN ++ "Servicio Principal: " ++ RST, .{});
+    std.debug.print(CYAN ++ ">> PRIMARY_SERVICE: " ++ RST, .{});
     const srv_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
     const srv_name = std.mem.trim(u8, srv_raw, " \r\n\t");
 
-    std.debug.print(CYAN ++ "Precio (lamports):  " ++ RST, .{});
+    std.debug.print(CYAN ++ ">> PRICE_LAMPORTS:  " ++ RST, .{});
     const price_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
     const price = std.fmt.parseInt(u64, std.mem.trim(u8, price_raw, " \r\n\t"), 10) catch 50_000_000;
 
-    std.debug.print(GOLD ++ "Handle .xb77 (opcional): " ++ RST, .{});
+    std.debug.print(GOLD ++ ">> HANDLE_.XB77 (OPT): " ++ RST, .{});
     const handle_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
     _ = handle_raw; // Intent handled in fuller logic but unused here
 
@@ -150,6 +153,7 @@ fn setupShop(cli: *const Cli, ctx: *core.context.AgentContext) !void {
     defer cli.allocator.free(m_path);
     try ctx.merchant.save(m_path);
 
-    std.debug.print("\n" ++ LIME ++ "[SUCCESS] SHOP_STATUS: LIVE_&_SOVEREIGN" ++ RST ++ " \n", .{});
+    std.debug.print("\n" ++ LIME ++ "[SUCCESS] MERCHANT_READY" ++ RST ++ " \n", .{});
+    std.debug.print(DIM ++ "          Status: LIVE_&_SOVEREIGN" ++ RST ++ "\n", .{});
     std.debug.print(DIM ++ "          --------------------------------------" ++ RST ++ "\n", .{});
 }

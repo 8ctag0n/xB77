@@ -7,4 +7,4 @@ pages_build_output_dir = "."
 
 [vars]
 ENVIRONMENT = "production"
-API_URL = "https://xb77-gateway.8ctag0n.workers.dev"
+API_URL = "https://xb77-adapter.frontier247hack.workers.dev"

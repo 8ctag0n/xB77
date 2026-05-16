@@ -21,7 +21,7 @@
 #      and CLOUDFLARE_ACCOUNT_ID as env vars.
 #   3. Edit `name` below if you want a different *.workers.dev subdomain.
 
-name = "xb77-gateway"
+name = "xb77-adapter-frontier247hack"
 main = "gateway/worker.js"
 compatibility_date = "2026-05-01"
 # nodejs_compat is intentionally OFF — the worker only needs WASI
