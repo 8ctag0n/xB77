@@ -148,23 +148,47 @@ pub fn link(cli: *const Cli, args: []const [:0]u8) !void {
     defer cli.allocator.free(pubkey_str);
     std.debug.print("\n Vinculando Agente {s} con Telegram...\n", .{pubkey_str});
 
-    const signature = core.crypto.sign(code, &sol_kp);
+    const sdk = core.sdk_core;
+    const timestamp = @as(u64, @intCast(std.time.milliTimestamp()));
+    var nonce: [12]u8 = undefined;
+    std.crypto.random.bytes(&nonce);
 
-    const payload = core.protocol.types.LinkPayload{
-        .agent_id = sol_kp.public,
-        .link_code = code,
-        .signature = signature,
-    };
+    const payload = try std.fmt.allocPrint(cli.allocator, "{{\"link_code\":\"{s}\"}}", .{code});
+    defer cli.allocator.free(payload);
 
-    var json_list = std.ArrayListUnmanaged(u8){};
-    defer json_list.deinit(cli.allocator);
-    try json_list.writer(cli.allocator).print("{f}", .{std.json.fmt(payload, .{})});
+    const req = try sdk.buildSignedRequest(
+        cli.allocator,
+        "http://127.0.0.1:8787",
+        .link_agent,
+        payload,
+        sol_kp.secret,
+        timestamp,
+        nonce,
+    );
+    defer req.deinit(cli.allocator);
+
+    var headers = std.ArrayListUnmanaged(core.net.http.HttpHeader){};
+    defer {
+        for (headers.items) |h| {
+            cli.allocator.free(h.name);
+            cli.allocator.free(h.value);
+        }
+        headers.deinit(cli.allocator);
+    }
+    
+    const parsed_headers = try std.json.parseFromSlice(std.json.Value, cli.allocator, req.headers_json, .{});
+    defer parsed_headers.deinit();
+    if (parsed_headers.value == .object) {
+        var it = parsed_headers.value.object.iterator();
+        while (it.next()) |entry| {
+            const name = try cli.allocator.dupe(u8, entry.key_ptr.*);
+            const value = try cli.allocator.dupe(u8, entry.value_ptr.*.string);
+            try headers.append(cli.allocator, .{ .name = name, .value = value });
+        }
+    }
 
     var http = core.net.http.HttpClient.init(cli.allocator);
-    defer http.deinit();
-    const link_url = "http://localhost:8787/link";
-
-    var resp = http.post(link_url, json_list.items) catch |err| {
+    var resp = http.postWithHeaders(req.url, req.body, headers.items) catch |err| {
         std.debug.print(" Error de conexión: {}\n", .{err});
         return;
     };

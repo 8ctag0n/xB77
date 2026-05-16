@@ -38,7 +38,7 @@ pub const LinkCmd = struct {
         var client = std.http.Client{ .allocator = allocator };
         defer client.deinit();
 
-        var req = try client.open(.POST, try std.Uri.parse("http://localhost:8787/link"));
+        var req = try client.open(.POST, try std.Uri.parse("https://gateway.xb77.com/api/v1/actions/link_agent"));
         defer req.deinit();
 
         req.transfer_encoding = .chunked;

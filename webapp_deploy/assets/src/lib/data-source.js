@@ -19,7 +19,7 @@
  */
 
 (function () {
-  const GATEWAY_DEFAULT = "http://127.0.0.1:8787";
+  const GATEWAY_DEFAULT = "https://gateway.xb77.com";
   const CACHE_TTL_MS = 30_000;
   const FETCH_TIMEOUT_MS = 2_000;
   const CACHE_KEY = (k) => `xb77.ds.cache.${k}`;

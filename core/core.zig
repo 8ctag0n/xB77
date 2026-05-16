@@ -64,6 +64,10 @@ pub const chain = struct {
     pub const zk_uploader = @import("chain/zk_uploader.zig");
 };
 
+pub const defi = struct {
+    pub const idl_parser = @import("defi/idl_parser.zig");
+};
+
 // --- SDK surface (WASM-safe, stateless) ---
 pub const keystore = @import("keystore/keystore.zig");
 pub const sdk_core = @import("sdk/sdk.zig");

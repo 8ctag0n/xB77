@@ -8,10 +8,29 @@ const Cli = @import("../flags.zig").Cli;
 pub fn init(cli: *const Cli) !void {
     std.debug.print("\n[INIT  ]  Generating Sovereign Identity for profile '{s}'...\n", .{cli.profile});
 
+    // Aseguramos que la carpeta profiles exista
+    std.fs.cwd().makePath("profiles") catch {};
+
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
     defer ctx.deinit();
 
-    const sol_addr = try ctx.vaults.ops.address(.solana, cli.allocator);
+    // Actualizamos el vault_path en la config para que sea específico del perfil
+    const profile_vault_path = try std.fmt.allocPrint(cli.allocator, "./.xb77/{s}", .{cli.profile});
+    defer cli.allocator.free(profile_vault_path);
+    
+    // Si la config era por defecto (archivo no existía), la guardamos
+    if (std.fs.cwd().access(cli.config_path, .{})) |_| {} else |_| {
+        ctx.config.vaults.path = profile_vault_path;
+        try ctx.config.save(cli.allocator, cli.config_path);
+        std.debug.print("[CONFIG]  Saved profile configuration to {s}\n", .{cli.config_path});
+        
+        // Re-inicializamos el contexto con la nueva config para que los vaults apunten bien
+        ctx.deinit();
+        ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
+    }
+
+    const sol_kp = ctx.vaults.ops.sol_kp;
+    const sol_addr = try core.crypto.pubkeyToString(cli.allocator, &sol_kp.public);
     defer cli.allocator.free(sol_addr);
     const eth_addr = try ctx.vaults.ops.address(.base, cli.allocator);
     defer cli.allocator.free(eth_addr);
@@ -21,10 +40,27 @@ pub fn init(cli: *const Cli) !void {
     std.debug.print("          Solana (L1/PER):  {s}\n", .{sol_addr});
     std.debug.print("          Base (EVM/Sett):  {s}\n", .{eth_addr});
     std.debug.print("          --------------------------------------\n", .{});
+
+    // --- Deluxe Registration & Credit Check ---
+    std.debug.print("\n[SYNC  ]  Synchronizing with xB77 Sovereign Gateway...", .{});
+    
+    const balance = ctx.orchestrator.registerAgent(sol_kp.public, &sol_kp) catch |err| blk: {
+        std.debug.print("\n[WARN  ]  Gateway registration failed: {s}. Checking existing balance...", .{@errorName(err)});
+        break :blk ctx.orchestrator.syncBalance(sol_kp.public) catch 0;
+    };
+
+    std.debug.print("\n[CREDIT]  Current Balance: {d} SC\n", .{balance});
+
+    if (balance < 50) {
+        std.debug.print("\n{s} ACTION REQUIRED: Insufficient Credits {s}\n", .{ "\x1b[31;1m", "\x1b[0m" });
+        std.debug.print("  Your agent needs at least 50 SC to operate in the mesh.\n", .{});
+        std.debug.print("  Fund your agent instantly via this Blink (Solana Action):\n", .{});
+        std.debug.print("  \x1b[36mhttps://dial.to/?action=solana-action:https://gateway.xb77.com/api/v1/actions/pay?agent={s}&tier=standard\x1b[0m\n", .{sol_addr});
+    }
+
     std.debug.print("\nNext Steps:\n", .{});
-    std.debug.print("  1. Fund your agent:  xb77 -p {s} credits\n", .{cli.profile});
-    std.debug.print("  2. Setup your shop:  xb77 -p {s} merchant setup-shop\n", .{cli.profile});
-    std.debug.print("  3. Start operating:  xb77 -p {s} serve\n", .{cli.profile});
+    std.debug.print("  1. Link to Telegram: xb77 -p {s} link <CODE>\n", .{cli.profile});
+    std.debug.print("  2. Start operating:  xb77 -p {s} serve\n", .{cli.profile});
 }
 
 pub fn status(cli: *const Cli) !void {
@@ -110,18 +146,18 @@ pub fn credits(cli: *const Cli) !void {
     std.debug.print("\n[CREDIT]  Sovereign Credits Balance for {s}\n", .{sol_addr});
 
     const balance = ctx.orchestrator.syncBalance(sol_kp.public) catch |err| {
-        std.debug.print("\n[ERROR ]  Gateway Sync Failed: {}. Falling back to local cache.\n", .{err});
+        std.debug.print("\n[ERROR ]  Gateway Sync Failed: {s}. Falling back to local cache.\n", .{@errorName(err)});
         return;
     };
 
     std.debug.print("          Balance: {d} SC\n", .{balance});
-    std.debug.print("          Status:  {s}\n", .{if (balance >= 50) "Active & Funded" else "Low Credits"});
+    std.debug.print("          Status:  {s}\n", .{if (balance >= 50) "\x1b[32mActive & Funded\x1b[0m" else "\x1b[31mLow Credits\x1b[0m"});
 
     if (balance < 50) {
         std.debug.print("\nHow to Fund:\n", .{});
-        std.debug.print("  1. Send 0.05 SOL to the agent's Solana address above.\n", .{});
-        std.debug.print("  2. Use the following Blink to fund via Credit Card/Apple Pay (MOCK):\n", .{});
-        std.debug.print("     https://dial.to/?action=solana-action:https://gateway.xb77.com/api/fund/{s}\n", .{sol_addr});
+        std.debug.print("  1. Send SOL to: {s}\n", .{sol_addr});
+        std.debug.print("  2. Fund via Blink (Solana Action):\n", .{});
+        std.debug.print("     \x1b[36mhttps://dial.to/?action=solana-action:https://gateway.xb77.com/api/v1/actions/pay?agent={s}\x1b[0m\n", .{sol_addr});
     }
 }
 

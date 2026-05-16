@@ -7,8 +7,58 @@ const core = @import("core");
 const Cli = @import("../flags.zig").Cli;
 
 pub fn pay(cli: *const Cli, args: []const [:0]u8) !void {
-    _ = cli;
-    _ = args;
+    if (args.len < 2) {
+        std.debug.print("Usage: xb77 pay <destination_pubkey> <amount_in_lamports>\n", .{});
+        return;
+    }
+
+    const dest_str = args[0];
+    const amount_str = args[1];
+    const amount = std.fmt.parseInt(u64, amount_str, 10) catch {
+        std.debug.print("Invalid amount.\n", .{});
+        return;
+    };
+
+    var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
+    defer ctx.deinit();
+
+    const dest_pubkey = core.crypto.stringToPubkey(cli.allocator, dest_str) catch {
+        std.debug.print("Invalid destination address.\n", .{});
+        return;
+    };
+
+    std.debug.print("\n[DeFi  ] Initiating Autonomous Transfer...\n", .{});
+    std.debug.print("         Target: {s}\n", .{dest_str});
+    std.debug.print("         Amount: {d} lamports\n", .{amount});
+
+    const mb_client = core.chain.magicblock.MagicBlockClient.init(cli.allocator, "https://api.devnet.solana.com");
+    var router = core.commerce.pay.PaymentRouter.init(
+        cli.allocator,
+        &ctx.sol_client,
+        &ctx.evm_client,
+        @constCast(&mb_client),
+        &ctx.vaults,
+        &ctx.store,
+        &ctx.constitution,
+        ctx.config.facilitator,
+    );
+
+    const request = core.commerce.pay.PaymentRequest{
+        .amount = amount,
+        .asset = .{ .chain = .solana, .symbol = "SOL", .address = null },
+        .recipient = .{ .sol = dest_pubkey },
+    };
+
+    const result = router.pay(request) catch |err| {
+        std.debug.print("\n\x1b[1;31m[ERROR]\x1b[0m Transaction failed: {s}\n", .{@errorName(err)});
+        return;
+    };
+
+    std.debug.print("\n\x1b[1;32m[SUCCESS]\x1b[0m Transfer completed via {s} strategy!\n", .{@tagName(result.strategy)});
+    std.debug.print("          Signature: {s}\n", .{result.tx_signature});
+    std.debug.print("          Sovereign Tax Paid (2.011%): {d} lamports\n", .{result.fee_paid});
+    std.debug.print("\n          Ghost Receipt generated in circuits/zk_receipt/Prover.toml.\n", .{});
+    std.debug.print("          Use 'xb77 receipt' to view audit trail.\n\n", .{});
 }
 
 pub fn batch(cli: *const Cli, args: []const [:0]u8) !void {

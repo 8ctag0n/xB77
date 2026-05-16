@@ -39,6 +39,7 @@ pub const Action = enum(u8) {
     register_agent = 0x02,
     claim_credits = 0x03,
     query_pulse = 0x04,
+    link_agent = 0x05,
 
     pub fn path(self: Action) []const u8 {
         return switch (self) {
@@ -46,6 +47,7 @@ pub const Action = enum(u8) {
             .register_agent => "register_agent",
             .claim_credits => "claim_credits",
             .query_pulse => "query_pulse",
+            .link_agent => "link_agent",
         };
     }
 
@@ -55,6 +57,7 @@ pub const Action = enum(u8) {
             0x02 => .register_agent,
             0x03 => .claim_credits,
             0x04 => .query_pulse,
+            0x05 => .link_agent,
             else => Error.InvalidAction,
         };
     }

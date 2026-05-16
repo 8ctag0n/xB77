@@ -132,6 +132,7 @@ pub fn printUsage() void {
         \\  credits          Muestra el balance de créditos de infraestructura
         \\  identity <sub>   Gestiona tu identidad soberana (.xb77 / .sol)
         \\  merchant <sub>   Gestiona tus servicios comerciales y Blinks
+        \\  intent <text>    QVAC: Ingiere un IDL y planea una estrategia DeFi
         \\  watch            Mission Control: Dashboard Cyberpunk en tiempo real
         \\  receipt [sig]    Imprime el último Ghost Receipt (o uno por tx_hash)
         \\  gateway <sub>    Wire 1.1 actions (register/order/claim/pulse/reads)
