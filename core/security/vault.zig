@@ -48,6 +48,7 @@ pub const Vault = struct {
             .history = std.ArrayListUnmanaged(SpendRecord){},
             .storage_path = try allocator.dupe(u8, storage_path),
         };
+        errdefer allocator.free(v.storage_path);
         
         try v.ensureKeys(mnemonic, password);
         try v.loadHistory();

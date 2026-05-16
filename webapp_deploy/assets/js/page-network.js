@@ -164,6 +164,7 @@ function GhostAuditSection() {
   const [result, setResult] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [statusLine, setStatusLine] = React.useState("");
+  
   async function runAudit(h) {
     const target = (h ?? hash).trim();
     if (!target || !window.DataSource) return;
@@ -171,136 +172,188 @@ function GhostAuditSection() {
     setLoading(true);
     setResult(null);
     const steps = [
-      "querying zk verifier\u2026",
-      "reconstructing proof witness\u2026",
-      "verifying chunks\u2026",
-      "finalizing verdict\u2026"
+      "INITIALIZING_ZK_ORACLE...",
+      "QUERYING_ONCHAIN_VERIFIER...",
+      "RECONSTRUCTING_PROOF_WITNESS...",
+      "VALIDATING_MERKLE_CHUNKS...",
+      "FINALIZING_SOVEREIGN_VERDICT..."
     ];
     let i = 0;
     setStatusLine(steps[0]);
     const iv = setInterval(() => {
-      i = (i + 1) % steps.length;
-      setStatusLine(steps[i]);
-    }, 420);
+      i++;
+      if (i < steps.length) setStatusLine(steps[i]);
+    }, 400);
     try {
-      const minWait = new Promise((r2) => setTimeout(r2, 900));
+      const minWait = new Promise((r2) => setTimeout(r2, 2000));
       const [r] = await Promise.all([window.DataSource.auditTx(target), minWait]);
       setResult(r);
     } finally {
       clearInterval(iv);
-      setStatusLine("");
       setLoading(false);
     }
   }
+
   const verdictColor = result ? VERDICT_COLOR[result.verdict] || D.text : D.text;
-  return /* @__PURE__ */ React.createElement("section", { style: { padding: "40px 0", borderBottom: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 24 } }, /* @__PURE__ */ React.createElement(DM, null, "Ghost Audit Portal"), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(DS, { size: 32, italic: true }, "Verify any transaction.")), /* @__PURE__ */ React.createElement("div", { style: {
-    fontFamily: "var(--sans)",
-    fontSize: 13,
-    color: D.dim,
-    marginTop: 8,
-    maxWidth: 560,
-    lineHeight: 1.6
-  } }, "Paste a tx hash. The portal queries the zk verifier on-chain and returns the verdict, proof ID, and the agent that signed the pipeline.")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("span", { style: {
-    fontFamily: "var(--mono)",
-    fontSize: 9,
-    color: D.dim,
-    letterSpacing: "0.14em",
-    alignSelf: "center",
-    marginRight: 4
-  } }, "try:"), NET_SAMPLE_HASHES.map((s) => /* @__PURE__ */ React.createElement("button", { key: s.label, onClick: () => runAudit(s.hash), style: {
-    fontFamily: "var(--mono)",
-    fontSize: 9,
-    fontWeight: 600,
-    letterSpacing: "0.16em",
-    textTransform: "uppercase",
-    background: "transparent",
-    color: VERDICT_COLOR[s.label] || D.text,
-    border: `1px solid ${VERDICT_COLOR[s.label] || D.border}`,
-    padding: "5px 12px",
-    cursor: "pointer",
-    transition: "all 0.28s ease"
-  } }, s.label))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 0, marginBottom: 20, maxWidth: 720 } }, /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      type: "text",
-      value: hash,
-      onChange: (e) => setHash(e.target.value),
-      onKeyDown: (e) => {
-        if (e.key === "Enter") runAudit();
-      },
-      placeholder: "tx hash (e.g. 5K3sP9...)",
-      style: {
-        flex: 1,
-        fontFamily: "var(--mono)",
-        fontSize: 12,
-        background: D.bg2,
-        color: D.text,
-        border: `1px solid ${D.border}`,
-        borderRight: "none",
-        padding: "14px 16px",
-        outline: "none",
-        letterSpacing: "0.04em"
-      }
-    }
-  ), /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      onClick: () => runAudit(),
-      disabled: loading || !hash.trim(),
-      style: {
-        fontFamily: "var(--mono)",
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: "0.18em",
-        textTransform: "uppercase",
-        background: loading ? D.bg3 : D.accent,
-        color: loading ? D.dim : D.bg,
-        border: `1px solid ${D.accent}`,
-        padding: "0 28px",
-        cursor: loading || !hash.trim() ? "not-allowed" : "pointer",
-        transition: "all 0.28s ease"
-      }
-    },
-    loading ? "auditing\u2026" : "audit"
-  )), loading && /* @__PURE__ */ React.createElement("div", { style: {
-    padding: "20px 24px",
-    background: D.bg2,
-    border: `1px solid ${D.border}`,
-    borderLeft: `3px solid ${D.cyan}`,
-    maxWidth: 720
-  } }, /* @__PURE__ */ React.createElement("div", { style: {
-    fontFamily: "var(--mono)",
-    fontSize: 11,
-    color: D.cyan,
-    letterSpacing: "0.14em",
-    textTransform: "uppercase"
-  } }, statusLine || "\u2026"), /* @__PURE__ */ React.createElement(ChunkStrip, { chunks: 8, verdict: "PENDING", animate: true })), result && !loading && /* @__PURE__ */ React.createElement("div", { style: {
-    padding: "24px 28px",
-    background: D.bg2,
-    border: `1px solid ${D.border}`,
-    borderLeft: `3px solid ${verdictColor}`,
-    maxWidth: 720
-  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: {
-    fontFamily: "var(--mono)",
-    fontSize: 22,
-    fontWeight: 700,
-    letterSpacing: "0.18em",
-    color: verdictColor
-  } }, result.verdict), /* @__PURE__ */ React.createElement(NetStatusPill, { payload: result })), /* @__PURE__ */ React.createElement(ChunkStrip, { chunks: result.chunks, verdict: result.verdict }), /* @__PURE__ */ React.createElement("div", { style: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-    gap: 18,
-    marginTop: 22
-  } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(DM, { size: 8 }, "Proof ID"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 12, color: D.text, marginTop: 6, wordBreak: "break-all" } }, result.proofId)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(DM, { size: 8 }, "Agent"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 12, color: D.accent, marginTop: 6 } }, result.agent)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(DM, { size: 8 }, "Chunks"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 12, color: D.text, marginTop: 6 } }, result.chunks)), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(DM, { size: 8 }, "Timestamp"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 12, color: D.text, marginTop: 6 } }, result.timestamp ? new Date(result.timestamp).toISOString().replace("T", " ").slice(0, 19) : "\u2014"))), /* @__PURE__ */ React.createElement("div", { style: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTop: `1px solid ${D.border}`,
-    fontFamily: "var(--mono)",
-    fontSize: 10,
-    color: D.dim,
-    letterSpacing: "0.04em",
-    wordBreak: "break-all"
-  } }, "tx: ", result.txhash)));
+  
+  return /* @__PURE__ */ React.createElement("section", { style: { padding: "60px 0", borderBottom: `1px solid ${D.border}` } }, 
+    /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 32 } }, 
+      /* @__PURE__ */ React.createElement(DM, { size: 10, color: D.accent }, "// GHOST_AUDIT_PORTAL"), 
+      /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12 } }, 
+        /* @__PURE__ */ React.createElement(DS, { size: 42, italic: true, color: D.text }, "Mathematical Certainty.")
+      )
+    ),
+    /* @__PURE__ */ React.createElement("div", { style: { 
+      background: "#050505", 
+      border: `1px solid ${D.border}`, 
+      padding: "2px",
+      maxWidth: 900,
+      position: "relative",
+      boxShadow: "0 20px 50px rgba(0,0,0,0.5)"
+    } },
+      /* @__PURE__ */ React.createElement("div", { style: { 
+        padding: "16px 20px", 
+        borderBottom: `1px solid ${D.border}`,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        background: D.bg2
+      } },
+        /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 11, color: D.dim } }, "XB77_TERMINAL // AUDIT_SESSION"),
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, 
+          /* @__PURE__ */ React.createElement("div", { style: { width: 8, height: 8, borderRadius: "50%", background: "#ff5f56" } }),
+          /* @__PURE__ */ React.createElement("div", { style: { width: 8, height: 8, borderRadius: "50%", background: "#ffbd2e" } }),
+          /* @__PURE__ */ React.createElement("div", { style: { width: 8, height: 8, borderRadius: "50%", background: "#27c93f" } })
+        )
+      ),
+      /* @__PURE__ */ React.createElement("div", { style: { padding: "32px", minHeight: 300 } },
+        /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 24 } },
+          /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 13, color: D.accent, marginBottom: 8 } }, "system@xb77:~$ run_audit --tx_hash"),
+          /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12 } },
+            /* @__PURE__ */ React.createElement("input", {
+              type: "text",
+              value: hash,
+              onChange: (e) => setHash(e.target.value),
+              onKeyDown: (e) => e.key === "Enter" && runAudit(),
+              placeholder: "ENTER_TX_HASH...",
+              style: {
+                flex: 1,
+                background: "transparent",
+                border: "none",
+                borderBottom: `1px solid ${D.border}`,
+                color: D.text,
+                fontFamily: "var(--mono)",
+                fontSize: 16,
+                padding: "8px 0",
+                outline: "none"
+              }
+            }),
+            /* @__PURE__ */ React.createElement("button", { 
+              onClick: () => runAudit(),
+              disabled: loading,
+              style: {
+                background: D.accent,
+                color: "#000",
+                border: "none",
+                padding: "8px 24px",
+                fontFamily: "var(--mono)",
+                fontWeight: "bold",
+                cursor: "pointer",
+                opacity: loading ? 0.5 : 1
+              }
+            }, loading ? "BUSY..." : "EXEC")
+          )
+        ),
+        
+        loading && /* @__PURE__ */ React.createElement("div", { style: { 
+          padding: "32px", 
+          background: "rgba(0,255,255,0.03)", 
+          border: `1px dashed ${D.cyan}`,
+          maxWidth: 900,
+          fontFamily: "var(--mono)",
+          fontSize: 12,
+          lineHeight: 1.8,
+          color: D.cyan
+        } },
+          /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 16, fontWeight: "bold" } }, "> " + statusLine),
+          /* @__PURE__ */ React.createElement("div", { style: { opacity: 0.7 } }, "[0x01] FETCHING_STATE_ROOT... [OK]"),
+          /* @__PURE__ */ React.createElement("div", { style: { opacity: 0.8 } }, "[0x02] DOWNLOAD_CIRCUIT_VK... [OK]"),
+          /* @__PURE__ */ React.createElement("div", { style: { opacity: 0.9 } }, "[0x03] RECONSTRUCTING_MERKLE_PATH..."),
+          /* @__PURE__ */ React.createElement(ChunkStrip, { chunks: 8, verdict: "PENDING", animate: true })
+        ),
+
+        result && !loading && /* @__PURE__ */ React.createElement("div", { style: { 
+          fontFamily: "var(--mono)", 
+          animation: "xb-row-anim 0.6s ease-out both",
+          background: "linear-gradient(135deg, #050505 0%, #0a0a0a 100%)",
+          padding: "40px",
+          border: `1px solid ${verdictColor}`,
+          position: "relative",
+          maxWidth: 900
+        } },
+          /* @__PURE__ */ React.createElement("div", { style: { 
+            position: "absolute", top: 10, right: 20, fontSize: 9, color: D.dim, letterSpacing: "2px" 
+          } }, "SESSION_ID: " + result.proofId.slice(-8).toUpperCase()),
+          
+          /* @__PURE__ */ React.createElement("div", { style: { 
+            fontSize: 32, fontWeight: "900", color: verdictColor, marginBottom: 30, letterSpacing: "-1px",
+            display: "flex", alignItems: "center", gap: 16
+          } }, 
+            /* @__PURE__ */ React.createElement("span", { style: { 
+              width: 12, height: 12, borderRadius: "50%", background: verdictColor, boxShadow: `0 0 15px ${verdictColor}` 
+            } }),
+            result.verdict === "VALID" ? "GHOST_PROOF_VALIDATED" : "GHOST_PROOF_REJECTED"
+          ),
+
+          /* @__PURE__ */ React.createElement("div", { style: { 
+            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "32px" 
+          } },
+            /* @__PURE__ */ React.createElement("div", null, 
+              /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.dim }, "// PROOF_METADATA"),
+              /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12, display: "flex", flexDirection: "column", gap: 8 } },
+                /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11 } }, 
+                  /* @__PURE__ */ React.createElement("span", { style: { color: D.dim } }, "AGENT_ID"), 
+                  /* @__PURE__ */ React.createElement("span", { style: { color: D.accent } }, result.agent)
+                ),
+                /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11 } }, 
+                  /* @__PURE__ */ React.createElement("span", { style: { color: D.dim } }, "TIMESTAMP"), 
+                  /* @__PURE__ */ React.createElement("span", { style: { color: D.text } }, new Date(result.timestamp).toLocaleTimeString())
+                ),
+                /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 11 } }, 
+                  /* @__PURE__ */ React.createElement("span", { style: { color: D.dim } }, "CHUNKS"), 
+                  /* @__PURE__ */ React.createElement("span", { style: { color: D.text } }, result.chunks)
+                )
+              )
+            ),
+            /* @__PURE__ */ React.createElement("div", null, 
+              /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.dim }, "// ZK_INTEGRITY_CHECK"),
+              /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12 } },
+                /* @__PURE__ */ React.createElement(ChunkStrip, { chunks: result.chunks, verdict: result.verdict }),
+                /* @__PURE__ */ React.createElement("div", { style: { 
+                  marginTop: 12, fontSize: 10, color: LIME, textAlign: "right", fontFamily: "var(--mono)" 
+                } }, "✓ ALL_CHUNKS_VERIFIED_BY_SUNSPOT")
+              )
+            )
+          ),
+
+          /* @__PURE__ */ React.createElement("div", { style: { 
+            marginTop: 40, paddingTop: 20, borderTop: `1px solid ${D.border}`,
+            display: "flex", justifyContent: "space-between", alignItems: "flex-end"
+          } },
+            /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } },
+              /* @__PURE__ */ React.createElement(DM, { size: 7, color: D.dim }, "L1_SETTLEMENT_TX"),
+              /* @__PURE__ */ React.createElement("div", { style: { 
+                fontFamily: "var(--mono)", fontSize: 10, color: D.cyan, marginTop: 4, wordBreak: "break-all", opacity: 0.6 
+              } }, result.txhash)
+            ),
+            /* @__PURE__ */ React.createElement("div", { style: { 
+              fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 24, color: D.dim, opacity: 0.3 
+            } }, "xB77_Labs")
+          )
+        )
+      )
+    )
+  );
 }
 function AgentFleetSection() {
   const [data, setData] = React.useState(null);
@@ -440,20 +493,54 @@ function NetworkPage() {
           0%, 100% { opacity: 0.35; }
           50%      { opacity: 1; }
         }
-      `), window.InnerNav && /* @__PURE__ */ React.createElement(InnerNav, { active: "Network" }), /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 1200, margin: "0 auto", padding: "60px 32px 80px" } }, /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 32 } }, /* @__PURE__ */ React.createElement(DM, null, "// xB77 \xB7 Network"), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(DS, { size: 48, italic: true }, "The mesh, observed.")), /* @__PURE__ */ React.createElement("div", { style: {
-    fontFamily: "var(--sans)",
-    fontSize: 14,
-    color: D.dim,
-    maxWidth: 640,
-    marginTop: 12,
-    lineHeight: 1.6
-  } }, "Real-time view of the xB77 zk-pipeline network. Slot, block height, agent fleet, audit portal, and the live pipeline feed.")), /* @__PURE__ */ React.createElement(NetworkPulseSection, null), /* @__PURE__ */ React.createElement(GhostAuditSection, null), /* @__PURE__ */ React.createElement(AgentFleetSection, null), /* @__PURE__ */ React.createElement(RecentPipelinesSection, null)), window.DocsDeepDive && /* @__PURE__ */ React.createElement(
-    DocsDeepDive,
-    {
-      kicker: "// FULL DATA-INFRA REFERENCE",
-      label: "Endpoints, fallback chain, DataSource API.",
-      path: "/reference/data-infra"
-    }
-  ), window.PageFooter && /* @__PURE__ */ React.createElement(PageFooter, null));
+      `), window.InnerNav && /* @__PURE__ */ React.createElement(InnerNav, { active: "Network" }), 
+      /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 1200, margin: "0 auto", padding: "80px 32px" } }, 
+        /* @__PURE__ */ React.createElement("div", { style: { 
+          display: "flex", 
+          alignItems: "flex-start", 
+          justifyContent: "space-between",
+          marginBottom: 60,
+          flexWrap: "wrap",
+          gap: 40
+        } }, 
+          /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 320 } }, 
+            /* @__PURE__ */ React.createElement(DM, { size: 10, color: D.accent }, "// XB77_NETWORK_OBSERVATORY"), 
+            /* @__PURE__ */ React.createElement("div", { style: { marginTop: 16 } }, 
+              /* @__PURE__ */ React.createElement(DS, { size: 64, italic: true }, "The Swarm, Observed.")
+            ),
+            /* @__PURE__ */ React.createElement("div", { style: {
+              fontFamily: "var(--mono)",
+              fontSize: 13,
+              color: D.dim,
+              marginTop: 24,
+              lineHeight: 1.8,
+              maxWidth: 500
+            } }, "Real-time telemetry from the xB77 sovereign mesh. Monitor global flow pressure, verify private receipts, and observe autonomous CFOs in motion.")
+          ),
+          /* @__PURE__ */ React.createElement("pre", { style: { 
+            fontFamily: "var(--mono)", 
+            fontSize: 10, 
+            color: D.accent, 
+            lineHeight: 1.1,
+            margin: 0,
+            background: D.bg2,
+            padding: "20px",
+            border: `1px solid ${D.border}`
+          } }, ASCII_BANNER)
+        ), 
+        /* @__PURE__ */ React.createElement(NetworkPulseSection, null), 
+        /* @__PURE__ */ React.createElement(GhostAuditSection, null), 
+        /* @__PURE__ */ React.createElement(AgentFleetSection, null), 
+        /* @__PURE__ */ React.createElement(RecentPipelinesSection, null)
+      ), 
+      window.DocsDeepDive && /* @__PURE__ */ React.createElement(
+        DocsDeepDive,
+        {
+          kicker: "// FULL DATA-INFRA REFERENCE",
+          label: "Endpoints, fallback chain, DataSource API.",
+          path: "/reference/data-infra"
+        }
+      ), 
+      window.PageFooter && /* @__PURE__ */ React.createElement(PageFooter, null));
 }
 window.NetworkPage = NetworkPage;

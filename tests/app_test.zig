@@ -8,6 +8,7 @@ test "APP: Complete Flow (Quote -> Hire -> Escrow)" {
 
     // Create a temporary directory for this test
     const tmp_path = "./.tmp_app_test";
+    std.fs.cwd().deleteTree(tmp_path) catch {}; // Clean up previous run if panic occurred
     std.fs.cwd().makePath(tmp_path) catch {};
     defer std.fs.cwd().deleteTree(tmp_path) catch {};
 
@@ -15,8 +16,7 @@ test "APP: Complete Flow (Quote -> Hire -> Escrow)" {
     const config_content = 
         \\rpc_solana = "mock:devnet"
         \\rpc_base = "mock:sepolia"
-        \\[vaults]
-        \\path = "./.tmp_app_test"
+        \\vault_path = "./.tmp_app_test"
     ;
     const config_path = tmp_path ++ "/agent.toml";
     try std.fs.cwd().writeFile(.{ .sub_path = config_path, .data = config_content });

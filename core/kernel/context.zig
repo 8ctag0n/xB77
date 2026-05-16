@@ -70,8 +70,11 @@ pub const AgentContext = struct {
     }
 
     pub fn init(allocator: std.mem.Allocator, config_path: []const u8, password: ?[]const u8) !AgentContext {
-        const config = try config_mod.Config.load(allocator, config_path);
+        var config = try config_mod.Config.load(allocator, config_path);
+        errdefer config.deinit(allocator);
+
         var vaults = try vault.VaultSet.init(allocator, config.vaults.path, password);
+        errdefer vaults.deinit();
         const sol_addr = try vaults.ops.address(.solana, allocator);
         defer allocator.free(sol_addr);
         

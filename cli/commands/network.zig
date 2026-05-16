@@ -225,7 +225,7 @@ pub fn exportRemote(cli: *const Cli) !void {
     try json_list.writer(cli.allocator).print("{f}", .{std.json.fmt(req, .{})});
 
     var http = core.net.http.HttpClient.init(cli.allocator);
-    const export_url = "https://gateway.xb77.com/export";
+    const export_url = "https://gateway.xb77.io/export";
 
     std.debug.print(" Descargando estado desde el Edge...\n", .{});
     var resp = http.post(export_url, json_list.items) catch |err| {
