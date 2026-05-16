@@ -6,24 +6,26 @@ const core = @import("core");
 const Cli = @import("../flags.zig").Cli;
 
 const esc = "\x1b";
+const LIME = esc ++ "[1;32m";
+const CYAN = esc ++ "[1;36m";
+const GOLD = esc ++ "[1;33m";
+const MAG = esc ++ "[1;35m";
+const DIM = esc ++ "[1;30m";
+const WHT = esc ++ "[1;37m";
+const RST = esc ++ "[0m";
 
 pub fn init(cli: *const Cli) !void {
     const banner = 
         "\n" ++
-        "    " ++ esc ++ "[1;32m██╗  ██╗" ++ esc ++ "[1;36m██████╗ " ++ esc ++ "[1;32m███████╗" ++ esc ++ "[1;36m███████╗\n" ++
-        "    " ++ esc ++ "[1;32m╚██╗██╔╝" ++ esc ++ "[1;36m██╔══██╗╚══███╔╝╚══███╔╝\n" ++
-        "    " ++ esc ++ "[1;32m ╚███╔╝ " ++ esc ++ "[1;36m██████╔╝  ███╔╝   ███╔╝ \n" ++
-        "    " ++ esc ++ "[1;32m ██╔██╗ " ++ esc ++ "[1;36m██╔══██╗ ███╔╝   ███╔╝  \n" ++
-        "    " ++ esc ++ "[1;32m██╔╝ ██╗" ++ esc ++ "[1;36m██████╔╝" ++ esc ++ "[1;32m███████╗" ++ esc ++ "[1;36m███████╗\n" ++
-        "    " ++ esc ++ "[1;32m╚═╝  ╚═╝" ++ esc ++ "[1;36m╚═════╝ ╚══════╝╚══════╝" ++ esc ++ "[0m\n" ++
-        "    " ++ esc ++ "[1;30m>> SOVEREIGN FINANCIAL INFRASTRUCTURE <<" ++ esc ++ "[0m\n\n";
+        "    " ++ LIME ++ "█" ++ CYAN ++ "▀▀" ++ LIME ++ "█" ++ CYAN ++ "▀▀" ++ LIME ++ "█" ++ CYAN ++ " █" ++ LIME ++ "▀▀▀█" ++ CYAN ++ " ▀▀█" ++ LIME ++ "▀▀" ++ CYAN ++ "▀ ▀▀█" ++ LIME ++ "▀▀" ++ CYAN ++ "▀\n" ++
+        "    " ++ LIME ++ " " ++ CYAN ++ " ▄▀" ++ LIME ++ "▀" ++ CYAN ++ "▄ " ++ LIME ++ " █" ++ CYAN ++ "   █" ++ LIME ++ "   █" ++ CYAN ++ "▄▄" ++ LIME ++ "   █" ++ CYAN ++ "▄▄\n" ++
+        "    " ++ LIME ++ "█" ++ CYAN ++ "▄▄" ++ LIME ++ "█" ++ CYAN ++ "▄▄" ++ LIME ++ "█" ++ CYAN ++ " █" ++ LIME ++ "▄▄▄█" ++ CYAN ++ "   █" ++ LIME ++ "     █\n" ++
+        "    " ++ DIM ++ ">> SOVEREIGN FINANCIAL ENGINE <<\n" ++ RST;
     
     std.debug.print("{s}", .{banner});
-    std.debug.print("[INIT]  Generating Sovereign Identity for profile " ++ esc ++ "[1;33m'{s}'" ++ esc ++ "[0m...\n", .{cli.profile});
+    std.debug.print("\n" ++ CYAN ++ "[" ++ WHT ++ "SYSTEM" ++ CYAN ++ "]" ++ RST ++ " INITIALIZING_AGENT_CORE: " ++ GOLD ++ "{s}" ++ RST ++ "\n", .{cli.profile});
 
-    // Aseguramos que la carpeta profiles exista
     std.fs.cwd().makePath("profiles") catch {};
-
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
     defer ctx.deinit();
 
@@ -33,33 +35,30 @@ pub fn init(cli: *const Cli) !void {
     const eth_addr = try ctx.vaults.ops.address(.base, cli.allocator);
     defer cli.allocator.free(eth_addr);
 
-    std.debug.print("\n" ++ esc ++ "[1;32m[SUCCESS]" ++ esc ++ "[0m Profile " ++ esc ++ "[1;37m'{s}'" ++ esc ++ "[0m initialized!\n", .{cli.profile});
-    std.debug.print("          " ++ esc ++ "[1;30m┌──────────────────────────────────────┐" ++ esc ++ "[0m\n", .{});
-    std.debug.print("          " ++ esc ++ "[1;30m│" ++ esc ++ "[0m Solana (L1):  " ++ esc ++ "[1;36m{s}" ++ esc ++ "[1;30m │" ++ esc ++ "[0m\n", .{sol_addr});
-    std.debug.print("          " ++ esc ++ "[1;30m│" ++ esc ++ "[0m Base (EVM):    " ++ esc ++ "[1;35m{s}" ++ esc ++ "[1;30m │" ++ esc ++ "[0m\n", .{eth_addr[0..eth_addr.len]});
-    std.debug.print("          " ++ esc ++ "[1;30m└──────────────────────────────────────┘" ++ esc ++ "[0m\n", .{});
+    std.debug.print("\n" ++ LIME ++ "╔══════════════════════════════════════════════════╗" ++ RST ++ "\n", .{});
+    std.debug.print(LIME ++ "║" ++ RST ++ "  " ++ WHT ++ "AGENT_READY: " ++ GOLD ++ "{s: <27}" ++ RST ++ LIME ++ "║" ++ RST ++ "\n", .{cli.profile});
+    std.debug.print(LIME ++ "╠══════════════════════════════════════════════════╣" ++ RST ++ "\n", .{});
+    std.debug.print(LIME ++ "║" ++ RST ++ " " ++ DIM ++ "Solana:" ++ RST ++ " " ++ WHT ++ "{s}" ++ RST ++ LIME ++ "║" ++ RST ++ "\n", .{sol_addr});
+    std.debug.print(LIME ++ "║" ++ RST ++ " " ++ DIM ++ "Base:  " ++ RST ++ " " ++ WHT ++ "{s}" ++ RST ++ LIME ++ "║" ++ RST ++ "\n", .{eth_addr});
+    std.debug.print(LIME ++ "╚══════════════════════════════════════════════════╝" ++ RST ++ "\n", .{});
 
-    // --- Deluxe Registration & Credit Check ---
-    std.debug.print("\n[SYNC  ]  Synchronizing with xB77 Sovereign Gateway...", .{});
+    // --- Deluxe Registration ---
+    std.debug.print("\n" ++ CYAN ++ "[" ++ WHT ++ "NETWORK" ++ CYAN ++ "]" ++ RST ++ " Sincronizando con Sovereign Gateway...", .{});
     
     const balance = ctx.orchestrator.registerAgent(sol_kp.public, &sol_kp) catch blk: {
-        std.debug.print(" " ++ esc ++ "[1;33m[WARN] ConnectionRefused" ++ esc ++ "[0m\n", .{});
+        std.debug.print(" " ++ esc ++ "[1;31m[OFFLINE]" ++ RST ++ "\n", .{});
         break :blk ctx.orchestrator.balances.get(sol_kp.public) orelse 0;
     };
     
-    std.debug.print(" " ++ esc ++ "[1;32mDONE" ++ esc ++ "[0m\n", .{});
-    std.debug.print("[CREDIT]  Current Balance: " ++ esc ++ "[1;37m{d} SC" ++ esc ++ "[0m\n", .{balance});
+    std.debug.print(" " ++ LIME ++ "[CONNECTED]" ++ RST ++ "\n", .{});
+    std.debug.print(CYAN ++ "[" ++ WHT ++ "CREDITS" ++ CYAN ++ "]" ++ RST ++ " Balance: " ++ WHT ++ "{d} SC" ++ RST ++ "\n", .{balance});
 
     if (balance < 50) {
-        std.debug.print("\n " ++ esc ++ "[1;31mACTION REQUIRED: Insufficient Credits" ++ esc ++ "[0m \n", .{});
-        std.debug.print("  Your agent needs at least 50 SC to operate in the mesh.\n", .{});
-        std.debug.print("  Fund your agent instantly via this Blink (Solana Action):\n", .{});
-        std.debug.print("  " ++ esc ++ "[1;36mhttps://dial.to/?action=solana-action:https://gateway.xb77.com/api/v1/actions/pay?agent={s}&tier=standard" ++ esc ++ "[0m\n", .{sol_addr});
+        std.debug.print("\n" ++ GOLD ++ "⚠ ALERTA: Créditos insuficientes para operar." ++ RST ++ "\n", .{});
+        std.debug.print(DIM ++ "Ejecuta " ++ WHT ++ "'xb77 credits topup'" ++ DIM ++ " para fondear via Blink." ++ RST ++ "\n", .{});
     }
 
-    std.debug.print("\nNext Steps:\n", .{});
-    std.debug.print("  1. Link to Telegram: xb77 -p {s} link <CODE>\n", .{cli.profile});
-    std.debug.print("  2. Start operating:  xb77 -p {s} serve\n\n", .{cli.profile});
+    std.debug.print("\n" ++ DIM ++ "Next:" ++ RST ++ " " ++ WHT ++ "xb77 -p {s} serve" ++ RST ++ "\n\n", .{cli.profile});
 }
 
 pub fn status(cli: *const Cli) !void {
@@ -71,25 +70,15 @@ pub fn status(cli: *const Cli) !void {
     const eth_addr = try ctx.vaults.ops.address(.base, cli.allocator);
     defer cli.allocator.free(eth_addr);
 
-    std.debug.print("\n" ++ esc ++ "[1;30m╔══════════════════════════════════════════════════╗" ++ esc ++ "[0m\n", .{});
-    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m  " ++ esc ++ "[1;33mxB77 SOVEREIGN AGENT" ++ esc ++ "[0m: " ++ esc ++ "[1;37m{s: <20}" ++ esc ++ "[0m  " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{cli.profile});
-    std.debug.print(esc ++ "[1;30m╠══════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
+    std.debug.print("\n" ++ DIM ++ "┌──────────────────────────────────────────────────┐" ++ RST ++ "\n", .{});
+    std.debug.print(DIM ++ "│" ++ RST ++ "  " ++ GOLD ++ "xB77_AGENT_V2" ++ RST ++ " // " ++ WHT ++ "{s: <27}" ++ RST ++ DIM ++ "│" ++ RST ++ "\n", .{cli.profile});
+    std.debug.print(DIM ++ "├──────────────────────────────────────────────────┤" ++ RST ++ "\n", .{});
     
     // --- [1] SOVEREIGN IDENTITY (SNS) ---
     if (ctx.config.name) |name| {
-        std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;36m[IDENTITY]" ++ esc ++ "[0m " ++ esc ++ "[1;37m{s}.xb77" ++ esc ++ "[0m / " ++ esc ++ "[1;32m{s}.sol" ++ esc ++ "[0m", .{ name, name });
-        // Intentar resolución nativa rápida de su propio nombre (si fuera .sol)
-        const name_sol = try std.fmt.allocPrint(cli.allocator, "{s}.sol", .{name});
-        defer cli.allocator.free(name_sol);
-        if (core.business.identity.Identity.resolveSnsNative(cli.allocator, &ctx.sol_client, name_sol)) |pk| {
-            const pk_str = try core.crypto.pubkeyToString(cli.allocator, &pk);
-            defer cli.allocator.free(pk_str);
-            std.debug.print(" " ++ esc ++ "[1;32m(Verified)" ++ esc ++ "[0m " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{});
-        } else |_| {
-            std.debug.print(" " ++ esc ++ "[1;30m(Local)   ║" ++ esc ++ "[0m\n", .{});
-        }
+        std.debug.print(DIM ++ "│" ++ RST ++ " " ++ CYAN ++ "ID:" ++ RST ++ " " ++ WHT ++ "{s}.xb77" ++ RST ++ " / " ++ LIME ++ "{s}.sol" ++ RST ++ DIM ++ "     │" ++ RST ++ "\n", .{ name, name });
     } else {
-        std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;36m[IDENTITY]" ++ esc ++ "[0m " ++ esc ++ "[1;90mAnonymous Sovereign Agent          " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{});
+        std.debug.print(DIM ++ "│" ++ RST ++ " " ++ CYAN ++ "ID:" ++ RST ++ " " ++ DIM ++ "Anonymous_Sovereign_Agent          " ++ RST ++ DIM ++ "│" ++ RST ++ "\n", .{});
     }
 
     // --- [2] SOVEREIGN BRAIN (QVAC) ---
@@ -99,24 +88,24 @@ pub fn status(cli: *const Cli) !void {
         break :blk is_shim;
     } else false;
 
-    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;36m[BRAIN   ]" ++ esc ++ "[0m " ++ esc ++ "[1;37mGemma 3" ++ esc ++ "[0m {s}         " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{ 
-        if (use_shim) esc ++ "[1;32m(LIVE_SHIM)" ++ esc ++ "[0m" else esc ++ "[1;33m(HEURISTIC)" ++ esc ++ "[0m" 
+    std.debug.print(DIM ++ "│" ++ RST ++ " " ++ CYAN ++ "CEREBRO:" ++ RST ++ " " ++ WHT ++ "Gemma_3" ++ RST ++ " {s: <18} " ++ DIM ++ "│" ++ RST ++ "\n", .{ 
+        if (use_shim) LIME ++ "(LIVE)" ++ RST else GOLD ++ "(HEURISTIC)" ++ RST 
     });
 
     // --- [3] HFT RAIL (MagicBlock) ---
     const mb_active = !std.mem.startsWith(u8, ctx.mb_client.sequencer_url, "mock:");
-    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;36m[HFT RAIL ]" ++ esc ++ "[0m " ++ esc ++ "[1;37mMagicBlock" ++ esc ++ "[0m {s}      " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{ 
-        if (mb_active) esc ++ "[1;32m(ACTIVE)" ++ esc ++ "[0m" else esc ++ "[1;90m(MOCKED)" ++ esc ++ "[0m"
+    std.debug.print(DIM ++ "│" ++ RST ++ " " ++ CYAN ++ "RED:" ++ RST ++ " " ++ WHT ++ "MagicBlock" ++ RST ++ " {s: <15} " ++ DIM ++ "│" ++ RST ++ "\n", .{ 
+        if (mb_active) LIME ++ "(ACTIVE)" ++ RST else DIM ++ "(MOCKED)" ++ RST
     });
 
-    std.debug.print(esc ++ "[1;30m╠══════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
-    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mSolana:" ++ esc ++ "[0m " ++ esc ++ "[1;37m{s}" ++ esc ++ "[0m " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{sol_addr});
-    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mBase:  " ++ esc ++ "[0m " ++ esc ++ "[1;37m{s}" ++ esc ++ "[0m " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{eth_addr});
+    std.debug.print(DIM ++ "├──────────────────────────────────────────────────┤" ++ RST ++ "\n", .{});
+    std.debug.print(DIM ++ "│" ++ RST ++ " " ++ DIM ++ "L1_SOL:" ++ RST ++ " " ++ WHT ++ "{s}" ++ RST ++ DIM ++ "│" ++ RST ++ "\n", .{sol_addr});
+    std.debug.print(DIM ++ "│" ++ RST ++ " " ++ DIM ++ "L2_BASE:" ++ RST ++ " " ++ WHT ++ "{s}" ++ RST ++ DIM ++ "│" ++ RST ++ "\n", .{eth_addr});
     
     const root = ctx.store.tree.getRoot();
-    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mZK Root:" ++ esc ++ "[0m " ++ esc ++ "[1;32m0x{x:0>2}{x:0>2}..." ++ esc ++ "[0m (" ++ esc ++ "[1;37m{d} txs" ++ esc ++ "[0m)                 " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{ root[0], root[1], ctx.store.tree.rightmost_index });
-    std.debug.print(esc ++ "[1;30m╚══════════════════════════════════════════════════╝" ++ esc ++ "[0m\n", .{});
-    std.debug.print("   STATUS: " ++ esc ++ "[1;32mSOVEREIGN & COMPUTING" ++ esc ++ "[0m\n\n", .{});
+    std.debug.print(DIM ++ "│" ++ RST ++ " " ++ DIM ++ "ZK_ROOT:" ++ RST ++ " " ++ LIME ++ "0x{x:0>2}{x:0>2}..." ++ RST ++ " (" ++ WHT ++ "{d} txs" ++ RST ++ ")                 " ++ DIM ++ "│" ++ RST ++ "\n", .{ root[0], root[1], ctx.store.tree.rightmost_index });
+    std.debug.print(DIM ++ "└──────────────────────────────────────────────────┘" ++ RST ++ "\n", .{});
+    std.debug.print("   " ++ LIME ++ "●" ++ RST ++ " STATUS: " ++ WHT ++ "SOVEREIGN_COMPUTING_ACTIVE" ++ RST ++ "\n\n", .{});
 }
 
 pub fn state(cli: *const Cli) !void {
@@ -126,13 +115,14 @@ pub fn state(cli: *const Cli) !void {
     const root = ctx.store.tree.getRoot();
     const count = ctx.store.tree.rightmost_index;
 
-    std.debug.print("\n--- xB77 Sovereign State ({s}) ---\n", .{cli.config_path});
-    std.debug.print("Entries:     {d}\n", .{count});
-    std.debug.print("Merkle Root: ", .{});
+    std.debug.print("\n" ++ CYAN ++ "[" ++ WHT ++ "STATE" ++ CYAN ++ "]" ++ RST ++ " xB77_SOVEREIGN_LEDGER\n", .{});
+    std.debug.print(DIM ++ "Path:    {s}" ++ RST ++ "\n", .{cli.config_path});
+    std.debug.print(DIM ++ "Entries: " ++ RST ++ WHT ++ "{d}" ++ RST ++ "\n", .{count});
+    std.debug.print(DIM ++ "Root:    " ++ RST ++ LIME ++ "0x", .{});
     for (root) |b| {
         std.debug.print("{x:0>2}", .{b});
     }
-    std.debug.print("\nIntegrity:   Sovereign & Verified\n", .{});
+    std.debug.print(RST ++ "\n" ++ LIME ++ "INTEGRITY_VERIFIED" ++ RST ++ "\n\n", .{});
 }
 
 pub fn credits(cli: *const Cli, args: []const [:0]u8) !void {
@@ -149,21 +139,19 @@ pub fn credits(cli: *const Cli, args: []const [:0]u8) !void {
     defer cli.allocator.free(sol_addr);
 
     const balance = ctx.orchestrator.syncBalance(sol_kp.public) catch |err| blk: {
-        std.debug.print("\n" ++ esc ++ "[1;33m[WARN]" ++ esc ++ "[0m Gateway Sync Failed: {s}. Using local cache.\n", .{@errorName(err)});
+        std.debug.print("\n" ++ GOLD ++ "[WARN]" ++ RST ++ " Gateway Offline: {s}. Usando cache.\n", .{@errorName(err)});
         break :blk ctx.orchestrator.balances.get(sol_kp.public) orelse 0;
     };
 
-    std.debug.print("\n" ++ esc ++ "[1;30m╔══════════════════════════════════════════════════╗" ++ esc ++ "[0m\n", .{});
-    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m  " ++ esc ++ "[1;36mSOVEREIGN CREDIT STATEMENT" ++ esc ++ "[0m                      " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{});
-    std.debug.print(esc ++ "[1;30m╠══════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
-    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mAgent:" ++ esc ++ "[0m " ++ esc ++ "[1;37m{s: <40}" ++ esc ++ "[1;30m ║" ++ esc ++ "[0m\n", .{sol_addr[0..40]});
-    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mStatus:" ++ esc ++ "[0m {s: <47}" ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{if (balance >= 50) esc ++ "[1;32mACTIVE & FUNDED" ++ esc ++ "[0m" else esc ++ "[1;31mCREDITS_LOW" ++ esc ++ "[0m"});
-    std.debug.print(esc ++ "[1;30m╠══════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
-    std.debug.print(esc ++ "[1;30m║" ++ esc ++ "[0m  " ++ esc ++ "[1;33mAVAILABLE BALANCE:" ++ esc ++ "[0m " ++ esc ++ "[1;37m{d: <18} SC" ++ esc ++ "[0m  " ++ esc ++ "[1;30m║" ++ esc ++ "[0m\n", .{balance});
-    std.debug.print(esc ++ "[1;30m╚══════════════════════════════════════════════════╝" ++ esc ++ "[0m\n", .{});
+    std.debug.print("\n" ++ WHT ++ "SOVEREIGN_CREDIT_INVOICE" ++ RST ++ "\n", .{});
+    std.debug.print(DIM ++ "══════════════════════════════════════════════════" ++ RST ++ "\n", .{});
+    std.debug.print(DIM ++ "Agente: " ++ RST ++ WHT ++ "{s}" ++ RST ++ "\n", .{sol_addr});
+    std.debug.print(DIM ++ "Estado: " ++ RST ++ "{s}\n", .{ if (balance >= 50) LIME ++ "HEALTHY" ++ RST else GOLD ++ "DEBT_RISK" ++ RST });
+    std.debug.print(DIM ++ "──────────────────────────────────────────────────" ++ RST ++ "\n", .{});
+    std.debug.print(DIM ++ "BALANCE DISPONIBLE: " ++ RST ++ WHT ++ "{d} SC" ++ RST ++ "\n", .{balance});
+    std.debug.print(DIM ++ "══════════════════════════════════════════════════" ++ RST ++ "\n", .{});
 
-    std.debug.print("\n" ++ esc ++ "[1;30m>> ACTIONS:" ++ esc ++ "[0m\n", .{});
-    std.debug.print("   " ++ esc ++ "[1;32m•" ++ esc ++ "[0m Run " ++ esc ++ "[1;36m'xb77 credits topup'" ++ esc ++ "[0m to fund instantly via Blink.\n\n", .{});
+    std.debug.print("\n" ++ CYAN ++ ">> ACCIÓN:" ++ RST ++ " Ejecuta " ++ WHT ++ "'xb77 credits topup'" ++ RST ++ " para recargar.\n\n", .{});
 }
 
 fn topup(cli: *const Cli) !void {
@@ -177,15 +165,15 @@ fn topup(cli: *const Cli) !void {
     const blink_url = try std.fmt.allocPrint(cli.allocator, "https://dial.to/?action=solana-action:https://gateway.xb77.io/api/v1/actions/pay?agent={s}", .{sol_addr});
     defer cli.allocator.free(blink_url);
 
-    std.debug.print("\n" ++ esc ++ "[1;33m╔══════════════════════════════════════════════════════════════╗" ++ esc ++ "[0m\n", .{});
-    std.debug.print(esc ++ "[1;33m║" ++ esc ++ "[0m          " ++ esc ++ "[1;37mGENERATE SOVEREIGN CREDITS TOPUP" ++ esc ++ "[0m          " ++ esc ++ "[1;33m║" ++ esc ++ "[0m\n", .{});
-    std.debug.print(esc ++ "[1;33m╠══════════════════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
-    std.debug.print(esc ++ "[1;33m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mTarget Agent:" ++ esc ++ "[0m  " ++ esc ++ "[1;36m{s}" ++ esc ++ "[0m " ++ esc ++ "[1;33m║" ++ esc ++ "[0m\n", .{sol_addr});
-    std.debug.print(esc ++ "[1;33m║" ++ esc ++ "[0m " ++ esc ++ "[1;30mMethod:      " ++ esc ++ "[0m  " ++ esc ++ "[1;32mSolana Actions (Blinks)" ++ esc ++ "[0m              " ++ esc ++ "[1;33m║" ++ esc ++ "[0m\n", .{});
-    std.debug.print(esc ++ "[1;33m╠══════════════════════════════════════════════════════════════╣" ++ esc ++ "[0m\n", .{});
-    std.debug.print(esc ++ "[1;33m║" ++ esc ++ "[0m " ++ esc ++ "[1;37mOpen this URL to pay:" ++ esc ++ "[0m                               " ++ esc ++ "[1;33m║" ++ esc ++ "[0m\n", .{});
-    std.debug.print(esc ++ "[1;33m║" ++ esc ++ "[0m " ++ esc ++ "[1;36m{s}" ++ esc ++ "[0m " ++ esc ++ "[1;33m║" ++ esc ++ "[0m\n", .{blink_url});
-    std.debug.print(esc ++ "[1;33m╚══════════════════════════════════════════════════════════════╝" ++ esc ++ "[0m\n", .{});
+    std.debug.print("\n" ++ GOLD ++ "╔══════════════════════════════════════════════════════════════╗" ++ RST ++ "\n", .{});
+    std.debug.print(GOLD ++ "║" ++ RST ++ "          " ++ WHT ++ "GENERATE SOVEREIGN CREDITS TOPUP" ++ RST ++ "          " ++ GOLD ++ "║" ++ RST ++ "\n", .{});
+    std.debug.print(GOLD ++ "╠══════════════════════════════════════════════════════════════╣" ++ RST ++ "\n", .{});
+    std.debug.print(GOLD ++ "║" ++ RST ++ " " ++ DIM ++ "Target:" ++ RST ++ " " ++ WHT ++ "{s: <48}" ++ RST ++ GOLD ++ " ║" ++ RST ++ "\n", .{sol_addr});
+    std.debug.print(GOLD ++ "║" ++ RST ++ " " ++ DIM ++ "Method:" ++ RST ++ " " ++ LIME ++ "Solana Blink (Direct Settlement)" ++ RST ++ "      " ++ GOLD ++ "║" ++ RST ++ "\n", .{});
+    std.debug.print(GOLD ++ "╠══════════════════════════════════════════════════════════════╣" ++ RST ++ "\n", .{});
+    std.debug.print(GOLD ++ "║" ++ RST ++ " " ++ WHT ++ "PAYMENT_URL:" ++ RST ++ "                                         " ++ GOLD ++ "║" ++ RST ++ "\n", .{});
+    std.debug.print(GOLD ++ "║" ++ RST ++ " " ++ CYAN ++ "{s}" ++ RST ++ GOLD ++ " ║" ++ RST ++ "\n", .{blink_url[0..@min(blink_url.len, 60)]});
+    std.debug.print(GOLD ++ "╚══════════════════════════════════════════════════════════════╝" ++ RST ++ "\n\n", .{});
 }
 
 pub fn identity(cli: *const Cli, args: []const [:0]u8) !void {
