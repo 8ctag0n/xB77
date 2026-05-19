@@ -5,11 +5,12 @@ pub const kernel = struct {
     pub const Engine = engine_mod.Engine;
     pub const config = @import("kernel/config.zig");
     pub const context = @import("kernel/context.zig");
-    pub const app = @import("kernel/app.zig");
     pub const orchestrator = @import("kernel/orchestrator.zig");
     pub const prover = @import("kernel/prover.zig");
     pub const strategist = @import("kernel/strategist.zig");
     pub const telemetry = @import("kernel/telemetry.zig");
+    pub const reasoning = @import("kernel/reasoning.zig");
+    pub const app = @import("kernel/app.zig");
 };
 
 pub const intelligence = struct {
@@ -55,6 +56,8 @@ pub const mesh = struct {
     pub const elevenlabs = @import("mesh/elevenlabs.zig");
 };
 
+pub const circle = @import("circle/circle.zig");
+
 pub const chain = struct {
     pub const chain = @import("chain/chain.zig");
     pub const solana = @import("chain/solana.zig");
@@ -62,10 +65,12 @@ pub const chain = struct {
     pub const anchor = @import("chain/anchor.zig");
     pub const magicblock = @import("chain/magicblock.zig");
     pub const zk_uploader = @import("chain/zk_uploader.zig");
+    pub const arc_adapter = @import("chain/arc_adapter.zig");
 };
 
 pub const defi = struct {
     pub const idl_parser = @import("defi/idl_parser.zig");
+    pub const polymarket = @import("defi/polymarket.zig");
 };
 
 // --- SDK surface (WASM-safe, stateless) ---
@@ -111,7 +116,7 @@ pub const business = struct {
     pub const receipt = commerce.receipt;
     pub const swap = commerce.swap;
     pub const identity = security.identity;
-    pub const app = kernel.app;
+    pub const app = @import("kernel/app.zig");
     pub const registry = commerce.registry;
     pub const constitution = security.constitution;
 };
