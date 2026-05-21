@@ -183,6 +183,8 @@ pub const Vault = struct {
             else 
                 error.EthKeypairNotInitialized,
             .bitcoin => error.BitcoinNotYetImplemented,
+            .arc => try allocator.dupe(u8, "0x7777...arc"), // Mock for demo
+            .sui => try allocator.dupe(u8, "0x7777...sui"), // Mock for demo
         };
     }
 

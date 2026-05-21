@@ -1,0 +1,14 @@
+{
+  "name": "@xb77/sui-bridge",
+  "version": "1.0.0",
+  "description": "xB77 Sui PTB Sidecar Bridge",
+  "main": "ptb-builder.ts",
+  "scripts": {
+    "start": "ts-node ptb-builder.ts"
+  },
+  "dependencies": {
+    "@mysten/sui.js": "^0.51.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

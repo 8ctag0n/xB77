@@ -34,6 +34,20 @@
       proofsVerified24h: 1247,
       ts: T0,
     },
+    arcPulse: {
+      usdcTotal: 1_240_512.25,
+      usycYieldTotal: 48_211.50,
+      activeCctpRoutes: 12,
+      lastSettlementTx: "arc_tx_circle_777_v1",
+      ts: T0,
+    },
+    suiPulse: {
+      agentObjects: 8,
+      ptbThroughput: 142.5,
+      activeOwnedTreasuries: 24,
+      lastPtbDigest: "5u1_ptb_x877_sovereign_v2",
+      ts: T0,
+    },
     audit: (hash) => ({
       verdict: "VALID",
       proofId: `proof_${(hash || "snapshot").slice(0, 12)}`,
@@ -134,10 +148,6 @@
   }
 
   // ── Shape normalizers: contract v1 → legacy UI field names ────────────
-  // Contract uses snake_case + agent_id/duration_ms/started_at.
-  // The webapp views still read id/duration/startedAt, so we adapt at the
-  // boundary instead of touching every view. Snapshot uses legacy shape and
-  // passes through unchanged.
   const NORMALIZERS = {
     agents(raw) {
       if (!raw || !Array.isArray(raw.agents)) return raw;
@@ -146,8 +156,6 @@
           id: a.id || a.agent_id,
           pubkey: a.pubkey,
           status: a.status || (a.last_seen_ms_ago > 60_000 ? "idle" : "online"),
-          // Contract doesn't surface these — fall back to 0 / 1 so the UI
-          // renders without ?? cascades everywhere.
           pipelines: a.pipelines ?? 0,
           uptime: a.uptime ?? 1,
           tier: a.tier,
@@ -216,10 +224,6 @@
     const cached = cacheGet(cacheKey);
     if (cached) {
       const age = Date.now() - cached.storedAt;
-      if (age <= CACHE_TTL_MS) {
-        return wrap(cached.data, "cached", age);
-      }
-      // Stale cache: still better than snapshot if we have it.
       return wrap(cached.data, "cached", age);
     }
 
@@ -228,8 +232,6 @@
   }
 
   function wrap(data, source, ageMs) {
-    // Non-enumerable could be nicer but we want JSON.stringify to surface
-    // these for devtools / debugging.
     return Object.assign({}, data, { _source: source, _ageMs: ageMs });
   }
 
@@ -237,6 +239,14 @@
   const DataSource = {
     networkPulse() {
       return resolve("networkPulse", "/api/v1/network/pulse", SNAPSHOT.networkPulse);
+    },
+
+    arcPulse() {
+      return resolve("arcPulse", "/api/v1/network/arc-pulse", SNAPSHOT.arcPulse);
+    },
+
+    suiPulse() {
+      return resolve("suiPulse", "/api/v1/network/sui-pulse", SNAPSHOT.suiPulse);
     },
 
     auditTx(hash) {
@@ -293,15 +303,9 @@
       );
     },
 
-    /**
-     * Polling subscription. Returns an unsubscribe function.
-     *   const off = DataSource.subscribe('networkPulse', (data) => { ... }, 3000)
-     */
     subscribe(name, cb, intervalMs = 5000) {
       const fn = DataSource[name];
-      if (typeof fn !== "function") {
-        return () => {};
-      }
+      if (typeof fn !== "function") return () => {};
       let stopped = false;
       let timer = null;
 
@@ -310,9 +314,7 @@
         try {
           const data = await fn.call(DataSource);
           if (!stopped) cb(data);
-        } catch {
-          // never throws; defensive only
-        }
+        } catch {}
         if (!stopped) timer = setTimeout(tick, intervalMs);
       };
 

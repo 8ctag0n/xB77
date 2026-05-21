@@ -5,12 +5,13 @@ pub const EthAddress = [20]u8;    // EVM
 pub const BtcAddress = [20]u8;    // Bitcoin (Hash160)
 pub const Signature = [64]u8;     // Ed25519 (Solana) / ECDSA (EVM es distinto, lo vemos luego)
 pub const Hash = [32]u8;
-
 pub const Chain = enum {
     solana,
     base,
     arbitrum,
     bitcoin,
+    arc,
+    sui,
 };
 
 pub const Asset = struct {

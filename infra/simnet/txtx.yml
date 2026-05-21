@@ -1,0 +1,15 @@
+id: "xb77-sovereign-simnet"
+name: "xB77 Sovereign Simnet (Full Stack)"
+
+runbooks:
+  - id: "initialize-god-mode"
+    name: "Initialize God Mode"
+    location: "./initialize.tx"
+
+environments:
+  local:
+    RPC_SOLANA: "https://api.mainnet-beta.solana.com"
+    RPC_BASE: "https://mainnet.base.org"
+    PORT_SOLANA: "8899"
+    PORT_EVM: "8545"
+    PORT_SUI: "9000"

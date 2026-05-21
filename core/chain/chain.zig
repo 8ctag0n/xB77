@@ -22,6 +22,17 @@ pub const ChainAction = union(enum) {
         amount: u64,
         validator: ?[]const u8 = null,
     },
+    prediction: struct {
+        market: []const u8,
+        outcome: []const u8,
+        amount: u64,
+    },
+    leverage: struct {
+        asset: []const u8,
+        direction: enum { long, short },
+        ratio: u8,
+        amount: u64,
+    },
 };
 
 pub const ChainProvider = struct {

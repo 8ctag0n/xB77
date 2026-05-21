@@ -5,50 +5,44 @@ const std = @import("std");
 const core = @import("core");
 const mcp_server = @import("mcp");
 const Cli = @import("../flags.zig").Cli;
-const network = @import("network.zig");
 
-const esc = "\x1b";
-const LIME = esc ++ "[1;32m";
-const CYAN = esc ++ "[1;36m";
-const GOLD = esc ++ "[1;33m";
-const MAG = esc ++ "[1;35m";
-const DIM = esc ++ "[1;30m";
-const WHT = esc ++ "[1;37m";
-const RED = esc ++ "[1;31m";
-const RST = esc ++ "[0m";
+const RST  = "\x1b[0m";
+const BOLD = "\x1b[1m";
+const DIM  = "\x1b[2m";
+const RED  = "\x1b[31m";
+const LIME = "\x1b[32m";
+const GOLD = "\x1b[33m";
+const BLUE = "\x1b[34m";
+const MAG  = "\x1b[35m";
+const CYAN = "\x1b[36m";
+const WHT  = "\x1b[37m";
 
 pub fn mcp(cli: *const Cli) !void {
+    std.debug.print("\n" ++ CYAN ++ "[" ++ WHT ++ "MCP" ++ CYAN ++ "]" ++ RST ++ " Iniciando orquestador de agentes...\n", .{});
+    
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
     defer ctx.deinit();
+    ctx.brain.constitution = &ctx.constitution;
+    ctx.mesh_manager.store = &ctx.store;
+
     try mcp_server.run(cli.allocator, &ctx);
 }
 
 pub fn serve(cli: *const Cli) !void {
+    std.debug.print("\n" ++ GOLD ++ "[" ++ WHT ++ "SERVE" ++ GOLD ++ "]" ++ RST ++ " Operación Autónoma 24/7 activada.\n", .{});
+    
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
     defer ctx.deinit();
+    ctx.brain.constitution = &ctx.constitution;
+    ctx.mesh_manager.store = &ctx.store;
 
-    std.debug.print("\n" ++ CYAN ++ "[" ++ WHT ++ "SYSTEM" ++ CYAN ++ "]" ++ RST ++ " INITIALIZING_SOVEREIGN_NODE...\n", .{});
-    std.debug.print(DIM ++ "         Mode:     " ++ RST ++ LIME ++ "Autonomous_Mesh_V2" ++ RST ++ "\n", .{});
-    std.debug.print(DIM ++ "         Profile:  " ++ RST ++ GOLD ++ "{s}" ++ RST ++ "\n", .{cli.profile});
-    std.debug.print(DIM ++ "         Network:  " ++ RST ++ CYAN ++ "Solana_Devnet + Sovereign_Rollup" ++ RST ++ "\n\n", .{});
-
-    std.debug.print(LIME ++ ">> " ++ WHT ++ "AGENT_ACTIVE_&_LISTENING" ++ LIME ++ " <<" ++ RST ++ "\n", .{});
-    std.debug.print(DIM ++ "──────────────────────────────────────────────────" ++ RST ++ "\n", .{});
-
-    // Re-bind the router
-    ctx.router = core.pay.PaymentRouter.init(
-        cli.allocator,
-        &ctx.sol_client,
-        &ctx.evm_client,
-        &ctx.mb_client,
-        &ctx.vaults,
-        &ctx.store,
-        &ctx.constitution,
-        null,
-    );
-
-    var engine = core.engine.Engine.init(cli.allocator, &ctx);
+    var engine = core.kernel.Engine.init(cli.allocator, &ctx);
     try engine.start();
+
+    // Loop de vida infinita hasta SIGINT
+    while (engine.is_running) {
+        std.Thread.sleep(1 * std.time.ns_per_s);
+    }
 }
 
 pub fn merchant(cli: *const Cli, args: []const [:0]u8) !void {
@@ -57,9 +51,8 @@ pub fn merchant(cli: *const Cli, args: []const [:0]u8) !void {
             \\Uso: xb77 merchant <comando> [opciones]
             \\
             \\Comandos:
-            \\  status           Muestra el catálogo actual
-            \\  add <name> <amt> Añade un nuevo servicio (monto en lamports)
-            \\  setup-shop       Inicia el asistente ULTRA-DELUXE de configuración
+            \\  status           Ver catálogo y estado comercial
+            \\  setup-shop       Asistente interactivo de configuración
             \\  blink            Genera el JSON de Solana Action (Blink)
             \\  publish          Publica el catálogo de forma descentralizada (IPFS)
             \\  register         Registra el Merchant on-chain (Ecosistema APP)
@@ -98,56 +91,59 @@ pub fn merchant(cli: *const Cli, args: []const [:0]u8) !void {
     } else if (std.mem.eql(u8, sub, "setup-shop")) {
         try setupShop(cli, &ctx);
     }
-    // ... (rest of methods)
 }
 
-fn readUntilDelimiterOrEof(reader: anytype, delimiter: u8) !?[]const u8 {
-    const raw = reader.readUntilDelimiterAlloc(std.heap.page_allocator, delimiter, 1024) catch |err| switch (err) {
-        error.EndOfStream => return null,
-        else => return err,
-    };
-    return raw;
+fn readLine(file: std.fs.File, buffer: []u8) ![]const u8 {
+    var pos: usize = 0;
+    while (pos < buffer.len) {
+        var byte_buf: [1]u8 = undefined;
+        const n = try file.read(&byte_buf);
+        if (n == 0) break;
+        if (byte_buf[0] == '\n') break;
+        buffer[pos] = byte_buf[0];
+        pos += 1;
+    }
+    return std.mem.trim(u8, buffer[0..pos], " \r\n\t");
 }
 
 fn setupShop(cli: *const Cli, ctx: *core.context.AgentContext) !void {
-    const stdin = std.io.getStdIn().reader();
+    const stdin_file = std.fs.File.stdin();
+    var buf: [1024]u8 = undefined;
 
     std.debug.print("\n " ++ MAG ++ "╔══════════════════════════════════════════════════╗" ++ RST ++ " \n", .{});
     std.debug.print(" " ++ MAG ++ "║" ++ RST ++ "    " ++ WHT ++ "xB77_SOVEREIGN_MERCHANT_ORCHESTRATOR" ++ RST ++ "        " ++ MAG ++ "║" ++ RST ++ " \n", .{});
     std.debug.print(" " ++ MAG ++ "╚══════════════════════════════════════════════════╝" ++ RST ++ " \n", .{});
 
     std.debug.print("\n" ++ CYAN ++ ">> BUSINESS_NAME: " ++ RST, .{});
-    const name_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
-    const name = std.mem.trim(u8, name_raw, " \r\n\t");
+    const name = try readLine(stdin_file, &buf);
 
     std.debug.print(CYAN ++ ">> PRIMARY_SERVICE: " ++ RST, .{});
-    const srv_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
-    const srv_name = std.mem.trim(u8, srv_raw, " \r\n\t");
+    const srv_name_raw = try readLine(stdin_file, &buf);
+    const srv_name = try cli.allocator.dupe(u8, srv_name_raw);
 
     std.debug.print(CYAN ++ ">> PRICE_LAMPORTS:  " ++ RST, .{});
-    const price_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
-    const price = std.fmt.parseInt(u64, std.mem.trim(u8, price_raw, " \r\n\t"), 10) catch 50_000_000;
+    const price_raw = try readLine(stdin_file, &buf);
+    const price = std.fmt.parseInt(u64, price_raw, 10) catch 50_000_000;
 
     std.debug.print(GOLD ++ ">> HANDLE_.XB77 (OPT): " ++ RST, .{});
-    const handle_raw = (try readUntilDelimiterOrEof(stdin, '\n')) orelse return;
-    _ = handle_raw; // Intent handled in fuller logic but unused here
+    _ = try readLine(stdin_file, &buf);
 
     std.debug.print("\n" ++ CYAN ++ "[" ++ WHT ++ "SETUP" ++ CYAN ++ "]" ++ RST ++ " Orquestando Infraestructura Soberana...\n", .{});
 
-    // ... (logic)
     cli.allocator.free(ctx.merchant.business_name);
     ctx.merchant.business_name = try cli.allocator.dupe(u8, name);
     for (ctx.merchant.services) |s| cli.allocator.free(s.name);
     cli.allocator.free(ctx.merchant.services);
-    var service = try cli.allocator.alloc(core.commerce.merchant.MerchantService, 1);
-    service[0] = .{
-        .name = try cli.allocator.dupe(u8, srv_name),
+    
+    var services = try cli.allocator.alloc(core.commerce.merchant.MerchantService, 1);
+    services[0] = .{
+        .name = srv_name,
         .description = "Sovereign Service",
         .price_lamports = price,
         .stock = 999,
         .status = .available,
     };
-    ctx.merchant.services = service;
+    ctx.merchant.services = services;
 
     const m_path = try std.fs.path.join(cli.allocator, &[_][]const u8{ ctx.config.vaults.path, "merchant.json" });
     defer cli.allocator.free(m_path);

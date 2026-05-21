@@ -30,16 +30,30 @@ pub fn init(cli: *const Cli) !void {
     defer ctx.deinit();
 
     const sol_kp = ctx.vaults.ops.sol_kp;
-    const sol_addr = try core.crypto.pubkeyToString(cli.allocator, &sol_kp.public);
-    defer cli.allocator.free(sol_addr);
-    const eth_addr = try ctx.vaults.ops.address(.base, cli.allocator);
-    defer cli.allocator.free(eth_addr);
+
+    // --- Arc / Sui / Circle Integration ---
+    const is_arc = std.mem.eql(u8, cli.chain, "arc");
+    const is_sui = std.mem.eql(u8, cli.chain, "sui");
 
     std.debug.print("\n" ++ LIME ++ "╔══════════════════════════════════════════════════╗" ++ RST ++ "\n", .{});
     std.debug.print(LIME ++ "║" ++ RST ++ "  " ++ WHT ++ "AGENT_READY: " ++ GOLD ++ "{s: <27}" ++ RST ++ LIME ++ "║" ++ RST ++ "\n", .{cli.profile});
     std.debug.print(LIME ++ "╠══════════════════════════════════════════════════╣" ++ RST ++ "\n", .{});
-    std.debug.print(LIME ++ "║" ++ RST ++ " " ++ DIM ++ "Solana:" ++ RST ++ " " ++ WHT ++ "{s}" ++ RST ++ LIME ++ "║" ++ RST ++ "\n", .{sol_addr});
-    std.debug.print(LIME ++ "║" ++ RST ++ " " ++ DIM ++ "Base:  " ++ RST ++ " " ++ WHT ++ "{s}" ++ RST ++ LIME ++ "║" ++ RST ++ "\n", .{eth_addr});
+    
+    if (is_arc) {
+        std.debug.print(LIME ++ "║" ++ RST ++ " " ++ MAG ++ "Chain:  " ++ RST ++ " " ++ WHT ++ "Arc (Circle Agent Stack)           " ++ RST ++ LIME ++ "║" ++ RST ++ "\n", .{});
+        std.debug.print(LIME ++ "║" ++ RST ++ " " ++ DIM ++ "Status: " ++ RST ++ " " ++ WHT ++ "USDC + USYC Yield Enabled        " ++ RST ++ LIME ++ "║" ++ RST ++ "\n", .{});
+    } else if (is_sui) {
+        std.debug.print(LIME ++ "║" ++ RST ++ " " ++ CYAN ++ "Chain:  " ++ RST ++ " " ++ WHT ++ "Sui (Agentic Web Edition)        " ++ RST ++ LIME ++ "║" ++ RST ++ "\n", .{});
+        std.debug.print(LIME ++ "║" ++ RST ++ " " ++ DIM ++ "Object: " ++ RST ++ " " ++ WHT ++ "OwnedTreasury + PTB Enabled      " ++ RST ++ LIME ++ "║" ++ RST ++ "\n", .{});
+    } else {
+        const sol_addr = try core.crypto.pubkeyToString(cli.allocator, &sol_kp.public);
+        defer cli.allocator.free(sol_addr);
+        const eth_addr = try ctx.vaults.ops.address(.base, cli.allocator);
+        defer cli.allocator.free(eth_addr);
+        std.debug.print(LIME ++ "║" ++ RST ++ " " ++ DIM ++ "Solana:" ++ RST ++ " " ++ WHT ++ "{s: <42}" ++ RST ++ LIME ++ "║" ++ RST ++ "\n", .{sol_addr});
+        std.debug.print(LIME ++ "║" ++ RST ++ " " ++ DIM ++ "Base:  " ++ RST ++ " " ++ WHT ++ "{s: <42}" ++ RST ++ LIME ++ "║" ++ RST ++ "\n", .{eth_addr});
+    }
+    
     std.debug.print(LIME ++ "╚══════════════════════════════════════════════════╝" ++ RST ++ "\n", .{});
 
     // --- Deluxe Registration ---

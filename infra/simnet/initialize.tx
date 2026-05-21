@@ -1,0 +1,51 @@
+# xB77 Pro Pro Simnet Orchestrator
+# Uses Surfpool (txtx) to orchestrate Solana, EVM, and Sui.
+
+variable "RPC_SOLANA" {
+    description = "Mainnet RPC for Solana Forking"
+}
+
+variable "RPC_BASE" {
+    description = "Mainnet RPC for EVM Forking (Arc)"
+}
+
+# 1. ORCHESTRATE SOLANA (Surfpool)
+action "start_solana_simnet" "svm::start" {
+    rpc_url = var.RPC_SOLANA
+    # Accounts to fork (Jupiter, Marinade, USDC)
+    accounts = [
+        "JUP6LkbZbjS1jKKccT4i167v3LNoW66yN2vHqVpS",   # Jupiter
+        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", # USDC Mint
+        "Mar1873G3rNREi9p94E2y6tQ7Tebx9E7P3GqR9Jb",   # Marinade
+    ]
+}
+
+# 2. ORCHESTRATE EVM (Anvil Fork)
+action "start_evm_simnet" "evm::anvil" {
+    rpc_url = var.RPC_BASE
+    port = 8545
+    # Deploy our Settlement contract automatically
+    deploy = {
+        path = "apps/contracts/arc/src/Settlement.sol:Settlement"
+    }
+}
+
+# 3. ORCHESTRATE SUI (Localnet)
+action "start_sui_simnet" "sui::localnet" {
+    port = 9000
+    # Deploy our Sovereign Move package
+    publish = {
+        path = "apps/move-packages/sovereign"
+    }
+}
+
+# 4. INITIALIZE X-CHAIN LIQUIDITY (Cheatcodes)
+action "fund_agent_usdc" "svm::set_token_balance" {
+    mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    owner = "73jjReqCEb3zojzFfAwVyhr3mhVbwe61LYwRXcwhTzpm" # Our Arc Agent
+    amount = 1000000000 # 1000 USDC
+}
+
+output "simnet_status" {
+    value = "GOD MODE ACTIVE. Solana, Arc, and Sui are now operational locally with mainnet state."
+}

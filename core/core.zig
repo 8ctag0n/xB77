@@ -66,6 +66,7 @@ pub const chain = struct {
     pub const magicblock = @import("chain/magicblock.zig");
     pub const zk_uploader = @import("chain/zk_uploader.zig");
     pub const arc_adapter = @import("chain/arc_adapter.zig");
+    pub const sui_adapter = @import("chain/sui_adapter.zig");
 };
 
 pub const defi = struct {

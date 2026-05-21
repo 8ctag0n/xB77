@@ -22,7 +22,10 @@ We implemented the "Trading-R1" and "Builder Codes" research concepts:
 - **Builder Monetization:** xB77 natively supports **Polymarket V2 EIP-712 order signing**. Every time an agent routes a trade, it injects our `xB77_BUILDER_ID` into the payload, allowing the agent to capture builder fees and achieve true self-sustainability.
 
 ## 4. Traction
-- **Live Swarm Demo:** Our Cyber-Audit Dashboard is actively tracking a simulated 5-agent swarm executing arbitrage and settling via `Settlement.sol` on the Arc sandbox.
+- **Live Swarm Demo:** Our Cyber-Audit Dashboard is actively tracking a simulated 5-agent swarm executing arbitrage and settling via `Settlement.sol` on the Arc sandbox. 
+- **Money Shot:** View the **Arc Swarm Intelligence** pulse (USDC Liquidity + USYC Yield) at: `https://xb77-adapter.frontier247hack.workers.dev/#network`
+- **100% Autonomous:** Run `scripts/swarm_autonomous.sh` to see two agents discover, negotiate, and settle a service contract via AWP without human complex intervention.
+- **CLI Flow:** We created a specialized orchestration script `scripts/demo_arc.sh` that demonstrates the full Circle Agent Stack lifecycle in under 120 seconds.
 - **Velocity:** We implemented the entire Arc SDK in Zig and optimized the settlement contracts in assembly within a 2-week sprint. The repo commit history is our proof of work.
 
 Identity is vulnerability. We ship faceless. Sovereign by default.

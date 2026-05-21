@@ -14,6 +14,7 @@ pub const Cli = struct {
     ///   2. `XB77_GATEWAY` env var
     ///   3. default `http://127.0.0.1:8787` (local mock-gateway)
     gateway_url: []const u8,
+    chain: []const u8,
     /// Owned when set from env var; null when literal/default. Internal — use
     /// `gateway_url` for reads.
     gateway_url_owned: ?[]u8 = null,
@@ -47,6 +48,7 @@ pub fn parse(
 
     var profile: []const u8 = "default";
     var gateway_flag: ?[]const u8 = null;
+    var chain: []const u8 = "solana";
     var command_idx: usize = 1;
 
     var i: usize = 1;
@@ -60,6 +62,12 @@ pub fn parse(
         } else if (std.mem.eql(u8, args[i], "--gateway")) {
             if (i + 1 < args.len) {
                 gateway_flag = args[i + 1];
+                i += 2;
+                if (command_idx < i) command_idx = i;
+            } else i += 1;
+        } else if (std.mem.eql(u8, args[i], "--chain")) {
+            if (i + 1 < args.len) {
+                chain = args[i + 1];
                 i += 2;
                 if (command_idx < i) command_idx = i;
             } else i += 1;
@@ -98,6 +106,7 @@ pub fn parse(
             .config_path = config_path,
             .password = password,
             .gateway_url = gateway_url,
+            .chain = chain,
             .gateway_url_owned = gateway_url_owned,
         },
         .command = args[command_idx],
@@ -114,6 +123,7 @@ pub fn printUsage() void {
         \\Flags Globales:
         \\  -p, --profile <name>   Usa un perfil específico (default: "default")
         \\      --gateway <url>    Gateway URL (default: env XB77_GATEWAY o http://127.0.0.1:8787)
+        \\      --chain <name>     Blockchain de destino (solana|arc|base)
         \\
         \\Comandos:
         \\  init             Inicializa un nuevo perfil de agente
@@ -134,6 +144,8 @@ pub fn printUsage() void {
         \\  merchant <sub>   Gestiona tus servicios comerciales y Blinks
         \\  intent <text>    QVAC: Ingiere un IDL y planea una estrategia DeFi
         \\  watch            Mission Control: Dashboard Cyberpunk en tiempo real
+        \\  pulse            Muestra el estado en tiempo real de todas las redes
+        \\  issue <text>     Emite una misión autónoma al swarm (QVAC)
         \\  receipt [sig]    Imprime el último Ghost Receipt (o uno por tx_hash)
         \\  gateway <sub>    Wire 1.1 actions (register/order/claim/pulse/reads)
         \\

@@ -15,6 +15,8 @@ const watch_cmd = @import("commands/watch.zig");
 const gateway_cmd = @import("commands/gateway.zig");
 const zk_cmd = @import("commands/zk.zig");
 const brain_cmd = @import("commands/brain.zig");
+const issue_cmd = @import("commands/issue.zig");
+const pulse_cmd = @import("commands/pulse.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -49,6 +51,8 @@ pub fn main() !void {
         try identity_cmd.credits(cli, cmd_args);
     } else if (std.mem.eql(u8, command, "identity")) {
         try identity_cmd.identity(cli, cmd_args);
+    } else if (std.mem.eql(u8, command, "merchant")) {
+        try services_cmd.merchant(cli, cmd_args);
     } else if (std.mem.eql(u8, command, "pay")) {
         try ops_cmd.pay(cli, cmd_args);
     } else if (std.mem.eql(u8, command, "batch")) {
@@ -81,6 +85,10 @@ pub fn main() !void {
         try zk_cmd.run(cli, cmd_args);
     } else if (std.mem.eql(u8, command, "brain")) {
         try brain_cmd.think(cli, cmd_args);
+    } else if (std.mem.eql(u8, command, "issue")) {
+        try issue_cmd.mission(cli, cmd_args);
+    } else if (std.mem.eql(u8, command, "pulse")) {
+        try pulse_cmd.show(cli);
     } else {
         std.debug.print("Comando desconocido: {s}\n", .{command});
         flags.printUsage();

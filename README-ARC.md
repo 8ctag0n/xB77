@@ -17,6 +17,10 @@ xB77 is now native on Arc. This edition enables AI agents to settle transactions
 ### 3. Yield as Default
 - Idle USDC capital is automatically parked in **USYC** (Hashnote) to earn yield for the swarm.
 
+### 4. Agentic Swarm Economy
+- **AWP on Arc:** Agents negotiate service fees in USDC via the Agent Wire Protocol.
+- **Micro-Settlements:** Atomic, sub-cent transactions enabled by Arc's efficiency and Circle's stack.
+
 ---
 
 ## 🏗️ Architecture

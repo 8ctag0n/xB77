@@ -5,6 +5,7 @@ pub const Config = struct {
     rpc: struct {
         solana: []const u8,
         base: []const u8,
+        sui: []const u8,
     },
     vaults: struct {
         path: []const u8,
@@ -22,6 +23,7 @@ pub const Config = struct {
     },
     registry_program_id: ?[]const u8 = null,
     facilitator: ?[]const u8 = null,
+    settlement_address: ?[]const u8 = null,
 
     pub fn load(allocator: std.mem.Allocator, path: []const u8) !Config {
         const file = std.fs.cwd().openFile(path, .{}) catch |err| {
@@ -30,6 +32,7 @@ pub const Config = struct {
                     .rpc = .{
                         .solana = try allocator.dupe(u8, "https://api.devnet.solana.com"),
                         .base = try allocator.dupe(u8, "https://sepolia.base.org"),
+                        .sui = try allocator.dupe(u8, "https://fullnode.testnet.sui.io"),
                     },
                     .vaults = .{
                         .path = try allocator.dupe(u8, "./.xb77"),
@@ -54,6 +57,7 @@ pub const Config = struct {
             .rpc = .{
                 .solana = try allocator.dupe(u8, "https://api.devnet.solana.com"),
                 .base = try allocator.dupe(u8, "https://sepolia.base.org"),
+                .sui = try allocator.dupe(u8, "https://fullnode.testnet.sui.io"),
             },
             .vaults = .{
                 .path = try allocator.dupe(u8, "./.xb77"),
@@ -88,6 +92,10 @@ pub const Config = struct {
                 allocator.free(config.rpc.base);
                 config.rpc.base = try allocator.dupe(u8, val);
             }
+            if (std.mem.eql(u8, key, "rpc_sui")) {
+                allocator.free(config.rpc.sui);
+                config.rpc.sui = try allocator.dupe(u8, val);
+            }
             if (std.mem.eql(u8, key, "vault_path")) {
                 allocator.free(config.vaults.path);
                 config.vaults.path = try allocator.dupe(u8, val);
@@ -121,6 +129,9 @@ pub const Config = struct {
             if (std.mem.eql(u8, key, "facilitator")) {
                 config.facilitator = try allocator.dupe(u8, val);
             }
+            if (std.mem.eql(u8, key, "settlement_address")) {
+                config.settlement_address = try allocator.dupe(u8, val);
+            }
         }
 
         return config;
@@ -136,6 +147,7 @@ pub const Config = struct {
         if (self.name) |n| try writer_buffered.interface.print("name = \"{s}\"\n", .{n});
         try writer_buffered.interface.print("rpc_solana = \"{s}\"\n", .{self.rpc.solana});
         try writer_buffered.interface.print("rpc_base = \"{s}\"\n", .{self.rpc.base});
+        try writer_buffered.interface.print("rpc_sui = \"{s}\"\n", .{self.rpc.sui});
         try writer_buffered.interface.print("vault_path = \"{s}\"\n", .{self.vaults.path});
         if (self.mnemonic) |m| try writer_buffered.interface.print("mnemonic = \"{s}\"\n", .{m});
         try writer_buffered.interface.print("mesh_port = {d}\n", .{self.mesh_port});
@@ -146,6 +158,7 @@ pub const Config = struct {
         try writer_buffered.interface.print("ipfs_api_key = \"{s}\"\n", .{self.ipfs.api_key});
         if (self.registry_program_id) |p| try writer_buffered.interface.print("registry_program_id = \"{s}\"\n", .{p});
         if (self.facilitator) |f| try writer_buffered.interface.print("facilitator = \"{s}\"\n", .{f});
+        if (self.settlement_address) |a| try writer_buffered.interface.print("settlement_address = \"{s}\"\n", .{a});
 
         try writer_buffered.end();
 
@@ -156,6 +169,7 @@ pub const Config = struct {
         if (self.name) |n| allocator.free(n);
         allocator.free(self.rpc.solana);
         allocator.free(self.rpc.base);
+        allocator.free(self.rpc.sui);
         allocator.free(self.vaults.path);
         allocator.free(self.ipfs.endpoint);
         allocator.free(self.ipfs.api_key);
@@ -164,5 +178,6 @@ pub const Config = struct {
         if (self.cdp.key_secret) |k| allocator.free(k);
         if (self.registry_program_id) |p| allocator.free(p);
         if (self.facilitator) |f| allocator.free(f);
+        if (self.settlement_address) |a| allocator.free(a);
     }
 };
