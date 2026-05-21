@@ -20,7 +20,7 @@ const Cli = @import("../flags.zig").Cli;
 const crypto_mod = core.crypto;
 const context_mod = core.context;
 
-const VERIFIER_PROGRAM_ID = "J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ";
+const VERIFIER_PROGRAM_ID = "7C2iAqMjSAgLWmmopNfqFhfYFRZ425d8TCBaY9MKabB3";
 const DEFAULT_RPC = "http://127.0.0.1:8899";
 const DEFAULT_PACKAGE = "zk_receipt";
 
@@ -44,12 +44,13 @@ pub fn run(cli: *const Cli, cmd_args: []const [:0]u8) !void {
 fn usage() void {
     std.debug.print(
         \\xb77 zk <sub>:
-        \\  prove [--package P] [--proof-out PATH] [--upload]
+        \\  prove [--package P] [--proof-out PATH] [--upload] [--skip-prove]
         \\      Run nargo prove via the xb77-zk container (package default: zk_receipt).
         \\      With --upload, also chunked-upload to xb77_zk_verifier.
+        \\      With --skip-prove, generates a mock 0x42 proof for simnet demos.
         \\  upload [--proof PATH] [--rpc URL]
         \\      Upload an existing .proof file to the verifier and trigger verify.
-        \\  run [--package P] [--rpc URL]
+        \\  run [--package P] [--rpc URL] [--skip-prove]
         \\      Convenience: prove then upload in one command.
         \\
         \\Env:
@@ -60,7 +61,7 @@ fn usage() void {
 
 /// Runs `nargo prove` inside the xb77-zk podman container against
 /// `circuits/<package>/`. Returns the absolute proof path on success.
-fn proveCircuit(allocator: std.mem.Allocator, package: []const u8) ![]u8 {
+fn proveCircuit(allocator: std.mem.Allocator, package: []const u8, skip_prove: bool) ![]u8 {
     const cwd = try std.fs.cwd().realpathAlloc(allocator, ".");
     defer allocator.free(cwd);
     const circuit_dir = try std.fmt.allocPrint(allocator, "{s}/circuits/{s}", .{ cwd, package });
@@ -68,6 +69,22 @@ fn proveCircuit(allocator: std.mem.Allocator, package: []const u8) ![]u8 {
 
     // Verify the circuit exists.
     std.fs.accessAbsolute(circuit_dir, .{}) catch return error.CircuitNotFound;
+
+    const proof_path = try std.fmt.allocPrint(allocator, "circuits/{s}/proofs/{s}.proof", .{ package, package });
+
+    if (skip_prove) {
+        std.debug.print("[ZK] --skip-prove detected. Generating mock 0x42 proof at {s}...\n", .{proof_path});
+        const proof_dir = try std.fmt.allocPrint(allocator, "circuits/{s}/proofs", .{package});
+        defer allocator.free(proof_dir);
+        try std.fs.cwd().makePath(proof_dir);
+        
+        const file = try std.fs.cwd().createFile(proof_path, .{});
+        defer file.close();
+        var mock_data: [256]u8 = undefined;
+        @memset(&mock_data, 0x42);
+        try file.writeAll(&mock_data);
+        return proof_path;
+    }
 
     const mount_arg = try std.fmt.allocPrint(allocator, "{s}:/work:Z", .{circuit_dir});
     defer allocator.free(mount_arg);
@@ -93,8 +110,6 @@ fn proveCircuit(allocator: std.mem.Allocator, package: []const u8) ![]u8 {
         else => return error.ProveFailed,
     }
 
-    // Default nargo output: circuits/<pkg>/proofs/<pkg>.proof
-    const proof_path = try std.fmt.allocPrint(allocator, "circuits/{s}/proofs/{s}.proof", .{ package, package });
     return proof_path;
 }
 
@@ -102,6 +117,7 @@ fn prove(cli: *const Cli, args: []const [:0]u8) !void {
     const allocator = cli.allocator;
     var package: []const u8 = DEFAULT_PACKAGE;
     var also_upload: bool = false;
+    var skip_prove: bool = false;
     var rpc_url: []const u8 = DEFAULT_RPC;
     var i: usize = 0;
     while (i < args.len) : (i += 1) {
@@ -109,18 +125,17 @@ fn prove(cli: *const Cli, args: []const [:0]u8) !void {
             package = args[i + 1]; i += 1;
         } else if (std.mem.eql(u8, args[i], "--upload")) {
             also_upload = true;
+        } else if (std.mem.eql(u8, args[i], "--skip-prove")) {
+            skip_prove = true;
         } else if (std.mem.eql(u8, args[i], "--rpc") and i + 1 < args.len) {
             rpc_url = args[i + 1]; i += 1;
         }
     }
 
-    const proof_path = try proveCircuit(allocator, package);
+    const proof_path = try proveCircuit(allocator, package, skip_prove);
     defer allocator.free(proof_path);
 
-    const stat = std.fs.cwd().statFile(proof_path) catch |e| {
-        std.debug.print("[ZK] proof file not found at {s}: {any}\n", .{ proof_path, e });
-        return error.ProofMissing;
-    };
+    const stat = try std.fs.cwd().statFile(proof_path);
     std.debug.print("[ZK] OK  proof generated: {s} ({d} bytes)\n", .{ proof_path, stat.size });
 
     if (also_upload) {
@@ -146,15 +161,18 @@ fn proveAndUpload(cli: *const Cli, args: []const [:0]u8) !void {
     const allocator = cli.allocator;
     var package: []const u8 = DEFAULT_PACKAGE;
     var rpc_url: []const u8 = DEFAULT_RPC;
+    var skip_prove: bool = false;
     var i: usize = 0;
     while (i < args.len) : (i += 1) {
         if (std.mem.eql(u8, args[i], "--package") and i + 1 < args.len) {
             package = args[i + 1]; i += 1;
         } else if (std.mem.eql(u8, args[i], "--rpc") and i + 1 < args.len) {
             rpc_url = args[i + 1]; i += 1;
+        } else if (std.mem.eql(u8, args[i], "--skip-prove")) {
+            skip_prove = true;
         }
     }
-    const proof_path = try proveCircuit(allocator, package);
+    const proof_path = try proveCircuit(allocator, package, skip_prove);
     defer allocator.free(proof_path);
     try uploadProof(cli, proof_path, rpc_url);
 }
