@@ -32,7 +32,7 @@ const PITCH_TECH = [
 const PITCH_SPONSORS = [
   { track: 'MagicBlock — PER',       fit: 'core/chain/magicblock.zig drives PER sessions for sub-second settlement.' },
   { track: 'Helius / RPC',           fit: 'znode tooling + ZK-Judge state queries hit production Helius RPC.' },
-  { track: 'Noir / ZK',              fit: 'circuits/ ship Plonk proofs; ZK-Judge verifies them on Solana mainnet.' },
+  { track: 'Noir / ZK',              fit: 'circuits/ ship Plonk proofs; the on-chain ZK-Judge anchors them today, full SNARK verification on the roadmap.' },
   { track: 'SNS',                    fit: 'agents own .sol identities; counterparty whitelist resolves via cached SNS.' },
   { track: 'Light Protocol',         fit: 'state compression for ZK-Receipt commitments anchored onchain.' },
 ];
@@ -380,7 +380,7 @@ function PitchPage() {
       <PitchSection id="solana" num="03" label="Why Solana">
         <PitchH>Impossible without these primitives.</PitchH>
         <PitchP dim delay={0.2}>
-          xB77 ships on Solana because four primitives align tightly with sovereign agentic commerce. None of them exists this way anywhere else.
+          xB77 launched on Solana because four primitives align tightly with sovereign agentic commerce. None of them exists this way anywhere else — and the chain-agnostic core now extends the same agent to Arc and Sui.
         </PitchP>
         <div style={{ marginTop: 28 }}>
           {PITCH_SOLANA.map((r, i) => (

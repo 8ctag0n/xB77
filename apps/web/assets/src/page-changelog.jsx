@@ -2,9 +2,23 @@
 
 const CHANGELOG = [
   {
-    version: 'v2.0',
+    version: 'v2.1',
     date: 'May 2026',
     tag: 'CURRENT',
+    title: 'Multi-Chain Settlement',
+    changes: [
+      { type: 'new', text: 'Chain-agnostic core — agent runtime, ZK engine, AWP mesh and QVAC brain decoupled from any single chain' },
+      { type: 'new', text: 'Arc Edition (Agora) — USDC-native settlement, USYC yield, Yul-optimized Settlement.sol' },
+      { type: 'new', text: 'Sui Edition (Overflow) — sovereign Move package published, PTB-orchestrated bridge' },
+      { type: 'new', text: 'Pluggable settlement adapters — the same sovereign agent settles on Solana, Arc or Sui' },
+      { type: 'improved', text: 'Repo restructure — apps/ (executables), onchain/ (per-chain contracts), sdk/ (per-language)' },
+      { type: 'roadmap', text: 'On-chain SNARK verification (Honk/Groth16) — today the verifier anchors proof bytes + commitment hash' },
+    ],
+  },
+  {
+    version: 'v2.0',
+    date: 'May 2026',
+    tag: '',
     title: 'Agent Infrastructure Pivot',
     changes: [
       { type: 'breaking', text: 'Removed ShadowWire and Privacy Cash pools — replaced with proprietary xB77 ZK Engine' },
@@ -54,6 +68,7 @@ const TYPE_STYLES = {
   new: { label: 'NEW', color: 'var(--accent)' },
   improved: { label: 'IMPROVED', color: '#4de8d0' },
   fixed: { label: 'FIXED', color: '#ffaa44' },
+  roadmap: { label: 'ROADMAP', color: '#9b8cff' },
 };
 
 function ChangelogPage() {

@@ -68,7 +68,7 @@ function WhitepaperPage() {
           fontFamily: 'var(--sans)', fontSize: 18, color: t.textDim, lineHeight: 1.7,
           maxWidth: 600,
         }}>
-          A privacy-first operating system for machine-to-machine capital management on Solana.
+          A privacy-first operating system for machine-to-machine capital management — chain-agnostic core, settling on Solana, Arc &amp; Sui.
         </p>
         <div style={{
           display: 'flex', gap: 24, marginTop: 32,
@@ -85,7 +85,7 @@ function WhitepaperPage() {
       <Section tag="00 — ABSTRACT" title="Abstract">
         <P bold>The machine economy is here. Autonomous agents manage capital, procure resources, and settle obligations at machine speed. Yet they operate on transparent rails where every transaction is visible to adversaries, competitors, and front-runners.</P>
         <P>xB77 introduces a sovereign financial operating system that gives autonomous agents the same privacy guarantees humans expect from traditional finance — without sacrificing auditability, compliance, or settlement finality.</P>
-        <P>Built on Solana with a proprietary ZK engine for compressed receipts, Noir for zero-knowledge proofs, and MagicBlock for sub-second finality, xB77 enables private agent transactions, autonomous governance, and easy deployment — self-hosted or cloud.</P>
+        <P>Built on a chain-agnostic core — a proprietary ZK engine for compressed receipts, Noir for zero-knowledge proofs, and pluggable settlement adapters (Solana via MagicBlock, Arc, Sui) — xB77 enables private agent transactions, autonomous governance, and easy deployment — self-hosted or cloud.</P>
       </Section>
 
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 40px' }}>

@@ -74,7 +74,7 @@ function ArchPage() {
           fontFamily: 'var(--sans)', fontSize: 17, color: t.textDim, lineHeight: 1.7,
           maxWidth: 560,
         }}>
-          Four layers of sovereign financial infrastructure — from autonomous agents to ZK-compressed settlement on Solana.
+          Four layers of sovereign financial infrastructure — from autonomous agents to ZK-compressed, pluggable settlement (Solana · Arc · Sui).
         </p>
       </section>
 

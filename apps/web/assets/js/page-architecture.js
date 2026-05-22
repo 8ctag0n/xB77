@@ -72,7 +72,7 @@ function ArchPage() {
     color: t.textDim,
     lineHeight: 1.7,
     maxWidth: 560
-  } }, "Four layers of sovereign financial infrastructure \u2014 from autonomous agents to ZK-compressed settlement on Solana.")), /* @__PURE__ */ React.createElement("section", { style: { padding: "0 40px 100px", maxWidth: 1100, margin: "0 auto" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 10, color: t.textDim, letterSpacing: "0.15em", marginBottom: 24, textTransform: "uppercase" } }, "CLICK A LAYER TO EXPLORE"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 0 } }, layers.map((layer, li) => {
+  } }, "Four layers of sovereign financial infrastructure \u2014 from autonomous agents to ZK-compressed, pluggable settlement (Solana \xB7 Arc \xB7 Sui).")), /* @__PURE__ */ React.createElement("section", { style: { padding: "0 40px 100px", maxWidth: 1100, margin: "0 auto" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 10, color: t.textDim, letterSpacing: "0.15em", marginBottom: 24, textTransform: "uppercase" } }, "CLICK A LAYER TO EXPLORE"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 0 } }, layers.map((layer, li) => {
     const isActive = activeLayer === li;
     return /* @__PURE__ */ React.createElement("div", { key: layer.id }, /* @__PURE__ */ React.createElement(
       "div",
