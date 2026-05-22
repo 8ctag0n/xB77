@@ -32,8 +32,8 @@
 xB77 is the Sovereign Financial OS for the Agentic Economy. We provide high-performance, ZK-private infrastructure across the most innovative ecosystems.
 
 - **[Solana Frontier (Original)](README.md):** High-frequency settlements via MagicBlock and Noir.
-- **[Arc Edition (Agora)](README-ARC.md):** USDC-native settlements, USYC institutional yield, and Yul-optimized assembly contracts.
-- **[Sui Edition (Overflow)](README-SUI.md):** The Agent is the Object. PTB-orchestrated autonomy and parallel execution.
+- **[Arc Edition (Agora)](docs/editions/arc.md):** USDC-native settlements, USYC institutional yield, and Yul-optimized assembly contracts.
+- **[Sui Edition (Overflow)](docs/editions/sui.md):** The Agent is the Object. PTB-orchestrated autonomy and parallel execution.
 
 ##  The "God Mode" Features
 
