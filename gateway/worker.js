@@ -1,7 +1,7 @@
 // xB77 Deluxe Gateway Bridge — JS Wrapper for Sovereign Zig Engine.
 // Implementation of docs/api-contract-v1.md using WASM for pure logic.
 
-import wasmModule from "../gateway.wasm";
+import wasmModule from "./gateway.wasm";
 
 // ────────────────────────── Constants ──────────────────────────
 
