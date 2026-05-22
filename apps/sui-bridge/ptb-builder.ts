@@ -1,74 +1,149 @@
-import { 
-    TransactionBlock, 
-    SuiClient, 
-    getFullnodeUrl 
-} from "@mysten/sui.js/client";
-import { Ed25519Keypair } from "@mysten/sui.js/keypairs/ed25519";
-import { fromB64 } from "@mysten/sui.js/utils";
+import { SuiClient } from "@mysten/sui/client";
+import { Transaction } from "@mysten/sui/transactions";
+import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
+import { decodeSuiPrivateKey } from "@mysten/sui/cryptography";
 import * as http from "http";
 
 /**
- * xB77 Sui PTB Bridge (Sidecar)
- * 
- * Provides a REST API for the Zig Core to build and execute PTBs.
- * Port: 8089 (default)
+ * xB77 Sui PTB Bridge (Sidecar) — Deluxe Edition
+ *
+ * REST sidecar for the Zig Core. Receives binary intents and composes REAL
+ * Programmable Transaction Blocks against the `sovereign` Move package:
+ *   sovereign::treasury  — OwnedTreasury objects (key+store)
+ *   sovereign::policy    — AdminCap / Policy (withdrawal limits)
+ *   sovereign::receipt   — GhostReceipt (ZK-commitment)
+ *
+ * The headline showcase is an ATOMIC PTB that, in a single transaction:
+ *   new_treasury() -> split SUI from gas -> deposit() -> transfer to sender.
+ *
+ * Port: 8089
  */
 
-const SUI_RPC_URL = process.env.SUI_RPC_URL || "http://127.0.0.1:9000"; // Localnet
+const SUI_RPC_URL = process.env.SUI_RPC_URL || "http://127.0.0.1:9100"; // Localnet
+const FAUCET_URL = process.env.SUI_FAUCET_URL || "http://127.0.0.1:9123/gas";
+const PACKAGE_ID = process.env.SOVEREIGN_PACKAGE_ID || "0x0";
+const PORT = Number(process.env.SUI_BRIDGE_PORT || 8089);
+
 const client = new SuiClient({ url: SUI_RPC_URL });
 
-const server = http.createServer(async (req, res) => {
+// ── Keypair: from env (suiprivkey1...) or ephemeral + faucet-funded ──────────
+let keypair: Ed25519Keypair;
+if (process.env.SUI_PRIVATE_KEY) {
+    const { secretKey } = decodeSuiPrivateKey(process.env.SUI_PRIVATE_KEY);
+    keypair = Ed25519Keypair.fromSecretKey(secretKey);
+} else {
+    keypair = new Ed25519Keypair();
+}
+const SENDER = keypair.toSuiAddress();
+
+async function ensureGas(): Promise<void> {
+    const { totalBalance } = await client.getBalance({ owner: SENDER });
+    if (BigInt(totalBalance) >= 1_000_000_000n) return;
+    console.log(`[SUI-BRIDGE] Requesting faucet gas for ${SENDER}...`);
+    await fetch(FAUCET_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ FixedAmountRequest: { recipient: SENDER } }),
+    }).catch((e) => console.warn("[SUI-BRIDGE] faucet failed:", e.message));
+    // Give the faucet tx a moment to land.
+    await new Promise((r) => setTimeout(r, 1500));
+}
+
+// ── PTB composition ──────────────────────────────────────────────────────────
+function buildIntent(intent: any): Transaction {
+    const tx = new Transaction();
+    const amount = BigInt(intent.amount ?? 100_000_000); // default 0.1 SUI
+
+    switch (intent.action) {
+        case "transfer": {
+            const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(amount)]);
+            tx.transferObjects([coin], tx.pure.address(intent.to));
+            break;
+        }
+
+        // Headline: atomic create-treasury + fund, all in one PTB.
+        case "provision":
+        case "swap_and_receipt":
+        case "leverage_ptb": {
+            if (PACKAGE_ID === "0x0") {
+                throw new Error("SOVEREIGN_PACKAGE_ID not set — publish the package first");
+            }
+            const treasury = tx.moveCall({
+                target: `${PACKAGE_ID}::treasury::new_treasury`,
+            });
+            const [funding] = tx.splitCoins(tx.gas, [tx.pure.u64(amount)]);
+            tx.moveCall({
+                target: `${PACKAGE_ID}::treasury::deposit`,
+                arguments: [treasury, funding],
+            });
+            // OwnedTreasury has key+store → make it owned by the agent.
+            tx.transferObjects([treasury], tx.pure.address(intent.to ?? SENDER));
+            break;
+        }
+
+        // Fund an existing treasury object.
+        case "deposit": {
+            if (!intent.treasury) throw new Error("deposit requires intent.treasury");
+            const [funding] = tx.splitCoins(tx.gas, [tx.pure.u64(amount)]);
+            tx.moveCall({
+                target: `${PACKAGE_ID}::treasury::deposit`,
+                arguments: [tx.object(intent.treasury), funding],
+            });
+            break;
+        }
+
+        default:
+            throw new Error(`unknown action: ${intent.action}`);
+    }
+    return tx;
+}
+
+const server = http.createServer((req, res) => {
     if (req.method === "POST" && req.url === "/execute") {
         let body = "";
-        req.on("data", chunk => { body += chunk; });
+        req.on("data", (chunk) => (body += chunk));
         req.on("end", async () => {
             try {
                 const intent = JSON.parse(body);
-                console.log("[SUI-BRIDGE] Intent Received:", intent.action);
+                console.log("[SUI-BRIDGE] Intent:", intent.action);
+                await ensureGas();
 
-                const txb = new TransactionBlock();
-                
-                if (intent.action === "transfer") {
-                    const [coin] = txb.splitCoins(txb.gas, [txb.pure(intent.amount)]);
-                    txb.transferObjects([coin], txb.pure(intent.to));
-                } else if (intent.action === "swap_and_receipt" || intent.action === "leverage_ptb") {
-                    // REAL MOVE CALL (Localnet assumption: package deployed at 0xSovereign)
-                    // For the demo, we'll call a dummy function or use a built-in one
-                    console.log("[SUI-BRIDGE] Building Atomic PTB for", intent.action);
-                    txb.moveCall({
-                        target: '0x2::sui::transfer', // Dummy call to show it works
-                        arguments: [txb.gas, txb.pure("0x7777777777777777777777777777777777777777777777777777777777777777")],
-                    });
-                }
+                const tx = buildIntent(intent);
+                tx.setSender(SENDER);
 
-                // 2. Local Signing (No KYC needed)
-                // Use a standard localnet dev key or the one provided in env
-                const dev_key_b64 = process.env.SUI_PRIVATE_KEY_B64 || "AH8EwXv/R6f1Y/2bVf6e+R/u1G8U+L6Jz6R/W+E/R6f1"; // Mock dev key
-                const keypair = Ed25519Keypair.fromSecretKey(fromB64(dev_key_b64));
-                
-                const result = await client.signAndExecuteTransactionBlock({
-                    transactionBlock: txb,
+                const result = await client.signAndExecuteTransaction({
+                    transaction: tx,
                     signer: keypair,
-                    options: { showEffects: true },
+                    options: { showEffects: true, showObjectChanges: true },
                 });
-                
-                console.log("[SUI-BRIDGE] Execution SUCCESS. Digest:", result.digest);
+
+                const status = result.effects?.status?.status;
+                const created = (result.objectChanges ?? [])
+                    .filter((c: any) => c.type === "created")
+                    .map((c: any) => ({ type: c.objectType, id: c.objectId }));
+
+                console.log(`[SUI-BRIDGE] ${status} digest=${result.digest}`);
                 res.writeHead(200, { "Content-Type": "application/json" });
-                res.end(JSON.stringify({ digest: result.digest }));
-            } catch (err) {
+                res.end(JSON.stringify({ ok: status === "success", digest: result.digest, created }));
+            } catch (err: any) {
                 console.error("[SUI-BRIDGE] Error:", err.message);
-                res.writeHead(200); // We return 200 with error to avoid crashing the Zig core
-                res.end(JSON.stringify({ digest: "sui_local_error_simulated_" + Date.now() }));
+                // 200 (don't crash the Zig core) but honest — no fake digest.
+                res.writeHead(200, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({ ok: false, error: err.message }));
             }
         });
+    } else if (req.method === "GET" && req.url === "/health") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, sender: SENDER, package: PACKAGE_ID, rpc: SUI_RPC_URL }));
     } else {
         res.writeHead(404);
         res.end();
     }
 });
 
-const PORT = 8089;
 server.listen(PORT, () => {
     console.log(`[SUI-BRIDGE] Sovereign PTB Sidecar active on port ${PORT}`);
-    console.log(`[SUI-BRIDGE] Targeting: ${SUI_RPC_URL}`);
+    console.log(`[SUI-BRIDGE] RPC:     ${SUI_RPC_URL}`);
+    console.log(`[SUI-BRIDGE] Package: ${PACKAGE_ID}`);
+    console.log(`[SUI-BRIDGE] Sender:  ${SENDER}`);
 });
