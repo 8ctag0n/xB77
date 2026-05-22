@@ -14,7 +14,7 @@ fi
 
 # 2. Deploy Settlement.sol
 echo "[SETUP] Compiling and Deploying Settlement.sol to local Foundry..."
-cd apps/contracts/arc
+cd onchain/evm
 
 # We use the first default Anvil account for deployment
 DEPLOY_OUT=$(forge create src/Settlement.sol:Settlement \

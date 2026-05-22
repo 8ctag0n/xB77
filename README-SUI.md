@@ -21,7 +21,7 @@ xB77 leverages Sui’s object-centric model to turn agents into true, on-chain a
 
 xB77 remains lean and sovereign. We use a **High-Performance Sidecar** pattern:
 1.  **Zig Core:** The high-performance "Brain" and AWP (Agent Wire Protocol) engine.
-2.  **Move Package (`apps/move-packages/sovereign/`):** Defines the `Treasury`, `Policy`, and `Receipt` objects.
+2.  **Move Package (`onchain/sui/`):** Defines the `Treasury`, `Policy`, and `Receipt` objects.
 3.  **TS Bridge (`apps/sui-bridge/`):** A lightweight Node.js shim that receives binary intents from the Zig core and builds the corresponding **PTBs** using the Sui TS SDK.
 
 ---

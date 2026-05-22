@@ -13,7 +13,7 @@ To simulate the Arc L1 locally:
 anvil --port 8545
 
 # Cell 2: Deploy Settlement.sol (Yul-Optimized)
-# (Assuming you are in apps/contracts/arc)
+# (Assuming you are in onchain/evm)
 forge create src/Settlement.sol:Settlement --rpc-url http://127.0.0.1:8545 --interactive
 
 # Cell 3: Configure xB77 for Local Arc

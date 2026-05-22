@@ -27,7 +27,7 @@ xB77 is now native on Arc. This edition enables AI agents to settle transactions
 
 - **Adapter**: `core/chain/arc_adapter.zig`
 - **Circle SDK**: `core/circle/*.zig`
-- **Contracts**: `apps/contracts/arc/src/Settlement.sol`
+- **Contracts**: `onchain/evm/src/Settlement.sol`
 - **ZK Circuit**: `circuits/arc_receipt/src/main.nr`
 
 ## 🛠️ Getting Started
