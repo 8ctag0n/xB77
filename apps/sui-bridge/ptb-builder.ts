@@ -152,6 +152,10 @@ const server = http.createServer((req, res) => {
                     signer: keypair,
                     options: { showEffects: true, showObjectChanges: true },
                 });
+                // Wait until indexed so back-to-back intents see fresh object
+                // versions (avoids "object unavailable for consumption" on the
+                // gas coin when calls fire in rapid succession).
+                await client.waitForTransaction({ digest: result.digest });
 
                 const status = result.effects?.status?.status;
                 const created = (result.objectChanges ?? [])
