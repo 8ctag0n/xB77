@@ -267,7 +267,7 @@ pub fn build(b: *std.Build) void {
     });
     merchant_unit_tests.root_module.addImport("core", core_module);
     const sdk_module = b.createModule(.{
-        .root_source_file = b.path("sdk/merchant_sdk.zig"),
+        .root_source_file = b.path("sdk/zig/merchant_sdk.zig"),
     });
     sdk_module.addImport("core", core_module);
     merchant_unit_tests.root_module.addImport("sdk", sdk_module);
@@ -443,7 +443,7 @@ pub fn build(b: *std.Build) void {
     const sdk_lib = b.addLibrary(.{
         .name = "xb77_sdk",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("sdk/xb77_sdk.zig"),
+            .root_source_file = b.path("sdk/zig/xb77_sdk.zig"),
             .target = target,
             .optimize = optimize,
         }),
@@ -468,7 +468,7 @@ pub fn build(b: *std.Build) void {
     const merchant_sdk = b.addLibrary(.{
         .name = "xb77_merchant",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("sdk/merchant_sdk.zig"),
+            .root_source_file = b.path("sdk/zig/merchant_sdk.zig"),
             .target = target,
             .optimize = optimize,
         }),
@@ -481,13 +481,15 @@ pub fn build(b: *std.Build) void {
     const merchant_wasm = b.addExecutable(.{
         .name = "xb77_merchant",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("sdk/merchant_sdk.zig"),
+            .root_source_file = b.path("sdk/zig/merchant_sdk.zig"),
             .target = wasm_target,
             .optimize = .ReleaseSmall,
         }),
     });
     merchant_wasm.root_module.addImport("core", core_module);
-    
+    merchant_wasm.entry = .disabled;
+    merchant_wasm.rdynamic = true;
+
     const install_merchant_wasm = b.addInstallArtifact(merchant_wasm, .{
         .dest_dir = .{ .override = .{ .custom = "bin" } },
     });
