@@ -22,7 +22,7 @@
 #   3. Edit `name` below if you want a different *.workers.dev subdomain.
 
 name = "xb77-adapter-frontier247hack"
-main = "apps/apps/gateway/worker.js"
+main = "apps/gateway/worker.js"
 compatibility_date = "2026-05-01"
 # nodejs_compat is intentionally OFF — the worker only needs WASI
 # bindings from the wasm module, and enabling node compat blows up
