@@ -20,7 +20,7 @@ const Cli = @import("../flags.zig").Cli;
 const crypto_mod = core.crypto;
 const context_mod = core.context;
 
-const VERIFIER_PROGRAM_ID = "7C2iAqMjSAgLWmmopNfqFhfYFRZ425d8TCBaY9MKabB3";
+const VERIFIER_PROGRAM_ID = "3Pf4tiicGAijnhCbxRvmtQLbxxcL5hb7emxw1qjpZX7j";
 const DEFAULT_RPC = "http://127.0.0.1:8899";
 const DEFAULT_PACKAGE = "zk_receipt";
 
