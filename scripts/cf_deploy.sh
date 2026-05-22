@@ -2,10 +2,10 @@
 # scripts/cf_deploy.sh — one-shot Cloudflare Worker deploy for xB77.
 #
 # Deploys a SINGLE Worker that serves:
-#   /             → webapp_deploy/index.html      (CF static assets, edge-cached)
-#   /app.html     → webapp_deploy/app.html
-#   /assets/*     → webapp_deploy/assets/*
-#   /idls/*       → webapp_deploy/idls/*
+#   /             → apps/web/index.html      (CF static assets, edge-cached)
+#   /app.html     → apps/web/app.html
+#   /assets/*     → apps/web/assets/*
+#   /idls/*       → apps/web/idls/*
 #   /api/v1/*     → src/index.js fetch handler    (gateway logic)
 #
 # This is the modern Cloudflare pattern (May 2026) — Pages is in maintenance
@@ -41,7 +41,7 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKER_DIR="$REPO/gateway/worker"
+WORKER_DIR="$REPO/apps/gateway/worker"
 SUMMARY_FILE="$REPO/.cf_deploy_summary"
 
 ZNODE_RPC_URL="${ZNODE_RPC_URL:-https://api.devnet.solana.com}"
@@ -79,10 +79,10 @@ WRANGLER_VERSION="$($WRANGLER --version 2>/dev/null | head -1 || echo "?")"
 say "wrangler $WRANGLER_VERSION  (via: $WRANGLER)"
 say "Account: $CLOUDFLARE_ACCOUNT_ID"
 
-# Make sure the webapp_deploy is built (or at least the JS files exist).
-if [[ ! -f "$REPO/webapp_deploy/assets/js/app-tabs.js" ]]; then
-  say "webapp_deploy/assets/js/ missing — running build.sh"
-  (cd "$REPO/webapp_deploy" && bash build.sh)
+# Make sure the apps/web is built (or at least the JS files exist).
+if [[ ! -f "$REPO/apps/web/assets/js/app-tabs.js" ]]; then
+  say "apps/web/assets/js/ missing — running build.sh"
+  (cd "$REPO/apps/web" && bash build.sh)
 fi
 
 # ── Generate gateway Ed25519 keypair if not provided ──────────────────
@@ -240,7 +240,7 @@ printf '%s' "$INGEST_TOKEN" | $WRANGLER secret put INGEST_TOKEN
 
 # ── Stage assets to a clean dir (skips walking remotion node_modules) ──
 # wrangler walks the entire [assets].directory tree before applying
-# .assetsignore filters. webapp_deploy/remotion/node_modules/ is ~670 MB /
+# .assetsignore filters. apps/web/remotion/node_modules/ is ~670 MB /
 # 16K files of build-tool dependencies that get filtered out anyway but
 # eat 15-25s of walk time per deploy. Staging the production-only files
 # into /tmp first means wrangler only walks ~90 files, ~2.5 MB.
@@ -248,7 +248,7 @@ STAGE_DIR="$(mktemp -d -t xb77-stage-XXXX)"
 say "Staging static assets to $STAGE_DIR ..."
 # rsync drops everything that .assetsignore would have excluded, plus
 # anything we know wrangler doesn't need. Fast (~1s for ~2.5 MB).
-rsync -a "$REPO/webapp_deploy/" "$STAGE_DIR/" \
+rsync -a "$REPO/apps/web/" "$STAGE_DIR/" \
   --exclude='remotion/' \
   --exclude='assets/src/' \
   --exclude='build.sh' \
@@ -266,7 +266,7 @@ say "  → ${stage_count} files, ${stage_size_kb} KB"
 WRANGLER_TOML_BACKUP="$(mktemp)"
 cp wrangler.toml "$WRANGLER_TOML_BACKUP"
 trap "cp '$WRANGLER_TOML_BACKUP' '$WORKER_DIR/wrangler.toml' && rm -f '$WRANGLER_TOML_BACKUP' && rm -rf '$STAGE_DIR'" EXIT
-sed -i "s|directory = \"../../webapp_deploy\"|directory = \"$STAGE_DIR\"|" wrangler.toml
+sed -i "s|directory = \"../../apps/web\"|directory = \"$STAGE_DIR\"|" wrangler.toml
 
 # ── Deploy (Worker + Static Assets in one shot) ───────────────────────
 say "Deploying Worker (with staged assets) — should be fast now ..."

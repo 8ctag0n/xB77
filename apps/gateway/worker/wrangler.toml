@@ -1,7 +1,7 @@
 # xB77 REST adapter Worker — gateway v1 per docs/api-contract-v1.md.
 #
 # Local dev:
-#   cd gateway/worker && bunx wrangler@latest dev --local
+#   cd apps/gateway/worker && bunx wrangler@latest dev --local
 #   curl http://localhost:8787/api/v1/network/pulse
 #
 # Prod deploy:
@@ -20,10 +20,10 @@ enabled = true
 # ─────────────────────────────────────────────────────────────────────
 # Static assets — serves the dApp under the SAME origin as the API.
 # Modern Cloudflare pattern (post-Pages, May 2026):
-#   /             → webapp_deploy/index.html
-#   /app.html     → webapp_deploy/app.html
-#   /assets/*     → webapp_deploy/assets/*
-#   /idls/*       → webapp_deploy/idls/*
+#   /             → apps/web/index.html
+#   /app.html     → apps/web/app.html
+#   /assets/*     → apps/web/assets/*
+#   /idls/*       → apps/web/idls/*
 #   /api/v1/*     → src/index.js fetch() handler
 #
 # Default routing: requests check static assets first. If the path matches

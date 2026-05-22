@@ -16,7 +16,7 @@ La pasada de honestidad va dentro de cada rama (sobre sus propios archivos).
 | Rama | Plan | Archivos exclusivos |
 |---|---|---|
 | **A** `feat/docs-narrative-multichain` | [plans/branch-A-docs-narrative.md](./plans/branch-A-docs-narrative.md) | `docs/{index,whitepaper,architecture,why}.md`, `docs/.vitepress/config.ts`, `docs/roadmap.md` (nuevo) |
-| **B** `feat/webapp-multichain` | [plans/branch-B-webapp-multichain.md](./plans/branch-B-webapp-multichain.md) | `webapp_deploy/index.html`, `assets/src/page-*.jsx`, `landing-pipeline-demo.jsx` (+ build) |
+| **B** `feat/webapp-multichain` | [plans/branch-B-webapp-multichain.md](./plans/branch-B-webapp-multichain.md) | `apps/web/index.html`, `assets/src/page-*.jsx`, `landing-pipeline-demo.jsx` (+ build) |
 | **C** `feat/readme-honesty` | [plans/branch-C-readme-honesty.md](./plans/branch-C-readme-honesty.md) | `README.md` (+ refs a README-ARC/SUI) |
 
 **Fuera del alcance de hoy:** los `git mv` de la reorg de repo ([ARCHITECTURE-PROPOSAL.md](./ARCHITECTURE-PROPOSAL.md)
@@ -60,7 +60,7 @@ intercambiables**.
 | `docs/manifesto.md` | ✅ ya agnóstico | sin cambios |
 | `docs/roadmap.md` | **no existe** | **crear** + agregar al nav/sidebar |
 
-### 1.b — Worker app (`webapp_deploy/`) — el gap más grande (live demo)
+### 1.b — Worker app (`apps/web/`) — el gap más grande (live demo)
 
 > ⚠️ **Workflow de build:** el contenido vive en `assets/src/*.jsx` y se compila con
 > `esbuild` (`./build.sh`) a `assets/js/*.js`. **Editar los `.jsx`, NUNCA los `.js`**
@@ -71,7 +71,7 @@ Hoy: **cero** menciones de Arc/Sui/multichain en todo el contenido público (9 p
 hablan solo de Solana). La dapp funcional (`dapp-*.jsx`, `solana-rpc/tx`, IDLs) es
 Solana-real a nivel código → **fuera de alcance** (esto es mensaje, no recableado).
 
-| Archivo (`webapp_deploy/`) | Estado | Acción |
+| Archivo (`apps/web/`) | Estado | Acción |
 |---|---|---|
 | `index.html` (meta: title/og/twitter) | Solana-singular | 4 metas → agnóstico (igual que config.ts) |
 | `assets/src/page-why.jsx` | Solana-singular | Reframe núcleo agnóstico + nodo settlement genérico |
@@ -199,7 +199,7 @@ Formato sugerido: tabla o mermaid `timeline` / `gitGraph` (ya hay precedente del
 
 Ordenado por impacto/riesgo (lo de arriba: máximo impacto visible, mínimo riesgo):
 
-1. **Meta/SEO** — `config.ts` + `README.md` + `webapp_deploy/index.html` (4 metas c/u).
+1. **Meta/SEO** — `config.ts` + `README.md` + `apps/web/index.html` (4 metas c/u).
    Es lo que aparece en links compartidos. Riesgo cero.
 2. **Roadmap de versiones** — crear `docs/roadmap.md` + enlazar en nav/sidebar. No choca con nada.
 3. **Landing pública de la webapp** — `page-why.jsx`, `page-architecture.jsx`,
@@ -216,7 +216,7 @@ paths de build de código (Zig/Rust/contratos).
 ## 4. Checklist de consistencia (post-edición)
 
 - [ ] Buscar residuales en docs: `grep -rin "on Solana" docs/ README.md` (excluir `v1/`).
-- [ ] Buscar residuales en webapp: `grep -rin "on Solana" webapp_deploy/index.html webapp_deploy/assets/src/page-*.jsx`.
+- [ ] Buscar residuales en webapp: `grep -rin "on Solana" apps/web/index.html apps/web/assets/src/page-*.jsx`.
 - [ ] El núcleo (OS/ZK/AWP/QVAC/2.011%) se describe **sin** nombrar cadena.
 - [ ] Solana aparece solo en: settlement layer, tabla de adaptadores, y como "adaptador de referencia".
 - [ ] `roadmap.md` enlazado desde nav y sidebar.

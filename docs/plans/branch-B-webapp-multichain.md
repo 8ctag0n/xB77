@@ -4,14 +4,14 @@
 > Maestro: [../MULTICHAIN-DOCS-PLAN.md](../MULTICHAIN-DOCS-PLAN.md)
 
 ## Archivos que esta rama posee (exclusivos — no los tocan A ni C)
-- `webapp_deploy/index.html` (solo metas)
-- `webapp_deploy/assets/src/page-why.jsx`
-- `webapp_deploy/assets/src/page-architecture.jsx`
-- `webapp_deploy/assets/src/page-whitepaper.jsx`
-- `webapp_deploy/assets/src/page-pitch.jsx`
-- `webapp_deploy/assets/src/page-changelog.jsx`
-- `webapp_deploy/assets/src/landing-pipeline-demo.jsx`
-- `webapp_deploy/assets/js/*.js` (derivados — regenerados por build)
+- `apps/web/index.html` (solo metas)
+- `apps/web/assets/src/page-why.jsx`
+- `apps/web/assets/src/page-architecture.jsx`
+- `apps/web/assets/src/page-whitepaper.jsx`
+- `apps/web/assets/src/page-pitch.jsx`
+- `apps/web/assets/src/page-changelog.jsx`
+- `apps/web/assets/src/landing-pipeline-demo.jsx`
+- `apps/web/assets/js/*.js` (derivados — regenerados por build)
 
 > ⚠️ **NO tocar la dapp funcional:** `dapp-*.jsx`, `assets/src/lib/solana-*`, `idls/`. Es Solana-real (fuera de alcance: esto es mensaje, no recableado).
 > ⚠️ Nada de `docs/` (rama A) ni `README.md` (rama C).
@@ -19,7 +19,7 @@
 ## ⚠️ Workflow de build (CRÍTICO)
 El contenido vive en `assets/src/*.jsx` → se compila con esbuild → `assets/js/*.js`.
 - **Editar SOLO los `.jsx`.** Los `.js` son derivados; `build.sh` los borra y regenera.
-- Tras editar: `cd webapp_deploy && ./build.sh`
+- Tras editar: `cd apps/web && ./build.sh`
 - Commitear **ambos** (src + js compilado) — el deploy sirve los `.js`.
 
 ## Cambios
@@ -54,18 +54,18 @@ Marcar dónde el landing afirma cosas que el código no respalda aún:
 - 2.011% como mecanismo vivo → hoy facilitator es placeholder; presentarlo como diseño/roadmap.
 
 ## Validación
-- `cd webapp_deploy && ./build.sh` sin errores.
-- `grep -rin "on Solana" webapp_deploy/index.html webapp_deploy/assets/src/page-*.jsx` → 0.
-- `grep -ril -e "\barc\b" -e "\bsui\b" webapp_deploy/assets/src/page-*.jsx` → aparece (antes: 0).
+- `cd apps/web && ./build.sh` sin errores.
+- `grep -rin "on Solana" apps/web/index.html apps/web/assets/src/page-*.jsx` → 0.
+- `grep -ril -e "\barc\b" -e "\bsui\b" apps/web/assets/src/page-*.jsx` → aparece (antes: 0).
 - Abrir `index.html` localmente y revisar landing/why/architecture/pitch.
-- Correr tests existentes si aplican: `webapp_deploy/test/*.test.js`.
+- Correr tests existentes si aplican: `apps/web/test/*.test.js`.
 
 ## Git
 ```
 git checkout main && git pull
 git checkout -b feat/webapp-multichain
 # … editar .jsx …
-cd webapp_deploy && ./build.sh && cd ..
-git add webapp_deploy/index.html webapp_deploy/assets/src/page-*.jsx webapp_deploy/assets/src/landing-pipeline-demo.jsx webapp_deploy/assets/js
+cd apps/web && ./build.sh && cd ..
+git add apps/web/index.html apps/web/assets/src/page-*.jsx apps/web/assets/src/landing-pipeline-demo.jsx apps/web/assets/js
 git commit
 ```

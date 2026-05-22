@@ -39,9 +39,9 @@ copy_lib() {
 copy_idls() {
   # The dApp loads IDL JSON via fetch (e.g. /idls/xb77.iopression.json).
   # Keep webapp_deploy/idls/ in sync with the repo-root idls/.
-  if [[ -d ../idls ]]; then
+  if [[ -d ../../idls ]]; then
     mkdir -p idls
-    cp -f ../idls/*.json idls/ 2>/dev/null || true
+    cp -f ../../idls/*.json idls/ 2>/dev/null || true
   fi
 }
 

@@ -100,7 +100,7 @@ echo -e "${YELLOW}${BOLD}--- ACT 3: VIRAL DISTRIBUTION ---${NC}"
 typewrite "Generating Blink Deluxe (Solana Action) with rich ZK-metadata..."
 ./zig-out/bin/xb77 -p hack-demo merchant blink
 sponsor "SOLANA ACTIONS" "spec-compliant multi-tier Blink · Custom Tip parametrized"
-sponsor "CLOUDFLARE WORKERS" "Blink endpoint served from edge · KV-backed agent registry (gateway/worker.js)"
+sponsor "CLOUDFLARE WORKERS" "Blink endpoint served from edge · KV-backed agent registry (apps/gateway/worker.js)"
 echo -e "\n${MAGENTA}PRO-TIP: Paste the generated link in dial.to to see the rich multi-tier UX.${NC}"
 
 pause

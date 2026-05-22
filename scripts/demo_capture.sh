@@ -167,7 +167,7 @@ capture "03_brain_fallback" \
   "pagar 0.05 SOL por cafe"
 
 # Restart QVAC for the rest of the demo
-(cd "$REPO/services/qvac_brain" && nohup bun run server.ts > /tmp/qvac.log 2>&1 &) || true
+(cd "$REPO/apps/services/qvac_brain" && nohup bun run server.ts > /tmp/qvac.log 2>&1 &) || true
 sleep 3
 
 # 04 — Trident dashboard

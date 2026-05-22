@@ -22,7 +22,7 @@ pub fn build(b: *std.Build) void {
 
     // --- MCP Module ---
     const mcp_module = b.addModule("mcp", .{
-        .root_source_file = b.path("mcp/server.zig"),
+        .root_source_file = b.path("apps/mcp/server.zig"),
         .imports = &.{
             .{ .name = "core", .module = core_module },
         },
@@ -32,7 +32,7 @@ pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{
         .name = "xb77",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("cli/main.zig"),
+            .root_source_file = b.path("apps/cli/main.zig"),
             .target = target,
             .optimize = optimize,
         }),
@@ -57,7 +57,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         }),
     });
-    znode_exe.addCSourceFile(.{ .file = b.path("znode/main.c"), .flags = &.{"-std=c11"} });
+    znode_exe.addCSourceFile(.{ .file = b.path("apps/znode/main.c"), .flags = &.{"-std=c11"} });
     znode_exe.addCSourceFile(.{ .file = b.path("deps/znode.c"), .flags = &.{"-std=c11"} });
     znode_exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
     znode_exe.addIncludePath(b.path("deps"));
@@ -122,7 +122,7 @@ pub fn build(b: *std.Build) void {
     const wasm_gateway = b.addExecutable(.{
         .name = "gateway",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("gateway/main.zig"),
+            .root_source_file = b.path("apps/gateway/main.zig"),
             .target = wasm_target,
             .optimize = .ReleaseSmall,
             .strip = true,

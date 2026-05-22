@@ -51,7 +51,7 @@ CLI="${REPO}/zig-out/bin/xb77"
 ok "CLI built"
 
 step "Build webapp"
-( cd "${REPO}/webapp_deploy" && ./build.sh ) > "${WORK}/web-build.log" 2>&1 \
+( cd "${REPO}/apps/web" && ./build.sh ) > "${WORK}/web-build.log" 2>&1 \
   || { cat "${WORK}/web-build.log"; fail "webapp build failed"; }
 ok "webapp built"
 
@@ -70,7 +70,7 @@ ok "gateway up — pubkey ${GW_PUBKEY:0:16}…"
 
 # ─── 3. Boot webapp static server ────────────────────────────────────
 step "Boot webapp http server on :${WEB_PORT}"
-( cd "${REPO}/webapp_deploy" && python3 -m http.server "${WEB_PORT}" --bind 127.0.0.1 ) \
+( cd "${REPO}/apps/web" && python3 -m http.server "${WEB_PORT}" --bind 127.0.0.1 ) \
   > "${WEB_LOG}" 2>&1 &
 WEB_PID=$!
 for _ in $(seq 1 30); do
