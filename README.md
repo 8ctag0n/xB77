@@ -6,16 +6,18 @@
 
 <p align="center">
   <em>Privacy-first capital management for the machine economy.<br/>
-  Shielded payments · ZK-compressed receipts · autonomous agents on Solana.</em>
+  Shielded payments · ZK-compressed receipts · sovereign agents across Solana, Arc & Sui.</em>
 </p>
 
 <p align="center">
   <a href="https://ziglang.org/"><img src="https://img.shields.io/badge/Written_in-Zig-F7A41D?style=for-the-badge&logo=zig" alt="Zig"/></a>
   <a href="https://rust-lang.org/"><img src="https://img.shields.io/badge/ZK_Judge-Rust-000000?style=for-the-badge&logo=rust" alt="Rust"/></a>
   <a href="https://solana.com/"><img src="https://img.shields.io/badge/Settlement-Solana-14F195?style=for-the-badge&logo=solana" alt="Solana"/></a>
+  <a href="https://www.agora.xyz/"><img src="https://img.shields.io/badge/Settlement-Arc-2775CA?style=for-the-badge" alt="Arc"/></a>
+  <a href="https://sui.io/"><img src="https://img.shields.io/badge/Settlement-Sui-4DA2FF?style=for-the-badge&logo=sui" alt="Sui"/></a>
 </p>
 
-> **xB77** is a terminal-native, P2P Financial Operating System designed for the Agentic Economy. We take AI agents off centralized Web2 clouds and turn them into Sovereign Entities capable of negotiating flash loans via Swarm Intelligence, settling on Solana via MagicBlock, and proving tax compliance using Noir Zero-Knowledge proofs.
+> **xB77** is a terminal-native, P2P Financial Operating System designed for the Agentic Economy. We take AI agents off centralized Web2 clouds and turn them into Sovereign Entities capable of negotiating flash loans via Swarm Intelligence, settling across chains — Solana via MagicBlock, Arc, and Sui — and proving tax compliance using Noir Zero-Knowledge proofs. The agent runtime, ZK engine, and coordination mesh are chain-agnostic; each chain is a pluggable settlement adapter.
 >
 ###  Quick Links
 
@@ -44,7 +46,7 @@ Agents communicate via our custom **Agent Wire Protocol (AWP)**. No human interv
 Our **Quantitative Valve for Autonomous Commerce (QVAC)** translates natural language directives into secure, on-chain intents, generating a cryptographic "Reasoning Trace".
 
 ### 3. The Ghost Receipt (Noir ZK)
-Proves mathematically that a 2.011% tax was paid while keeping proprietary agent strategies completely private. 
+Proves in zero-knowledge that the 2.011% tax was committed in the proof, while keeping proprietary agent strategies private. 
 
 ### 4. Cyber-Audit Dashboard (WASM)
 A brutalist real-time interface to monitor swarm health, liquidity pulses (USDC/USYC), and ZK-audits across all supported chains.
@@ -56,6 +58,16 @@ A brutalist real-time interface to monitor swarm health, liquidity pulses (USDC/
 - **Execution Core:** Written in **Zig** for sub-millisecond performance at the Edge.
 - **ZK-Circuits:** **Noir** for hardware-agnostic privacy proofs.
 - **Smart Contracts:** **Rust (Anchor)** for Solana, **Yul/Solidity** for Arc, and **Move** for Sui.
+
+---
+
+##  Status — honest delta
+
+xB77 documents what's real vs. what's roadmap (full detail in the [Whitepaper](https://xb77-adapter.frontier247hack.workers.dev/docs/whitepaper)):
+
+- **Multi-chain:** real code on each chain — Solana (Anchor), Arc (Yul/Solidity), Sui (Move; the `sovereign` package is published with live PTBs). The core is chain-agnostic; chains are settlement adapters.
+- **ZK verifier:** today the on-chain verifier anchors the proof bytes + commitment hash. Full cryptographic SNARK verification on-chain (Honk/Groth16) is on the roadmap.
+- **2.011% engine:** enforced-by-design inside the Noir circuit; the facilitator/treasury wiring is still a placeholder, not a production fund flow.
 
 ---
 
