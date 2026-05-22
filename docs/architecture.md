@@ -1,6 +1,6 @@
 # // ARCHITECTURE
 
-xB77 is a three-layer stack: agent logic at the top, a ZK proof engine in the middle, and Solana settlement at the base. Each layer communicates through well-defined interfaces with no hidden coupling.
+xB77 is a three-layer stack: agent logic at the top, a ZK proof engine in the middle, and a pluggable settlement layer at the base. Solana is the reference adapter; Arc and Sui implement the same interface. Each layer communicates through well-defined interfaces with no hidden coupling.
 
 ## System Layers
 
@@ -23,7 +23,7 @@ graph TD
         B1 --> B2 --> B3
     end
 
-    subgraph SE["// SETTLEMENT LAYER — Solana"]
+    subgraph SE["// SETTLEMENT LAYER — pluggable adapters (Solana · Arc · Sui)"]
         direction LR
         C1["Chunked Upload\n(PDA proof_buf)"]
         C2["xb77_zk_verifier\n(J2Q44...)"]
