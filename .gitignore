@@ -64,7 +64,7 @@ onchain/sui/Pub.*.toml
 .wrangler/
 **/.wrangler/
 .cf_deploy_summary
-webapp_deploy/remotion/out/
+apps/web/remotion/out/
 
 # isolated worktrees for in-session dev
 .worktrees/

@@ -92,8 +92,8 @@ Code paths:
   • Native PDA derivation (Zig):   core/security/identity.zig:resolveSnsNative
   • Test harness:                   tests/sns_test.zig (zig build sns-test)
   • Worker reverse endpoint:        gateway/worker/src/index.js:handleSnsReverse
-  • Browser helper:                 webapp_deploy/assets/src/lib/sns-reverse.js
-  • ConnectionPill .sol swap:       webapp_deploy/assets/src/app-tabs.jsx:ConnectionPill
+  • Browser helper:                 apps/web/assets/src/lib/sns-reverse.js
+  • ConnectionPill .sol swap:       apps/web/assets/src/app-tabs.jsx:ConnectionPill
 
 Specs + writeups:
   • Spec:               docs/specs/sponsors/sns.md

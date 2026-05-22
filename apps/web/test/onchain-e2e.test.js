@@ -26,13 +26,13 @@ const RPC_URL = "http://127.0.0.1:8899";
 let live = false;
 
 beforeAll(async () => {
-  await import(path.join(repoRoot, "webapp_deploy/assets/src/lib/wincode.js"));
-  await import(path.join(repoRoot, "webapp_deploy/assets/src/lib/base58.js"));
-  await import(path.join(repoRoot, "webapp_deploy/assets/src/lib/solana-rpc.js"));
-  await import(path.join(repoRoot, "webapp_deploy/assets/src/lib/solana-tx.js"));
-  await import(path.join(repoRoot, "webapp_deploy/assets/src/lib/idl-client.js"));
-  await import(path.join(repoRoot, "webapp_deploy/assets/src/lib/keystore.js"));
-  await import(path.join(repoRoot, "webapp_deploy/assets/src/lib/dapp-actions.js"));
+  await import(path.join(repoRoot, "apps/web/assets/src/lib/wincode.js"));
+  await import(path.join(repoRoot, "apps/web/assets/src/lib/base58.js"));
+  await import(path.join(repoRoot, "apps/web/assets/src/lib/solana-rpc.js"));
+  await import(path.join(repoRoot, "apps/web/assets/src/lib/solana-tx.js"));
+  await import(path.join(repoRoot, "apps/web/assets/src/lib/idl-client.js"));
+  await import(path.join(repoRoot, "apps/web/assets/src/lib/keystore.js"));
+  await import(path.join(repoRoot, "apps/web/assets/src/lib/dapp-actions.js"));
   // Healthcheck.
   try {
     const r = await fetch(RPC_URL, {

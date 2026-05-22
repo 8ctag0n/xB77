@@ -1,4 +1,4 @@
-// Smoke for webapp_deploy/assets/src/lib/solana-rpc.js against a live validator.
+// Smoke for apps/web/assets/src/lib/solana-rpc.js against a live validator.
 // Skips itself if :8899 is not responding.
 
 import { test, expect, beforeAll } from "bun:test";

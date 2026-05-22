@@ -98,10 +98,10 @@ out-of-band trust.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Webapp modal: `invalid_password` on import | Wrong password for the sealed blob | Generate a new agent instead |
-| Webapp: `wire 1.1 mismatch` / 401 from gateway | Canonical bytes diverged (timestamp endian, nonce length, payload encoding) | Compare against `sdk/ts/dev/mock-gateway.ts` `canonicalRequest`; unit test `webapp_deploy/test/dapp-actions.test.js` covers this |
+| Webapp: `wire 1.1 mismatch` / 401 from gateway | Canonical bytes diverged (timestamp endian, nonce length, payload encoding) | Compare against `sdk/ts/dev/mock-gateway.ts` `canonicalRequest`; unit test `apps/web/test/dapp-actions.test.js` covers this |
 | Demo script hangs at "Do you see agent A's order?" | Webapp pipelines poll is 10s; you clicked too fast | Wait, refresh, look at the Pipelines tab |
 | `xb77 gateway reads fleet` returns only the seeded agents | Webapp registration failed silently — check browser devtools console | Re-run the modal "Generate new" path; check `localStorage.xb77_keystore` was written |
-| Gateway log shows `invalid_signature` | One of the clients drifted from wire 1.1 | Run `bun test webapp_deploy/test/` — `signEnvelope returns headers + raw-JSON body and a verifiable Ed25519 signature` is the canonical-bytes regression test |
+| Gateway log shows `invalid_signature` | One of the clients drifted from wire 1.1 | Run `bun test apps/web/test/` — `signEnvelope returns headers + raw-JSON body and a verifiable Ed25519 signature` is the canonical-bytes regression test |
 | Demo script: `mock-gateway did not come up` | Port 8787 in use | `XB77_GATEWAY_PORT=8788 scripts/demo_e2e.sh` |
 | Webapp blank in Firefox <130 / Safari <17 | Web Crypto Ed25519 not supported | Use Chrome 137+; document this as a known constraint |
 
@@ -130,7 +130,7 @@ scripts/demo_e2e.sh                # walks you through bidirectional CLI ↔ web
 podman run -d --name xb77-validator --network host xb77-solana
 # (deploy programs once — see scripts/full_local_stack.sh phase 3)
 cd gateway/worker && bunx wrangler@latest dev --local --port 8787 &
-cd webapp_deploy && ./build.sh && python3 -m http.server 8080 &
+cd apps/web && ./build.sh && python3 -m http.server 8080 &
 zig build
 # Then:
 #  - Webapp: open http://127.0.0.1:8080/app.html → Connect → Generate
@@ -165,6 +165,6 @@ zig build
 | Agent signs every onchain tx itself | Webapp `XB77Actions.sendOnchain` and CLI `gateway_anchor.zig` / `gateway_submit.zig` both sign with the local Ed25519 keystore |
 | Gateway never holds an agent's private key | Worker only verifies signatures; it never signs on behalf of anyone |
 | Gateway responses are verifiable | Worker signs every action response with its own key; webapp `verifyResponseSig` checks against `/_meta`'s `gateway_pubkey` |
-| Onchain writes are byte-identical between clients | Same wincode encoder + IDL in both Zig and JS — `bun test webapp_deploy/test/onchain-e2e.test.js` is the regression |
+| Onchain writes are byte-identical between clients | Same wincode encoder + IDL in both Zig and JS — `bun test apps/web/test/onchain-e2e.test.js` is the regression |
 | Programs verify what they claim to verify | `xb77.iopression` runs Poseidon BN254; `xb77_gateway` enforces nullifier PDAs; `xb77_zk_verifier` runs the (stub) judge — all visible in `solana logs` |
 | dApp sees live activity without polling onchain | `xb77 gateway watch` daemon polls both gateway + verifier, POSTs to worker `/api/v1/pipelines/ingest` (bearer auth) — Pipelines + Proofs tabs reflect within one tick (~5s) |

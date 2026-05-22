@@ -1,6 +1,6 @@
 //! Minimal Solana JSON-RPC client.
 //!
-//! Mirrors solana-rpc.js (webapp_deploy/assets/src/lib/solana-rpc.js).
+//! Mirrors solana-rpc.js (apps/web/assets/src/lib/solana-rpc.js).
 //!
 //! Provides:
 //!   - getLatestBlockhash() → [32]u8

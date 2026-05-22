@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../../webapp_deploy/assets/logo-og.png" alt="xB77 — Autonomous Financial Infrastructure" width="800"/>
+  <img src="../../apps/web/assets/logo-og.png" alt="xB77 — Autonomous Financial Infrastructure" width="800"/>
 </p>
 
 # SNS / AllDomains — Sovereign Identity
@@ -55,7 +55,7 @@ A thin service layer for CLI + webapp consumption:
 ### Identity surface in the rest of xB77
 
 - `cli/commands/identity.zig` — existing `identity claim/resolve` subcommands; the SNS service is the live backend they migrate to
-- `webapp_deploy/assets/src/app-tabs.jsx` — `ConnectionPill` component is the visible swap point: `ag_xxx…` → `<resolved-name>` once the agent's pubkey has a favorite domain
+- `apps/web/assets/src/app-tabs.jsx` — `ConnectionPill` component is the visible swap point: `ag_xxx…` → `<resolved-name>` once the agent's pubkey has a favorite domain
 
 ## How it integrates with the rest of xB77
 

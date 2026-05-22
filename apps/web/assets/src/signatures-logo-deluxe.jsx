@@ -1,6 +1,6 @@
 /* xB77 Signature Component — Logo Deluxe (the Seal, alive)
  *
- * Browser mirror of webapp_deploy/remotion/src/components/Seal.tsx +
+ * Browser mirror of apps/web/remotion/src/components/Seal.tsx +
  * Particles.tsx. Same staged entrance (bezel traces → monogram stamps → ticks
  * fan → ZK pops) and same agent cycle (12 particles flow in through bezel
  * notches → converge on monogram → emit). The agent cycle loops every 6s via

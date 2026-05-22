@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Compile JSX sources → plain JS for the public webapp.
 #
-# Sources:    webapp_deploy/assets/src/*.jsx       (JSX, esbuild-compiled)
-#             webapp_deploy/assets/src/lib/*.js    (plain JS, copied as-is)
-# Output:     webapp_deploy/assets/js/*.js
-#             webapp_deploy/assets/js/lib/*.js
+# Sources:    apps/web/assets/src/*.jsx       (JSX, esbuild-compiled)
+#             apps/web/assets/src/lib/*.js    (plain JS, copied as-is)
+# Output:     apps/web/assets/js/*.js
+#             apps/web/assets/js/lib/*.js
 #
 # Each .jsx becomes a .js with React.createElement calls. No bundling,
 # no module resolution — these scripts share globals (React, THEMES,
@@ -38,7 +38,7 @@ copy_lib() {
 
 copy_idls() {
   # The dApp loads IDL JSON via fetch (e.g. /idls/xb77.iopression.json).
-  # Keep webapp_deploy/idls/ in sync with the repo-root idls/.
+  # Keep apps/web/idls/ in sync with the repo-root idls/.
   if [[ -d ../../idls ]]; then
     mkdir -p idls
     cp -f ../../idls/*.json idls/ 2>/dev/null || true

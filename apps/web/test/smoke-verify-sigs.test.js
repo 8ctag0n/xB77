@@ -1,7 +1,7 @@
 // Smoke: drive the real mock-gateway with VERIFY_SIGS=1 using the
 // webapp's keystore + dapp-actions modules. If sigs are wrong, this 401s.
 //
-//   bun test webapp_deploy/test/smoke-verify-sigs.test.js
+//   bun test apps/web/test/smoke-verify-sigs.test.js
 //
 // Boots sdk/ts/dev/mock-gateway.ts on an isolated port via child_process.
 
@@ -30,8 +30,8 @@ const realFetch = (typeof Bun !== "undefined" && Bun.fetch) ? Bun.fetch : global
 const PORT = 18801;
 let gw;
 
-await import(path.join(repoRoot, "webapp_deploy/assets/src/lib/keystore.js"));
-await import(path.join(repoRoot, "webapp_deploy/assets/src/lib/dapp-actions.js"));
+await import(path.join(repoRoot, "apps/web/assets/src/lib/keystore.js"));
+await import(path.join(repoRoot, "apps/web/assets/src/lib/dapp-actions.js"));
 
 globalThis.window.XB77_GATEWAY = `http://127.0.0.1:${PORT}`;
 

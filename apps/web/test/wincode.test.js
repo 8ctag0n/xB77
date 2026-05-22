@@ -1,4 +1,4 @@
-// Tests for webapp_deploy/assets/src/lib/wincode.js
+// Tests for apps/web/assets/src/lib/wincode.js
 //
 // Source of truth: tests/compression_e2e.zig (the production Zig client that
 // the on-chain xb77.iopression program accepts) produces exactly 125 bytes

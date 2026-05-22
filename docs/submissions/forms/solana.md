@@ -105,7 +105,7 @@ Five programs (all on devnet, all in explorer.solana.com/?cluster=devnet):
   xb77.iopression  6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN
   xb77_zk_verifier  J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ
 
-IDLs in idls/*.json. Each is consumed by the Zig CLI (core/onchain/idl_client.zig) AND the dApp (webapp_deploy/assets/js/lib/idl-client.js — same wire format, two implementations).
+IDLs in idls/*.json. Each is consumed by the Zig CLI (core/onchain/idl_client.zig) AND the dApp (apps/web/assets/js/lib/idl-client.js — same wire format, two implementations).
 
 Honest delta:
   • xb77_zk_verifier::verify() is a stub. We anchor proof bytes + commitment hash today; real cryptographic verification (Groth16 or Honk on SBF) is the next pass.

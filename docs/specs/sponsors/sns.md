@@ -13,8 +13,8 @@ What landed in F6 + SNS end-to-end pass after the original spec was written:
   - Tries Bonfida's `/v2/user/favorite-domain/<wallet>` first (canonical primary)
   - Falls back to `/v2/user/domains/<wallet>[0]`
   - Cached in BUCKETS KV (1h TTL, positive + negative). No retry-storm hammering.
-- **Browser helper**: `webapp_deploy/assets/src/lib/sns-reverse.js` exposes `window.XB77SnsReverseLookup(pubkey)` → `<name>.sol | null`. sessionStorage cache (1h TTL).
-- **ConnectionPill swap (F6)**: `webapp_deploy/assets/src/app-tabs.jsx:ConnectionPill` now listens for `xb77:domain-resolved` and swaps `ag_xxx…` for `<name>.sol` in lime with glow. `dapp-actions.js:identity.resolveFavoriteDomain` orchestrates the lookup post-`xb77:connected` and dispatches the event when a name lands.
+- **Browser helper**: `apps/web/assets/src/lib/sns-reverse.js` exposes `window.XB77SnsReverseLookup(pubkey)` → `<name>.sol | null`. sessionStorage cache (1h TTL).
+- **ConnectionPill swap (F6)**: `apps/web/assets/src/app-tabs.jsx:ConnectionPill` now listens for `xb77:domain-resolved` and swaps `ag_xxx…` for `<name>.sol` in lime with glow. `dapp-actions.js:identity.resolveFavoriteDomain` orchestrates the lookup post-`xb77:connected` and dispatches the event when a name lands.
 
 Result: when a judge visits `/app` and connects via keystore, the ConnectionPill upgrades from `ag_77b9e2…` to `<theirname>.sol` automatically — what F6 wired structurally, this pass made functional.
 
@@ -61,9 +61,9 @@ This spec turns that 22-line proof-of-concept into:
 4. **`cli/commands/identity.zig`** — has `identity claim/resolve`
    subcommands today that go to `gateway.xb77.io/identity/claim` (legacy
    stub). Replace with real SNS calls
-5. **`webapp_deploy/assets/src/app-tabs.jsx`** — `ConnectionPill`
+5. **`apps/web/assets/src/app-tabs.jsx`** — `ConnectionPill`
    component is where the display swap happens
-6. **`webapp_deploy/assets/src/lib/dapp-actions.js`** — exposes
+6. **`apps/web/assets/src/lib/dapp-actions.js`** — exposes
    `XB77Actions.keystore`; the resolve happens after `xb77:connected`
    event fires, using the persisted pubkey
 
@@ -115,14 +115,14 @@ then submits via `core.chain.solana.SolanaClient.sendTransaction`.
 
 ### 3. Webapp integration
 
-In `webapp_deploy/assets/src/lib/dapp-actions.js`:
+In `apps/web/assets/src/lib/dapp-actions.js`:
 
 - Add `XB77Actions.sns.resolve(name)`, `XB77Actions.sns.reverseFor(pubkey)`
 - After `xb77:connected` event, call `reverseFor(pubkey)` once; if a
   favorite domain exists, dispatch a new event `xb77:domain-resolved`
   with `{name}` detail
 
-In `webapp_deploy/assets/src/app-tabs.jsx` `ConnectionPill`:
+In `apps/web/assets/src/app-tabs.jsx` `ConnectionPill`:
 
 - Listen for `xb77:domain-resolved`
 - Replace the truncated `ag_xxx…` display with the resolved name when present

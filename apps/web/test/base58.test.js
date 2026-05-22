@@ -1,4 +1,4 @@
-// Tests for webapp_deploy/assets/src/lib/base58.js
+// Tests for apps/web/assets/src/lib/base58.js
 // Spec-tested with the well-known Solana System Program ID round-trip.
 
 import { test, expect } from "bun:test";

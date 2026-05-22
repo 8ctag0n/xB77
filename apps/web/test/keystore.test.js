@@ -1,7 +1,7 @@
-// Tests for webapp_deploy/assets/src/lib/keystore.js
+// Tests for apps/web/assets/src/lib/keystore.js
 //
 // Run from repo root:
-//   bun test webapp_deploy/test/keystore.test.js
+//   bun test apps/web/test/keystore.test.js
 //
 // The keystore is a side-effect script that exposes globalThis.XB77Keystore.
 // It must:

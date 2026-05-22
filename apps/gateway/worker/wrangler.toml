@@ -31,7 +31,7 @@ enabled = true
 # Worker's fetch() runs. Path is relative to this wrangler.toml.
 # ─────────────────────────────────────────────────────────────────────
 [assets]
-directory = "../../webapp_deploy"
+directory = "../../web"
 not_found_handling = "none"
 
 [vars]

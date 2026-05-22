@@ -1,4 +1,4 @@
-// Tests for webapp_deploy/assets/src/lib/idl-client.js
+// Tests for apps/web/assets/src/lib/idl-client.js
 //
 // Proves the IDL-driven encoder produces wincode bytes identical to what the
 // Zig client produces and the on-chain xb77.iopression program accepts.

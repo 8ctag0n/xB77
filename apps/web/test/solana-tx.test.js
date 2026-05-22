@@ -1,4 +1,4 @@
-// Tests for webapp_deploy/assets/src/lib/solana-tx.js
+// Tests for apps/web/assets/src/lib/solana-tx.js
 //
 // Verifies the Solana legacy transaction encoder produces the right byte
 // layout (compact-u16 short-vec, message header, accountKeys ordering,

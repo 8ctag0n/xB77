@@ -1,8 +1,8 @@
-// Tests for webapp_deploy/assets/src/lib/dapp-actions.js (wire schema 1.1).
+// Tests for apps/web/assets/src/lib/dapp-actions.js (wire schema 1.1).
 //
 // Asserts byte-identical canonical bytes vs the mock-gateway and a real
 // signing path via XB77Keystore. Run from repo root:
-//   bun test webapp_deploy/test/dapp-actions.test.js
+//   bun test apps/web/test/dapp-actions.test.js
 
 if (typeof globalThis.localStorage === "undefined") {
   const store = new Map();

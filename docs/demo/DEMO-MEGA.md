@@ -17,7 +17,7 @@
 | **MagicBlock** | PER session → 10 ephemeral dispatches → L1 settlement | `services/magicblock/` + `core/chain/magicblock.zig` |
 | **Cloudflare Workers** | Wire 1.1 gateway, real `/api/v1/orders` + `/pipelines/ingest` | `gateway/worker/src/index.js` |
 | **ZK** | nargo prove → chunked upload → onchain verify, all visible | `xb77 zk run` + Proofs tab |
-| **Brand / craft** | Remotion as SoT, receipt-seal mark, no AI slop | `webapp_deploy/remotion/` |
+| **Brand / craft** | Remotion as SoT, receipt-seal mark, no AI slop | `apps/web/remotion/` |
 
 ---
 
@@ -25,7 +25,7 @@
 
 ### 0:00–0:15 — Cold open
 
-**Show**: `webapp_deploy/remotion/out/intro.mp4` (3s logo intro) → cut to `app.html`.
+**Show**: `apps/web/remotion/out/intro.mp4` (3s logo intro) → cut to `app.html`.
 
 **Say** (one sentence):
 > "xB77 — autonomous financial infrastructure. Five Solana programs, three sovereign services, zero mocks. Watch."
@@ -173,7 +173,7 @@ ZK Ledger: Root 0xa3b1... (47 entries)
 Status:    SOVEREIGN & ACTIVE
 ```
 
-**Cut to**: Remotion seal fadeout (`webapp_deploy/remotion/out/hero.mp4` last frame).
+**Cut to**: Remotion seal fadeout (`apps/web/remotion/out/hero.mp4` last frame).
 
 **Say**:
 > "Five programs, three sovereign services, one agent. xB77."
@@ -196,11 +196,11 @@ Status:    SOVEREIGN & ACTIVE
 - [ ] `services/magicblock/` running (mock sequencer ok for local demo)
 
 ### Webapp visual
-- [ ] `webapp_deploy/build.sh` clean (current: ✅)
+- [ ] `apps/web/build.sh` clean (current: ✅)
 - [ ] `http://127.0.0.1:8086/app.html` loads, all 7 tabs render (Wallet · Agents · Pipelines · Proofs · Merchants · Mesh · Explorer)
 - [ ] Logo deluxe + framer-motion vendor present (current: ✅)
-- [ ] Remotion renders fresh: `cd webapp_deploy/remotion && npm run render:intro && npm run render:hero && npm run render:og`
-  - Outputs land in `webapp_deploy/remotion/out/{intro,hero}.mp4` + `og.png` + `mark.png`
+- [ ] Remotion renders fresh: `cd apps/web/remotion && npm run render:intro && npm run render:hero && npm run render:og`
+  - Outputs land in `apps/web/remotion/out/{intro,hero}.mp4` + `og.png` + `mark.png`
   - Palette: lime+cyan only, NO magenta (per design direction)
 
 ### CLI smoke (manual, ~2 min)

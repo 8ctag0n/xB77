@@ -43,7 +43,7 @@ the existing narrative (*"sub-millisecond settlement"* in `README.md`).
 - Webapp shows an active session in the dApp shell (badge + countdown to
   expiry)
 - Existing `[MAGIC]` logs in the CLI gateway flow stop saying *"failed,
-  using standard rails"* and instead show *"PER session active: <id>"*
+  using standard rails"* and instead show *"PER session active: &lt;id&gt;"*
 - `scripts/smoke_magicblock.sh` proves the lifecycle end-to-end
 
 ## Required reading
@@ -162,7 +162,7 @@ already has the `sponsor()` function) to:
       `closeSession` / `queryState` implemented
 - [ ] `commerce/pay.zig` + `kernel/engine.zig` no longer fall to
       `"standard rails"` — they use the active session
-- [ ] Webapp Session pill + panel in `webapp_deploy/assets/src/`
+- [ ] Webapp Session pill + panel in `apps/web/assets/src/`
 - [ ] `scripts/smoke_magicblock.sh` opens / queries / closes a session
 - [ ] `README.md` has a *"Sponsor: MagicBlock"* section with screenshot /
       asciinema of a live session
