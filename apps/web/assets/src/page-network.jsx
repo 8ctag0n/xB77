@@ -238,6 +238,79 @@ function ArcPulseSection() {
   );
 }
 
+/* ── Section: Sui Pulse ───────────────────────────────────────────── */
+function SuiPulseSection() {
+  const [sui, setSui] = React.useState(null);
+  React.useEffect(() => {
+    if (!window.DataSource) return;
+    return window.DataSource.subscribe('suiPulse', setSui, 3000);
+  }, []);
+
+  const objHist   = useHistory(sui?.objectsTotal);
+  const treasHist = useHistory(sui?.treasuryBalance);
+  const ptbHist   = useHistory(sui?.ptbCount);
+
+  return (
+    <section style={{ padding: '40px 0', borderBottom: `1px solid ${D.border}` }}>
+      <div style={{
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        marginBottom: 24, flexWrap: 'wrap', gap: 12,
+      }}>
+        <div>
+          <DM>Sui Object Mesh</DM>
+          <div style={{ marginTop: 8 }}>
+            <DS size={32} italic>The Agent is the Object: PTB-orchestrated autonomy.</DS>
+          </div>
+        </div>
+        <NetStatusPill payload={sui} />
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+        <NetBigStat
+          label="Sovereign Objects"
+          value={sui?.objectsTotal}
+          hint="Treasury · Policy · Receipt"
+          history={objHist}
+          color={D.accent}
+        />
+        <NetBigStat
+          label="Treasury Balance"
+          value={sui?.treasuryBalance}
+          hint="shielded on Sui"
+          history={treasHist}
+          color={D.amber}
+        />
+        <NetBigStat
+          label="PTBs Executed"
+          value={sui?.ptbCount}
+          hint="parallel programmable txns"
+          history={ptbHist}
+          color={D.cyan}
+        />
+        <div style={{
+          flex: 1, minWidth: 180,
+          padding: '22px 22px 18px',
+          background: D.bg2,
+          border: `1px solid ${D.border}`,
+          display: 'flex', flexDirection: 'column', justifyContent: 'center'
+        }}>
+          <DM size={9}>Last PTB Digest</DM>
+          <div style={{
+            fontFamily: 'var(--mono)', fontSize: 11, color: D.accent,
+            marginTop: 12, wordBreak: 'break-all'
+          }}>
+            {sui?.lastDigest || '—'}
+          </div>
+          <div style={{
+            fontFamily: 'var(--mono)', fontSize: 9, color: D.dim,
+            marginTop: 6, letterSpacing: '0.1em',
+          }}>VERIFIED ON SUI</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ── Section: Network Pulse ───────────────────────────────────────── */
 function NetworkPulseSection() {
   const [pulse, setPulse] = React.useState(null);
@@ -714,75 +787,6 @@ function NetworkPage() {
 
         <ArcPulseSection />
         <SuiPulseSection />
-        <NetworkPulseSection />
-        <GhostAuditSection />
-        <AgentFleetSection />
-        <RecentPipelinesSection />
-      </div>
-      {window.DocsDeepDive && (
-        <DocsDeepDive
-          kicker="// FULL DATA-INFRA REFERENCE"
-          label="Endpoints, fallback chain, DataSource API."
-          path="/reference/data-infra"
-        />
-      )}
-      {window.PageFooter && <PageFooter />}
-    </div>
-  );
-}
-
-window.NetworkPage = NetworkPage;
-          boxShadow: running ? `0 0 5px ${verdictColor}` : 'none',
-                  flexShrink: 0,
-                }} />
-                <span style={{
-                  color: verdictColor, fontSize: 10, fontWeight: 600,
-                  letterSpacing: '0.14em', textTransform: 'uppercase',
-                }}>{running ? 'running' : p.verdict || p.status}</span>
-              </div>
-              <div style={{ color: D.text }}>{fmtDur(p.duration)}</div>
-              <div style={{ color: D.dim, textAlign: 'right' }}>{fmtAge(p.startedAt)}</div>
-            </div>
-          );
-        })}
-
-        {pipelines.length === 0 && (
-          <div style={{ padding: '24px 18px', fontFamily: 'var(--mono)', fontSize: 11, color: D.dim }}>
-            waiting for pipelines…
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-/* ── Page shell ──────────────────────────────────────────────────── */
-function NetworkPage() {
-  return (
-    <div style={{ background: D.bg, minHeight: '100vh', color: D.text }}>
-      <style>{`
-        @keyframes chunkPulse {
-          0%, 100% { opacity: 0.35; }
-          50%      { opacity: 1; }
-        }
-      `}</style>
-      {window.InnerNav && <InnerNav active="Network" />}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '60px 32px 80px' }}>
-        <div style={{ marginBottom: 32 }}>
-          <DM>// xB77 · Network</DM>
-          <div style={{ marginTop: 12 }}>
-            <DS size={48} italic>The mesh, observed.</DS>
-          </div>
-          <div style={{
-            fontFamily: 'var(--sans)', fontSize: 14, color: D.dim,
-            maxWidth: 640, marginTop: 12, lineHeight: 1.6,
-          }}>
-            Real-time view of the xB77 zk-pipeline network. Slot, block height,
-            agent fleet, audit portal, and the live pipeline feed.
-          </div>
-        </div>
-
-        <ArcPulseSection />
         <NetworkPulseSection />
         <GhostAuditSection />
         <AgentFleetSection />
