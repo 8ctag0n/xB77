@@ -22,6 +22,7 @@ import * as http from "http";
 const SUI_RPC_URL = process.env.SUI_RPC_URL || "http://127.0.0.1:9100"; // Localnet
 const FAUCET_URL = process.env.SUI_FAUCET_URL || "http://127.0.0.1:9123/gas";
 const PACKAGE_ID = process.env.SOVEREIGN_PACKAGE_ID || "0x0";
+const ADMIN_CAP = process.env.SOVEREIGN_ADMIN_CAP || "0x0";
 const PORT = Number(process.env.SUI_BRIDGE_PORT || 8089);
 
 const client = new SuiClient({ url: SUI_RPC_URL });
@@ -88,6 +89,41 @@ function buildIntent(intent: any): Transaction {
             tx.moveCall({
                 target: `${PACKAGE_ID}::treasury::deposit`,
                 arguments: [tx.object(intent.treasury), funding],
+            });
+            break;
+        }
+
+        // Mint a spending Policy (withdrawal limit) using the AdminCap.
+        case "create_policy": {
+            if (ADMIN_CAP === "0x0") throw new Error("SOVEREIGN_ADMIN_CAP not set");
+            const limit = BigInt(intent.limit ?? 1_000_000_000); // default 1 SUI
+            const policy = tx.moveCall({
+                target: `${PACKAGE_ID}::policy::create_policy`,
+                arguments: [tx.object(ADMIN_CAP), tx.pure.u64(limit)],
+            });
+            tx.transferObjects([policy], tx.pure.address(SENDER));
+            break;
+        }
+
+        // Sovereign withdrawal: verify_zk_proof -> GhostReceipt -> policy-checked
+        // withdraw -> transfer to recipient, atomically in one PTB.
+        case "withdraw": {
+            if (!intent.treasury) throw new Error("withdraw requires intent.treasury");
+            if (!intent.policy) throw new Error("withdraw requires intent.policy");
+            const recipient = intent.to ?? SENDER;
+            // Mock ZK proof bytes (0x42) — mirrors the simnet verifier bypass.
+            const proof: number[] = intent.proof ?? [0x42];
+            const publicInputs: number[] = intent.public_inputs ?? [0x42];
+            tx.moveCall({
+                target: `${PACKAGE_ID}::treasury::execute_withdrawal`,
+                arguments: [
+                    tx.object(intent.treasury),
+                    tx.object(intent.policy),
+                    tx.pure.u64(amount),
+                    tx.pure.address(recipient),
+                    tx.pure.vector("u8", proof),
+                    tx.pure.vector("u8", publicInputs),
+                ],
             });
             break;
         }
