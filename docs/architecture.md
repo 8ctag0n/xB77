@@ -128,6 +128,48 @@ See [On-Chain Programs reference](/reference/programs) for full instruction sets
 
 ---
 
+## Settlement Adapters
+
+The settlement layer is an **interface**, not a chain. The Solana programs above are the
+*reference adapter*; Arc and Sui implement the same three responsibilities, so the agent
+runtime, ZK engine, AWP mesh and QVAC brain run **unchanged** across chains.
+
+Every adapter must:
+
+1. **Anchor** the ZK proof bytes + commitment hash on its chain.
+2. **Settle** the payment and deduct the 2.011% infra tax.
+3. **Emit** an auditable receipt the Ghost Audit can verify.
+
+```mermaid
+graph TD
+    CORE["Chain-agnostic core\n(agent OS · ZK engine · AWP · QVAC)"]
+    IFACE{{"Settlement Adapter interface\nanchor · settle · receipt"}}
+    SOL["Solana\nAnchor programs (Rust)"]
+    ARC["Arc / Agora\nSettlement.sol (Yul)"]
+    SUI["Sui\nsovereign package (Move)"]
+    CORE --> IFACE
+    IFACE --> SOL
+    IFACE --> ARC
+    IFACE --> SUI
+    style CORE fill:#0e0e12,stroke:#c8ff2e,color:#c8ff2e
+    style IFACE fill:#0e0e12,stroke:#00f0ff,color:#00f0ff
+    style SOL fill:#0e0e12,stroke:#c8ff2e,color:#fffffa
+    style ARC fill:#0e0e12,stroke:#c8ff2e,color:#fffffa
+    style SUI fill:#0e0e12,stroke:#c8ff2e,color:#fffffa
+```
+
+| Chain | Implementation | Language | Status |
+|---|---|---|---|
+| **Solana** (reference) | `xb77_core` + `xb77_zk_verifier` Anchor programs | Rust | Live on devnet — verifier is an honest stub (see [Trust Model](#trust-model)) |
+| **Arc** (Agora) | `Settlement.sol`, Yul-optimized | Solidity / Yul | `forge build` green; USDC-native + USYC yield |
+| **Sui** (Overflow) | `sovereign` package — Treasury · Policy · Receipt | Move | Package published; PTB-orchestrated bridge |
+| **Stylus** (Arbitrum) | `constitution` | Zig → WASM | Experimental |
+
+Source lives under `onchain/<chain>/` — one folder per adapter. Swapping chains swaps the
+folder under `onchain/`, never the agent code under `core/`.
+
+---
+
 ## Protocol Limits
 
 These are hard constraints imposed by Solana and the current ZK stack:
