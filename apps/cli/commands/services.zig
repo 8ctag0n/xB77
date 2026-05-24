@@ -90,7 +90,35 @@ pub fn merchant(cli: *const Cli, args: []const [:0]u8) !void {
         std.debug.print(DIM ++ "└──────────────────────────────────────────────────┘" ++ RST ++ "\n\n", .{});
     } else if (std.mem.eql(u8, sub, "setup-shop")) {
         try setupShop(cli, &ctx);
+    } else if (std.mem.eql(u8, sub, "blink")) {
+        try generateBlink(cli, &ctx);
     }
+}
+
+fn generateBlink(cli: *const Cli, ctx: *core.context.AgentContext) !void {
+    const sol_addr = try ctx.vaults.ops.address(.solana, cli.allocator);
+    defer cli.allocator.free(sol_addr);
+
+    std.debug.print("\n" ++ CYAN ++ "[" ++ WHT ++ "BLINK" ++ CYAN ++ "]" ++ RST ++ " Generando Solana Action (Blink)...\n", .{});
+
+    const json = try std.fmt.allocPrint(cli.allocator,
+        \\{{
+        \\  "icon": "https://xb77.io/assets/blink-icon.png",
+        \\  "title": "{s}",
+        \\  "description": "Purchase sovereign services via xB77 Agent Wire Protocol (AWP).",
+        \\  "label": "Pay with Agent",
+        \\  "links": {{
+        \\    "actions": [
+        \\      {{ "label": "Standard Tier", "href": "/api/v1/actions/pay?tier=std" }},
+        \\      {{ "label": "Premium Tier", "href": "/api/v1/actions/pay?tier=premium" }}
+        \\    ]
+        \\  }}
+        \\}}
+    , .{ctx.merchant.business_name});
+    defer cli.allocator.free(json);
+
+    std.debug.print("\n{s}\n\n", .{json});
+    std.debug.print(LIME ++ "[SUCCESS]" ++ RST ++ " Blink JSON generated. Distribute this URL to your users.\n", .{});
 }
 
 fn readLine(file: std.fs.File, buffer: []u8) ![]const u8 {

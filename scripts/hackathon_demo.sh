@@ -81,6 +81,8 @@ pause
 echo -e "${YELLOW}${BOLD}--- ACT 4: AUTONOMOUS SETTLEMENT ---${NC}"
 typewrite "Starting the Sovereign Engine in background..."
 touch .xb77/hack-demo/agent.log
+# Set MOCK_PROVER for the demo to ensure it works without Docker/L1 connection
+export XB77_MOCK_PROVER=1
 ./zig-out/bin/xb77 -p hack-demo serve > .xb77/hack-demo/agent.log 2>&1 &
 AGENT_PID=$!
 
@@ -96,10 +98,13 @@ echo -e "${DIM}Waiting for inbound signals...${NC}"
 sleep 2
 
 # Simulate payments
-for i in {1..3}
+AGENT_ADDR=$(./zig-out/bin/xb77 -p hack-demo status | grep "Solana:" | awk '{print $NF}')
+
+for i in {1..5}
 do
-   typewrite "${CYAN}[AWP] Inbound Payment Received (${i}/3): 50,000,000 lamports${NC}"
-   echo "{\"timestamp\":$(date +%s%3N),\"chain\":\"solana\",\"entry_type\":\"receipt\",\"description\":\"Real Blink Payment\",\"amount\":50000000,\"tx_hash\":\"zk_demo_tx_${i}\"}" >> .xb77/hack-demo/ledger.jsonl
+   typewrite "${CYAN}[AWP] Inbound Payment Received (${i}/5): 50,000,000 lamports${NC}"
+   # Use the real 'pay' command to update the Merkle Tree properly
+   ./zig-out/bin/xb77 -p hack-demo pay "$AGENT_ADDR" 50000000 > /dev/null 2>&1
    sleep 1.5
 done
 

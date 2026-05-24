@@ -142,7 +142,9 @@ pub fn printUsage() void {
         \\  credits          Muestra el balance de créditos de infraestructura
         \\  identity <sub>   Gestiona tu identidad soberana (.xb77 / .sol)
         \\  merchant <sub>   Gestiona tus servicios comerciales y Blinks
+        \\  wizard           Onboarding Interactivo: Configura tu agente paso a paso
         \\  intent <text>    QVAC: Ingiere un IDL y planea una estrategia DeFi
+
         \\  watch            Mission Control: Dashboard Cyberpunk en tiempo real
         \\  pulse            Muestra el estado en tiempo real de todas las redes
         \\  issue <text>     Emite una misión autónoma al swarm (QVAC)

@@ -17,6 +17,8 @@ const zk_cmd = @import("commands/zk.zig");
 const brain_cmd = @import("commands/brain.zig");
 const issue_cmd = @import("commands/issue.zig");
 const pulse_cmd = @import("commands/pulse.zig");
+const deploy_cmd = @import("commands/deploy.zig");
+const wizard_cmd = @import("commands/wizard.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -89,6 +91,10 @@ pub fn main() !void {
         try issue_cmd.mission(cli, cmd_args);
     } else if (std.mem.eql(u8, command, "pulse")) {
         try pulse_cmd.show(cli);
+    } else if (std.mem.eql(u8, command, "deploy")) {
+        try deploy_cmd.run(cli, cmd_args);
+    } else if (std.mem.eql(u8, command, "wizard")) {
+        try wizard_cmd.run(cli);
     } else {
         std.debug.print("Comando desconocido: {s}\n", .{command});
         flags.printUsage();
