@@ -17,6 +17,15 @@ const telemetry = @import("telemetry.zig");
 const registry_mod = @import("../commerce/registry.zig");
 const app_mod = @import("../kernel/app.zig");
 
+pub const PendingAuth = struct {
+    id: [32]u8,
+    amount: u64,
+    recipient: []const u8,
+    chain: types.Chain,
+    description: []const u8,
+    ts: i64,
+};
+
 pub const AgentContext = struct {
     allocator: std.mem.Allocator,
     config: config_mod.Config,
@@ -36,6 +45,7 @@ pub const AgentContext = struct {
     ipfs_client: @import("../mesh/ipfs.zig").IpfsClient,
     brain: @import("../intelligence/brain.zig").Brain,
     active_agents: std.StringHashMapUnmanaged(*std.process.Child),
+    pending_authorizations: std.ArrayListUnmanaged(PendingAuth),
 
     // --- Infrastructure Layer ---
     orchestrator: orchestrator.Orchestrator,
@@ -43,6 +53,14 @@ pub const AgentContext = struct {
 
     pub fn spawnAgent(self: *AgentContext, name: []const u8) !void {
         const allocator = self.allocator;
+
+        // --- Security: Sanitize name to prevent path traversal ---
+        for (name) |c| {
+            if (!std.ascii.isAlphanumeric(c) and c != '_' and c != '-') {
+                return error.InvalidAgentName;
+            }
+        }
+
         try std.fs.cwd().makePath("profiles");
         var config_buf: [256]u8 = undefined;
         const config_path = try std.fmt.bufPrint(&config_buf, "profiles/{s}.toml", .{name});
@@ -67,6 +85,32 @@ pub const AgentContext = struct {
         try child.spawn();
         const name_dupe = try allocator.dupe(u8, name);
         try self.active_agents.put(allocator, name_dupe, child);
+    }
+
+    pub fn onPendingAuth(ptr: *anyopaque, request: pay.PaymentRequest, desc: []const u8) anyerror!void {
+        const self: *AgentContext = @ptrCast(@alignCast(ptr));
+        
+        var id: [32]u8 = undefined;
+        const ts = std.time.milliTimestamp();
+        var ts_buf: [8]u8 = undefined;
+        std.mem.writeInt(i64, &ts_buf, ts, .little);
+        std.crypto.hash.sha2.Sha256.hash(&ts_buf, &id, .{});
+
+        const recipient_str = switch (request.recipient) {
+            .sol => |pk| try crypto.pubkeyToString(self.allocator, &pk),
+            .evm => |addr| try evm.addressToHex(self.allocator, addr),
+        };
+
+        try self.pending_authorizations.append(self.allocator, .{
+            .id = id,
+            .amount = request.amount,
+            .recipient = recipient_str,
+            .chain = request.asset.chain,
+            .description = try self.allocator.dupe(u8, desc),
+            .ts = ts,
+        });
+
+        std.debug.print("\n[GUARD ]  High-value transaction QUEUED for Human Approval. ID: {x}...", .{id[0..4].*});
     }
 
     pub fn init(allocator: std.mem.Allocator, config_path: []const u8, password: ?[]const u8) !AgentContext {
@@ -126,6 +170,7 @@ pub const AgentContext = struct {
             .ipfs_client = @import("../mesh/ipfs.zig").IpfsClient.init(allocator, config.ipfs.endpoint, config.ipfs.api_key),
             .brain = undefined,
             .active_agents = .{},
+            .pending_authorizations = .{},
             .orchestrator = orchestrator.Orchestrator.init(allocator),
             .telemetry = telemetry.TelemetryHub.init(allocator),
         };
@@ -162,6 +207,9 @@ pub const AgentContext = struct {
             &ctx.constitution,
             config.facilitator,
         );
+
+        ctx.router.pending_auth_ptr = &ctx;
+        ctx.router.pending_auth_fn = onPendingAuth;
 
         ctx.router.mb_session = ctx.mb_client.openSovereignSession(&ctx.vaults.ops.sol_kp) catch |err| blk: {
             if (!isQuietMode(allocator)) {
@@ -204,6 +252,11 @@ pub const AgentContext = struct {
             self.allocator.destroy(kv.value_ptr.*);
         }
         self.active_agents.deinit(self.allocator);
+        for (self.pending_authorizations.items) |p| {
+            self.allocator.free(p.recipient);
+            self.allocator.free(p.description);
+        }
+        self.pending_authorizations.deinit(self.allocator);
         _ = self.telemetry.endSession();
         self.merchant.deinit(self.allocator);
         self.mb_client.deinit();

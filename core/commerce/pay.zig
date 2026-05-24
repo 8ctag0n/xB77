@@ -43,6 +43,10 @@ pub const PaymentRouter = struct {
     facilitator: ?[]const u8,
     mb_session: ?mb_mod.MagicBlockClient.Session = null,
 
+    // --- Guardian Mode Integration ---
+    pending_auth_ptr: ?*anyopaque = null,
+    pending_auth_fn: ?*const fn (ptr: *anyopaque, request: PaymentRequest, desc: []const u8) anyerror!void = null,
+
     pub const INFRA_TAX_BPS = 2011; // 2.011%
 
     pub fn init(allocator: std.mem.Allocator, sol_client: *solana.SolanaClient, evm_client: *evm_mod.EvmClient, mb_client: *mb_mod.MagicBlockClient, vaults: *vault_mod.VaultSet, store_ptr: *@import("../protocol/store.zig").Store, constitution: *@import("../security/constitution.zig").Constitution, facilitator: ?[]const u8) PaymentRouter {
@@ -75,6 +79,16 @@ pub const PaymentRouter = struct {
         defer report.deinit();
 
         if (!report.passed) return error.RiskAuditFailed;
+
+        // --- Guardian Mode: Value Threshold Check ---
+        if (request.amount > self.constitution.guardian_threshold_lamports) {
+            if (self.pending_auth_fn) |auth_fn| {
+                if (self.pending_auth_ptr) |ptr| {
+                    try auth_fn(ptr, request, "High Value Transaction - Guardian Approval Required");
+                    return error.GuardianApprovalRequired;
+                }
+            }
+        }
 
         const strategy = self.selectStrategy(request);
         

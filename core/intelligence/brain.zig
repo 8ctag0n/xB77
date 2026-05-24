@@ -110,7 +110,7 @@ pub const Brain = struct {
     pub fn interpret(self: *Brain, directive: []const u8) !BrainInsight {
         // QVAC v2: Enhanced Heuristic Parsing with Decision Tracing
         
-        const budget: u64 = 1_000_000_000; // Default 1 SOL
+        var budget: u64 = 1_000_000_000; // Default 1 SOL
         const slippage: u16 = 100;
         var decision_trace_list = std.ArrayListUnmanaged(u8){};
         errdefer decision_trace_list.deinit(self.allocator);
@@ -118,6 +118,26 @@ pub const Brain = struct {
         const lower = try self.allocator.alloc(u8, directive.len);
         defer self.allocator.free(lower);
         for (directive, 0..) |c_val, i| lower[i] = std.ascii.toLower(c_val);
+
+        // --- Heuristic Budget Parsing ---
+        // Simple search for "X SOL" or "X USDT"
+        var it_tokens = std.mem.tokenizeAny(u8, lower, " :;,\r\n\t");
+        var last_num: ?f64 = null;
+        while (it_tokens.next()) |token| {
+            if (std.fmt.parseFloat(f64, token)) |val| {
+                last_num = val;
+            } else |_| {
+                if (last_num) |num| {
+                    if (std.mem.eql(u8, token, "sol")) {
+                        budget = @intFromFloat(num * 1_000_000_000);
+                        last_num = null;
+                    } else if (std.mem.eql(u8, token, "usdt") or std.mem.eql(u8, token, "tether")) {
+                        budget = @intFromFloat(num * 1_000_000);
+                        last_num = null;
+                    }
+                }
+            }
+        }
 
         if (std.mem.indexOf(u8, lower, "audit") != null or std.mem.indexOf(u8, lower, "auditoria") != null) {
             try decision_trace_list.writer(self.allocator).print("Mission: Audit Service Hire. ", .{});
@@ -142,7 +162,7 @@ pub const Brain = struct {
         if (self.constitution) |cons| {
             const rules = try cons.queryRules(directive);
             for (rules) |rule| {
-                try relevant_rules.append(self.allocator, rule);
+                try relevant_rules.append(self.allocator, try self.allocator.dupe(u8, rule));
                 
                 if (std.mem.indexOf(u8, rule, "block") != null or std.mem.indexOf(u8, rule, "prohibir") != null) {
                      zk_proof = "qvac_rag_rejected_by_constitution";
@@ -153,6 +173,7 @@ pub const Brain = struct {
                      try decision_trace_list.writer(self.allocator).print("APPROVED: Compliance verified. ", .{});
                 }
             }
+            for (rules) |rule| self.allocator.free(rule);
             self.allocator.free(rules);
         }
 
@@ -209,8 +230,38 @@ pub const Brain = struct {
 
     /// Evalúa si el agente debe aceptar un presupuesto recibido.
     pub fn shouldAccept(self: *Brain, quote: awp.AppQuoteMsg) bool {
-        _ = self;
-        // Simple logic for the demo: accept anything under 2.0 SOL
-        return quote.price <= 2_000_000_000;
+        var limit: u64 = 1_000_000_000; // Default 1 SOL
+
+        if (self.constitution) |cons| {
+            // RAG-Lite check for budget rules
+            for (cons.rules.items) |rule| {
+                const lower = self.allocator.alloc(u8, rule.len) catch break;
+                defer self.allocator.free(lower);
+                for (rule, 0..) |c, i| lower[i] = std.ascii.toLower(c);
+
+                if (std.mem.indexOf(u8, lower, "presupuesto") != null or std.mem.indexOf(u8, lower, "budget") != null or std.mem.indexOf(u8, lower, "permitir") != null or std.mem.indexOf(u8, lower, "allow") != null) {
+                    // Extract number
+                    var it = std.mem.tokenizeAny(u8, lower, " :;,\r\n\t");
+                    var last_num: ?f64 = null;
+                    while (it.next()) |token| {
+                        if (std.fmt.parseFloat(f64, token)) |val| {
+                            last_num = val;
+                        } else |_| {
+                            // Quick hack for demo number words
+                            if (std.mem.eql(u8, token, "dos") or std.mem.eql(u8, token, "two")) {
+                                last_num = 2.0;
+                            } else if (last_num) |num| {
+                                if (std.mem.eql(u8, token, "sol")) {
+                                    limit = @intFromFloat(num * 1_000_000_000);
+                                    last_num = null;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return quote.price <= limit;
     }
 };

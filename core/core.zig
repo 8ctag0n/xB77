@@ -11,6 +11,7 @@ pub const kernel = struct {
     pub const telemetry = @import("kernel/telemetry.zig");
     pub const reasoning = @import("kernel/reasoning.zig");
     pub const app = @import("kernel/app.zig");
+    pub const http_bridge = @import("kernel/http_bridge.zig");
 };
 
 pub const intelligence = struct {
