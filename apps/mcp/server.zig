@@ -448,6 +448,19 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 const args = params.get("arguments").?.object;
                 const agent_name = args.get("name").?.string;
 
+                // --- Security: Sanitize name to prevent path traversal ---
+                var safe = true;
+                for (agent_name) |c| {
+                    if (!std.ascii.isAlphanumeric(c) and c != '_' and c != '-') {
+                        safe = false;
+                        break;
+                    }
+                }
+                if (!safe) {
+                    try sendResponse(&stdout, "{\"error\":{\"code\":-32602,\"message\":\"Invalid agent name.\"}}");
+                    continue;
+                }
+
                 var path_buf: [512]u8 = undefined;
                 const path = try std.fmt.bufPrint(&path_buf, ".xb77/{s}/ledger.jsonl", .{agent_name});
                 

@@ -121,6 +121,11 @@ export fn handle_request(
         if (std.mem.eql(u8, req.path, "/api/v1/webhooks/telegram")) return handle_telegram(allocator, req.body);
     }
 
+    // 3. Command Bar / Natural Language Interface
+    if (std.mem.eql(u8, req.method, "POST") and std.mem.eql(u8, req.path, "/api/v1/chat/command")) {
+        return handle_chat_command(allocator, req.body);
+    }
+
     // 3. Signed Actions (POST)
     if (std.mem.eql(u8, req.method, "POST") and std.mem.startsWith(u8, req.path, "/api/v1/actions/")) {
         const action_byte = if (std.mem.eql(u8, req.path, "/api/v1/actions/register_agent")) ACTION.REGISTER_AGENT
@@ -355,21 +360,27 @@ fn handle_telegram(allocator: std.mem.Allocator, body: []const u8) *Response {
     const text = msg.text orelse return build_response(allocator, 200, "OK", false, 0);
 
     if (std.mem.startsWith(u8, text, "/start")) {
-        const code = "XB77-" ++ "MOCK"; // En prod usar random
-        const link_key = std.fmt.allocPrint(allocator, "link:{s}", .{code}) catch "err";
-        defer if (!std.mem.eql(u8, link_key, "err")) allocator.free(link_key);
-        
-        const chat_id_str = std.fmt.allocPrint(allocator, "{d}", .{msg.chat.id}) catch "0";
-        defer allocator.free(chat_id_str);
-
-        js_kv_put(link_key.ptr, link_key.len, chat_id_str.ptr, chat_id_str.len, 600); // 10 min
-
-        const resp = std.fmt.allocPrint(allocator, " Sovereign Link Initiated\n\nRun this in terminal:\nxb77 link {s}", .{code}) catch "Error";
-        defer if (!std.mem.eql(u8, resp, "Error")) allocator.free(resp);
+        const resp = "<b>xB77 Sovereign Edge Node</b>\n\nStatus: <code>ACTIVE</code>\nChain: <code>Solana Devnet</code>\n\nYour agent is live on Cloudflare. Send commands like <i>'Pay 0.1 SOL to...'</i> or <i>'Status'</i>.";
+        js_telegram_send(msg.chat.id, resp.ptr, resp.len);
+    } else if (std.mem.indexOf(u8, text, "Pay") != null or std.mem.indexOf(u8, text, "pay") != null) {
+        // Here we simulate the brain interpretation on the edge
+        const resp = "<b>[QVAC] Action Triggered</b>\n\nDirective: <code>" ++ "Processing Payment Intent" ++ "</code>\nStatus: <code>PENDING_GUARDIAN_APPROVAL</code>\n\nCheck your dashboard to sign the transaction.";
         js_telegram_send(msg.chat.id, resp.ptr, resp.len);
     }
 
     return build_response(allocator, 200, "OK", false, 0);
+}
+
+fn handle_chat_command(allocator: std.mem.Allocator, body: []const u8) *Response {
+    const payload = struct { command: []const u8 };
+    const parsed = std.json.parseFromSlice(payload, allocator, body, .{ .ignore_unknown_fields = true }) catch return build_error(allocator, 400, "bad_payload", "json");
+    defer parsed.deinit();
+
+    // Simulation of Brain + QVAC on WASM
+    const json = std.fmt.allocPrint(allocator, 
+        \\{{"ok":true,"reasoning":"Edge-Interpret active","intent_id":"int_0x777","status":"authorized"}}
+    , .{}) catch "{}";
+    return build_response(allocator, 200, json, false, 0);
 }
 
 fn handle_icon(allocator: std.mem.Allocator) *Response {

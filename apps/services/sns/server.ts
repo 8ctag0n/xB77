@@ -45,28 +45,33 @@ app.get("/resolve", async (req, res) => {
 });
 
 app.post("/register", async (req, res) => {
-    const { name, owner_key, private_key } = req.body;
-    if (!name || !private_key) return res.status(400).json({ error: "Missing name or private_key" });
+    // SECURITY FIX: Never accept private keys via HTTP.
+    // Use a server-side facilitator key or mock for the demo.
+    const { name, owner_key } = req.body;
+    if (!name) return res.status(400).json({ error: "Missing name" });
 
     try {
-        console.log(`[SNS] Registering ${name} using solana-agent-kit...`);
-        
-        // Use SolanaAgentKit to perform the heavy lifting
-        const agent = new SolanaAgentKit(
-            private_key,
-            RPC_URL,
-            process.env.OPENAI_API_KEY || "optional-key"
-        );
+        console.log(`[SNS] Registering ${name} (Frontier Facilitator Mode)...`);
 
-        // solana-agent-kit handles the complex SNS PDA derivation and instruction building
-        // For the demo, we return the transaction signature
-        // const signature = await agent.registerDomain(name);
-        
+        const facilitator_key = process.env.XB77_SNS_FACILITATOR_KEY;
+
+        if (facilitator_key) {
+            const agent = new SolanaAgentKit(
+                facilitator_key,
+                RPC_URL,
+                process.env.OPENAI_API_KEY || "optional-key"
+            );
+            // In production: await agent.registerDomain(name, owner_key);
+        }
+
+        // For the demo/hackathon, we return a successful mock response
+        // to avoid stalling the UX, while maintaining server-side security.
         res.json({ 
             ok: true, 
             tx_sig: "3xNp77v6J5m9Xy4kZ77v6J5m9Xy4kZ77v6J5m9Xy4kZ77v6J5m9Xy4kZ77v6J5m9X",
             name,
-            provider: "solana-agent-kit"
+            provider: "solana-agent-kit",
+            mode: facilitator_key ? "facilitator" : "mock"
         });
     } catch (e: any) {
         res.status(500).json({ error: "Registration failed", details: e.message });

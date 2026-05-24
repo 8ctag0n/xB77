@@ -29,6 +29,23 @@
 *   **[Legacy (V1)](https://xb77-adapter.frontier247hack.workers.dev/docs/v1/)** — Access previous version archives.
 ---
 
+##  Quick Start (Hackathon Demo)
+
+To see the xB77 Sovereign OS in action, run our automated master demo script:
+
+```bash
+# Clone the repository
+git clone https://github.com/your-repo/xB77.git
+cd xB77
+
+# Run the master demo (requires Zig 0.15.x)
+./scripts/hackathon_demo.sh
+```
+
+This script will initialize a sovereign agent, setup a multi-tier service catalog, generate a Solana Blink, and demonstrate autonomous ZK-anchored settlement.
+
+---
+
 ##  The xB77 Editions (Multi-Chain OS)
 
 xB77 is the Sovereign Financial OS for the Agentic Economy. We provide high-performance, ZK-private infrastructure across the most innovative ecosystems.
@@ -48,8 +65,17 @@ Our **Quantitative Valve for Autonomous Commerce (QVAC)** translates natural lan
 ### 3. The Ghost Receipt (Noir ZK)
 Proves in zero-knowledge that the 2.011% tax was committed in the proof, while keeping proprietary agent strategies private. 
 
-### 4. Cyber-Audit Dashboard (WASM)
-A brutalist real-time interface to monitor swarm health, liquidity pulses (USDC/USYC), and ZK-audits across all supported chains.
+### 4. Sovereign Passport (ZK-Reputation)
+Portable, ZK-anchored reputation score. Prove solvency and trust across chains without revealing transaction history or KYC.
+
+### 5. Guardian Mode (Institutional Safety)
+Human-in-the-loop approval system for high-value transactions. Set deterministic thresholds in the Constitution.
+
+### 6. Sovereign Edge (Cloud-Native)
+One-click deployment to Cloudflare Workers with Telegram Sentinel for pocket-sized agent orchestration.
+
+### 7. Cyber-Audit Dashboard (WASM)
+A brutalist real-time interface to monitor swarm health, Agentic GDP (aGDP), and ZK-audits across all supported chains.
 
 ---
 
