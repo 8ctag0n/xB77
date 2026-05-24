@@ -20,9 +20,29 @@
 
 (function () {
   const GATEWAY_DEFAULT = "https://gateway.xb77.io";
+  const LOCAL_GATEWAY = "http://127.0.0.1:8080";
   const CACHE_TTL_MS = 30_000;
   const FETCH_TIMEOUT_MS = 2_000;
   const CACHE_KEY = (k) => `xb77.ds.cache.${k}`;
+
+  let isLocalConnected = false;
+
+  // ── Probe for local agent ──────────────────────────────────────────────
+  async function probeLocal() {
+    try {
+      const r = await fetch(`${LOCAL_GATEWAY}/status`, { mode: "cors" });
+      if (r.ok) {
+        if (!isLocalConnected) console.log("%c[xB77] Sovereign Bridge Connected: Local Agent Detected", "color: #c8ff2e; font-weight: bold;");
+        isLocalConnected = true;
+      } else {
+        isLocalConnected = false;
+      }
+    } catch {
+      isLocalConnected = false;
+    }
+  }
+  setInterval(probeLocal, 5000);
+  probeLocal();
 
   // ── Frozen snapshot — last-resort static payloads ──────────────────────
   const T0 = 1715000000000;
@@ -144,6 +164,7 @@
   }
 
   function gateway() {
+    if (isLocalConnected) return LOCAL_GATEWAY;
     return (typeof window !== "undefined" && window.XB77_GATEWAY) || GATEWAY_DEFAULT;
   }
 

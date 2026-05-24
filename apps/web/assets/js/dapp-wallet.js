@@ -10,6 +10,20 @@ const _WALLET_ALLOC_PLACEHOLDER = [
   { agent: "ag_worker_03", amount: "\u2014", pct: "8%", color: D.purple },
   { agent: "Unallocated", amount: "\u2014", pct: "22%", color: D.faint }
 ];
+function ShieldedReserves() {
+  const t = THEMES.obsidian;
+  return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 24, padding: 20, background: "rgba(34,211,238,0.03)", border: `1px dashed ${D.cyan}44` } }, 
+    /* @__PURE__ */ React.createElement(DS, { size: 14, italic: true, color: D.cyan }, "Shielded Reserves (Cross-Chain Privacy)"),
+    /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 } }, [
+      { currency: "szEC", amount: "142.5", label: "Shielded Zcash (Zolana)", color: D.cyan },
+      { currency: "BTC", amount: "0.42", label: "Shielded Bitcoin Intent", color: "#f7931a" }
+    ].map((r, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { padding: 12, background: D.bg, border: `1px solid ${D.border}` } }, 
+      /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, 
+        /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 13, color: r.color, fontWeight: 700 } }, r.currency),
+        /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 13, color: D.text } }, r.amount)),
+      /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.faint, style: { marginTop: 4 } }, r.label)))));
+}
+
 function WalletView() {
   const [credits, setCredits] = React.useState(0);
   const [tier, setTier] = React.useState("unauth");
@@ -116,22 +130,29 @@ function WalletView() {
     fontSize: 10,
     fontWeight: 700,
     color: b.color
-  } }, b.currency.slice(0, 2)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 13, fontWeight: 600, color: D.text } }, b.currency), /* @__PURE__ */ React.createElement(DM, { size: 8 }, b.amount)), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 13, color: D.text } }, b.usd), b.change && b.pct && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 10, color: String(b.change).startsWith("+") ? D.green : D.red } }, b.change, " (", b.pct, ")"), b.chain && !b.change && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 9, color: D.faint } }, "on ", b.chain)))))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SectionHead, { title: "Allocation" }), /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}`, padding: 18 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", height: 8, marginBottom: 18, gap: 2 } }, allocations.map((a, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
-    flex: parseInt(a.pct),
-    background: a.color,
-    opacity: a.agent === "Unallocated" ? 0.2 : 0.7
+  } }, b.currency.slice(0, 2)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 13, fontWeight: 600, color: D.text } }, b.currency), /* @__PURE__ */ React.createElement(DM, { size: 8 }, b.amount)), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 13, color: D.text } }, b.usd), b.change && b.pct && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 10, color: String(b.change).startsWith("+") ? D.green : D.red } }, b.change, " (", b.pct, ")"), b.chain && !b.change && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 9, color: D.faint } }, "on ", b.chain)))))), 
+  /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 0 } }, 
+  /* @__PURE__ */ React.createElement(SectionHead, { title: "Allocation" }), 
+  /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}`, padding: 18 } }, 
+  /* @__PURE__ */ React.createElement("div", { style: { display: "flex", height: 8, marginBottom: 18, gap: 2 } }, allocations.map((a, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+  flex: parseInt(a.pct),
+  background: a.color,
+  opacity: a.agent === "Unallocated" ? 0.2 : 0.7
   } }))), allocations.map((a, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "8px 0",
-    borderBottom: i < allocations.length - 1 ? `1px solid ${D.border}` : "none"
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  padding: "8px 0",
+  borderBottom: i < allocations.length - 1 ? `1px solid ${D.border}` : "none"
   } }, /* @__PURE__ */ React.createElement("div", { style: { width: 8, height: 8, background: a.color, opacity: a.agent === "Unallocated" ? 0.3 : 1 } }), /* @__PURE__ */ React.createElement("span", { style: {
-    fontFamily: "var(--mono)",
-    fontSize: 11,
-    color: a.agent === "Unallocated" ? D.dim : D.text,
-    flex: 1
-  } }, a.agent), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 11, color: D.text } }, a.amount), /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.faint }, a.pct)))))), /* @__PURE__ */ React.createElement(SectionHead, { title: "Recent Transactions" }), /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "60px 1fr 100px 80px", padding: "0 16px", borderBottom: `1px solid ${D.border}`, background: D.bg3 } }, ["TIME", "DESCRIPTION", "AMOUNT", "TYPE"].map((h) => /* @__PURE__ */ React.createElement("div", { key: h, style: { padding: "8px 0" } }, /* @__PURE__ */ React.createElement(DM, { size: 7 }, h)))), recentTx.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "20px 16px", textAlign: "center", fontFamily: "var(--mono)", fontSize: 10, color: D.faint } }, agentId ? "no transactions yet" : "connect an agent to load transactions"), recentTx.map((tx, i) => /* @__PURE__ */ React.createElement(
+  fontFamily: "var(--mono)",
+  fontSize: 11,
+  color: a.agent === "Unallocated" ? D.dim : D.text,
+  flex: 1
+  } }, a.agent), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 11, color: D.text } }, a.amount), /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.faint }, a.pct)))),
+  /* @__PURE__ */ React.createElement(ShieldedReserves, null)
+  ))), /* @__PURE__ */ React.createElement(SectionHead, { title: "Recent Transactions" }), 
+ /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "60px 1fr 100px 80px", padding: "0 16px", borderBottom: `1px solid ${D.border}`, background: D.bg3 } }, ["TIME", "DESCRIPTION", "AMOUNT", "TYPE"].map((h) => /* @__PURE__ */ React.createElement("div", { key: h, style: { padding: "8px 0" } }, /* @__PURE__ */ React.createElement(DM, { size: 7 }, h)))), recentTx.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "20px 16px", textAlign: "center", fontFamily: "var(--mono)", fontSize: 10, color: D.faint } }, agentId ? "no transactions yet" : "connect an agent to load transactions"), recentTx.map((tx, i) => /* @__PURE__ */ React.createElement(
     "div",
     {
       key: i,
