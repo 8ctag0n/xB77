@@ -62,6 +62,25 @@ pub const MagicBlockSDK = struct {
     pub fn openSovereignSession(self: *MagicBlockSDK, agent_kp: *const types.Keypair) !Session {
         std.debug.print("\n[MAGIC ] ️ Initiating Sovereign Session (PER) for Agent {x}...", .{agent_kp.public[0..4]});
         
+        // Demo-Deluxe Mode: Mock session opening
+        const is_demo = blk: {
+            const env = std.process.getEnvVarOwned(self.allocator, "XB77_DEMO_MODE") catch break :blk false;
+            defer self.allocator.free(env);
+            break :blk std.mem.eql(u8, env, "1");
+        };
+
+        if (is_demo) {
+            std.debug.print("\n[MAGIC ]  {s}[DEMO-DELUXE ACTIVE]{s} Mocking PER Session...", .{ "\x1b[35;1m", "\x1b[0m" });
+            var session_id: [32]u8 = undefined;
+            std.crypto.random.bytes(&session_id);
+            return Session{
+                .id = session_id,
+                .authority = agent_kp.public,
+                .expiry = std.time.timestamp() + 86400, // 24h for demo
+                .is_active = true,
+            };
+        }
+
         // 1. Generar Session ID aleatorio
         var session_id: [32]u8 = undefined;
         std.crypto.random.bytes(&session_id);

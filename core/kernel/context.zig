@@ -212,9 +212,7 @@ pub const AgentContext = struct {
         ctx.router.pending_auth_fn = onPendingAuth;
 
         ctx.router.mb_session = ctx.mb_client.openSovereignSession(&ctx.vaults.ops.sol_kp) catch |err| blk: {
-            if (!isQuietMode(allocator)) {
-                std.debug.print("\n[MAGIC ]  ShadowWire initialization failed: {s}. Using standard rails.", .{@errorName(err)});
-            }
+            std.debug.print("\n[MAGIC ]  {s}[WARN]{s} Sovereign Session initialization failed: {s}. Operating on Standard Rails.", .{ "\x1b[33;1m", "\x1b[0m", @errorName(err) });
             break :blk null;
         };
 

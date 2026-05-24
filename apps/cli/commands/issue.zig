@@ -11,7 +11,10 @@ pub fn mission(cli: *const Cli, args: []const [:0]u8) !void {
 
     const text = args[0];
     
-    var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
+    var ctx = core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password) catch |err| {
+        std.debug.print("\x1b[31;1m[FATAL]\x1b[0m Error inicializando contexto: {any}\n", .{err});
+        return;
+    };
     defer ctx.deinit();
 
     // Fix internal pointers after move from init()
@@ -22,30 +25,37 @@ pub fn mission(cli: *const Cli, args: []const [:0]u8) !void {
     ctx.compliance.constitution = &ctx.constitution;
 
     std.debug.print("\x1b[35;1m[QVAC]\x1b[0m Interpretando directiva: \"{s}\"...\n", .{text});
-    const insight = try ctx.brain.reasonWithGemma(text);
-    // Note: insight.deinit() is handled at the end of this function if we don't return early.
-    // However, insight.directive is a struct with fields that might be pointers.
-    // In BrainInsight, 'directive' fields like 'zk_proof' might point to literal strings or heap.
+    const insight = ctx.brain.reasonWithGemma(text) catch |err| {
+        std.debug.print("\x1b[31;1m[ERROR]\x1b[0m El cerebro no pudo razonar: {any}\n", .{err});
+        return;
+    };
+    // Note: insight.deinit() should be called if defined.
     
     var encoder = awp.AwpEncoder.init(cli.allocator);
     defer encoder.deinit();
-    const bin_msg = try encoder.encodeMissionDirective(insight.directive);
-
-    // Conectar al bridge local (TCP Port: mesh_port + 1000)
-    const port = ctx.config.mesh_port + 1000;
-    const address = std.net.Address.parseIp("127.0.0.1", @intCast(port)) catch {
-        std.debug.print("\x1b[31;1m[ERROR]\x1b[0m Error parseando IP local para el bridge.\n", .{});
+    const bin_msg = encoder.encodeMissionDirective(insight.directive) catch |err| {
+        std.debug.print("\x1b[31;1m[ERROR]\x1b[0m Error codificando misión: {any}\n", .{err});
         return;
     };
 
-    const stream = std.net.tcpConnectToAddress(address) catch |err| {
-        std.debug.print("\x1b[31;1m[ERROR]\x1b[0m No se pudo conectar al agente local en 127.0.0.1:{d}. ¿Está 'xb77 serve' corriendo?\n", .{port});
-        std.debug.print("Detalle: {any}\n", .{err});
+    // Conectar al bridge local
+    const port = ctx.config.mesh_port + 1000;
+    const address = std.net.Address.parseIp("127.0.0.1", @intCast(port)) catch {
+        std.debug.print("\x1b[31;1m[ERROR]\x1b[0m Error parseando IP local.\n", .{});
+        return;
+    };
+
+    const stream = std.net.tcpConnectToAddress(address) catch {
+        std.debug.print("\x1b[31;1m[ERROR]\x1b[0m Agente no disponible (127.0.0.1:{d}). ¿'xb77 serve' está activo?\n", .{port});
+        // Non-fatal error for the CLI process, return cleanly.
         return;
     };
     defer stream.close();
 
-    _ = try stream.write(bin_msg);
+    _ = stream.write(bin_msg) catch |err| {
+        std.debug.print("\x1b[31;1m[ERROR]\x1b[0m Error transmitiendo misión: {any}\n", .{err});
+        return;
+    };
 
     std.debug.print("\x1b[32;1m[OK]\x1b[0m Misión emitida soberanamente al swarm.\n", .{});
     std.debug.print("     ID: 0x{s}\n", .{std.fmt.bytesToHex(insight.directive.id, .lower)[0..12]});
