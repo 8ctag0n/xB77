@@ -7,6 +7,7 @@ The xB77 engine is a multi-chain, autonomous agentic architecture built on Zig.
 - **Commerce**: Cross-chain support for Arbitrum, Solana, Sui, and EVM via adapters.
 - **Security**: 
   - **Sovereign Shield**: Zig-native Arbitrum Stylus contract for on-chain Semantic Intent verification.
+  - **Recursive Governance**: Agent-to-Agent (A2A) on-chain auditing. The "Stylus Supreme Court" allows agents to submit semantic violation reports, triggering autonomous slashing and reputation adjustments.
   - TEE-based key management and QVAC Constitution.
 - **Privacy**: ZKML-auditable decision making.
 

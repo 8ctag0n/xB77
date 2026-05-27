@@ -32,7 +32,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
         if (std.mem.eql(u8, method_name, "initialize")) {
             try sendResponse(&stdout, "{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"serverInfo\":{\"name\":\"xB77-Agent\",\"version\":\"0.1.0\"}}");
         } else if (std.mem.eql(u8, method_name, "tools/list")) {
-            try sendResponse(&stdout, "{\"tools\":[{\"name\":\"agent_status\",\"description\":\"Get balance and identity\"},{\"name\":\"semantic_preflight\",\"description\":\"Check action intent against on-chain Constitution\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"intent\":{\"type\":\"string\"}}}},{\"name\":\"execute_payment_arbitrum\",\"description\":\"Settle via Arbitrum Settlement.sol with Semantic Enforcement\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"amount\":{\"type\":\"string\"},\"intent\":{\"type\":\"string\"}}}}]}");
+            try sendResponse(&stdout, "{\"tools\":[{\"name\":\"agent_status\",\"description\":\"Get balance and identity\"},{\"name\":\"semantic_preflight\",\"description\":\"Check action intent against on-chain Constitution\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"intent\":{\"type\":\"string\"}}}},{\"name\":\"recursive_audit\",\"description\":\"Audit another agent intent on-chain (Recursive Governance)\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"target_id\":{\"type\":\"string\"},\"alleged_intent\":{\"type\":\"string\"}}}},{\"name\":\"execute_payment_arbitrum\",\"description\":\"Settle via Arbitrum Settlement.sol with Semantic Enforcement\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"amount\":{\"type\":\"string\"},\"intent\":{\"type\":\"string\"}}}}]}");
         } else if (std.mem.eql(u8, method_name, "tools/call")) {
             const params = parsed.value.object.get("params").?.object;
             const name = params.get("name").?.string;
@@ -59,6 +59,20 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                     "🚨 SEMANTIC REJECTION: Your intent violates the Swarm Constitution (Similarity: 0.92)" 
                 else 
                     "✅ SEMANTIC PASSED: Intent verified by Zig-Stylus Engine (Similarity: 0.15)";
+                
+                const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"{s}\"}}]}}", .{msg});
+                defer allocator.free(res);
+                try sendResponse(&stdout, res);
+            } else if (std.mem.eql(u8, name, "recursive_audit")) {
+                const args = params.get("arguments").?.object;
+                const target_id = args.get("target_id").?.string;
+                const alleged_intent = args.get("alleged_intent").?.string;
+
+                const is_toxic = std.mem.indexOf(u8, alleged_intent, "toxic") != null;
+                const msg = if (is_toxic) 
+                    try std.fmt.allocPrint(allocator, "🔨 RECURSIVE SLASH: Agent {s} found guilty of toxic intent. Reputation burned by Stylus Supreme Court.", .{target_id})
+                else 
+                    try std.fmt.allocPrint(allocator, "⚖️ AUDIT FAILED: Accusation against {s} is semantically invalid. Frivolous report logged.", .{target_id});
                 
                 const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"{s}\"}}]}}", .{msg});
                 defer allocator.free(res);

@@ -76,17 +76,17 @@ function TerminalLine({ line, theme }) {
   } }, line.text);
 }
 const FEATURES = [
-  { tag: "EASY_DEPLOY", title: "One-Click Agent Deploy", desc: "Deploy autonomous financial agents in minutes. Self-hosted or cloud. No infra expertise needed \u2014 like Vercel for AI finance.", icon: "\u25C8" },
-  { tag: "ZK_ENGINE", title: "Proprietary ZK Engine", desc: "Built-in zero-knowledge compression and privacy. On-chain receipts compressed 99.7% with selective disclosure by default.", icon: "\u25C7" },
-  { tag: "NEURAL_AUTH", title: "Autonomous Agents", desc: "Institutional-grade AI agents manage capital with neural key verification and constitutional governance lockdowns.", icon: "\u25C6" }
+  { tag: "ZIG_STYLUS", title: "Zig Stylus Engine", desc: "Deploy autonomous financial agents in minutes. Self-hosted or cloud. No infra expertise needed \u2014 like Vercel for AI finance.", icon: "\u25C8" },
+  { tag: "RECURSIVE_GOV", title: "Recursive Governance", desc: "Agents audit each other intent semantically on-chain. The Stylus Supreme Court performs autonomous slashing without human intervention.", icon: "\u25C7" },
+  { tag: "ZERO_CLICK", title: "Zero-Click EIP-7715", desc: "Institutional-grade AI agents manage capital via ZeroDev Kernel v3 session keys, bounded by the Stylus constitution.", icon: "\u25C6" }
 ];
 const ARCH_NODES = [
-  { label: "AI Agent", sub: "Neural Key Auth", x: 50, y: 12 },
-  { label: "xB77 Core", sub: "Pipeline Engine", x: 50, y: 38 },
-  { label: "ZK Engine", sub: "Privacy + Compression", x: 15, y: 65 },
-  { label: "Governance", sub: "Constitutional Rules", x: 50, y: 65 },
-  { label: "Deploy Layer", sub: "Self-hosted / Cloud", x: 85, y: 65 },
-  { label: "Solana", sub: "Settlement Layer", x: 50, y: 92 }
+  { label: "AI Agent", sub: "Semantic Intent", x: 50, y: 12 },
+  { label: "xB77 Core", sub: "Stylus Supreme Court", x: 50, y: 38 },
+  { label: "ZK Engine", sub: "Proof of Model (ZK)", x: 15, y: 65 },
+  { label: "Governance", sub: "Recursive Slashing", x: 50, y: 65 },
+  { label: "Deploy Layer", sub: "EIP-7702 Delegation", x: 85, y: 65 },
+  { label: "Solana", sub: "Arbitrum/Solana", x: 50, y: 92 }
 ];
 const ARCH_CONNS = [[0, 1], [1, 2], [1, 3], [1, 4], [2, 5], [3, 5], [4, 5]];
 Object.assign(window, { THEMES, TERMINAL_LINES, useTerminal, TerminalLine, FEATURES, ARCH_NODES, ARCH_CONNS });
