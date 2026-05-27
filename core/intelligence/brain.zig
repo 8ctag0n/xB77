@@ -3,6 +3,8 @@ const core = @import("../core.zig");
 const types = core.types;
 const awp = core.awp;
 const const_mod = @import("../security/constitution.zig");
+const semantic = @import("../security/semantic.zig");
+const Semantic = semantic.Semantic;
 
 /// Rich intelligence insight for the "Thought Graph" bridge.
 pub const BrainInsight = struct {
@@ -98,6 +100,31 @@ pub const Brain = struct {
 
     pub fn deinit(self: *Brain) void {
         _ = self;
+    }
+
+    /// Generates a deterministic Intent Vector from a string.
+    /// In a real scenario, this would call a local embedding model (e.g. BERT/Gemma).
+    /// For the hackathon, we use a structured hash projection to ensure consistent 
+    /// fixed-point vectors that Stylus can verify.
+    pub fn generateIntentVector(self: *Brain, text: []const u8) Semantic.FixedVector {
+        _ = self;
+        var vector: Semantic.FixedVector = undefined;
+        var hasher = std.crypto.hash.sha2.Sha256.init(.{});
+        hasher.update(text);
+        
+        // Project the hash into DIMENSIONS space
+        for (0..Semantic.DIMENSIONS) |i| {
+            var round_hasher = hasher;
+            var i_buf: [4]u8 = undefined;
+            std.mem.writeInt(u32, &i_buf, @intCast(i), .big);
+            round_hasher.update(&i_buf);
+            const result = round_hasher.finalResult();
+            
+            // Map the first 4 bytes of the hash to an i32 in [-SCALE, SCALE]
+            const val = std.mem.readInt(i32, result[0..4], .big);
+            vector[i] = @divTrunc(val, 1_000_000); // Scale down to reasonable range
+        }
+        return vector;
     }
 
     /// Entry point for AI reasoning. Switches between LLM (Gemma) and heuristics.

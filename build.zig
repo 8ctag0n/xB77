@@ -139,6 +139,29 @@ pub fn build(b: *std.Build) void {
     const wasm_step = b.step("wasm", "Build the Gateway WASM binary for Cloudflare Workers");
     wasm_step.dependOn(&install_wasm.step);
 
+    // --- Arbitrum Stylus (Zig Native Contract) ---
+    const stylus_wasm = b.addExecutable(.{
+        .name = "constitution",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("onchain/stylus/main.zig"),
+            .target = b.resolveTargetQuery(.{
+                .cpu_arch = .wasm32,
+                .os_tag = .freestanding,
+            }),
+            .optimize = .ReleaseSmall,
+            .strip = true,
+        }),
+    });
+    stylus_wasm.root_module.addImport("core", core_module);
+    stylus_wasm.entry = .disabled;
+    stylus_wasm.rdynamic = true;
+
+    const install_stylus = b.addInstallArtifact(stylus_wasm, .{
+        .dest_dir = .{ .override = .{ .custom = "bin" } },
+    });
+    const stylus_step = b.step("stylus", "Build the Zig-native Arbitrum Stylus contract");
+    stylus_step.dependOn(&install_stylus.step);
+
     // --- SDK Core WASM (xb77_core.wasm) ---
     // Stateless SDK surface compiled to wasm32-wasi. Wrappers (TS/Py/Rust)
     // polyfill the small set of WASI imports actually used. See
@@ -548,6 +571,38 @@ pub fn build(b: *std.Build) void {
     agora_arc_unit_tests.root_module.addImport("core", core_module);
     const run_agora_arc_unit_tests = b.addRunArtifact(agora_arc_unit_tests);
 
+    const semantic_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/semantic_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    semantic_unit_tests.root_module.addImport("core", core_module);
+    const run_semantic_unit_tests = b.addRunArtifact(semantic_unit_tests);
+
+    const e2e_intelligence_exe = b.addExecutable(.{
+        .name = "e2e-intelligence",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/e2e_intelligence.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    e2e_intelligence_exe.root_module.addImport("core", core_module);
+    b.installArtifact(e2e_intelligence_exe);
+
+    const local_arb_test_exe = b.addExecutable(.{
+        .name = "local_arb_test",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/local_arbitrum_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    local_arb_test_exe.root_module.addImport("core", core_module);
+    b.installArtifact(local_arb_test_exe);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);
     test_step.dependOn(&run_tx_unit_tests.step);
@@ -567,4 +622,5 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_negotiation_unit_tests.step);
     test_step.dependOn(&run_onchain_unit_tests.step);
     test_step.dependOn(&run_agora_arc_unit_tests.step);
+    test_step.dependOn(&run_semantic_unit_tests.step);
 }

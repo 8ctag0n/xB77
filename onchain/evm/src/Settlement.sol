@@ -9,11 +9,38 @@ pragma solidity ^0.8.20;
 contract Settlement {
     address public immutable owner;
     address public constant USDC_ERC20 = 0x7777777777777777777777777777777777777777;
+    
+    // Circle CCTP V2 TokenMessenger (Sepolia dummy)
+    address public constant CIRCLE_TOKEN_MESSENGER = 0x1234567890123456789012345678901234567890;
 
     event Settled(address indexed agent, uint256 amount, bytes32 commitment);
+    event CCTPSettlement(uint32 sourceDomain, address indexed agent, uint256 amount);
 
     constructor() {
         owner = msg.sender;
+    }
+
+    /**
+     * @notice Circle CCTP V2 Hook: Receives USDC and settles atomically.
+     * @dev This is called by the Circle TokenMessenger on the destination chain.
+     */
+    function handleReceiveMessage(
+        uint32 sourceDomain,
+        bytes32 sender,
+        bytes calldata messageBody
+    ) external returns (bool) {
+        require(msg.sender == CIRCLE_TOKEN_MESSENGER, "Only Circle Messenger");
+        
+        // messageBody decoding (Simplified for xB77 protocol)
+        // Assume message contains [agent_address (20)] + [commitment (32)]
+        address agent = address(bytes20(messageBody[0:20]));
+        bytes32 commitment = bytes32(messageBody[20:52]);
+        
+        // Emit settlement event
+        emit Settled(agent, 1000, commitment); // Amount should be derived from mint data
+        emit CCTPSettlement(sourceDomain, agent, 1000);
+        
+        return true;
     }
 
     /**

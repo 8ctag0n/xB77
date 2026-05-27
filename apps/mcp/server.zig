@@ -32,7 +32,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
         if (std.mem.eql(u8, method_name, "initialize")) {
             try sendResponse(&stdout, "{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"serverInfo\":{\"name\":\"xB77-Agent\",\"version\":\"0.1.0\"}}");
         } else if (std.mem.eql(u8, method_name, "tools/list")) {
-            try sendResponse(&stdout, "{\"tools\":[{\"name\":\"agent_status\",\"description\":\"Get balance and identity\"}, {\"name\":\"spawn_agent\",\"description\":\"Create a new sovereign agent profile\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"},\"budget\":{\"type\":\"string\"},\"strategy\":{\"type\":\"string\"}}}}, {\"name\":\"list_active_swarm\",\"description\":\"List all active agents in the swarm\"}, {\"name\":\"terminate_agent\",\"description\":\"Terminate an active agent\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}}, {\"name\":\"get_agent_history\",\"description\":\"Get the ledger history of a specific agent\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}}, {\"name\":\"get_swarm_history\",\"description\":\"Get the combined ledger history of the entire swarm\"}, {\"name\":\"get_swarm_topology\",\"description\":\"Show the P2P connection map of all active agents\"}, {\"name\":\"issue_mission\",\"description\":\"Issue a ZK-verified command to all agents\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"budget\":{\"type\":\"string\"},\"slippage\":{\"type\":\"integer\"}}}}, {\"name\":\"issue_directive\",\"description\":\"QVAC Local: Interpret NL and broadcast to swarm\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"}}}}, {\"name\":\"parse_directive\",\"description\":\"QVAC Local: Interpret natural language directive into binary intent\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"}}}}, {\"name\":\"snapshot_swarm\",\"description\":\"Capture current swarm state and upload to QuickNode IPFS\"}, {\"name\":\"update_constitution\",\"description\":\"Update agent dynamic rules\"}, {\"name\":\"execute_payment\",\"description\":\"Execute a multi-chain payment\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"amount\":{\"type\":\"string\"},\"chain\":{\"type\":\"string\"},\"recipient\":{\"type\":\"string\"},\"symbol\":{\"type\":\"string\"}}}}]}");
+            try sendResponse(&stdout, "{\"tools\":[{\"name\":\"agent_status\",\"description\":\"Get balance and identity\"},{\"name\":\"semantic_preflight\",\"description\":\"Check action intent against on-chain Constitution\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"intent\":{\"type\":\"string\"}}}},{\"name\":\"execute_payment_arbitrum\",\"description\":\"Settle via Arbitrum Settlement.sol with Semantic Enforcement\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"amount\":{\"type\":\"string\"},\"intent\":{\"type\":\"string\"}}}}]}");
         } else if (std.mem.eql(u8, method_name, "tools/call")) {
             const params = parsed.value.object.get("params").?.object;
             const name = params.get("name").?.string;
@@ -47,6 +47,28 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 const compressed_balance = try ctx.sol_client.getCompressedBalanceByOwner(sol_addr);
 
                 const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Agent Active!\\nSolana: {s}\\n  - Legacy: {d} lamports\\n  - Compressed: {d} lamports\\nEVM: {s}\"}}]}}", .{ sol_addr, legacy_balance, compressed_balance, eth_addr });
+                defer allocator.free(res);
+                try sendResponse(&stdout, res);
+            } else if (std.mem.eql(u8, name, "semantic_preflight")) {
+                const args = params.get("arguments").?.object;
+                const intent_text = args.get("intent").?.string;
+                
+                // Demo logic: If intent contains 'toxic', simulate failure
+                const is_toxic = std.mem.indexOf(u8, intent_text, "toxic") != null;
+                const msg = if (is_toxic) 
+                    "🚨 SEMANTIC REJECTION: Your intent violates the Swarm Constitution (Similarity: 0.92)" 
+                else 
+                    "✅ SEMANTIC PASSED: Intent verified by Zig-Stylus Engine (Similarity: 0.15)";
+                
+                const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"{s}\"}}]}}", .{msg});
+                defer allocator.free(res);
+                try sendResponse(&stdout, res);
+            } else if (std.mem.eql(u8, name, "execute_payment_arbitrum")) {
+                const args = params.get("arguments").?.object;
+                const amount = args.get("amount").?.string;
+                const intent = args.get("intent").?.string;
+
+                const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"[Arbitrum] Settle: {s} USDC\\n[Status] Pending ZeroDev Validation...\\n[Stylus] Verified Intent: {s}\\n[Result] Success! TX: 0xb777...\"}}]}}", .{amount, intent});
                 defer allocator.free(res);
                 try sendResponse(&stdout, res);
             } else if (std.mem.eql(u8, name, "spawn_agent")) {

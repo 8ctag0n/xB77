@@ -34,6 +34,7 @@ pub const security = struct {
     pub const identity = @import("security/identity.zig");
     pub const shield = @import("security/shield.zig");
     pub const crypto = @import("security/crypto.zig");
+    pub const semantic = @import("security/semantic.zig");
 };
 
 pub const protocol = struct {
@@ -67,6 +68,7 @@ pub const chain = struct {
     pub const magicblock = @import("chain/magicblock.zig");
     pub const zk_uploader = @import("chain/zk_uploader.zig");
     pub const arc_adapter = @import("chain/arc_adapter.zig");
+    pub const arbitrum_adapter = @import("chain/arbitrum_adapter.zig");
     pub const sui_adapter = @import("chain/sui_adapter.zig");
 };
 
