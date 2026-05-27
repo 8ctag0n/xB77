@@ -68,11 +68,9 @@
   ].join("\n");
 
   const LINES = [
-    "[BOOT]  LOADING ZIG_KERNEL v2.0.11...",
-    "[AUTH]  NEURAL_KEY VERIFIED (0x77...)",
-    "[EDGE]  CONNECTED TO CLOUDFLARE_BOS",
-    "[STRAT] INJECTING QVAC_CONSTITUTION",
-    "[READY] WELCOME TO THE MACHINE ECONOMY",
+    "[BOOT]  sovereign layer",
+    "[AUTH]  zk identity verified",
+    "[READY]",
   ];
 
   function runSequence() {

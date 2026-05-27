@@ -62,28 +62,22 @@ function Particle({ x1, y1, x2, y2, color, duration, delay }) {
     }
   ));
 }
-function MeshViz({ events, isSwarm }) {
+function MeshViz({ events }) {
   const [hoveredNode, setHoveredNode] = React.useState(null);
   const [particles, setParticles] = React.useState([]);
   const particleId = React.useRef(0);
-
-  const activeEdges = isSwarm ? MESH_EDGES : MESH_EDGES.slice(0, 8);
-
   React.useEffect(() => {
     if (events.length === 0) return;
-    
-    const count = isSwarm ? 3 : 1;
-    for(let k=0; k<count; k++) {
-      const edge = activeEdges[Math.floor(Math.random() * activeEdges.length)];
-      const n1 = MESH_NODES.find((n) => n.id === edge[0]);
-      const n2 = MESH_NODES.find((n) => n.id === edge[1]);
-      if (n1 && n2) {
-        const id = particleId.current++;
-        const color = n1.color;
-        setParticles((prev) => [...prev.slice(-20), { id, x1: n1.x, y1: n1.y, x2: n2.x, y2: n2.y, color }]);
-      }
+    const ev = events[0];
+    const edge = MESH_EDGES[Math.floor(Math.random() * MESH_EDGES.length)];
+    const n1 = MESH_NODES.find((n) => n.id === edge[0]);
+    const n2 = MESH_NODES.find((n) => n.id === edge[1]);
+    if (n1 && n2) {
+      const id = particleId.current++;
+      const color = n1.color;
+      setParticles((prev) => [...prev.slice(-8), { id, x1: n1.x, y1: n1.y, x2: n2.x, y2: n2.y, color }]);
     }
-  }, [events.length, isSwarm]);
+  }, [events.length]);
   const nodeMap = {};
   MESH_NODES.forEach((n) => {
     nodeMap[n.id] = n;
@@ -216,91 +210,10 @@ function MeshViz({ events, isSwarm }) {
     } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } }, /* @__PURE__ */ React.createElement(Dot, { color: node.status === "online" || node.status === "active" ? D.green : D.amber }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 10, fontWeight: 600, color: D.text } }, node.label)), /* @__PURE__ */ React.createElement(DM, { size: 7, color: node.color }, node.type), isAgent && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, display: "flex", gap: 12 } }, /* @__PURE__ */ React.createElement(DM, { size: 7 }, "12 txns"), /* @__PURE__ */ React.createElement(DM, { size: 7, color: D.green }, "+$201")));
   })());
 }
-function TelegramSentinel() {
-  const [messages, setMessages] = React.useState([
-    { from: "agent", text: "Sovereign Edge Node Active. Standing by.", time: "14:20" }
-  ]);
-  const [input, setInput] = React.useState("");
-
-  const handleSend = () => {
-    if (!input) return;
-    setMessages(prev => [...prev, { from: "owner", text: input, time: "Now" }]);
-    const cmd = input.toLowerCase();
-    setInput("");
-
-    setTimeout(() => {
-      let reply = "Processing natural language directive...";
-      if (cmd.includes("status")) reply = "aGDP: $5,120 | Health: 100% | 4 Cloud Workers Online.";
-      if (cmd.includes("pay")) reply = "[QVAC] Intent Captured. Guardian Approval Required for large amount.";
-      setMessages(prev => [...prev, { from: "agent", text: reply, time: "Now" }]);
-    }, 1000);
-  };
-
-  return /* @__PURE__ */ React.createElement("div", { style: { 
-    position: "absolute", bottom: 20, right: 20, width: 280, height: 350, 
-    background: D.bg2, border: `1px solid ${D.border}`, display: "flex", flexDirection: "column",
-    boxShadow: "0 10px 40px rgba(0,0,0,0.5)", zIndex: 100
-  } }, 
-    /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 14px", borderBottom: `1px solid ${D.border}`, display: "flex", alignItems: "center", gap: 8, background: "rgba(0,136,204,0.1)" } }, 
-       /* @__PURE__ */ React.createElement("span", { style: { fontSize: 14 } }, "\u{1F4F1}"),
-       /* @__PURE__ */ React.createElement(DM, { size: 9, color: "#0088cc", bold: true }, "TELEGRAM_SENTINEL_v2")),
-    /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 10 } }, 
-      messages.map((m, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
-        alignSelf: m.from === "owner" ? "flex-end" : "flex-start",
-        background: m.from === "owner" ? "#0088cc22" : D.bg,
-        border: `1px solid ${m.from === "owner" ? "#0088cc44" : D.border}`,
-        padding: "8px 10px", borderRadius: 4, maxWidth: "85%"
-      } }, 
-        /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: D.text } }, m.text),
-        /* @__PURE__ */ React.createElement("div", { style: { fontSize: 7, color: D.dim, textAlign: "right", marginTop: 4 } }, m.time)))),
-    /* @__PURE__ */ React.createElement("div", { style: { padding: 10, borderTop: `1px solid ${D.border}`, display: "flex", gap: 8 } }, 
-       /* @__PURE__ */ React.createElement("input", { 
-         value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && handleSend(),
-         placeholder: "Ask agent...", style: { flex: 1, background: D.bg, border: "none", color: D.text, fontSize: 10, outline: "none" } }),
-       /* @__PURE__ */ React.createElement("button", { onClick: handleSend, style: { background: "none", border: "none", color: "#0088cc", cursor: "pointer", fontSize: 12 } }, "\u27A4"))
-  );
-}
-
 function DashboardView() {
   const [events, setEvents] = React.useState([]);
-  const [localData, setLocalData] = React.useState(null);
-  const t = THEMES.obsidian;
-
-  const isSwarm = localData && localData.agentsOnline > 3;
-
-  React.useEffect(() => {
-    const fetchLocal = async () => {
-      try {
-        const r = await fetch("http://127.0.0.1:8080/status", { mode: "cors" });
-        if (r.ok) {
-          const j = await r.json();
-          setLocalData(j);
-          
-          // If GDP increased, trigger a visual "Pulse" event in the mesh
-          if (localData && j.agentic_gdp > localData.agentic_gdp) {
-             const now = new Date();
-             const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-             setEvents(prev => [{
-               id: Date.now(),
-               icon: "\u{1F4B0}",
-               text: `[AWP] New Payment Settled: ${(j.agentic_gdp - localData.agentic_gdp) / 1e6} USDC`,
-               color: D.green,
-               time
-             }, ...prev].slice(0, 30));
-          }
-        }
-      } catch (e) {
-        setLocalData(null);
-      }
-    };
-    fetchLocal();
-    const id = setInterval(fetchLocal, 4000);
-    return () => clearInterval(id);
-  }, [localData?.agentic_gdp]);
-
   React.useEffect(() => {
     const pool = [
-      // ... mock events ...
       { icon: "\u{1F916}", text: "cfo-alpha executed swap: 240 USDC \u2192 SOL", color: D.text },
       { icon: "\u{1F512}", text: "pipe_sw_001 shielded 3 transactions", color: D.dim },
       { icon: "\u{1F4E6}", text: "Caf\xE9 Sovereign: order from ag_worker_03", color: D.cyan },
@@ -327,26 +240,22 @@ function DashboardView() {
     return () => clearInterval(id);
   }, []);
   const sparkTxns = [3, 5, 4, 7, 6, 8, 5, 9, 11, 8, 12, 10, 14, 11, 13, 15, 12, 14, 16, 14];
-  return /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 } }, 
-    /* @__PURE__ */ React.createElement(TelegramSentinel, null),
-    /* @__PURE__ */ React.createElement("div", { style: {
+  return /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", minHeight: 0 } }, /* @__PURE__ */ React.createElement("div", { style: {
     display: "grid",
-    gridTemplateColumns: "repeat(6, 1fr)",
+    gridTemplateColumns: "repeat(5, 1fr)",
     gap: 0,
     borderBottom: `1px solid ${D.border}`,
     flexShrink: 0
   } }, [
-    { label: "TREASURY", value: localData ? `$${(localData.agentic_gdp / 1e6).toFixed(2)}` : "$24,847", change: "+$2,103" },
-    { label: "AGENTIC GDP", value: localData ? (localData.agentic_gdp / 1e6).toFixed(1) : "5.1", sub: "USDC SETTLED", color: t.accent },
-    { label: "LOCAL NODES", value: "1", sub: "SOVEREIGN KERNEL" },
-    { label: "CLOUD WORKERS", value: localData ? String(localData.cloudWorkers) : "4", sub: "LIVE @ FLY.IO", color: D.purple },
+    { label: "TREASURY", value: "$24,847", change: "+$2,103" },
+    { label: "AGENTS", value: "5 / 5", sub: "SWARM ONLINE" },
     { label: "PIPELINES", value: "3", sub: "2 active, 1 paused" },
-    { label: "TXNS TODAY", value: localData ? String(localData.ledger_index) : "47", change: "+12" }
+    { label: "TXNS TODAY", value: "47", change: "+12" },
+    { label: "VOLUME 24H", value: "$5,120", change: "+34%" }
   ].map((s, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
     padding: "14px 18px",
-    borderRight: i < 5 ? `1px solid ${D.border}` : "none",
-    background: s.color ? `${s.color}05` : "transparent"
-  } }, /* @__PURE__ */ React.createElement(DM, { size: 7, color: s.color || D.faint }, s.label), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--serif)", fontSize: 22, color: s.color || D.text, marginTop: 4, fontStyle: "italic" } }, s.value), s.change && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 9, color: s.change.startsWith("+") ? D.green : D.red, marginTop: 2 } }, s.change), s.sub && /* @__PURE__ */ React.createElement(DM, { size: 7, color: s.color || D.green, style: { marginTop: 2 } }, s.sub)))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "grid", gridTemplateColumns: "1fr 300px", minHeight: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
+    borderRight: i < 4 ? `1px solid ${D.border}` : "none"
+  } }, /* @__PURE__ */ React.createElement(DM, { size: 7 }, s.label), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--serif)", fontSize: 22, color: D.text, marginTop: 4, fontStyle: "italic" } }, s.value), s.change && /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 9, color: s.change.startsWith("+") ? D.green : D.red, marginTop: 2 } }, s.change), s.sub && /* @__PURE__ */ React.createElement(DM, { size: 7, color: D.green, style: { marginTop: 2 } }, s.sub)))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "grid", gridTemplateColumns: "1fr 300px", minHeight: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
     position: "absolute",
     inset: 0,
     pointerEvents: "none",
@@ -360,7 +269,7 @@ function DashboardView() {
     padding: 20,
     userSelect: "none",
     zIndex: 0
-  } }, Array(20).fill("MESH AGENT PIPELINE ZK_ENGINE ZK_ENGINE ZK PRIVACY SOVEREIGN AUTONOMOUS SWARM TREASURY ").join("")), /* @__PURE__ */ React.createElement(MeshViz, { events, isSwarm })), /* @__PURE__ */ React.createElement("div", { style: { borderLeft: `1px solid ${D.border}`, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "12px 16px", borderBottom: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement(DM, { size: 7 }, "TRANSACTIONS 7D"), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(Spark, { data: sparkTxns, color: D.accent, height: 28 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 16px 4px", display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(Dot, { color: D.green, pulse: true }), /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.text }, "LIVE FEED")), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto", padding: "0 16px" } }, events.map((ev, i) => /* @__PURE__ */ React.createElement(EventLine, { key: ev.id, idx: i, time: ev.time, icon: ev.icon, text: ev.text, color: ev.color, isNew: true }))))));
+  } }, Array(20).fill("MESH AGENT PIPELINE ZK_ENGINE ZK_ENGINE ZK PRIVACY SOVEREIGN AUTONOMOUS SWARM TREASURY ").join("")), /* @__PURE__ */ React.createElement(MeshViz, { events })), /* @__PURE__ */ React.createElement("div", { style: { borderLeft: `1px solid ${D.border}`, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "12px 16px", borderBottom: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement(DM, { size: 7 }, "TRANSACTIONS 7D"), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(Spark, { data: sparkTxns, color: D.accent, height: 28 }))), /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 16px 4px", display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(Dot, { color: D.green, pulse: true }), /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.text }, "LIVE FEED")), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto", padding: "0 16px" } }, events.map((ev, i) => /* @__PURE__ */ React.createElement(EventLine, { key: ev.id, idx: i, time: ev.time, icon: ev.icon, text: ev.text, color: ev.color, isNew: true }))))));
 }
 function MeshTab() {
   return /* @__PURE__ */ React.createElement("div", { style: {

@@ -8,51 +8,6 @@ const INNER_NAV_LINKS = [
   { label: "Network", href: "/app.html#network" },
   { label: "Changelog", href: "/index.html#changelog" }
 ];
-function SovereignStatus() {
-  const [isLocal, setIsLocal] = React.useState(false);
-  const [pending, setPending] = React.useState(0);
-  const t = THEMES.obsidian;
-
-  React.useEffect(() => {
-    const check = () => {
-      fetch("http://127.0.0.1:8080/status", { mode: "cors" })
-        .then(async r => {
-          const ok = r.ok;
-          setIsLocal(ok);
-          if (ok) {
-            const j = await r.json();
-            setPending(j.pending_approvals || 0);
-          }
-        })
-        .catch(() => {
-          setIsLocal(false);
-          setPending(0);
-        });
-    };
-    check();
-    const id = setInterval(check, 5000);
-    return () => clearInterval(id);
-  }, []);
-
-  if (!isLocal) return /* @__PURE__ */ React.createElement("div", { style: {
-    fontFamily: "var(--mono)", fontSize: 9, color: t.textDim, opacity: 0.6,
-    display: "flex", alignItems: "center", gap: 6, letterSpacing: "0.05em"
-  } }, /* @__PURE__ */ React.createElement("div", { style: { width: 6, height: 6, borderRadius: "50%", background: "#fbbf24" } }), "CLOUD_GATEWAY");
-
-  return /* @__PURE__ */ React.createElement("div", { style: {
-    fontFamily: "var(--mono)", fontSize: 9, color: t.accent, fontWeight: 600,
-    display: "flex", alignItems: "center", gap: 8, letterSpacing: "0.05em",
-    textShadow: `0 0 10px ${t.accent}40`
-  } }, 
-    /* @__PURE__ */ React.createElement("div", { className: "xb-pulse-dot", style: { width: 6, height: 6, borderRadius: "50%", background: t.accent } }), 
-    "SOVEREIGN_BRIDGE_CONNECTED",
-    pending > 0 && /* @__PURE__ */ React.createElement("div", { style: {
-      background: "#ef4444", color: "white", padding: "1px 6px", borderRadius: "10px", fontSize: "8px", fontWeight: "bold",
-      boxShadow: "0 0 10px rgba(239, 68, 68, 0.5)"
-    } }, pending, " ACTION")
-  );
-}
-
 function InnerNav({ active }) {
   const t = THEMES.obsidian;
   return /* @__PURE__ */ React.createElement("nav", { style: {
@@ -99,7 +54,7 @@ function InnerNav({ active }) {
       }
     },
     l.label
-  )))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 24 } }, /* @__PURE__ */ React.createElement(SovereignStatus, null), /* @__PURE__ */ React.createElement("a", { href: "/app.html", style: {
+  )))), /* @__PURE__ */ React.createElement("a", { href: "/app.html", style: {
     fontFamily: "var(--mono)",
     fontSize: 11,
     color: t.bg,
@@ -111,7 +66,7 @@ function InnerNav({ active }) {
     fontWeight: 600,
     textTransform: "uppercase",
     textDecoration: "none"
-  } }, "Launch App")));
+  } }, "Launch App"));
 }
 function PageFooter() {
   const t = THEMES.obsidian;

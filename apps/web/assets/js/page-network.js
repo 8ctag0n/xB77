@@ -566,49 +566,6 @@ function RecentPipelinesSection() {
     } }, running ? "running" : p.verdict || p.status)), /* @__PURE__ */ React.createElement("div", { style: { color: D.text } }, fmtDur(p.duration)), /* @__PURE__ */ React.createElement("div", { style: { color: D.dim, textAlign: "right" } }, fmtAge(p.startedAt)));
   }), pipelines.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { padding: "24px 18px", fontFamily: "var(--mono)", fontSize: 11, color: D.dim } }, "waiting for pipelines\u2026")));
 }
-function SovereignPulseSection() {
-  const [pulse, setPulse] = React.useState(null);
-  const [tps, setTps] = React.useState(142);
-  const t = THEMES.obsidian;
-
-  React.useEffect(() => {
-    const fetchPulse = async () => {
-      try {
-        const r = await fetch("http://127.0.0.1:8080/status", { mode: "cors" });
-        if (r.ok) setPulse(await r.json());
-      } catch (e) {}
-    };
-    fetchPulse();
-    const id = setInterval(() => {
-      fetchPulse();
-      setTps(Math.floor(140 + Math.random() * 15));
-    }, 3000);
-    return () => clearInterval(id);
-  }, []);
-
-  if (!pulse) return null;
-
-  return /* @__PURE__ */ React.createElement("section", { style: { padding: "40px 0", borderBottom: `1px solid ${D.border}` } }, 
-    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 32 } }, 
-      /* @__PURE__ */ React.createElement("div", null, 
-        /* @__PURE__ */ React.createElement(DM, { size: 10, color: t.accent }, "LOCAL_SOVEREIGN_BRIDGE"),
-        /* @__PURE__ */ React.createElement(DS, { size: 32, italic: true, style: { marginTop: 8 } }, "Agent Swarm Health")),
-      /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, 
-        /* @__PURE__ */ React.createElement(DM, { size: 9, color: D.dim }, "CURRENT_NETWORK_TPS"),
-        /* @__PURE__ */ React.createElement("div", { style: { fontSize: 24, fontFamily: "var(--mono)", color: t.accent } }, tps))),
-    
-    /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24 } }, [
-      { label: "AGENTS_ONLINE", value: String(pulse.agentsOnline), sub: "SWARM_ACTIVE" },
-      { label: "LOCAL_aGDP_24H", value: `$${(pulse.agentic_gdp / 1e6).toFixed(2)}`, sub: "USDC_SETTLED" },
-      { label: "ZK_PROVING_VELOCITY", value: "2.4s", sub: "AVG_LATENCY", color: t.accent },
-      { label: "CMT_ROOT_ANCHOR", value: pulse.merkle_root.slice(0, 8), sub: "L1_VERIFIED" }
-    ].map((s, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { padding: "20px", background: D.bg2, border: `1px solid ${D.border}` } }, 
-      /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.faint }, s.label),
-      /* @__PURE__ */ React.createElement("div", { style: { fontSize: 24, fontFamily: "var(--serif)", fontStyle: "italic", margin: "10px 0", color: s.color || D.text } }, s.value),
-      /* @__PURE__ */ React.createElement(Badge, { small: true }, s.sub))))
-  );
-}
-
 function NetworkPage() {
   return /* @__PURE__ */ React.createElement("div", { style: { background: D.bg, minHeight: "100vh", color: D.text } }, /* @__PURE__ */ React.createElement("style", null, `
         @keyframes chunkPulse {
@@ -622,7 +579,7 @@ function NetworkPage() {
     maxWidth: 640,
     marginTop: 12,
     lineHeight: 1.6
-  } }, "Real-time view of the xB77 zk-pipeline network. Slot, block height, agent fleet, audit portal, and the live pipeline feed.")), /* @__PURE__ */ React.createElement(SovereignPulseSection, null), /* @__PURE__ */ React.createElement(ArcPulseSection, null), /* @__PURE__ */ React.createElement(SuiPulseSection, null), /* @__PURE__ */ React.createElement(NetworkPulseSection, null), /* @__PURE__ */ React.createElement(GhostAuditSection, null), /* @__PURE__ */ React.createElement(AgentFleetSection, null), /* @__PURE__ */ React.createElement(RecentPipelinesSection, null)), window.DocsDeepDive && /* @__PURE__ */ React.createElement(
+  } }, "Real-time view of the xB77 zk-pipeline network. Slot, block height, agent fleet, audit portal, and the live pipeline feed.")), /* @__PURE__ */ React.createElement(ArcPulseSection, null), /* @__PURE__ */ React.createElement(SuiPulseSection, null), /* @__PURE__ */ React.createElement(NetworkPulseSection, null), /* @__PURE__ */ React.createElement(GhostAuditSection, null), /* @__PURE__ */ React.createElement(AgentFleetSection, null), /* @__PURE__ */ React.createElement(RecentPipelinesSection, null)), window.DocsDeepDive && /* @__PURE__ */ React.createElement(
     DocsDeepDive,
     {
       kicker: "// FULL DATA-INFRA REFERENCE",

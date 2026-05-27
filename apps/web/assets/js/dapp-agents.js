@@ -92,137 +92,11 @@ function _nextChildColor() {
   const palette = [D.cyan, D.purple, D.green, D.amber, D.accent];
   return palette[_CHILD_COLORS.length++ % palette.length];
 }
-function SovereignPassport({ agent }) {
-  const [exporting, setExporting] = React.useState(false);
-  const [proof, setProof] = React.useState(null);
-  const [count, setCount] = React.useState(0);
-  const t = THEMES.obsidian;
-
-  React.useEffect(() => {
-    let start = 0;
-    const end = 98;
-    const duration = 2000;
-    const timer = setInterval(() => {
-      start += 2;
-      if (start > end) {
-        setCount(end);
-        clearInterval(timer);
-      } else {
-        setCount(start);
-      }
-    }, duration / (end / 2));
-    return () => clearInterval(timer);
-  }, []);
-
-  const handleExport = () => {
-    setExporting(true);
-    // Simulation of Noir Reputation Circuit proving
-    setTimeout(() => {
-      const mockProof = {
-        identity: agent.id,
-        reputation_score: 98,
-        attestations: [
-          "VOLUME_TIER_PROVED: >$1M (Private)",
-          "DEFAULT_RATE: 0.00%",
-          "AGE_PROVED: >6 Months"
-        ],
-        zk_proof: "noir_plonk_reputation_v1_0x" + _agRandHex(32),
-        anchor_chain: "Solana",
-        destination_chains: ["Base", "Sui", "Ethereum"]
-      };
-      setProof(mockProof);
-      setExporting(false);
-    }, 2500);
-  };
-
-  return /* @__PURE__ */ React.createElement("div", { style: {
-    background: "rgba(0,240,255,0.03)",
-    border: `1px solid ${D.cyan}33`,
-    padding: "20px",
-    marginTop: 24,
-    borderRadius: 4,
-    boxShadow: `0 8px 24px rgba(0,0,0,0.2)`
-  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 16 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 20 } }, "\u{1F39F}"), /* @__PURE__ */ React.createElement(DS, { size: 16, italic: true }, "Sovereign Passport (ZK-Reputation)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 24, alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", width: 80, height: 80 } }, /* @__PURE__ */ React.createElement("svg", { width: 80, height: 80, viewBox: "0 0 100 100" }, /* @__PURE__ */ React.createElement("circle", { cx: 50, cy: 50, r: 45, fill: "none", stroke: D.border, strokeWidth: 5 }), /* @__PURE__ */ React.createElement("circle", { cx: 50, cy: 50, r: 45, fill: "none", stroke: D.cyan, strokeWidth: 5, strokeDasharray: "282", strokeDashoffset: (282 - (282 * count) / 100).toString(), style: { transform: "rotate(-90deg)", transformOrigin: "center", transition: "stroke-dashoffset 0.05s linear" } })), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--mono)", fontSize: 18, fontWeight: 700, color: D.cyan, textShadow: `0 0 8px ${D.cyan}40` } }, count)), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, ["VOLUME_TIER: HIGH", "DEFAULT_RATE: 0.00%", "COMPLIANCE: VERIFIED"].map((txt, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { fontFamily: "var(--mono)", fontSize: 9, color: D.text, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("span", { style: { color: D.cyan } }, "\u2713"), txt)))), /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true, onClick: handleExport, disabled: exporting || !!proof }, exporting ? "\u2026PROVING" : proof ? "EXPORTED" : "GENERATE_PASSPORT")), proof && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 16, padding: 12, background: D.bg, border: `1px dashed ${D.cyan}44`, animation: "fadeIn 0.4s ease" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 9, color: D.cyan, marginBottom: 8 } }, "REPUTATION_PROOF_READY"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 8, color: D.faint, wordBreak: "break-all", marginBottom: 12 } }, JSON.stringify(proof)), /* @__PURE__ */ React.createElement("p", { style: { fontFamily: "var(--sans)", fontSize: 10, color: D.textDim, lineHeight: 1.4 } }, "This ZK-Proof can be submitted to xB77 verifiers on other chains to instantly unlock credit lines without reveals.")));
-}
-
-function CloudDeployer({ agent, onComplete }) {
-  const [stage, setStage] = React.useState(0);
-  const [logs, setLogs] = React.useState([]);
-  const t = THEMES.obsidian;
-
-  const runDeploy = () => {
-    setStage(1);
-    const sequence = [
-      { msg: "Initiating Hybrid Cloud Handshake...", delay: 500 },
-      { msg: "Generating Delegated Session Key (MagicBlock PER)...", delay: 1200 },
-      { msg: "Encrypting Agent Constitution Payload...", delay: 1800 },
-      { msg: "Provisioning Micro-VM (Fly.io @ bos)...", delay: 2500 },
-      { msg: "Syncing Air-Gapped Vault (Encrypted Tunnel)...", delay: 3500 },
-      { msg: "[CLOUD] Agent '"+agent.name+"' is now LIVE & SOVEREIGN.", delay: 4500 }
-    ];
-
-    sequence.forEach((step, i) => {
-      setTimeout(() => {
-        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${step.msg}`]);
-        if (i === sequence.length - 1) {
-           setTimeout(() => {
-             setStage(2);
-             if (onComplete) onComplete();
-           }, 1000);
-        }
-      }, step.delay);
-    });
-  };
-
-  if (stage === 0) {
-    return /* @__PURE__ */ React.createElement("div", { style: { 
-      marginTop: 20, padding: 20, background: "rgba(167,139,250,0.05)", border: `1px solid ${D.purple}33` 
-    } }, 
-      /* @__PURE__ */ React.createElement(DS, { size: 14, italic: true }, "Sovereign Cloud Provisioning"),
-      /* @__PURE__ */ React.createElement("p", { style: { fontFamily: "var(--mono)", fontSize: 10, color: D.faint, margin: "10px 0 20px" } }, "Deploy this agent to a 24/7 cloud worker while keeping master keys local."),
-      
-      /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 20, padding: "12px", background: "rgba(0,136,204,0.05)", border: "1px solid rgba(0,136,204,0.2)" } }, 
-        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, 
-          /* @__PURE__ */ React.createElement("input", { type: "checkbox", defaultChecked: true, style: { cursor: "pointer" } }),
-          /* @__PURE__ */ React.createElement(DM, { size: 9, color: "#0088cc" }, "Enable Telegram Sentinel (Premium)")
-        ),
-        /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: D.dim, marginTop: 4, marginLeft: 22 } }, "Control your agent via mobile chat while you sleep.")
-      ),
-
-      /* @__PURE__ */ React.createElement(DBtn, { primary: true, onClick: runDeploy }, "SEND_TO_CLOUD \u2601\uFE0F")
-    );
-  }
-
-  return /* @__PURE__ */ React.createElement("div", { style: { 
-    marginTop: 20, padding: 20, background: D.bg2, border: `1px solid ${D.purple}`, boxShadow: `0 0 20px ${D.purple}20` 
-  } }, 
-    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 16 } }, 
-      /* @__PURE__ */ React.createElement("div", { className: "xb-pulse-dot", style: { width: 8, height: 8, background: D.purple, borderRadius: "50%" } }),
-      /* @__PURE__ */ React.createElement(DM, { size: 10, color: D.purple }, stage === 1 ? "PROVISIONING_IN_PROGRESS" : "CLOUD_DEPLOYMENT_ACTIVE")),
-    /* @__PURE__ */ React.createElement("div", { style: { 
-      height: 120, overflowY: "auto", background: D.bg, padding: 12, border: `1px solid ${D.border}`, fontFamily: "var(--mono)", fontSize: 9, color: D.dim 
-    } }, logs.map((l, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { marginBottom: 4, color: i === logs.length - 1 ? D.purple : D.dim } }, l))),
-    stage === 2 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12, display: "flex", alignItems: "center", gap: 8 } }, 
-      /* @__PURE__ */ React.createElement(Badge, { color: D.purple, bg: `${D.purple}22` }, "FLY.IO_BOS"),
-      /* @__PURE__ */ React.createElement(Badge, { color: D.green, bg: `${D.green}22` }, "TUNNEL_STABLE"),
-      /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.dim }, "Uptime: 24/7 Enabled"))
-  );
-}
-
 function AgentsView({ onNavigate }) {
   const [selected, setSelected] = React.useState(null);
   const [agents, setAgents] = React.useState(AGENTS_SEED);
   const [deploying, setDeploying] = React.useState(false);
   const [deployError, setDeployError] = React.useState(null);
-  const [cloudStatus, setCloudStatus] = React.useState({});
-
-  const Stagger = window.Stagger;
-  const FadeIn = window.FadeIn;
-  
-  const handleCloudComplete = (id) => {
-    setCloudStatus(prev => ({ ...prev, [id]: true }));
-    setAgents(prev => prev.map(a => a.id === id ? { ...a, status: "online (cloud)", color: D.purple } : a));
-  };
   async function handleDeployChild() {
     if (deploying) return;
     setDeploying(true);
@@ -255,36 +129,14 @@ function AgentsView({ onNavigate }) {
     }
   }
   const sel = agents.find((a) => a.id === selected);
-  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flex: 1, minHeight: 0 } }, 
-    /* @__PURE__ */ React.createElement(FadeIn, { style: { width: 360, borderRight: `1px solid ${D.border}`, display: "flex", flexDirection: "column" } }, 
-      /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 20px", borderBottom: `1px solid ${D.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" } }, 
-        /* @__PURE__ */ React.createElement(DS, { size: 20, italic: true }, "Agents"), 
-        /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true, onClick: handleDeployChild, disabled: deploying }, deploying ? "\u2026DEPLOYING" : "+ NEW AGENT")
-      ), 
-      deployError && /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 20px", background: `${D.red}18`, borderBottom: `1px solid ${D.border}`, fontFamily: "var(--mono)", fontSize: 10, color: D.red } }, "register_agent: ", deployError), 
-      /* @__PURE__ */ React.createElement("div", { style: { padding: "12px 20px", borderBottom: `1px solid ${D.border}`, background: D.bg2 } }, 
-        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, 
-          /* @__PURE__ */ React.createElement("span", { style: { fontSize: 14, color: D.accent } }, "\u2B21"), 
-          /* @__PURE__ */ React.createElement(DM, { size: 9, color: D.accent }, "SWARM sw_0x9c4f"), 
-          /* @__PURE__ */ React.createElement(Badge, null, "5 AGENTS")
-        ), 
-        /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 10, color: D.dim, marginTop: 6 } }, "Inter-agent comms: ENCRYPTED \u2014 All online")
-      ), 
-      /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto" } }, 
-        /* @__PURE__ */ React.createElement(Stagger, { interval: 40 }, agents.map((ag) => /* @__PURE__ */ React.createElement("div", { key: ag.id, onClick: () => setSelected(ag.id), style: {
-          padding: "14px 20px",
-          borderBottom: `1px solid ${D.border}`,
-          background: selected === ag.id ? D.bg3 : "transparent",
-          borderLeft: `2px solid ${selected === ag.id ? ag.color : "transparent"}`,
-          cursor: "pointer",
-          transition: "all 0.28s ease"
-        } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement(Dot, { color: ag.status === "online" ? D.green : D.amber, pulse: ag.status === "online" }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600, color: D.text } }, ag.name), /* @__PURE__ */ React.createElement(Badge, { color: ag.color, bg: `${ag.color}18` }, ag.type)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16 } }, /* @__PURE__ */ React.createElement(DM, { size: 8 }, ag.txns, " txns"), /* @__PURE__ */ React.createElement(DM, { size: 8, color: ag.pnl.startsWith("+") ? D.green : ag.pnl.startsWith("-") ? D.red : D.dim }, ag.pnl), /* @__PURE__ */ React.createElement(DM, { size: 8 }, ag.balance))))))
-    ), 
-    /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto" } }, 
-      !sel ? /* @__PURE__ */ React.createElement(FadeIn, { delay: 0.2, style: { display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: D.faint } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 40, marginBottom: 12 } }, "\u2B21"), /* @__PURE__ */ React.createElement(DM, { size: 10 }, "Select an agent to view details"))) : 
-      /* @__PURE__ */ React.createElement(FadeIn, { key: sel.id, style: { padding: 24 } }, 
-        // ... rest of detail view ...
- /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } }, /* @__PURE__ */ React.createElement(Dot, { color: sel.status === "online" ? D.green : D.amber, pulse: sel.status === "online" }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 18, fontWeight: 700, color: D.text } }, sel.name), /* @__PURE__ */ React.createElement(Badge, { color: sel.color, bg: `${sel.color}18` }, sel.type)), /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.dim }, sel.id)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement(DBtn, { small: true }, "PAUSE"), /* @__PURE__ */ React.createElement(DBtn, { small: true }, "EDIT RULES"), /* @__PURE__ */ React.createElement(DBtn, { small: true, danger: true }, "KILL"))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 24 } }, /* @__PURE__ */ React.createElement(StatBox, { label: "BALANCE", value: sel.balance }), /* @__PURE__ */ React.createElement(StatBox, { label: "PNL TODAY", value: sel.pnl, color: sel.pnl.startsWith("+") ? D.green : D.red }), /* @__PURE__ */ React.createElement(StatBox, { label: "TXNS TODAY", value: String(sel.txns) }), /* @__PURE__ */ React.createElement(StatBox, { label: "UPTIME", value: sel.uptime, color: D.green })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 } }, /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}`, padding: 18 } }, /* @__PURE__ */ React.createElement(DM, { size: 8, color: sel.color, style: { marginBottom: 12, display: "block" } }, "CONFIGURATION"), [
+  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flex: 1, minHeight: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 360, borderRight: `1px solid ${D.border}`, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 20px", borderBottom: `1px solid ${D.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement(DS, { size: 20, italic: true }, "Agents"), /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true, onClick: handleDeployChild, disabled: deploying }, deploying ? "\u2026DEPLOYING" : "+ NEW AGENT")), deployError && /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 20px", background: `${D.red}18`, borderBottom: `1px solid ${D.border}`, fontFamily: "var(--mono)", fontSize: 10, color: D.red } }, "register_agent: ", deployError), /* @__PURE__ */ React.createElement("div", { style: { padding: "12px 20px", borderBottom: `1px solid ${D.border}`, background: D.bg2 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 14, color: D.accent } }, "\u2B21"), /* @__PURE__ */ React.createElement(DM, { size: 9, color: D.accent }, "SWARM sw_0x9c4f"), /* @__PURE__ */ React.createElement(Badge, null, "5 AGENTS")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--mono)", fontSize: 10, color: D.dim, marginTop: 6 } }, "Inter-agent comms: ENCRYPTED \u2014 All online")), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto" } }, agents.map((ag) => /* @__PURE__ */ React.createElement("div", { key: ag.id, onClick: () => setSelected(ag.id), style: {
+    padding: "14px 20px",
+    borderBottom: `1px solid ${D.border}`,
+    background: selected === ag.id ? D.bg3 : "transparent",
+    borderLeft: `2px solid ${selected === ag.id ? ag.color : "transparent"}`,
+    cursor: "pointer",
+    transition: "all 0.28s ease"
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React.createElement(Dot, { color: ag.status === "online" ? D.green : D.amber, pulse: ag.status === "online" }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600, color: D.text } }, ag.name), /* @__PURE__ */ React.createElement(Badge, { color: ag.color, bg: `${ag.color}18` }, ag.type)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 16 } }, /* @__PURE__ */ React.createElement(DM, { size: 8 }, ag.txns, " txns"), /* @__PURE__ */ React.createElement(DM, { size: 8, color: ag.pnl.startsWith("+") ? D.green : ag.pnl.startsWith("-") ? D.red : D.dim }, ag.pnl), /* @__PURE__ */ React.createElement(DM, { size: 8 }, ag.balance)))))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, overflowY: "auto" } }, !sel ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: D.faint } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 40, marginBottom: 12 } }, "\u2B21"), /* @__PURE__ */ React.createElement(DM, { size: 10 }, "Select an agent to view details"))) : /* @__PURE__ */ React.createElement("div", { style: { padding: 24 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } }, /* @__PURE__ */ React.createElement(Dot, { color: sel.status === "online" ? D.green : D.amber, pulse: sel.status === "online" }), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 18, fontWeight: 700, color: D.text } }, sel.name), /* @__PURE__ */ React.createElement(Badge, { color: sel.color, bg: `${sel.color}18` }, sel.type)), /* @__PURE__ */ React.createElement(DM, { size: 8, color: D.dim }, sel.id)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement(DBtn, { small: true }, "PAUSE"), /* @__PURE__ */ React.createElement(DBtn, { small: true }, "EDIT RULES"), /* @__PURE__ */ React.createElement(DBtn, { small: true, danger: true }, "KILL"))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 24 } }, /* @__PURE__ */ React.createElement(StatBox, { label: "BALANCE", value: sel.balance }), /* @__PURE__ */ React.createElement(StatBox, { label: "PNL TODAY", value: sel.pnl, color: sel.pnl.startsWith("+") ? D.green : D.red }), /* @__PURE__ */ React.createElement(StatBox, { label: "TXNS TODAY", value: String(sel.txns) }), /* @__PURE__ */ React.createElement(StatBox, { label: "UPTIME", value: sel.uptime, color: D.green })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 } }, /* @__PURE__ */ React.createElement("div", { style: { background: D.bg2, border: `1px solid ${D.border}`, padding: 18 } }, /* @__PURE__ */ React.createElement(DM, { size: 8, color: sel.color, style: { marginBottom: 12, display: "block" } }, "CONFIGURATION"), [
     { k: "RISK", v: sel.risk },
     { k: "GOVERNANCE", v: sel.governance },
     { k: "HUMAN OVERRIDE", v: sel.humanOverride || "N/A" },
@@ -327,10 +179,7 @@ function AgentsView({ onNavigate }) {
     { c: D.dim, t: `[${new Date(Date.now() - 9e5).toLocaleTimeString()}] neural_key_auth verified` },
     { c: D.accent, t: `[${new Date(Date.now() - 12e5).toLocaleTimeString()}] pipeline connected: ${sel.pipeline}` },
     { c: D.dim, t: `[${new Date(Date.now() - 15e5).toLocaleTimeString()}] agent initialized` }
-  ].map((l, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { color: l.c } }, l.t))))),
-  /* @__PURE__ */ React.createElement(SovereignPassport, { agent: sel }),
-  /* @__PURE__ */ React.createElement(CloudDeployer, { agent: sel, onComplete: () => handleCloudComplete(sel.id) })
-))));
+  ].map((l, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { color: l.c } }, l.t)))))));
 }
 function AgentsTab() {
   return /* @__PURE__ */ React.createElement("div", { style: {

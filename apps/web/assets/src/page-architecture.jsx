@@ -23,9 +23,9 @@ function ArchPage() {
       ],
     },
     {
-      id: 'privacy', label: 'Privacy Layer', color: '#ff6688',
+      id: 'privacy', label: 'Security & Privacy', color: '#ff6688',
       nodes: [
-        { name: 'ZK Privacy Engine', desc: 'xB77\'s proprietary ZK layer. Shields transactions, compresses state, generates Ghost Receipts — no third-party dependencies.', x: 20, y: 50 },
+        { name: 'Semantic Shield', desc: 'Arbitrum Stylus contract written in Zig. Performs vector cosine similarity on-chain to enforce agent intent.', x: 20, y: 50 },
         { name: 'Deploy Manager', desc: 'One-click agent provisioning. Self-hosted or cloud. Handles key management, config, and pipeline orchestration.', x: 50, y: 50 },
         { name: 'Noir ZK Prover', desc: 'Ghost Receipt generation. Proves transaction validity without revealing strategy, amounts, or counterparties.', x: 80, y: 50 },
       ],
@@ -33,28 +33,28 @@ function ArchPage() {
     {
       id: 'settlement', label: 'Settlement Layer', color: '#ffaa44',
       nodes: [
-        { name: 'Solana L1', desc: 'Final settlement. Agave 2.0 runtime. ZK-compressed state transitions verified on-chain.', x: 25, y: 50 },
-        { name: 'xB77 ZK Engine', desc: 'Proprietary ZK compression. On-chain storage reduced by 99.7% via recursive proof aggregation.', x: 50, y: 50 },
-        { name: 'MagicBlock', desc: 'Turbo Rail — zero-latency ephemeral rollups for high-frequency agent transactions.', x: 75, y: 50 },
+        { name: 'Arbitrum Stylus', desc: 'Primary smart contract environment. Zero-click execution via ZeroDev Kernel v3.', x: 25, y: 50 },
+        { name: 'Multi-Chain Hooks', desc: 'Circle CCTP V2 integration for atomic cross-chain settlement across Solana, Sui, and EVM.', x: 50, y: 50 },
+        { name: 'Robinhood Chain', desc: 'Institutional RWA settlement. High-performance Orbit chain.', x: 75, y: 50 },
       ],
     },
   ];
 
   const dataFlows = [
-    { label: 'Agent → Pipeline', from: 'Sovereign Intent', desc: 'Agent identifies a payment need and submits to the Pipeline Engine via AWP negotiation.' },
-    { label: 'Pipeline → ZK Engine', from: 'Privacy Routing', desc: 'Pipeline routes through xB77\'s proprietary ZK layer. Transaction shielded, strategy remains opaque.' },
-    { label: 'ZK Engine → Noir', from: 'Ghost Receipt', desc: 'Transaction executes. Noir generates a ZK proof (Ghost Receipt) — math-verified, strategy-opaque.' },
-    { label: 'Noir → Solana', from: 'Settlement + Tax', desc: 'Proof anchored on Solana L1. Smart contract deducts 2.011% Infra Tax → Sovereign Credits pool.' },
-    { label: 'Solana → Compress', from: 'Compressed Storage', desc: 'Receipt compressed via xB77 ZK Engine. 10K transactions → 1 ZK proof, 32 bytes on-chain.' },
+    { label: 'Agent → Pipeline', from: 'Sovereign Intent', desc: 'Agent generates a deterministic 128-dim Intent Vector from natural language.' },
+    { label: 'Pipeline → Stylus', from: 'Semantic Check', desc: 'Vector sent to Arbitrum Stylus. Zig-native engine calculates cosine similarity against blocked concepts.' },
+    { label: 'Stylus → ZeroDev', from: 'Execution', desc: 'If similarity < 80%, ZeroDev Kernel v3 executes gaslessly via EIP-7715 session keys.' },
+    { label: 'ZeroDev → Settlement', from: 'Multi-Chain', desc: 'Transaction settles on Arbitrum or bridges via CCTP to Solana/Sui/Robinhood.' },
+    { label: 'Settlement → Identity', from: 'Reputation', desc: 'Success/Failure updates the agent\'s ERC-8004 reputation score.' },
   ];
 
   const techSpecs = [
-    { label: 'Runtime', value: 'Zig (Z-Node Core)', detail: 'Native compiled, no VM overhead. ~4μs state transitions.' },
-    { label: 'ZK Backend', value: 'Noir + Barretenberg', detail: 'ACIR circuit compilation. ~200ms proof generation per transaction.' },
-    { label: 'L1 Settlement', value: 'Solana Agave 2.0', detail: 'Parallel transaction execution. 400ms block times.' },
-    { label: 'Compression', value: 'xB77 ZK Engine', detail: 'Proprietary ZK compression. 99.7% storage reduction.' },
-    { label: 'Fast Lane', value: 'MagicBlock Turbo', detail: 'Ephemeral rollups. Sub-100ms finality for HFT agents.' },
-    { label: 'Deploy', value: 'Self-hosted / Cloud', detail: 'One-click provisioning. Like Vercel for AI finance.' },
+    { label: 'Runtime', value: 'Zig (Z-Node Core)', desc: 'Native compiled, no VM overhead. ~4μs state transitions.' },
+    { label: 'Smart Contracts', value: 'Arbitrum Stylus (Zig)', desc: 'Semantic Vector Engine compiled to WASM. 100x cheaper than EVM.' },
+    { label: 'Execution', value: 'ZeroDev Kernel v3', desc: 'EIP-7715 Session Keys + Account Abstraction.' },
+    { label: 'ZK Backend', value: 'Noir (UltraHonk)', desc: 'ACIR circuit compilation. Proof of Model Execution.' },
+    { label: 'Settlement', value: 'Multi-Chain', desc: 'Arbitrum, Robinhood Chain, Solana, Arc, Sui.' },
+    { label: 'Deploy', value: 'Self-hosted / Cloud', desc: 'One-click provisioning. Like Vercel for AI finance.' },
   ];
 
   return (
@@ -74,7 +74,7 @@ function ArchPage() {
           fontFamily: 'var(--sans)', fontSize: 17, color: t.textDim, lineHeight: 1.7,
           maxWidth: 560,
         }}>
-          Four layers of sovereign financial infrastructure — from autonomous agents to ZK-compressed, pluggable settlement (Solana · Arc · Sui).
+          Four layers of sovereign financial infrastructure — from autonomous agents to ZK-compressed, pluggable settlement (Arbitrum · Solana · Arc · Sui).
         </p>
       </section>
 
