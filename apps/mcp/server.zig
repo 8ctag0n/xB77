@@ -68,7 +68,19 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 const amount = args.get("amount").?.string;
                 const intent = args.get("intent").?.string;
 
-                const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"[Arbitrum] Settle: {s} USDC\\n[Status] Pending ZeroDev Validation...\\n[Stylus] Verified Intent: {s}\\n[Result] Success! TX: 0xb777...\"}}]}}", .{amount, intent});
+                // --- Real-world Execution via Bun + ZeroDev SDK ---
+                const argv = &[_][]const u8{ "bun", "sdk/ts/src/execute_semantic_tx.ts", intent, amount };
+                var child = std.process.Child.init(argv, allocator);
+                child.stdout_behavior = .Pipe;
+                child.stderr_behavior = .Pipe;
+                
+                try child.spawn();
+                
+                const out_buf = try child.stdout.?.readAllAlloc(allocator, 1024 * 16);
+                defer allocator.free(out_buf);
+                _ = try child.wait();
+
+                const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"{s}\"}}]}}", .{out_buf});
                 defer allocator.free(res);
                 try sendResponse(&stdout, res);
             } else if (std.mem.eql(u8, name, "spawn_agent")) {
