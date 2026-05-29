@@ -1,0 +1,125 @@
+{
+  "section": "04_status",
+  "title": "Trident Status",
+  "subtitle": "SNS . Brain . MagicBlock \u2014 all sovereign",
+  "ts_start": "2026-05-29T10:37:37Z",
+  "duration_ms": 449,
+  "exit_code": 0,
+  "lines": [
+    {
+      "stream": "stdout",
+      "t_ms": 0,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 60,
+      "text": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0",
+      "ansi": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 120,
+      "text": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent 83d05ce3...",
+      "ansi": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent 83d05ce3..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 180,
+      "text": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session ac1dccc7...",
+      "ansi": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session ac1dccc7..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 240,
+      "text": "[SOLANA]  Tx failed: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32002,\"message\":\"Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.\",\"data\":{\"accounts\":null,\"err\":\"AccountNotFound\",\"fee\":null,\"innerInstructions\":null,\"loadedAccountsDataSize\":0,\"loadedAddresses\":null,\"logs\":[],\"postBalances\":null,\"postTokenBalances\":null,\"preBalances\":null,\"preTokenBalances\":null,\"replacementBlockhash\":null,\"returnData\":null,\"unitsConsumed\":0}},\"id\":1}",
+      "ansi": "[SOLANA]  Tx failed: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32002,\"message\":\"Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.\",\"data\":{\"accounts\":null,\"err\":\"AccountNotFound\",\"fee\":null,\"innerInstructions\":null,\"loadedAccountsDataSize\":0,\"loadedAddresses\":null,\"logs\":[],\"postBalances\":null,\"postTokenBalances\":null,\"preBalances\":null,\"preTokenBalances\":null,\"replacementBlockhash\":null,\"returnData\":null,\"unitsConsumed\":0}},\"id\":1}"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 300,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 360,
+      "text": "[MAGIC ]  [WARN] Sovereign Session initialization failed: InvalidResponse. Operating on Standard Rails.",
+      "ansi": "[MAGIC ]  \u001b[33;1m[WARN]\u001b[0m Sovereign Session initialization failed: InvalidResponse. Operating on Standard Rails."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 420,
+      "text": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510",
+      "ansi": "\u001b[1;30m\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 480,
+      "text": "\u2502  xB77_AGENT_V2 // megademo                   \u2502",
+      "ansi": "\u001b[1;30m\u2502\u001b[0m  \u001b[1;33mxB77_AGENT_V2\u001b[0m // \u001b[1;37mmegademo                   \u001b[0m\u001b[1;30m\u2502\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 540,
+      "text": "\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524",
+      "ansi": "\u001b[1;30m\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 600,
+      "text": "\u2502 ID: Anonymous_Sovereign_Agent          \u2502",
+      "ansi": "\u001b[1;30m\u2502\u001b[0m \u001b[1;36mID:\u001b[0m \u001b[1;30mAnonymous_Sovereign_Agent          \u001b[0m\u001b[1;30m\u2502\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 660,
+      "text": "\u2502 CEREBRO: Gemma_3 (LIVE)  \u2502",
+      "ansi": "\u001b[1;30m\u2502\u001b[0m \u001b[1;36mCEREBRO:\u001b[0m \u001b[1;37mGemma_3\u001b[0m \u001b[1;32m(LIVE)\u001b[0m  \u001b[1;30m\u2502\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 720,
+      "text": "\u2502 RED: MagicBlock (ACTIVE) \u2502",
+      "ansi": "\u001b[1;30m\u2502\u001b[0m \u001b[1;36mRED:\u001b[0m \u001b[1;37mMagicBlock\u001b[0m \u001b[1;32m(ACTIVE)\u001b[0m \u001b[1;30m\u2502\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 780,
+      "text": "\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524",
+      "ansi": "\u001b[1;30m\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 840,
+      "text": "\u2502 L1_SOL: 9sYgmG2THktbSWn31LKjsPKRkzUURTgC6PTdXRqc8zKt\u2502",
+      "ansi": "\u001b[1;30m\u2502\u001b[0m \u001b[1;30mL1_SOL:\u001b[0m \u001b[1;37m9sYgmG2THktbSWn31LKjsPKRkzUURTgC6PTdXRqc8zKt\u001b[0m\u001b[1;30m\u2502\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 900,
+      "text": "\u2502 L2_BASE: 0x8e6076d7781d12de1cce3caf129a6869f9a43568\u2502",
+      "ansi": "\u001b[1;30m\u2502\u001b[0m \u001b[1;30mL2_BASE:\u001b[0m \u001b[1;37m0x8e6076d7781d12de1cce3caf129a6869f9a43568\u001b[0m\u001b[1;30m\u2502\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 960,
+      "text": "\u2502 ZK_ROOT: 0x0ce8... (0 txs)                 \u2502",
+      "ansi": "\u001b[1;30m\u2502\u001b[0m \u001b[1;30mZK_ROOT:\u001b[0m \u001b[1;32m0x0ce8...\u001b[0m (\u001b[1;37m0 txs\u001b[0m)                 \u001b[1;30m\u2502\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1020,
+      "text": "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518",
+      "ansi": "\u001b[1;30m\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1080,
+      "text": "   \u25cf STATUS: SOVEREIGN_COMPUTING_ACTIVE",
+      "ansi": "   \u001b[1;32m\u25cf\u001b[0m STATUS: \u001b[1;37mSOVEREIGN_COMPUTING_ACTIVE\u001b[0m"
+    }
+  ],
+  "extracted": {}
+}

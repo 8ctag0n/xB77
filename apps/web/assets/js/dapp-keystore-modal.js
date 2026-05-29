@@ -4,7 +4,12 @@ function KeystoreModal() {
   const [step, setStep] = _ksHooks.useState("choose");
   const [password, setPassword] = _ksHooks.useState("");
   const [confirmPw, setConfirmPw] = _ksHooks.useState("");
-  const [intent, setIntent] = _ksHooks.useState("merchant");
+  const [intent, setIntent] = _ksHooks.useState("USDC Yield Optimizer");
+  const STRATEGIES = [
+    { id: "yield", label: "USDC Yield Optimizer", desc: "Auto-allocates to Kamino/Jito for max risk-adjusted APY." },
+    { id: "payments", label: "Private Merchant Settler", desc: "Handles atomic B2B settlements with ZK-privacy." },
+    { id: "liquidity", label: "Cross-chain Rebalancer", desc: "Balances treasury between Solana and Sui automatically." }
+  ];
   const [importBlob, setImportBlob] = _ksHooks.useState("");
   const [error, setError] = _ksHooks.useState(null);
   const [result, setResult] = _ksHooks.useState(null);
@@ -34,6 +39,7 @@ function KeystoreModal() {
     setStep("working");
     setError(null);
     try {
+      localStorage.setItem("xb77_last_intent", intent);
       window.XB77Actions.keystore.saveSealedBlob(sealedBlob);
       const data = await window.XB77Actions.registerAgent(pubkey, intent);
       try {
@@ -78,6 +84,15 @@ function KeystoreModal() {
     const r = new FileReader();
     r.onload = () => setImportBlob(String(r.result || "").trim());
     r.readAsText(f);
+  }
+  function handleDownload() {
+    const blob = window.XB77Actions.keystore.getSealedBlob();
+    if (!blob) return;
+    const file = new Blob([blob], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(file);
+    a.download = `xb77-keystore-${result?.agent_id || "backup"}.json`;
+    a.click();
   }
   if (!open) return null;
   const overlay = {
@@ -150,7 +165,22 @@ function KeystoreModal() {
   } }, "Generate new"), /* @__PURE__ */ React.createElement("button", { style: btn(false), onClick: () => {
     setError(null);
     setStep("import");
-  } }, "Import existing")), /* @__PURE__ */ React.createElement("p", { style: { fontSize: 9, color: "var(--text-soft)", marginTop: 18, opacity: 0.7 } }, "wire 1.1 \xB7 Ed25519 via Web Crypto \xB7 AES-GCM at rest")), step === "generate" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: label }, "Intent"), /* @__PURE__ */ React.createElement("select", { value: intent, onChange: (e) => setIntent(e.target.value), style: input }, /* @__PURE__ */ React.createElement("option", { value: "merchant" }, "merchant"), /* @__PURE__ */ React.createElement("option", { value: "treasury" }, "treasury"), /* @__PURE__ */ React.createElement("option", { value: "trader" }, "trader"), /* @__PURE__ */ React.createElement("option", { value: "indexer" }, "indexer")), /* @__PURE__ */ React.createElement("label", { style: label }, "Password"), /* @__PURE__ */ React.createElement("input", { type: "password", value: password, onChange: (e) => setPassword(e.target.value), style: input, autoFocus: true }), /* @__PURE__ */ React.createElement("label", { style: label }, "Confirm"), /* @__PURE__ */ React.createElement("input", { type: "password", value: confirmPw, onChange: (e) => setConfirmPw(e.target.value), style: input }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { style: btn(false), onClick: () => setStep("choose") }, "\u2190 Back"), /* @__PURE__ */ React.createElement("button", { style: btn(true), onClick: handleGenerate }, "Generate"))), step === "import" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: label }, "Keystore file"), /* @__PURE__ */ React.createElement("input", { ref: fileRef, type: "file", accept: ".json,.txt,application/json,text/plain", onChange: onFile, style: { ...input, padding: 8 } }), importBlob && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: "var(--text-soft)", marginTop: -8, marginBottom: 12 } }, "blob loaded \xB7 ", importBlob.length, " chars"), /* @__PURE__ */ React.createElement("label", { style: label }, "Password"), /* @__PURE__ */ React.createElement("input", { type: "password", value: password, onChange: (e) => setPassword(e.target.value), style: input }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { style: btn(false), onClick: () => setStep("choose") }, "\u2190 Back"), /* @__PURE__ */ React.createElement("button", { style: btn(true), onClick: handleImport }, "Import"))), step === "working" && /* @__PURE__ */ React.createElement("div", { style: { padding: "24px 0", textAlign: "center", color: "var(--text-soft)", fontSize: 11 } }, "registering agent\u2026"), step === "done" && result && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 0" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--text-soft)", marginBottom: 6 } }, "// agent registered"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, color: "var(--accent, #c97a3a)", marginBottom: 10 } }, result.agent_id), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--text)" } }, "tier: ", /* @__PURE__ */ React.createElement("b", null, result.tier), " \xB7 credits: ", /* @__PURE__ */ React.createElement("b", null, result.credits))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { style: btn(true), onClick: () => setOpen(false) }, "Continue"))), error && /* @__PURE__ */ React.createElement("div", { style: {
+  } }, "Import existing")), /* @__PURE__ */ React.createElement("p", { style: { fontSize: 9, color: "var(--text-soft)", marginTop: 18, opacity: 0.7 } }, "wire 1.1 \xB7 Ed25519 via Web Crypto \xB7 AES-GCM at rest")), step === "generate" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: label }, "Select Strategy"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 } }, STRATEGIES.map((s) => /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      key: s.id,
+      onClick: () => setIntent(s.label),
+      style: {
+        padding: "10px 12px",
+        background: intent === s.label ? "var(--accent-dim, #332211)" : "var(--bg, #08080a)",
+        border: `1px solid ${intent === s.label ? "var(--accent)" : "var(--border-soft)"}`,
+        cursor: "pointer",
+        transition: "all 0.2s ease"
+      }
+    },
+    /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: intent === s.label ? "var(--accent)" : "var(--text)" } }, s.label),
+    /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: "var(--text-soft)", marginTop: 4 } }, s.desc)
+  ))), /* @__PURE__ */ React.createElement("label", { style: label }, "Bunker Password"), /* @__PURE__ */ React.createElement("input", { type: "password", value: password, onChange: (e) => setPassword(e.target.value), style: input, placeholder: "Min 4 chars", autoFocus: true }), /* @__PURE__ */ React.createElement("label", { style: label }, "Confirm"), /* @__PURE__ */ React.createElement("input", { type: "password", value: confirmPw, onChange: (e) => setConfirmPw(e.target.value), style: input }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { style: btn(false), onClick: () => setStep("choose") }, "\u2190 Back"), /* @__PURE__ */ React.createElement("button", { style: btn(true), onClick: handleGenerate }, "Deploy Agent"))), step === "import" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: label }, "Keystore file"), /* @__PURE__ */ React.createElement("input", { ref: fileRef, type: "file", accept: ".json,.txt,application/json,text/plain", onChange: onFile, style: { ...input, padding: 8 } }), importBlob && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: "var(--text-soft)", marginTop: -8, marginBottom: 12 } }, "blob loaded \xB7 ", importBlob.length, " chars"), /* @__PURE__ */ React.createElement("label", { style: label }, "Password"), /* @__PURE__ */ React.createElement("input", { type: "password", value: password, onChange: (e) => setPassword(e.target.value), style: input }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { style: btn(false), onClick: () => setStep("choose") }, "\u2190 Back"), /* @__PURE__ */ React.createElement("button", { style: btn(true), onClick: handleImport }, "Import"))), step === "working" && /* @__PURE__ */ React.createElement("div", { style: { padding: "24px 0", textAlign: "center", color: "var(--text-soft)", fontSize: 11 } }, "registering agent\u2026"), step === "done" && result && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 0" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--text-soft)", marginBottom: 6 } }, "// agent registered"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, color: "var(--accent, #c97a3a)", marginBottom: 10 } }, result.agent_id), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--text)" } }, "tier: ", /* @__PURE__ */ React.createElement("b", null, result.tier), " \xB7 credits: ", /* @__PURE__ */ React.createElement("b", null, result.credits))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { style: btn(false), onClick: handleDownload }, "Download Backup \u{1F4BE}"), /* @__PURE__ */ React.createElement("button", { style: btn(true), onClick: () => setOpen(false) }, "Continue"))), error && /* @__PURE__ */ React.createElement("div", { style: {
     marginTop: 8,
     padding: "8px 10px",
     fontSize: 10,

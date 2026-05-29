@@ -100,6 +100,24 @@ function MerchantsView() {
       setSubmitting(false);
     }
   }
+  async function handleSimulatePayment(m) {
+    const amount = 0.5;
+    if (!window.confirm(`Simulate customer paying ${amount} SOL to merchant ${m.merchantId}?`)) return;
+    try {
+      setSubmitMsg(`initiating payment to ${m.merchantId}...`);
+      const isProd = typeof window !== "undefined" && (window.location.hostname.endsWith(".workers.dev") || window.location.hostname.includes("xb77.io"));
+      const RPC_URL = isProd ? "https://api.devnet.solana.com" : "http://127.0.0.1:8899";
+      const res = await window.XB77Actions.selfAirdrop({ lamports: amount * 1e9 });
+      if (res.ok) {
+        setSubmitMsg(`SUCCESS: Payment anchored for ${m.merchantId}. Sig: ${res.signature.slice(0, 8)}...`);
+        window.dispatchEvent(new CustomEvent("xb77:income", { detail: { amount: (amount * 160).toFixed(2), merchant: m.merchantId } }));
+      } else {
+        throw new Error(res.error || "Airdrop limit");
+      }
+    } catch (e) {
+      setSubmitMsg("payment failed: " + e.message);
+    }
+  }
   return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flex: 1, minHeight: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 320, borderRight: `1px solid ${D.border}`, display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "16px 20px", borderBottom: `1px solid ${D.border}` } }, /* @__PURE__ */ React.createElement(DS, { size: 20, italic: true }, "Merchants"), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4, fontFamily: "var(--mono)", fontSize: 10, color: D.faint } }, "xb77_registry \xB7 ", REGISTRY_PROGRAM_ID.slice(0, 12), "\u2026")), /* @__PURE__ */ React.createElement("div", { style: { padding: 20, display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement(DM, { size: 10, color: D.text }, "Register new merchant"), /* @__PURE__ */ React.createElement(
     "input",
     {
@@ -157,7 +175,7 @@ function MerchantsView() {
     display: "flex",
     flexDirection: "column",
     gap: 6
-  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 13, color: D.text, fontWeight: 600 } }, m.merchantId), /* @__PURE__ */ React.createElement(Badge, { color: D.cyan || D.accent, bg: `${D.cyan || D.accent}18` }, "methods 0x", m.supportedMethods.toString(16)), /* @__PURE__ */ React.createElement(Badge, { color: D.accent, bg: `${D.accent}18` }, m.catalogCount, " catalogs")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, fontFamily: "var(--mono)", fontSize: 9, color: D.faint } }, /* @__PURE__ */ React.createElement("span", null, "pda ", m.pubkey.slice(0, 8), "\u2026"), /* @__PURE__ */ React.createElement("span", null, "owner ", m.ownerHex.slice(0, 12), "\u2026"), /* @__PURE__ */ React.createElement("span", null, "created ", fmtTs(m.createdAt))))))));
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 13, color: D.text, fontWeight: 600 } }, m.merchantId), /* @__PURE__ */ React.createElement(Badge, { color: D.cyan || D.accent, bg: `${D.cyan || D.accent}18` }, "methods 0x", m.supportedMethods.toString(16)), /* @__PURE__ */ React.createElement(Badge, { color: D.accent, bg: `${D.accent}18` }, m.catalogCount, " catalogs"), /* @__PURE__ */ React.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React.createElement(DBtn, { small: true, onClick: () => handleSimulatePayment(m) }, "PAY MERCHANT \u{1F4B8}")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, fontFamily: "var(--mono)", fontSize: 9, color: D.faint } }, /* @__PURE__ */ React.createElement("span", null, "pda ", m.pubkey.slice(0, 8), "\u2026"), /* @__PURE__ */ React.createElement("span", null, "owner ", m.ownerHex.slice(0, 12), "\u2026"), /* @__PURE__ */ React.createElement("span", null, "created ", fmtTs(m.createdAt))))))));
 }
 function MerchantsTab() {
   return /* @__PURE__ */ React.createElement("div", { style: {

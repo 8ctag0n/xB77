@@ -32,7 +32,7 @@ enabled = true
 # ─────────────────────────────────────────────────────────────────────
 [assets]
 directory = "../../web"
-not_found_handling = "none"
+not_found_handling = "404-page"
 
 [vars]
 API_URL = "https://xb77-adapter.frontier247hack.workers.dev"

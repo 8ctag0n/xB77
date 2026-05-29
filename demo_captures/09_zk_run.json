@@ -1,0 +1,29 @@
+{
+  "section": "09_zk_run",
+  "title": "Zero-Knowledge Proof",
+  "subtitle": "Noir prove + chunked verify onchain",
+  "ts_start": "2026-05-29T10:37:41Z",
+  "duration_ms": 3,
+  "exit_code": 1,
+  "lines": [
+    {
+      "stream": "stdout",
+      "t_ms": 0,
+      "text": "[ZK] proving package 'zk_receipt' in /content/xB77/circuits/zk_receipt...",
+      "ansi": "[ZK] proving package 'zk_receipt' in /content/xB77/circuits/zk_receipt..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 60,
+      "text": "[ZK] podman run --rm -v /content/xB77/circuits/zk_receipt:/work:Z -w /work xb77-zk prove",
+      "ansi": "[ZK] podman run --rm -v /content/xB77/circuits/zk_receipt:/work:Z -w /work xb77-zk prove"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 120,
+      "text": "error: FileNotFound",
+      "ansi": "error: FileNotFound"
+    }
+  ],
+  "extracted": {}
+}

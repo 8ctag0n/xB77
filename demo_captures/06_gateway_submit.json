@@ -1,0 +1,127 @@
+{
+  "section": "06_gateway_submit",
+  "title": "Sovereign Order Submitted",
+  "subtitle": "Wire 1.1 onchain via xb77_gateway",
+  "ts_start": "2026-05-29T10:37:38Z",
+  "duration_ms": 2449,
+  "exit_code": 1,
+  "lines": [
+    {
+      "stream": "stdout",
+      "t_ms": 0,
+      "text": "[SUBMIT] profile:  megademo",
+      "ansi": "[SUBMIT] profile:  megademo"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 128,
+      "text": "[SUBMIT] rpc:      http://127.0.0.1:8899",
+      "ansi": "[SUBMIT] rpc:      http://127.0.0.1:8899"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 256,
+      "text": "[SUBMIT] idl:      idls/xb77_gateway.json",
+      "ansi": "[SUBMIT] idl:      idls/xb77_gateway.json"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 384,
+      "text": "[SUBMIT] order_id: 7504443312894283767",
+      "ansi": "[SUBMIT] order_id: 7504443312894283767"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 512,
+      "text": "[SUBMIT] amount:   1",
+      "ansi": "[SUBMIT] amount:   1"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 640,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 768,
+      "text": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0",
+      "ansi": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 896,
+      "text": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent 83d05ce3...",
+      "ansi": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent 83d05ce3..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1024,
+      "text": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session 50dc0e81...",
+      "ansi": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session 50dc0e81..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1152,
+      "text": "[SOLANA]  Tx failed: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32002,\"message\":\"Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.\",\"data\":{\"accounts\":null,\"err\":\"AccountNotFound\",\"fee\":null,\"innerInstructions\":null,\"loadedAccountsDataSize\":0,\"loadedAddresses\":null,\"logs\":[],\"postBalances\":null,\"postTokenBalances\":null,\"preBalances\":null,\"preTokenBalances\":null,\"replacementBlockhash\":null,\"returnData\":null,\"unitsConsumed\":0}},\"id\":1}",
+      "ansi": "[SOLANA]  Tx failed: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32002,\"message\":\"Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.\",\"data\":{\"accounts\":null,\"err\":\"AccountNotFound\",\"fee\":null,\"innerInstructions\":null,\"loadedAccountsDataSize\":0,\"loadedAddresses\":null,\"logs\":[],\"postBalances\":null,\"postTokenBalances\":null,\"preBalances\":null,\"preTokenBalances\":null,\"replacementBlockhash\":null,\"returnData\":null,\"unitsConsumed\":0}},\"id\":1}"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1280,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1408,
+      "text": "[MAGIC ]  [WARN] Sovereign Session initialization failed: InvalidResponse. Operating on Standard Rails.[SUBMIT] payer:    9sYgmG2THktbSWn31LKjsPKRkzUURTgC6PTdXRqc8zKt",
+      "ansi": "[MAGIC ]  \u001b[33;1m[WARN]\u001b[0m Sovereign Session initialization failed: InvalidResponse. Operating on Standard Rails.[SUBMIT] payer:    9sYgmG2THktbSWn31LKjsPKRkzUURTgC6PTdXRqc8zKt"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1536,
+      "text": "[SUBMIT] ix_data:  116 bytes",
+      "ansi": "[SUBMIT] ix_data:  116 bytes"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1664,
+      "text": "[SUBMIT] gateway_state PDA: 2K31QnAiNP2B4AYtTWdCXjN1CSW9JpPxZP99PkhrAm8j",
+      "ansi": "[SUBMIT] gateway_state PDA: 2K31QnAiNP2B4AYtTWdCXjN1CSW9JpPxZP99PkhrAm8j"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1792,
+      "text": "[SUBMIT] nullifier     PDA: EKkCk9bkuU8oxnt9QEi9vLvSb7xn7Mge9PdNfQHZBBbm",
+      "ansi": "[SUBMIT] nullifier     PDA: EKkCk9bkuU8oxnt9QEi9vLvSb7xn7Mge9PdNfQHZBBbm"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1920,
+      "text": "[SUBMIT] balance:  0 lamports",
+      "ansi": "[SUBMIT] balance:  0 lamports"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 2048,
+      "text": "[SUBMIT] requesting airdrop...",
+      "ansi": "[SUBMIT] requesting airdrop..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 2176,
+      "text": "[SUBMIT] airdrop failed: error.ConnectionRefused",
+      "ansi": "[SUBMIT] airdrop failed: error.ConnectionRefused"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 2304,
+      "text": "error: ConnectionRefused",
+      "ansi": "error: ConnectionRefused"
+    }
+  ],
+  "extracted": {
+    "address": "9sYgmG2THktbSWn31LKjsPKRkzUURTgC6PTdXRqc8zKt"
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "section": "03_brain_fallback",
+  "title": "On-Device Brain (Sovereign Fallback)",
+  "subtitle": "Network gone \u2014 agent still reasons",
+  "ts_start": "2026-05-29T10:37:33Z",
+  "duration_ms": 466,
+  "exit_code": 0,
+  "lines": [
+    {
+      "stream": "stdout",
+      "t_ms": 0,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 60,
+      "text": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0",
+      "ansi": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 120,
+      "text": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent 83d05ce3...",
+      "ansi": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent 83d05ce3..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 180,
+      "text": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session 853a013e...",
+      "ansi": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session 853a013e..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 240,
+      "text": "[SOLANA]  Tx failed: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32002,\"message\":\"Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.\",\"data\":{\"accounts\":null,\"err\":\"AccountNotFound\",\"fee\":null,\"innerInstructions\":null,\"loadedAccountsDataSize\":0,\"loadedAddresses\":null,\"logs\":[],\"postBalances\":null,\"postTokenBalances\":null,\"preBalances\":null,\"preTokenBalances\":null,\"replacementBlockhash\":null,\"returnData\":null,\"unitsConsumed\":0}},\"id\":1}",
+      "ansi": "[SOLANA]  Tx failed: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32002,\"message\":\"Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.\",\"data\":{\"accounts\":null,\"err\":\"AccountNotFound\",\"fee\":null,\"innerInstructions\":null,\"loadedAccountsDataSize\":0,\"loadedAddresses\":null,\"logs\":[],\"postBalances\":null,\"postTokenBalances\":null,\"preBalances\":null,\"preTokenBalances\":null,\"replacementBlockhash\":null,\"returnData\":null,\"unitsConsumed\":0}},\"id\":1}"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 300,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 360,
+      "text": "[MAGIC ]  [WARN] Sovereign Session initialization failed: InvalidResponse. Operating on Standard Rails.",
+      "ansi": "[MAGIC ]  \u001b[33;1m[WARN]\u001b[0m Sovereign Session initialization failed: InvalidResponse. Operating on Standard Rails."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 420,
+      "text": "\ud83e\udde0 *xB77 Brain Insight*",
+      "ansi": "\ud83e\udde0 *xB77 Brain Insight*"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 480,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 540,
+      "text": "\u2705 *Decision:* UNKNOWN",
+      "ansi": "\u2705 *Decision:* UNKNOWN"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 600,
+      "text": "\u26a0\ufe0f *Risk Score:* 0.00/1.0",
+      "ansi": "\u26a0\ufe0f *Risk Score:* 0.00/1.0"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 660,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 720,
+      "text": "\ud83d\udcdd *Reasoning:* No reasoning provided.",
+      "ansi": "\ud83d\udcdd *Reasoning:* No reasoning provided."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 780,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 840,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 900,
+      "text": " MISSION HASH: 0x3ad066465c03",
+      "ansi": " MISSION HASH: 0x3ad066465c03"
+    }
+  ],
+  "extracted": {}
+}

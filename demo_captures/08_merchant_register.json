@@ -1,0 +1,53 @@
+{
+  "section": "08_merchant_register",
+  "title": "Merchant Onchain",
+  "subtitle": "IDL-driven register, decoded in-browser",
+  "ts_start": "2026-05-29T10:37:40Z",
+  "duration_ms": 445,
+  "exit_code": 0,
+  "lines": [
+    {
+      "stream": "stdout",
+      "t_ms": 0,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 63,
+      "text": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0",
+      "ansi": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 126,
+      "text": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent 83d05ce3...",
+      "ansi": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent 83d05ce3..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 189,
+      "text": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session 47b026f4...",
+      "ansi": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session 47b026f4..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 252,
+      "text": "[SOLANA]  Tx failed: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32002,\"message\":\"Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.\",\"data\":{\"accounts\":null,\"err\":\"AccountNotFound\",\"fee\":null,\"innerInstructions\":null,\"loadedAccountsDataSize\":0,\"loadedAddresses\":null,\"logs\":[],\"postBalances\":null,\"postTokenBalances\":null,\"preBalances\":null,\"preTokenBalances\":null,\"replacementBlockhash\":null,\"returnData\":null,\"unitsConsumed\":0}},\"id\":1}",
+      "ansi": "[SOLANA]  Tx failed: {\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32002,\"message\":\"Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.\",\"data\":{\"accounts\":null,\"err\":\"AccountNotFound\",\"fee\":null,\"innerInstructions\":null,\"loadedAccountsDataSize\":0,\"loadedAddresses\":null,\"logs\":[],\"postBalances\":null,\"postTokenBalances\":null,\"preBalances\":null,\"preTokenBalances\":null,\"replacementBlockhash\":null,\"returnData\":null,\"unitsConsumed\":0}},\"id\":1}"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 315,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 378,
+      "text": "[MAGIC ]  [WARN] Sovereign Session initialization failed: InvalidResponse. Operating on Standard Rails.",
+      "ansi": "[MAGIC ]  \u001b[33;1m[WARN]\u001b[0m Sovereign Session initialization failed: InvalidResponse. Operating on Standard Rails."
+    }
+  ],
+  "extracted": {}
+}

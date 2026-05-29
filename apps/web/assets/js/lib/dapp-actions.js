@@ -293,15 +293,23 @@
     const isProd = typeof window !== "undefined" && (window.location.hostname.endsWith(".workers.dev") || window.location.hostname.includes("xb77.io"));
     const RPC_DEFAULT = isProd ? "https://api.devnet.solana.com" : "http://127.0.0.1:8899";
     const rpcUrl = G.XB77_RPC_URL || RPC_DEFAULT;
-    if (!/127\.0\.0\.1|localhost/.test(rpcUrl)) {
-      return { skipped: true, reason: "non-local rpc" };
+
+    // In production, we allow airdrop to Devnet. In dev, only to localhost.
+    if (!/127\.0\.0\.1|localhost|api\.devnet\.solana\.com/.test(rpcUrl)) {
+      return { skipped: true, reason: "non-local/non-devnet rpc" };
     }
     if (!G.SolanaRpc || !G.base58Encode) return { skipped: true, reason: "rpc lib missing" };
     const pubkeyBytes = new Uint8Array(KS.currentPubkey().match(/.{2}/g).map((b) => parseInt(b, 16)));
     const pubkeyBase58 = G.base58Encode(pubkeyBytes);
     const rpc = G.SolanaRpc.create(rpcUrl);
-    const sig = await rpc.requestAirdrop(pubkeyBase58, lamports);
-    return { ok: true, signature: sig, pubkey: pubkeyBase58, lamports };
+    
+    try {
+      const sig = await rpc.requestAirdrop(pubkeyBase58, lamports);
+      return { ok: true, signature: sig, pubkey: pubkeyBase58, lamports };
+    } catch (e) {
+      // Devnet airdrop often hits rate limits or is down, handle gracefully.
+      return { ok: false, error: e.message, pubkey: pubkeyBase58 };
+    }
   }
 
   // High-level: submit a private order onchain via xb77_gateway::SubmitPrivateOrder.

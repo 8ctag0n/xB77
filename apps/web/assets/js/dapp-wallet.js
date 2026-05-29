@@ -26,22 +26,33 @@ function WalletView() {
     return () => window.removeEventListener("xb77:connected", onConn);
   }, []);
   React.useEffect(() => {
-    if (!agentId || !window.DataSource) return;
+    if (!agentId || !window.SolanaRpc) return;
     let cancelled = false;
-    async function load() {
-      const [b, t] = await Promise.all([
-        window.DataSource.walletBalances(agentId),
-        window.DataSource.walletTransactions(agentId, 12)
-      ]);
-      if (cancelled) return;
-      if (b && Array.isArray(b.balances) && b.balances.length) setBalances(b.balances);
-      if (typeof b?.credits === "number") setCredits(b.credits);
-      if (b?.tier) setTier(b.tier);
-      if (t && Array.isArray(t.transactions)) setRecentTx(t.transactions);
-      setSource(b?._source || "idle");
+    async function fetchOnchain() {
+      try {
+        const isProd = typeof window !== "undefined" && (window.location.hostname.endsWith(".workers.dev") || window.location.hostname.includes("xb77.io"));
+        const RPC_URL = isProd ? "https://api.devnet.solana.com" : "http://127.0.0.1:8899";
+        const rpc = window.SolanaRpc.create(RPC_URL);
+        const pubkey = window.XB77Actions.keystore.pubkeyBase58();
+        if (!pubkey) return;
+        const lamports = await rpc.getBalance(pubkey);
+        if (cancelled) return;
+        const solAmount = lamports / 1e9;
+        setBalances((prev) => {
+          const oldSol = prev.find((b) => b.currency === "SOL")?.rawAmount || 0;
+          if (solAmount * 160 > oldSol + 0.1) {
+            window.dispatchEvent(new CustomEvent("xb77:income", { detail: { amount: (solAmount * 160 - oldSol).toFixed(2) } }));
+          }
+          return prev.map(
+            (b) => b.currency === "SOL" ? { ...b, amount: solAmount.toFixed(3), usd: `$${(solAmount * 160).toFixed(2)}`, rawAmount: solAmount * 160 } : b
+          );
+        });
+      } catch (e) {
+        console.warn("[Wallet] Failed to fetch onchain balance:", e.message);
+      }
     }
-    load();
-    const id = setInterval(load, 1e4);
+    fetchOnchain();
+    const id = setInterval(fetchOnchain, 15e3);
     return () => {
       cancelled = true;
       clearInterval(id);
@@ -62,6 +73,22 @@ function WalletView() {
       setClaimError(e.message || "claim failed");
     } finally {
       setClaiming(false);
+    }
+  }
+  const [isPaused, setIsPaused] = React.useState(false);
+  const [funding, setFunding] = React.useState(false);
+  async function handleFund() {
+    if (!agentId || funding) return;
+    setFunding(true);
+    try {
+      const res = await window.XB77Actions.selfAirdrop();
+      if (res.ok) {
+        alert("1 SOL Airdropped to Agent Pubkey: " + res.pubkey);
+      } else {
+        alert("Airdrop failed: " + (res.error || "Rate limited"));
+      }
+    } finally {
+      setFunding(false);
     }
   }
   const allocations = _WALLET_ALLOC_PLACEHOLDER;
@@ -97,7 +124,13 @@ function WalletView() {
       bg: source === "live" ? `${D.green}18` : source === "cached" ? `${D.amber}18` : `${D.dim}18`
     },
     source
-  )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 16, marginTop: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--serif)", fontSize: 48, fontWeight: 400, color: D.text, fontStyle: "italic" } }, totalLabel), !agentId && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 11, color: D.faint } }, "connect an agent to load")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 16 } }, /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true }, "DEPOSIT"), /* @__PURE__ */ React.createElement(DBtn, { small: true }, "WITHDRAW"), /* @__PURE__ */ React.createElement(DBtn, { small: true }, "ALLOCATE"))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SectionHead, { title: "Balances" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, balances.map((b, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+  )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 16, marginTop: 10 } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--serif)", fontSize: 48, fontWeight: 400, color: D.text, fontStyle: "italic" } }, totalLabel), !agentId && /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 11, color: D.faint } }, "connect an agent to load")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 16 } }, /* @__PURE__ */ React.createElement(DBtn, { small: true, primary: true, onClick: handleFund, disabled: funding || !agentId }, funding ? "\u2026FUNDING" : "DEPOSIT (AIRDROP)"), /* @__PURE__ */ React.createElement(DBtn, { small: true, onClick: () => setIsPaused(!isPaused) }, isPaused ? "RESUME AGENT" : "PAUSE AGENT"), /* @__PURE__ */ React.createElement(DBtn, { small: true, onClick: () => {
+    const pk = window.XB77Actions.keystore.pubkeyBase58();
+    if (pk) {
+      navigator.clipboard.writeText(pk);
+      alert("Pubkey copied: " + pk);
+    }
+  } }, "COPY PUBKEY"))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(SectionHead, { title: "Balances" }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, balances.map((b, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
     display: "flex",
     alignItems: "center",
     gap: 14,

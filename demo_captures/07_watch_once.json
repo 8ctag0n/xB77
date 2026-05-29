@@ -1,0 +1,49 @@
+{
+  "section": "07_watch_once",
+  "title": "Live Pipeline Indexer",
+  "subtitle": "Watch daemon \u2192 Cloudflare Worker \u2192 dApp",
+  "ts_start": "2026-05-29T10:37:40Z",
+  "duration_ms": 3,
+  "exit_code": 0,
+  "lines": [
+    {
+      "stream": "stdout",
+      "t_ms": 0,
+      "text": "[WATCH] program:  83nPgEhrzKaDSXCoWQCkYau66KUnVeFSQF32LPfyL3s4",
+      "ansi": "[WATCH] program:  83nPgEhrzKaDSXCoWQCkYau66KUnVeFSQF32LPfyL3s4"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 60,
+      "text": "[WATCH] rpc:      http://127.0.0.1:8899",
+      "ansi": "[WATCH] rpc:      http://127.0.0.1:8899"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 120,
+      "text": "[WATCH] gateway:  http://127.0.0.1:8787",
+      "ansi": "[WATCH] gateway:  http://127.0.0.1:8787"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 180,
+      "text": "[WATCH] interval: 5s",
+      "ansi": "[WATCH] interval: 5s"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 240,
+      "text": "[WATCH] rpc error (gateway): error.ConnectionRefused",
+      "ansi": "[WATCH] rpc error (gateway): error.ConnectionRefused"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 300,
+      "text": "[WATCH] rpc error (verifier): error.ConnectionRefused",
+      "ansi": "[WATCH] rpc error (verifier): error.ConnectionRefused"
+    }
+  ],
+  "extracted": {
+    "address": "83nPgEhrzKaDSXCoWQCkYau66KUnVeFSQF32LPfyL3s4"
+  }
+}
