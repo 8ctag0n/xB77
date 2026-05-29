@@ -14,9 +14,15 @@
 // purpose (no big deps). Tx serialization happens in ./solana-tx.js.
 
 (function () {
-const DEFAULT_RPC = () =>
-  (typeof globalThis !== "undefined" && globalThis.XB77_RPC_URL) ||
-  "http://127.0.0.1:8899";
+const DEFAULT_RPC = () => {
+  if (typeof globalThis !== "undefined" && globalThis.XB77_RPC_URL) return globalThis.XB77_RPC_URL;
+  if (typeof window !== "undefined") {
+    if (window.location.hostname.endsWith(".workers.dev") || window.location.hostname.includes("xb77.io")) {
+      return "https://api.devnet.solana.com";
+    }
+  }
+  return "http://127.0.0.1:8899";
+};
 
 class SolanaRpcClient {
   constructor(url) {

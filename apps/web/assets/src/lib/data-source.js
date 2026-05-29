@@ -144,7 +144,16 @@
   }
 
   function gateway() {
-    return (typeof window !== "undefined" && window.XB77_GATEWAY) || GATEWAY_DEFAULT;
+    if (typeof window !== "undefined") {
+      if (window.XB77_GATEWAY) return window.XB77_GATEWAY;
+      // If we are on a worker or local dev, the origin is the gateway.
+      if (window.location.hostname.endsWith(".workers.dev") || 
+          window.location.hostname === "localhost" || 
+          window.location.hostname === "127.0.0.1") {
+        return window.location.origin;
+      }
+    }
+    return GATEWAY_DEFAULT;
   }
 
   // ── Shape normalizers: contract v1 → legacy UI field names ────────────
