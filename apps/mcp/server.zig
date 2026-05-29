@@ -90,7 +90,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 
                 try child.spawn();
                 
-                const out_buf = try child.stdout.?.readAllAlloc(allocator, 1024 * 16);
+                const out_buf = try child.stdout.?.readToEndAlloc(allocator, 1024 * 16);
                 defer allocator.free(out_buf);
                 _ = try child.wait();
 

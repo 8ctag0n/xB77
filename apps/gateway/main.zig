@@ -297,7 +297,7 @@ fn exec_report_usage(allocator: std.mem.Allocator, agent_id: []const u8, body: [
 // --- Read Handlers ---
 
 fn handle_pulse(allocator: std.mem.Allocator) *Response {
-    // Intentamos obtener el slot real vía RPC inyectado por JS
+    // Attempt to get real slot via RPC injected by JS
     const slot_json_ptr = js_rpc_call("getSlot", 7, "[]", 2);
     const slot_json = std.mem.span(@as([*:0]const u8, @ptrCast(slot_json_ptr)));
     
