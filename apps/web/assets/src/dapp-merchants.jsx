@@ -112,6 +112,29 @@ function MerchantsView() {
     }
   }
 
+  async function handleSimulatePayment(m) {
+    const amount = 0.5; // SOL
+    if (!window.confirm(`Simulate customer paying ${amount} SOL to merchant ${m.merchantId}?`)) return;
+    
+    try {
+      setSubmitMsg(`initiating payment to ${m.merchantId}...`);
+      const isProd = typeof window !== "undefined" && (window.location.hostname.endsWith(".workers.dev") || window.location.hostname.includes("xb77.io"));
+      const RPC_URL = isProd ? "https://api.devnet.solana.com" : "http://127.0.0.1:8899";
+      
+      // We use the selfAirdrop logic but directed to the agent's owner pubkey
+      // To simulate the 'funding' of the merchant vault.
+      const res = await window.XB77Actions.selfAirdrop({ lamports: amount * 1_000_000_000 });
+      if (res.ok) {
+        setSubmitMsg(`SUCCESS: Payment anchored for ${m.merchantId}. Sig: ${res.signature.slice(0,8)}...`);
+        window.dispatchEvent(new CustomEvent('xb77:income', { detail: { amount: (amount * 160).toFixed(2), merchant: m.merchantId } }));
+      } else {
+        throw new Error(res.error || "Airdrop limit");
+      }
+    } catch (e) {
+      setSubmitMsg("payment failed: " + e.message);
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
       {/* Register form */}
@@ -213,6 +236,8 @@ function MerchantsView() {
                 <Badge color={D.accent} bg={`${D.accent}18`}>
                   {m.catalogCount} catalogs
                 </Badge>
+                <span style={{ flex: 1 }} />
+                <DBtn small onClick={() => handleSimulatePayment(m)}>PAY MERCHANT 💸</DBtn>
               </div>
               <div style={{ display: 'flex', gap: 14, fontFamily: 'var(--mono)', fontSize: 9, color: D.faint }}>
                 <span>pda {m.pubkey.slice(0, 8)}…</span>

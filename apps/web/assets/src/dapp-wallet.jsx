@@ -33,22 +33,39 @@ function WalletView() {
   }, []);
 
   React.useEffect(() => {
-    if (!agentId || !window.DataSource) return;
+    if (!agentId || !window.SolanaRpc) return;
     let cancelled = false;
-    async function load() {
-      const [b, t] = await Promise.all([
-        window.DataSource.walletBalances(agentId),
-        window.DataSource.walletTransactions(agentId, 12),
-      ]);
-      if (cancelled) return;
-      if (b && Array.isArray(b.balances) && b.balances.length) setBalances(b.balances);
-      if (typeof b?.credits === 'number') setCredits(b.credits);
-      if (b?.tier) setTier(b.tier);
-      if (t && Array.isArray(t.transactions)) setRecentTx(t.transactions);
-      setSource(b?._source || 'idle');
+    async function fetchOnchain() {
+      try {
+        const isProd = typeof window !== "undefined" && (window.location.hostname.endsWith(".workers.dev") || window.location.hostname.includes("xb77.io"));
+        const RPC_URL = isProd ? "https://api.devnet.solana.com" : "http://127.0.0.1:8899";
+        const rpc = window.SolanaRpc.create(RPC_URL);
+        
+        // Get agent pubkey from keystore
+        const pubkey = window.XB77Actions.keystore.pubkeyBase58();
+        if (!pubkey) return;
+
+        const lamports = await rpc.getBalance(pubkey);
+        if (cancelled) return;
+        
+        const solAmount = lamports / 1_000_000_000;
+        
+        // Notify terminal of income if balance increased
+        setBalances(prev => {
+          const oldSol = prev.find(b => b.currency === 'SOL')?.rawAmount || 0;
+          if (solAmount * 160 > oldSol + 0.1) { // If increased by > $0.1
+            window.dispatchEvent(new CustomEvent('xb77:income', { detail: { amount: (solAmount * 160 - oldSol).toFixed(2) } }));
+          }
+          return prev.map(b => 
+            b.currency === 'SOL' ? { ...b, amount: solAmount.toFixed(3), usd: `$${(solAmount * 160).toFixed(2)}`, rawAmount: solAmount * 160 } : b
+          );
+        });
+      } catch (e) {
+        console.warn('[Wallet] Failed to fetch onchain balance:', e.message);
+      }
     }
-    load();
-    const id = setInterval(load, 10_000);
+    fetchOnchain();
+    const id = setInterval(fetchOnchain, 15_000);
     return () => { cancelled = true; clearInterval(id); };
   }, [agentId]);
 
@@ -69,8 +86,24 @@ function WalletView() {
     }
   }
 
-  // Allocations: contract doesn't expose this per-agent breakdown yet.
-  // Keep as visual placeholder, mark with a "derived" badge in the UI.
+  const [isPaused, setIsPaused] = React.useState(false);
+  const [funding, setFunding] = React.useState(false);
+
+  async function handleFund() {
+    if (!agentId || funding) return;
+    setFunding(true);
+    try {
+      const res = await window.XB77Actions.selfAirdrop();
+      if (res.ok) {
+        alert("1 SOL Airdropped to Agent Pubkey: " + res.pubkey);
+      } else {
+        alert("Airdrop failed: " + (res.error || "Rate limited"));
+      }
+    } finally {
+      setFunding(false);
+    }
+  }
+
   const allocations = _WALLET_ALLOC_PLACEHOLDER;
 
   const totalUsd = balances.reduce((acc, b) => acc + (Number(b.rawAmount) || 0), 0);
@@ -126,9 +159,16 @@ function WalletView() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 16 }}>
-          <DBtn small primary>DEPOSIT</DBtn>
-          <DBtn small>WITHDRAW</DBtn>
-          <DBtn small>ALLOCATE</DBtn>
+          <DBtn small primary onClick={handleFund} disabled={funding || !agentId}>
+            {funding ? '…FUNDING' : 'DEPOSIT (AIRDROP)'}
+          </DBtn>
+          <DBtn small onClick={() => setIsPaused(!isPaused)}>
+            {isPaused ? 'RESUME AGENT' : 'PAUSE AGENT'}
+          </DBtn>
+          <DBtn small onClick={() => {
+            const pk = window.XB77Actions.keystore.pubkeyBase58();
+            if (pk) { navigator.clipboard.writeText(pk); alert("Pubkey copied: " + pk); }
+          }}>COPY PUBKEY</DBtn>
         </div>
       </div>
 

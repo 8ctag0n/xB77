@@ -9,7 +9,12 @@ function KeystoreModal() {
   const [step, setStep] = _ksHooks.useState('choose'); // choose | generate | import | working | done
   const [password, setPassword] = _ksHooks.useState('');
   const [confirmPw, setConfirmPw] = _ksHooks.useState('');
-  const [intent, setIntent] = _ksHooks.useState('merchant');
+  const [intent, setIntent] = _ksHooks.useState('USDC Yield Optimizer');
+  const STRATEGIES = [
+    { id: 'yield', label: 'USDC Yield Optimizer', desc: 'Auto-allocates to Kamino/Jito for max risk-adjusted APY.' },
+    { id: 'payments', label: 'Private Merchant Settler', desc: 'Handles atomic B2B settlements with ZK-privacy.' },
+    { id: 'liquidity', label: 'Cross-chain Rebalancer', desc: 'Balances treasury between Solana and Sui automatically.' },
+  ];
   const [importBlob, setImportBlob] = _ksHooks.useState('');
   const [error, setError] = _ksHooks.useState(null);
   const [result, setResult] = _ksHooks.useState(null);
@@ -35,6 +40,7 @@ function KeystoreModal() {
     setStep('working');
     setError(null);
     try {
+      localStorage.setItem('xb77_last_intent', intent);
       window.XB77Actions.keystore.saveSealedBlob(sealedBlob);
       const data = await window.XB77Actions.registerAgent(pubkey, intent);
       // Self-airdrop SOL on localhost so the agent can pay onchain fees later.
@@ -84,6 +90,16 @@ function KeystoreModal() {
     const r = new FileReader();
     r.onload = () => setImportBlob(String(r.result || '').trim());
     r.readAsText(f);
+  }
+
+  function handleDownload() {
+    const blob = window.XB77Actions.keystore.getSealedBlob();
+    if (!blob) return;
+    const file = new Blob([blob], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file);
+    a.download = `xb77-keystore-${result?.agent_id || 'backup'}.json`;
+    a.click();
   }
 
   if (!open) return null;
@@ -148,20 +164,28 @@ function KeystoreModal() {
 
           {step === 'generate' && (
             <>
-              <label style={label}>Intent</label>
-              <select value={intent} onChange={(e) => setIntent(e.target.value)} style={input}>
-                <option value="merchant">merchant</option>
-                <option value="treasury">treasury</option>
-                <option value="trader">trader</option>
-                <option value="indexer">indexer</option>
-              </select>
-              <label style={label}>Password</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={input} autoFocus />
+              <label style={label}>Select Strategy</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                {STRATEGIES.map(s => (
+                  <div key={s.id} 
+                    onClick={() => setIntent(s.label)}
+                    style={{
+                      padding: '10px 12px', background: intent === s.label ? 'var(--accent-dim, #332211)' : 'var(--bg, #08080a)',
+                      border: `1px solid ${intent === s.label ? 'var(--accent)' : 'var(--border-soft)'}`,
+                      cursor: 'pointer', transition: 'all 0.2s ease',
+                    }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: intent === s.label ? 'var(--accent)' : 'var(--text)' }}>{s.label}</div>
+                    <div style={{ fontSize: 9, color: 'var(--text-soft)', marginTop: 4 }}>{s.desc}</div>
+                  </div>
+                ))}
+              </div>
+              <label style={label}>Bunker Password</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={input} placeholder="Min 4 chars" autoFocus />
               <label style={label}>Confirm</label>
               <input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} style={input} />
               <div style={{ display: 'flex', gap: 10 }}>
                 <button style={btn(false)} onClick={() => setStep('choose')}>← Back</button>
-                <button style={btn(true)} onClick={handleGenerate}>Generate</button>
+                <button style={btn(true)} onClick={handleGenerate}>Deploy Agent</button>
               </div>
             </>
           )}
@@ -194,6 +218,7 @@ function KeystoreModal() {
                 <div style={{ fontSize: 11, color: 'var(--text)' }}>tier: <b>{result.tier}</b> · credits: <b>{result.credits}</b></div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
+                <button style={btn(false)} onClick={handleDownload}>Download Backup 💾</button>
                 <button style={btn(true)} onClick={() => setOpen(false)}>Continue</button>
               </div>
             </>

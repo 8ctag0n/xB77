@@ -333,7 +333,7 @@ function NetworkPulseSection() {
         <div>
           <DM>Network Pulse</DM>
           <div style={{ marginTop: 8 }}>
-            <DS size={32} italic>Live network state.</DS>
+            <DS size={32} italic>Live network state (Solana Devnet).</DS>
           </div>
         </div>
         <NetStatusPill payload={pulse} />
