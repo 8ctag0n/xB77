@@ -154,10 +154,6 @@ export default {
 
     // 2. Instantiate WASM
     const wasi_shim = {
-      fd_write: (fd, iovs, iovs_len, nwritten) => 0,
-      fd_close: (fd) => 0,
-      fd_seek: (fd, offset_low, offset_high, whence, new_offset) => 0,
-      proc_exit: (code) => {},
       args_sizes_get: (argc, argv_buf_size) => 0,
       args_get: (argv, argv_buf) => 0,
       environ_sizes_get: (env_count, env_buf_size) => 0,
@@ -311,7 +307,10 @@ export default {
     for (const effect of effects) {
       if (effect.type === "kv_put") {
         const ns = effect.key.startsWith("agent:") ? env.AGENTS : 
-                   effect.key.startsWith("nonce:") ? env.NONCES : env.AGENTS;
+                   effect.key.startsWith("nonce:") ? env.NONCES :
+                   effect.key.startsWith("order:") ? env.ORDERS :
+                   effect.key.startsWith("bucket:") ? env.BUCKETS :
+                   effect.key.startsWith("idemp:") ? env.IDEMP : env.AGENTS;
         await ns.put(effect.key, effect.val, effect.ttl ? { expirationTtl: effect.ttl } : {});
       } else if (effect.type === "telegram") {
         ctx.waitUntil(sendTelegram(effect.chat_id, effect.text, env));

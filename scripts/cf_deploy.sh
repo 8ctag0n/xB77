@@ -282,18 +282,18 @@ cp ../znode-worker/wrangler.toml "$WRANGLER_TOML_ZNODE_BACKUP"
 
 trap "cp '$WRANGLER_TOML_BACKUP' '$WORKER_DIR/wrangler.toml' && cp '$WRANGLER_TOML_ZNODE_BACKUP' '$REPO/apps/gateway/znode-worker/wrangler.toml' && rm -f '$WRANGLER_TOML_BACKUP' '$WRANGLER_TOML_ZNODE_BACKUP' && rm -rf '$STAGE_DIR'" EXIT
 
-sed -i \"s|directory = \\\"../../apps/web\\\"|directory = \\\"$STAGE_DIR\\\"|\" wrangler.toml
+sed -i "s|directory = \"../../web\"|directory = \"$STAGE_DIR\"|" wrangler.toml
 
 # ── Deploy (Worker + Static Assets in one shot) ───────────────────────
-say \"Deploying Gateway Worker (with staged assets) ...\"
+say "Deploying Gateway Worker (with staged assets) ..."
 # Stream output live AND capture to a tmpfile so we can parse the URL after.
-DEPLOY_LOG=\"$(mktemp -t cf_deploy_XXXX.log)\"
-$WRANGLER deploy 2>&1 | tee \"$DEPLOY_LOG\"
-deploy_exit=\"${PIPESTATUS[0]}\"
-[[ \"$deploy_exit\" -eq 0 ]] || die \"wrangler deploy exited $deploy_exit — see output above\"
+DEPLOY_LOG="$(mktemp -t cf_deploy_XXXX.log)"
+$WRANGLER deploy 2>&1 | tee "$DEPLOY_LOG"
+deploy_exit="${PIPESTATUS[0]}"
+[[ "$deploy_exit" -eq 0 ]] || die "wrangler deploy exited $deploy_exit — see output above"
 
-say \"Deploying Z-Node Pulse Worker (scheduled) ...\"
-(cd \"$REPO/apps/gateway/znode-worker\" && $WRANGLER deploy)
+say "Deploying Z-Node Pulse Worker (scheduled) ..."
+(cd "$REPO/apps/gateway/znode-worker" && $WRANGLER deploy)
 
 WORKER_URL="$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' "$DEPLOY_LOG" | head -1 || echo '')"
 # Fallback: if we couldn't parse it (output format changed), use the URL
