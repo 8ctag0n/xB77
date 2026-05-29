@@ -34,22 +34,62 @@ function useTerminal() {
   const [lines, setLines] = React.useState([]);
   const [cursor, setCursor] = React.useState(true);
   const termRef = React.useRef(null);
+  const [agentId, setAgentId] = React.useState(null);
+
+  React.useEffect(() => {
+    const onConn = (e) => setAgentId(e.detail?.agent_id || window.XB77Actions?.keystore?.agentId);
+    window.addEventListener('xb77:connected', onConn);
+    return () => window.removeEventListener('xb77:connected', onConn);
+  }, []);
+
+  React.useEffect(() => {
+    const onIncome = (e) => {
+      setLines(prev => [...prev.slice(-40), { type: 'success', text: `[INCOME] Received $${e.detail.amount} deposit. Re-balancing strategy...` }]);
+    };
+    window.addEventListener('xb77:income', onIncome);
+    return () => window.removeEventListener('xb77:income', onIncome);
+  }, []);
 
   React.useEffect(() => {
     let i = 0, cancelled = false;
-    function tick() {
+    async function tick() {
       if (cancelled) return;
+      
+      const currentAgent = agentId || window.XB77Actions?.keystore?.agentId;
+      const strategy = localStorage.getItem('xb77_last_intent') || 'Sovereign Core';
+      const isPaused = document.body.innerText.includes('RESUME AGENT'); // Simple DOM check for paused state
+      
+      if (isPaused) {
+        setLines(prev => [...prev.slice(-40), { type: 'warning', text: `[HALT] Agent ${currentAgent || ''} is PAUSED by user.` }]);
+        timerId = setTimeout(tick, 2000);
+        return;
+      }
+      
       if (i < TERMINAL_LINES.length) {
-        const idx = i;
-        setLines(prev => [...prev, TERMINAL_LINES[idx]]);
+        let line = { ...TERMINAL_LINES[i] };
+        if (currentAgent) {
+           line.text = line.text.replace('AGENT_CFO_ALPHA', currentAgent);
+           // Dynamic logic based on strategy
+           if (strategy.includes('Yield')) {
+             line.text = line.text.replace('[PAY]', '[YIELD]').replace('VIRTUAL_CARD', 'LIQUIDITY_POOL');
+           } else if (strategy.includes('Rebalancer')) {
+             line.text = line.text.replace('[PAY]', '[BRIDGE]').replace('VIRTUAL_CARD', 'SUI_PTB_FLOW');
+           }
+        }
+        setLines(prev => [...prev.slice(-40), line]);
         i++;
-      } else { i = 0; setLines([]); }
-      timerId = setTimeout(tick, 600);
+      } else { 
+        i = 0; 
+        if (currentAgent) {
+           setLines(prev => [...prev, { type: 'dim', text: `--- RE-RUNNING ${strategy.toUpperCase()} LOOP ---` }]);
+        }
+      }
+      timerId = setTimeout(tick, 800);
     }
-    let timerId = setTimeout(tick, 600);
+    let timerId = setTimeout(tick, 800);
     const cursorId = setInterval(() => { if (!cancelled) setCursor(c => !c); }, 530);
     return () => { cancelled = true; clearTimeout(timerId); clearInterval(cursorId); };
-  }, []);
+  }, [agentId]);
 
   React.useEffect(() => {
     if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
