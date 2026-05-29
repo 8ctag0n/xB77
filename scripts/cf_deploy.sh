@@ -214,21 +214,24 @@ done
 say "Patching wrangler.toml with prod KV IDs + RPC..."
 python3 - <<PY
 import re, pathlib
-p = pathlib.Path("wrangler.toml")
-toml = p.read_text()
 ids = {"AGENTS": "${KV_IDS[AGENTS]}", "ORDERS": "${KV_IDS[ORDERS]}", "NONCES": "${KV_IDS[NONCES]}", "BUCKETS": "${KV_IDS[BUCKETS]}", "IDEMP": "${KV_IDS[IDEMP]}"}
 
 def replace_kv(name, real_id, text):
     pat = re.compile(r'(\[\[kv_namespaces\]\]\nbinding = "' + name + r'"\nid = ")[^"]+(")')
     return pat.sub(lambda m: m.group(1) + real_id + m.group(2), text, count=1)
 
-for name, real_id in ids.items():
-    toml = replace_kv(name, real_id, toml)
+def patch_file(path):
+    p = pathlib.Path(path)
+    if not p.exists(): return
+    toml = p.read_text()
+    for name, real_id in ids.items():
+        toml = replace_kv(name, real_id, toml)
+    toml = re.sub(r'ZNODE_RPC_URL = "[^"]*"', f'ZNODE_RPC_URL = "${ZNODE_RPC_URL}"', toml)
+    p.write_text(toml)
+    print(f"  → {path} updated")
 
-toml = re.sub(r'ZNODE_RPC_URL = "[^"]*"', f'ZNODE_RPC_URL = "${ZNODE_RPC_URL}"', toml)
-
-p.write_text(toml)
-print("  → wrangler.toml updated")
+patch_file("wrangler.toml")
+patch_file("../znode-worker/wrangler.toml")
 PY
 
 # ── Set secrets (non-interactive) ─────────────────────────────────────
@@ -245,6 +248,10 @@ printf '%s' "$INGEST_TOKEN" | $WRANGLER secret put INGEST_TOKEN
 # eat 15-25s of walk time per deploy. Staging the production-only files
 # into /tmp first means wrangler only walks ~90 files, ~2.5 MB.
 STAGE_DIR="$(mktemp -d -t xb77-stage-XXXX)"
+
+say "Building VitePress docs..."
+(cd "$REPO/docs" && npm install && npm run docs:build)
+
 say "Staging static assets to $STAGE_DIR ..."
 # rsync drops everything that .assetsignore would have excluded, plus
 # anything we know wrangler doesn't need. Fast (~1s for ~2.5 MB).
@@ -257,6 +264,11 @@ rsync -a "$REPO/apps/web/" "$STAGE_DIR/" \
   --exclude='*.swp' \
   --exclude='*~' \
   > /dev/null
+
+say "Including built docs in /docs/ ..."
+mkdir -p "$STAGE_DIR/docs"
+rsync -a "$REPO/docs/.vitepress/dist/" "$STAGE_DIR/docs/"
+
 stage_size_kb="$(du -sk "$STAGE_DIR" | cut -f1)"
 stage_count="$(find "$STAGE_DIR" -type f | wc -l)"
 say "  → ${stage_count} files, ${stage_size_kb} KB"
@@ -265,16 +277,23 @@ say "  → ${stage_count} files, ${stage_size_kb} KB"
 # (trap) so a crash mid-deploy doesn't leave wrangler.toml broken.
 WRANGLER_TOML_BACKUP="$(mktemp)"
 cp wrangler.toml "$WRANGLER_TOML_BACKUP"
-trap "cp '$WRANGLER_TOML_BACKUP' '$WORKER_DIR/wrangler.toml' && rm -f '$WRANGLER_TOML_BACKUP' && rm -rf '$STAGE_DIR'" EXIT
-sed -i "s|directory = \"../../apps/web\"|directory = \"$STAGE_DIR\"|" wrangler.toml
+WRANGLER_TOML_ZNODE_BACKUP="$(mktemp)"
+cp ../znode-worker/wrangler.toml "$WRANGLER_TOML_ZNODE_BACKUP"
+
+trap "cp '$WRANGLER_TOML_BACKUP' '$WORKER_DIR/wrangler.toml' && cp '$WRANGLER_TOML_ZNODE_BACKUP' '$REPO/apps/gateway/znode-worker/wrangler.toml' && rm -f '$WRANGLER_TOML_BACKUP' '$WRANGLER_TOML_ZNODE_BACKUP' && rm -rf '$STAGE_DIR'" EXIT
+
+sed -i \"s|directory = \\\"../../apps/web\\\"|directory = \\\"$STAGE_DIR\\\"|\" wrangler.toml
 
 # ── Deploy (Worker + Static Assets in one shot) ───────────────────────
-say "Deploying Worker (with staged assets) — should be fast now ..."
+say \"Deploying Gateway Worker (with staged assets) ...\"
 # Stream output live AND capture to a tmpfile so we can parse the URL after.
-DEPLOY_LOG="$(mktemp -t cf_deploy_XXXX.log)"
-$WRANGLER deploy 2>&1 | tee "$DEPLOY_LOG"
-deploy_exit="${PIPESTATUS[0]}"
-[[ "$deploy_exit" -eq 0 ]] || die "wrangler deploy exited $deploy_exit — see output above"
+DEPLOY_LOG=\"$(mktemp -t cf_deploy_XXXX.log)\"
+$WRANGLER deploy 2>&1 | tee \"$DEPLOY_LOG\"
+deploy_exit=\"${PIPESTATUS[0]}\"
+[[ \"$deploy_exit\" -eq 0 ]] || die \"wrangler deploy exited $deploy_exit — see output above\"
+
+say \"Deploying Z-Node Pulse Worker (scheduled) ...\"
+(cd \"$REPO/apps/gateway/znode-worker\" && $WRANGLER deploy)
 
 WORKER_URL="$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' "$DEPLOY_LOG" | head -1 || echo '')"
 # Fallback: if we couldn't parse it (output format changed), use the URL
