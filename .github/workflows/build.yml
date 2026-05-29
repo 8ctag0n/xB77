@@ -128,7 +128,7 @@ jobs:
           - xb77_core
           - xb77_gateway
           - xb77_registry
-          - xb77.iopression
+          - xb77_compression
           - xb77_zk_verifier
     steps:
       - uses: actions/checkout@v4
