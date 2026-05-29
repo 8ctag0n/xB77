@@ -85,6 +85,7 @@ describe("conformance: WASM signature verifies under WebCrypto", () => {
     [Action.RegisterAgent, '{"name":"alice-agent","contact":"alice@xb77.dev"}'],
     [Action.ClaimCredits, '{"amount":500000}'],
     [Action.QueryPulse, "{}"],
+    [Action.LinkAgent, '{"agent_id":"0x...","link_code":"123456"}'],
   ])("action %i: WASM-signed request validates with WebCrypto Ed25519 verify", async (action, payloadStr) => {
     const kp = await makeKeypair();
     const timestampMs = 1_700_000_000_000;

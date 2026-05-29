@@ -13,6 +13,7 @@ export enum Action {
   RegisterAgent = 0x02,
   ClaimCredits = 0x03,
   QueryPulse = 0x04,
+  LinkAgent = 0x05,
 }
 
 export enum ErrorCode {
@@ -39,6 +40,9 @@ export interface SignedRequest {
   headers: Record<string, string>;
   body: Uint8Array;
 }
+
+export * from "./arbitrum";
+export * from "./identity";
 
 export interface LoadOptions {
   /** Raw WASM bytes. If omitted, loader looks for ./wasm/xb77_core.wasm */
