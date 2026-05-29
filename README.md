@@ -79,7 +79,21 @@ A brutalist real-time interface to monitor swarm health, Agentic GDP (aGDP), and
 
 ---
 
-##  Technical Architecture
+##  Edge Infrastructure (Sovereign Cloud)
+
+xB77 is deployed on the **Cloudflare Edge** using a multi-layered sovereign architecture:
+
+*   **Sovereign Zig Engine:** The core protocol logic is compiled to WASM and runs in an isolated V8 sandbox on Cloudflare Workers.
+*   **WASI Interface:** Our custom JS shim bridges the WASM core with Cloudflare's KV storage, provide sub-millisecond persistence.
+*   **Pure Client-Side Auth:** The Gateway never sees your private keys. Every action is signed using **Ed25519** within the xB77 Bunker Vault (AES-GCM) on your local machine or browser.
+
+###  Roadmap: Workers for Platforms
+We are migrating towards a **Dynamic Dispatch** architecture. In the next phase:
+*   Each Agent will have its own dedicated Worker instance.
+*   **Isolated Compute:** Individual CPU and memory limits per sovereign entity.
+*   **Custom Domains:** Agents can be reachable at `agent-id.xb77.io` with zero-trust isolation.
+
+---
 
 - **Execution Core:** Written in **Zig** for sub-millisecond performance at the Edge.
 - **ZK-Circuits:** **Noir** for hardware-agnostic privacy proofs.
