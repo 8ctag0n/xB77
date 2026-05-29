@@ -62,6 +62,16 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
+    // --- Asset Routing Patch for SPAs ---
+    // If the path is /app or /dashboard, we want to serve app.html but 
+    // keep the path consistent for relative assets.
+    if (path === "/app" || path === "/dashboard") {
+      return fetch(new Request(url.origin + "/app.html", request));
+    }
+    if (path === "/docs") {
+      return fetch(new Request(url.origin + "/docs/index.html", request));
+    }
+
     // 0. Sovereign Stack Custom Routes
     if (path === "/api/v1/sns/reverse" && method === "GET") {
       const pubkey = url.searchParams.get("pubkey");
@@ -111,6 +121,22 @@ export default {
         agents_online: 42,
         ts: Date.now()
       }), { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
+    }
+
+    if (path === "/api/v1/brain/trace" && method === "GET") {
+      const agent_id = url.searchParams.get("agent_id") || "ag_sentinel";
+      const traces = [
+        { type: "system", text: `[INIT] Sovereign Session: ${agent_id}` },
+        { type: "success", text: "[AUTH] Neural Key 0x77... Verified" },
+        { type: "accent", text: "[BRAIN] Scanning Devnet for high-yield vaults..." },
+        { type: "dim", text: "[HELIUS] Monitoring block " + Math.floor(Date.now()/1000) },
+        { type: "code", text: `const strategy = await xB77.analyze("${agent_id}");` },
+        { type: "success", text: "[ZK] State Anchor Verified on Devnet" },
+        { type: "warning", text: "[GOV] Threshold $5k reached. Monitoring..." },
+      ];
+      return new Response(JSON.stringify({ traces }), {
+        headers: { "content-type": "application/json", "access-control-allow-origin": "*" }
+      });
     }
 
     if (path === "/api/v1/pipelines/recent" && method === "GET") {

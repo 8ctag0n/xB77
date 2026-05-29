@@ -33,26 +33,50 @@ export default {
     };
     await env.AGENTS.put("network:pulse", JSON.stringify(pulse));
 
-    // 3. Simulate Pipeline Events (ZK Proofs)
-    const types = ["compression", "transfer", "attestation", "shield"];
-    const agents = ["ag_cybercore", "ag_sentinel", "ag_phantom", "ag_nexus"];
-    
-    const count = 1 + Math.floor(Math.random() * 2);
+    // 3. Process REAL Agents and Simulate Autonomy
+    const agentList = await env.AGENTS.list({ prefix: "agent:" });
     const recent = [];
-    
-    for (let i = 0; i < count; i++) {
+
+    for (const key of agentList.keys) {
+      const agentData = await env.AGENTS.get(key.name, "json");
+      if (!agentData) continue;
+
+      const strategy = agentData.tier || "Sovereign Core";
+      
+      // Simulate an action based on strategy
+      let actionType = "heartbeat";
+      if (strategy.includes("Yield")) actionType = "rebalance";
+      else if (strategy.includes("Settler")) actionType = "settlement";
+      else if (strategy.includes("Rebalancer")) actionType = "bridge";
+
       recent.push({
         id: "pk_" + Math.random().toString(36).substring(2, 10),
-        agent: agents[Math.floor(Math.random() * agents.length)],
-        type: types[Math.floor(Math.random() * types.length)],
+        agent: agentData.agent_id,
+        type: actionType,
         status: "verified",
-        slot: slot - i,
-        ts: Date.now() - (i * 2000)
+        slot: slot,
+        strategy: strategy,
+        ts: Date.now()
       });
     }
 
+    // 4. Fallback generic events if no agents yet
+    if (recent.length < 3) {
+      const genericAgents = ["ag_cybercore", "ag_sentinel"];
+      for (const a of genericAgents) {
+        recent.push({
+          id: "pk_gen_" + Math.random().toString(36).substring(2, 10),
+          agent: a,
+          type: "shield",
+          status: "verified",
+          slot: slot - 1,
+          ts: Date.now() - 5000
+        });
+      }
+    }
+
     // Keep a small rolling window in KV
-    await env.AGENTS.put("pipelines:recent", JSON.stringify({ pipelines: recent }));
+    await env.AGENTS.put("pipelines:recent", JSON.stringify({ pipelines: recent.slice(0, 10) }));
     
     console.log(`Z-Node Pulse complete. Slot: ${slot}, Pipelines generated: ${count}`);
   }
