@@ -249,12 +249,12 @@
     return { signature };
   }
 
-  // High-level: anchor a state transition onchain via xb77.iopression.
+  // High-level: anchor a state transition onchain via xb77_compression.
   // Uses the minimal "no-siblings" payload (matches the program's poseidon
   // fixture in tests/wincode_layout.rs), so it always verifies regardless
   // of what the agent's "real" state actually is — this is the demo path.
   async function anchorState({ idl } = {}) {
-    if (!idl) throw new Error("pass the xb77.iopression IDL JSON");
+    if (!idl) throw new Error("pass the xb77_compression IDL JSON");
     // Reconstruct the minimal payload (matches the Zig client fixture).
     // new_root = Poseidon([amount_u128_be32, tx_hash_32]) — for our minimal
     // case this is a known constant. We pass it as zero-32 and rely on the

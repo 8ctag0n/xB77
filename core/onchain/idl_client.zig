@@ -259,7 +259,7 @@ test "idl_client: encode VerifyTransition matches 125-byte fixture" {
     const allocator = std.testing.allocator;
 
     // Load the real IDL JSON from the repo.
-    const idl_path = "idls/xb77.iopression.json";
+    const idl_path = "idls/xb77_compression.json";
     const idl_json = try std.fs.cwd().readFileAlloc(allocator, idl_path, 64 * 1024);
     defer allocator.free(idl_json);
 

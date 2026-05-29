@@ -15,7 +15,7 @@ name: Release
 #   gateway.wasm (Cloudflare Worker bundle)
 #   zk-upload-e2e (devnet driver)
 #   xb77_core.so / xb77_gateway.so / xb77_registry.so /
-#     xb77.iopression.so / xb77_zk_verifier.so
+#     xb77_compression.so / xb77_zk_verifier.so
 #   zk_receipt.json (compiled Noir circuit)
 #
 # Program *-keypair.json files are intentionally NOT attached. They

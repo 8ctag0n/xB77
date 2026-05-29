@@ -166,5 +166,5 @@ zig build
 | Gateway never holds an agent's private key | Worker only verifies signatures; it never signs on behalf of anyone |
 | Gateway responses are verifiable | Worker signs every action response with its own key; webapp `verifyResponseSig` checks against `/_meta`'s `gateway_pubkey` |
 | Onchain writes are byte-identical between clients | Same wincode encoder + IDL in both Zig and JS — `bun test apps/web/test/onchain-e2e.test.js` is the regression |
-| Programs verify what they claim to verify | `xb77.iopression` runs Poseidon BN254; `xb77_gateway` enforces nullifier PDAs; `xb77_zk_verifier` runs the (stub) judge — all visible in `solana logs` |
+| Programs verify what they claim to verify | `xb77_compression` runs Poseidon BN254; `xb77_gateway` enforces nullifier PDAs; `xb77_zk_verifier` runs the (stub) judge — all visible in `solana logs` |
 | dApp sees live activity without polling onchain | `xb77 gateway watch` daemon polls both gateway + verifier, POSTs to worker `/api/v1/pipelines/ingest` (bearer auth) — Pipelines + Proofs tabs reflect within one tick (~5s) |

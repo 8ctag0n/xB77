@@ -94,7 +94,7 @@ A machine economy built on overstated capabilities is not sovereign — it is fr
 | ZK engine | Noir 0.36 + Barretenberg 0.58 | Privacy-preserving proof generation |
 | Gateway | WASM on Cloudflare Workers | Edge-native payment routing |
 | Settlement | Solana (Agave 3.1.14) | Permissionless, high-throughput L1 |
-| Programs | Anchor (Rust) | `xb77_core`, `xb77_zk_verifier`, `xb77_registry`, `xb77.iopression` |
+| Programs | Anchor (Rust) | `xb77_core`, `xb77_zk_verifier`, `xb77_registry`, `xb77_compression` |
 
 ---
 

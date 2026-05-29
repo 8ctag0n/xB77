@@ -85,7 +85,7 @@ export XB77_USE_BRAIN_SHIM=1
 **Browser** (`http://127.0.0.1:8086/app.html`):
 1. Connect via keystore modal (Ed25519 keypair, password-derived, browser-only).
 2. Wallet tab → balance shows.
-3. Pipelines tab → click **ANCHOR ⛓** → state anchored via `xb77.iopression`.
+3. Pipelines tab → click **ANCHOR ⛓** → state anchored via `xb77_compression`.
 4. Click **SUBMIT 📦** → `SubmitPrivateOrder` lands on `xb77_gateway`.
 
 **Terminal C**:

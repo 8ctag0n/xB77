@@ -6,7 +6,7 @@
 // (siblings=[]), which Zig will hardcode as `new_root` to make the program
 // accept the proof.
 
-use xb77.iopression::{CompressionInstruction, VerifyTransitionPayload};
+use xb77_compression::{CompressionInstruction, VerifyTransitionPayload};
 use solana_poseidon::{hashv, Endianness, Parameters};
 
 fn hex(bytes: &[u8]) -> String {
@@ -49,7 +49,7 @@ fn dump_minimal_verify_transition_bytes() {
 
     // Sanity check: the program's verifier accepts this payload
     assert!(
-        xb77.iopression::verify_transition(&payload),
+        xb77_compression::verify_transition(&payload),
         "verify_transition rejected our hand-crafted minimal payload"
     );
 

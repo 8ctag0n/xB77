@@ -1,7 +1,7 @@
 // Tests for apps/web/assets/src/lib/idl-client.js
 //
 // Proves the IDL-driven encoder produces wincode bytes identical to what the
-// Zig client produces and the on-chain xb77.iopression program accepts.
+// Zig client produces and the on-chain xb77_compression program accepts.
 
 import { test, expect } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -12,7 +12,7 @@ import "../assets/src/lib/idl-client.js";
 const { IdlClient } = globalThis;
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const compressionIdl = JSON.parse(readFileSync(path.join(repoRoot, "idls/xb77.iopression.json"), "utf8"));
+const compressionIdl = JSON.parse(readFileSync(path.join(repoRoot, "idls/xb77_compression.json"), "utf8"));
 const coreIdl        = JSON.parse(readFileSync(path.join(repoRoot, "idls/xb77_core.json"), "utf8"));
 const gatewayIdl     = JSON.parse(readFileSync(path.join(repoRoot, "idls/xb77_gateway.json"), "utf8"));
 const zkIdl          = JSON.parse(readFileSync(path.join(repoRoot, "idls/xb77_zk_verifier.json"), "utf8"));
@@ -26,7 +26,7 @@ const fromHex = (s) => {
 
 test("IdlClient.load parses an IDL and exposes its instructions", () => {
   const c = IdlClient.load(compressionIdl);
-  expect(c.name).toBe("xb77.iopression");
+  expect(c.name).toBe("xb77_compression");
   expect(c.instructions.VerifyTransition).toBeDefined();
   expect(c.programId).toBe("6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN");
 });

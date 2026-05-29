@@ -6,7 +6,7 @@ _DEMO_STEPS_LOADED=1
 # Program registry. Format: name|program_id|so_path|keypair_path
 PROGRAMS=(
   "xb77_core|73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3|onchain/programs/xb77_core/target/deploy/xb77_core.so|onchain/programs/xb77_core/target/deploy/xb77_core-keypair.json"
-  "xb77.iopression|6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN|onchain/programs/xb77.iopression/target/deploy/xb77.iopression.so|onchain/programs/xb77.iopression/target/deploy/xb77.iopression-keypair.json"
+  "xb77_compression|6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN|onchain/programs/xb77_compression/target/deploy/xb77_compression.so|onchain/programs/xb77_compression/target/deploy/xb77_compression-keypair.json"
   "xb77_zk_verifier|J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ|onchain/programs/xb77_zk_verifier/target/deploy/xb77_zk_verifier.so|onchain/programs/xb77_zk_verifier/target/deploy/xb77_zk_verifier-keypair.json"
 )
 

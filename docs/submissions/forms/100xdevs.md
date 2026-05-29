@@ -56,7 +56,7 @@ Solana plane (5 programs, devnet):
   • xb77_core         — agent identity + credit line
   • xb77_gateway      — signed action surface (SubmitPrivateOrder + ClosePerSession)
   • xb77_registry     — merchant catalog
-  • xb77.iopression  — Poseidon BN254 state anchors
+  • xb77_compression  — Poseidon BN254 state anchors
   • xb77_zk_verifier  — chunked proof buffer
 
 Zig CLI (~50 KLOC, builds in ~30s):
@@ -154,7 +154,7 @@ Five deployed programs on devnet (open in explorer.solana.com/?cluster=devnet):
   xb77_core         73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3
   xb77_gateway      83nPgEhrzKaDSXCoWQCkYau66KUnVeFSQF32LPfyL3s4
   xb77_registry     HxjcLS4gkccTWD3VeM9Vc4NkQ4rjxtDHR2Lwby6NL6b1
-  xb77.iopression  6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN
+  xb77_compression  6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN
   xb77_zk_verifier  J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ
 
 Docs (vitepress):

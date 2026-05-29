@@ -53,7 +53,7 @@ WEBAPP_PID=""
 # Programs registry — name | program_id | .so | keypair (paths relative to ONCHAIN_WT)
 PROGRAMS=(
   "xb77_core|73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3|onchain/programs/xb77_core/target/deploy/xb77_core.so|onchain/programs/xb77_core/target/deploy/xb77_core-keypair.json"
-  "xb77.iopression|6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN|onchain/programs/xb77.iopression/target/deploy/xb77.iopression.so|onchain/programs/xb77.iopression/target/deploy/xb77.iopression-keypair.json"
+  "xb77_compression|6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN|onchain/programs/xb77_compression/target/deploy/xb77_compression.so|onchain/programs/xb77_compression/target/deploy/xb77_compression-keypair.json"
   "xb77_zk_verifier|J2Q44jasMJD8VNGFHkyk6U9uEf5Zt1gj7H5mEfmQ5UoJ|onchain/programs/xb77_zk_verifier/target/deploy/xb77_zk_verifier.so|onchain/programs/xb77_zk_verifier/target/deploy/xb77_zk_verifier-keypair.json"
   "xb77_gateway|83nPgEhrzKaDSXCoWQCkYau66KUnVeFSQF32LPfyL3s4|onchain/programs/xb77_gateway/target/deploy/xb77_gateway.so|onchain/programs/xb77_gateway/target/deploy/xb77_gateway-keypair.json"
   "xb77_registry|HxjcLS4gkccTWD3VeM9Vc4NkQ4rjxtDHR2Lwby6NL6b1|onchain/programs/xb77_registry/target/deploy/xb77_registry.so|onchain/programs/xb77_registry/target/deploy/xb77_registry-keypair.json"
@@ -362,7 +362,7 @@ PULSE="$(curl -fsS "http://127.0.0.1:${GW_PORT}/api/v1/network/pulse" 2>&1 || ec
 # tx-builder and sends it to the validator. Proof that the no-mocks
 # path is wired end-to-end. Skipped via --no-onchain-smoke.
 if [[ "${SKIP_ONCHAIN_SMOKE:-0}" != "1" ]]; then
-  step "Onchain smoke (anchorState → xb77.iopression)"
+  step "Onchain smoke (anchorState → xb77_compression)"
   if ( cd "${REPO}" && bun test apps/web/test/onchain-e2e.test.js 2>&1 | tee "${WORK}/onchain-smoke.log" | grep -q "1 pass" ); then
     SIG="$(grep -oE 'anchorState tx: [1-9A-HJ-NP-Za-km-z]+' "${WORK}/onchain-smoke.log" | tail -1 | awk '{print $3}')"
     ok "onchain tx landed: ${SIG:-???}"

@@ -40,7 +40,7 @@ graph TB
         CORE["xb77_core\n(CMT anchor)"]
         VF["xb77_zk_verifier\n(proof PDA)"]
         REG["xb77_registry\n(identity)"]
-        COMP["xb77.iopression\n(state delta)"]
+        COMP["xb77_compression\n(state delta)"]
     end
 
     B -->|"Blink / payment"| GW
@@ -65,7 +65,7 @@ In v1, xB77 relied on third-party privacy layers. In v2, all critical components
 | Component | v1 | v2 |
 |---|---|---|
 | ZK proofs | External integrations | Proprietary Noir circuits + Barretenberg |
-| Compression | External protocol | `xb77.iopression` Anchor program |
+| Compression | External protocol | `xb77_compression` Anchor program |
 | On-chain verification | Stub / simulation | `xb77_zk_verifier` (honest stub, see §6) |
 | Agent runtime | None | Zig agent + QVAC Brain |
 | Gateway | Basic HTTP | WASM Cloudflare Worker |
@@ -85,7 +85,7 @@ CMT leaf = Hash(amount ‖ recipient_hash ‖ tax_rate ‖ epoch ‖ nonce)
 CMT root = MerkleRoot(leaf_0, leaf_1, ..., leaf_N)
 ```
 
-The `cmt_core.c` C library provides the hashing primitive (Keccak-256). The Zig agent calls it via FFI. The root is periodically anchored to `xb77.iopression` as a "ZK-Batch" — batching N intents into one on-chain footprint.
+The `cmt_core.c` C library provides the hashing primitive (Keccak-256). The Zig agent calls it via FFI. The root is periodically anchored to `xb77_compression` as a "ZK-Batch" — batching N intents into one on-chain footprint.
 
 ### 4.2 ZK Engine (Noir + Barretenberg)
 
