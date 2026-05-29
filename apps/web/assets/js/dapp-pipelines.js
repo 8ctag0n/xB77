@@ -40,11 +40,11 @@ const PIPELINES_SEED = [
   }
 ];
 const TXLOG_SEED = [
-  { time: "14:23", from: "cfo-alpha", to: "Caf\xE9 Sovereign", amount: "$47.80", status: "SHIELDED", receipt: "zk_rcpt_88f1" },
+  { time: "14:23", from: "cfo-alpha", to: "Cafe Sovereign", amount: "$47.80", status: "SHIELDED", receipt: "zk_rcpt_88f1" },
   { time: "14:18", from: "cfo-alpha", to: "Pool: USDC/SOL", amount: "$240.00", status: "SHIELDED", receipt: "zk_rcpt_87a2" },
   { time: "14:12", from: "ag_worker_01", to: "Yield Vault", amount: "$500.00", status: "SHIELDED", receipt: "zk_rcpt_86c3" },
   { time: "14:05", from: "cfo-alpha", to: "Privacy Pool", amount: "$1,200.00", status: "SHIELDED", receipt: "zk_rcpt_85d4" },
-  { time: "13:51", from: "ag_worker_03", to: "Caf\xE9 Sovereign", amount: "$23.90", status: "SHIELDED", receipt: "zk_rcpt_84e5" },
+  { time: "13:51", from: "ag_worker_03", to: "Cafe Sovereign", amount: "$23.90", status: "SHIELDED", receipt: "zk_rcpt_84e5" },
   { time: "13:40", from: "ag_worker_02", to: "DEX: SOL/USDC", amount: "$380.00", status: "SHIELDED", receipt: "zk_rcpt_83f6" }
 ];
 function hhmm(d = /* @__PURE__ */ new Date()) {

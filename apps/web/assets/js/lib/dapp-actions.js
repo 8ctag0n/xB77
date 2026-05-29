@@ -67,7 +67,17 @@
     return G.crypto.subtle.verify("Ed25519", key, sig, canonical);
   }
 
-  const gateway = () => G.XB77_GATEWAY || "http://127.0.0.1:8787";
+  const gateway = () => {
+    if (G.XB77_GATEWAY) return G.XB77_GATEWAY;
+    if (typeof window !== "undefined") {
+      if (window.location.hostname.endsWith(".workers.dev") || 
+          window.location.hostname === "localhost" || 
+          window.location.hostname === "127.0.0.1") {
+        return window.location.origin;
+      }
+    }
+    return "http://127.0.0.1:8787";
+  };
 
   const toHex = (b) => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
@@ -200,7 +210,9 @@
     if (!G.IdlClient || !G.SolanaTx || !G.SolanaRpc || !G.base58Decode) {
       throw new Error("onchain libs missing — load idl-client/solana-tx/solana-rpc/base58 first");
     }
-    rpcUrl = rpcUrl || G.XB77_RPC_URL || "http://127.0.0.1:8899";
+    const isProd = typeof window !== "undefined" && (window.location.hostname.endsWith(".workers.dev") || window.location.hostname.includes("xb77.io"));
+    const RPC_DEFAULT = isProd ? "https://api.devnet.solana.com" : "http://127.0.0.1:8899";
+    rpcUrl = rpcUrl || G.XB77_RPC_URL || RPC_DEFAULT;
 
     const idlc = G.IdlClient.load(idl);
     const data = idlc.encodeInstruction(instructionName, values);
@@ -278,7 +290,9 @@
   async function selfAirdrop({ lamports = 1_000_000_000 } = {}) {
     const KS = G.XB77Keystore;
     if (!KS || !KS.currentPubkey()) throw new Error("keystore locked");
-    const rpcUrl = G.XB77_RPC_URL || "http://127.0.0.1:8899";
+    const isProd = typeof window !== "undefined" && (window.location.hostname.endsWith(".workers.dev") || window.location.hostname.includes("xb77.io"));
+    const RPC_DEFAULT = isProd ? "https://api.devnet.solana.com" : "http://127.0.0.1:8899";
+    const rpcUrl = G.XB77_RPC_URL || RPC_DEFAULT;
     if (!/127\.0\.0\.1|localhost/.test(rpcUrl)) {
       return { skipped: true, reason: "non-local rpc" };
     }

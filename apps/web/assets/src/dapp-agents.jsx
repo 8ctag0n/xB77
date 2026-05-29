@@ -16,7 +16,7 @@ const AGENTS_SEED = [
   { id: 'ag_worker_03_0x5e6f', name: 'ag_worker_03', type: 'PAYMENTS', status: 'online', risk: 'LOW',
     governance: 'LEAD-CONTROLLED', txns: 6, pnl: '-$12.00', balance: '$1,850',
     currencies: ['USDC', 'EURC'], pipeline: 'pipe_hy_003', uptime: '99.5%',
-    color: D.purple, lastAction: 'Payment to Café Sovereign (1h ago)' },
+    color: D.purple, lastAction: 'Payment to Cafe Sovereign (1h ago)' },
   { id: 'ag_worker_04_0x7g8h', name: 'ag_worker_04', type: 'RECON', status: 'idle', risk: 'NONE',
     governance: 'LEAD-CONTROLLED', txns: 2, pnl: '$0.00', balance: '$0',
     currencies: [], pipeline: 'none', uptime: '97.1%',

@@ -124,7 +124,10 @@ function ProofsView() {
                 </div>
                 <div style={{ flexShrink: 0 }}>
                   <a
-                    href={`https://solscan.io/tx/${sig}?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899`}
+                    href={typeof window !== "undefined" && (window.location.hostname.endsWith(".workers.dev") || window.location.hostname.includes("xb77.io"))
+                      ? `https://solscan.io/tx/${sig}?cluster=devnet`
+                      : `https://solscan.io/tx/${sig}?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899`
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{

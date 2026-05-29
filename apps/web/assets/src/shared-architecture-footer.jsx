@@ -206,7 +206,7 @@ function Tokenomics({ theme }) {
             fontFamily: 'var(--serif)', fontSize: 22, fontStyle: 'italic',
             color: t.text, margin: 0, lineHeight: 1.4,
           }}>
-            "xB77 no cobra por transacción, cobra por <span style={{ color: t.accent }}>autonomía</span>."
+            "xB77 doesn't charge per transaction, it charges for <span style={{ color: t.accent }}>autonomy</span>."
           </p>
         </div>
       </div>

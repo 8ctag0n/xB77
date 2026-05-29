@@ -55,7 +55,7 @@ const CHANGELOG = [
       { type: "new", text: "Whitepaper (EN/ES)" },
       { type: "new", text: "Architecture diagrams" },
       { type: "new", text: "Vimeo demo video embed" },
-      { type: "new", text: "i18n support (English + Espa\xF1ol)" },
+      { type: "new", text: "i18n support (English + Spanish)" },
       { type: "new", text: "GitHub Pages deployment" }
     ]
   }

@@ -57,7 +57,9 @@ function MerchantsView() {
   const refresh = React.useCallback(async () => {
     setLoading(true);
     try {
-      const rpcUrl = window.XB77_RPC_URL || 'http://127.0.0.1:8899';
+      const isProd = typeof window !== "undefined" && (window.location.hostname.endsWith(".workers.dev") || window.location.hostname.includes("xb77.io"));
+      const RPC_DEFAULT = isProd ? "https://api.devnet.solana.com" : "http://127.0.0.1:8899";
+      const rpcUrl = window.XB77_RPC_URL || RPC_DEFAULT;
       const rpc = window.SolanaRpc.create(rpcUrl);
       const entries = await rpc.getProgramAccounts(REGISTRY_PROGRAM_ID, {});
       const decoded = entries.map((e) => {
@@ -124,7 +126,8 @@ function MerchantsView() {
           <DM size={10} color={D.text}>Register new merchant</DM>
           <input
             type="text"
-            placeholder="merchant id (e.g. cafe-soberano)"
+            placeholder="merchant id (e.g. cafe-sovereign)"
+
             value={merchantIdInput}
             onChange={(e) => setMerchantIdInput(e.target.value)}
             disabled={submitting}

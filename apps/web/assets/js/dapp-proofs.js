@@ -50,7 +50,7 @@ function ProofsView() {
     } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement(Badge, { color: verdictColor, bg: `${verdictColor}18` }, p.verdict || "PENDING"), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)", fontSize: 11, color: D.text, fontWeight: 600 } }, sig.slice(0, 16), "\u2026", sig.slice(-8))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(DM, { size: 9 }, "slot ", p.slot ?? "\u2014"), /* @__PURE__ */ React.createElement(DM, { size: 9 }, "agent ", (p.agent || "onchain").slice(0, 14), "\u2026"), p.duration_ms != null && /* @__PURE__ */ React.createElement(DM, { size: 9 }, Math.floor(p.duration_ms / 1e3), "s"))), /* @__PURE__ */ React.createElement("div", { style: { flexShrink: 0 } }, /* @__PURE__ */ React.createElement(
       "a",
       {
-        href: `https://solscan.io/tx/${sig}?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899`,
+        href: typeof window !== "undefined" && (window.location.hostname.endsWith(".workers.dev") || window.location.hostname.includes("xb77.io")) ? `https://solscan.io/tx/${sig}?cluster=devnet` : `https://solscan.io/tx/${sig}?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899`,
         target: "_blank",
         rel: "noopener noreferrer",
         style: {

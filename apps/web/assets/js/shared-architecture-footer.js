@@ -204,7 +204,7 @@ function Tokenomics({ theme }) {
     color: t.text,
     margin: 0,
     lineHeight: 1.4
-  } }, '"xB77 no cobra por transacci\xF3n, cobra por ', /* @__PURE__ */ React.createElement("span", { style: { color: t.accent } }, "autonom\xEDa"), '."'))));
+  } }, `"xB77 doesn't charge per transaction, it charges for `, /* @__PURE__ */ React.createElement("span", { style: { color: t.accent } }, "autonomy"), '."'))));
 }
 const ROADMAP_PHASES = [
   {

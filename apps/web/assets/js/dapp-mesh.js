@@ -8,7 +8,7 @@ const MESH_NODES = [
   { id: "zk-engine", label: "xB77 ZK Engine", type: "PRIVACY", x: 10, y: 30, color: "var(--accent)", status: "active", ext: true },
   { id: "light", label: "xB77 ZK Engine", type: "ZK-RECEIPTS", x: 90, y: 30, color: "#4de8d0", status: "active", ext: true },
   { id: "solana", label: "Solana", type: "SETTLEMENT", x: 50, y: 95, color: "#a78bfa", status: "active", ext: true },
-  { id: "cafe", label: "Caf\xE9 Sovereign", type: "MERCHANT", x: 12, y: 80, color: "#fbbf24", status: "indexed", ext: true },
+  { id: "cafe", label: "Cafe Sovereign", type: "MERCHANT", x: 12, y: 80, color: "#fbbf24", status: "indexed", ext: true },
   { id: "pool", label: "Privacy Pool", type: "OBFUSCATION", x: 88, y: 80, color: "var(--accent)", status: "active", ext: true }
 ];
 const MESH_EDGES = [
@@ -216,7 +216,7 @@ function DashboardView() {
     const pool = [
       { icon: "\u{1F916}", text: "cfo-alpha executed swap: 240 USDC \u2192 SOL", color: D.text },
       { icon: "\u{1F512}", text: "pipe_sw_001 shielded 3 transactions", color: D.dim },
-      { icon: "\u{1F4E6}", text: "Caf\xE9 Sovereign: order from ag_worker_03", color: D.cyan },
+      { icon: "\u{1F4E6}", text: "Cafe Sovereign: order from ag_worker_03", color: D.cyan },
       { icon: "\u26A1", text: "ag_worker_04 discovered 2 merchants", color: "#fbbf24" },
       { icon: "\u{1F6E1}\uFE0F", text: "ZK-receipt compressed: zk_rcpt_a3f1", color: D.dim },
       { icon: "\u{1F514}", text: "Governance: tx $8,200 needs approval", color: "#fbbf24" },

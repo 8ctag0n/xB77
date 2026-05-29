@@ -63,7 +63,7 @@ const AGENTS_SEED = [
     pipeline: "pipe_hy_003",
     uptime: "99.5%",
     color: D.purple,
-    lastAction: "Payment to Caf\xE9 Sovereign (1h ago)"
+    lastAction: "Payment to Cafe Sovereign (1h ago)"
   },
   {
     id: "ag_worker_04_0x7g8h",

@@ -305,7 +305,7 @@ print(f"Ghost Receipt: {receipt.proof_hash}")`}</Code>
                 ['GET', '/api/pipelines/recent',    'pipelines: [{id, agent, chunks, status, verdict, ...}]'],
               ]}
             />
-            <P>The adapter probes the znode RPC via <Code>ZNODE_RPC_URL</Code> (default <Code>localhost:8899</Code>) with a 1.5s timeout. If the RPC is unreachable, returns deterministic mock data so the webapp never breaks.</P>
+            <P>The adapter probes the znode RPC via <Code>ZNODE_RPC_URL</Code> (default <Code>Devnet</Code> on production, <Code>localhost:8899</Code> on local dev) with a 1.5s timeout. If the RPC is unreachable, returns deterministic mock data so the webapp never breaks.</P>
 
             <H3>DataSource client</H3>
             <P>Drop <Code>data-source.js</Code> on the page and call any method. Every response carries <Code>_source</Code> (<Code>'live' | 'cached' | 'snapshot'</Code>) and <Code>_ageMs</Code>. The client never throws.</P>
