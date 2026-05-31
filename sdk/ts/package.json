@@ -21,7 +21,9 @@
     "build": "tsc -p tsconfig.json",
     "copy-wasm": "mkdir -p wasm && cp ../../zig-out/bin/xb77_core.wasm wasm/",
     "prepublishOnly": "bun run copy-wasm && bun run build",
-    "test": "bun test"
+    "dev:setup-wasm": "cd ../.. && zig build sdk-wasm",
+    "test": "bun test",
+    "test:full": "bun run dev:setup-wasm && bun test"
   },
   "keywords": [
     "xb77",

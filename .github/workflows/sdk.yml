@@ -107,8 +107,8 @@ jobs:
       - name: Type-check + build
         run: bun run --cwd sdk/ts build
 
-      - name: Test (excluding cross-conformance — Rust covered separately)
-        run: bun test --cwd sdk/ts wrapper conformance e2e-gateway
+      - name: Test (excluding cross-conformance — covered in separate job)
+        run: bun test --cwd sdk/ts wrapper test/conformance.test.ts e2e-gateway
 
   test-rust:
     name: Rust wrapper tests
