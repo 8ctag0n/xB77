@@ -260,7 +260,7 @@ jobs:
             ### TypeScript
             ```bash
             # via GitHub Packages (add @8ctag0n:registry=https://npm.pkg.github.com to .npmrc)
-            npm i @xb77/sdk@${{ github.ref_name }}
+            npm i @8ctag0n/xb77-sdk@${{ github.ref_name }}
             
             # or direct tarball
             curl -L -O https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/xb77-sdk-2.1.22.tgz

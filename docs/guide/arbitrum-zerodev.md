@@ -16,7 +16,7 @@ To use the Arbitrum SDK, you need a ZeroDev Project ID from the [ZeroDev Dashboa
 ### Installation
 
 ```bash
-npm install @xb77/sdk viem @zerodev/sdk @zerodev/permissions
+npm install @8ctag0n/xb77-sdk viem @zerodev/sdk @zerodev/permissions
 ```
 
 ## Usage
@@ -26,7 +26,7 @@ npm install @xb77/sdk viem @zerodev/sdk @zerodev/permissions
 The `ArbitrumAgentAccount` requires a `zerodevProjectId` to communicate with the bundler and paymaster RPCs.
 
 ```typescript
-import { ArbitrumAgentAccount } from "@xb77/sdk";
+import { ArbitrumAgentAccount } from "@8ctag0n/xb77-sdk";
 import { createPublicClient, http } from "viem";
 import { arbitrumSepolia } from "viem/chains";
 

@@ -1,6 +1,6 @@
 {
-  "name": "@xb77/sdk",
-  "version": "2.1.0",
+  "name": "@8ctag0n/xb77-sdk",
+  "version": "2.1.22",
   "description": "xB77 Sovereign Commerce Layer — TypeScript SDK (WASM core)",
   "author": "dzkinha",
   "license": "MIT",
