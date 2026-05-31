@@ -4,7 +4,10 @@ version = "2.1.0"
 edition = "2021"
 description = "xB77 Sovereign Commerce Layer — Rust SDK (WASM core)"
 license = "MIT"
-repository = "https://github.com/xb77/xb77"
+repository = "https://github.com/8ctag0n/xB77"
+documentation = "https://8ctag0n.github.io/xB77/reference/sdk-rust"
+homepage = "https://github.com/8ctag0n/xB77/tree/main/sdk/rs"
+authors = ["dzkinha <195769325+dzkinha@users.noreply.github.com>"]
 keywords = ["xb77", "solana", "sdk", "wasm", "sovereign-commerce"]
 categories = ["api-bindings", "cryptography"]
 

@@ -38,6 +38,7 @@ export const createSemanticPolicy = (intentVector: number[], policyAddress: Hex)
 export class ArbitrumAgentAccount {
   constructor(
     private publicClient: any,
+    private zerodevProjectId: string,
     private entryPoint: string = "0x0000000071727De22E5E9d8BAf0edAc6f37da032" // EntryPoint v0.7
   ) {}
 
@@ -72,12 +73,12 @@ export class ArbitrumAgentAccount {
     return createKernelAccountClient({
       account: kernelAccount,
       chain: arbitrumSepolia,
-      bundlerTransport: http("https://rpc.zerodev.app/api/v2/bundler/YOUR_ZERODEV_PROJECT_ID"),
+      bundlerTransport: http(`https://rpc.zerodev.app/api/v2/bundler/${this.zerodevProjectId}`),
       paymaster: {
         getPaymasterData: async (userOperation: any) => {
           const paymasterClient = createZeroDevPaymasterClient({
             chain: arbitrumSepolia,
-            transport: http("https://rpc.zerodev.app/api/v2/paymaster/YOUR_ZERODEV_PROJECT_ID"),
+            transport: http(`https://rpc.zerodev.app/api/v2/paymaster/${this.zerodevProjectId}`),
           });
           return paymasterClient.sponsorUserOperation({
             userOperation,
