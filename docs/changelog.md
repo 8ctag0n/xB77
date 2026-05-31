@@ -1,7 +1,7 @@
 # Changelog
 
-## [2.1.2] - 2026-05-31
-- **Feature**: Hardened SDK packaging for GitHub Packages with proper metadata and registries.
+## [2.1.23] - 2026-05-31
+- **Feature**: Hardened SDK packaging for GitHub Packages with proper scope (`@8ctag0n/xb77-sdk`).
 - **Feature**: Refactored Arbitrum SDK to remove hardcoded Project IDs, enabling flexible third-party usage.
 - **CI/CD**: Unified documentation deployment from both `main` and `dev` branches.
 - **CI/CD**: Fixed SDK release triggers and aligned Zig toolchain to `0.15.1`.
