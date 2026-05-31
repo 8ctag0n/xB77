@@ -173,10 +173,23 @@ jobs:
           cp dist/zk-circuit/zk_receipt.json  release/zk_receipt.json
           ls -la release/
 
+      - name: Extract Release Notes from Changelog
+        run: |
+          TAG_NAME="${{ github.event.inputs.tag || github.ref_name }}"
+          # Strip the 'v' prefix if present to match the changelog format [X.Y.Z]
+          VERSION="${TAG_NAME#v}"
+          # Extract the section between the version header and the next header
+          sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$d' > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "No notes found for version $VERSION, using fallback."
+            echo "Release $TAG_NAME" > release_notes.md
+          fi
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           files: release/*
-          generate_release_notes: true
+          body_path: release_notes.md
+          generate_release_notes: false
           fail_on_unmatched_files: true
