@@ -2,6 +2,20 @@
   "name": "@xb77/sdk",
   "version": "2.1.0",
   "description": "xB77 Sovereign Commerce Layer — TypeScript SDK (WASM core)",
+  "author": "dzkinha",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/8ctag0n/xB77.git",
+    "directory": "sdk/ts"
+  },
+  "bugs": {
+    "url": "https://github.com/8ctag0n/xB77/issues"
+  },
+  "homepage": "https://github.com/8ctag0n/xB77/tree/main/sdk/ts#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

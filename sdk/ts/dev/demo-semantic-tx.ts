@@ -28,7 +28,8 @@ async function main() {
     account: privateKeyToAccount(OWNER_PRIVATE_KEY),
   });
 
-  const agentAccount = new ArbitrumAgentAccount(publicClient);
+  const ZERODEV_PROJECT_ID = process.env.ZERODEV_PROJECT_ID || "MOCK_PROJECT_ID";
+  const agentAccount = new ArbitrumAgentAccount(publicClient, ZERODEV_PROJECT_ID);
   const idManager = new AgentIdentityManager(publicClient, walletClient);
 
   console.log(`[AGENT] Processing intent: "${intent_text}"`);

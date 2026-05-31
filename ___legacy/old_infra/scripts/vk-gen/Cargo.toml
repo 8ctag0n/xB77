@@ -1,9 +1,0 @@
-[package]
-name = "vk-gen"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-verifier-lib = { git = "https://github.com/reilabs/sunspot.git", rev = "7edafaf6a3b47cdcb8d008e87d477abe82e5ca1d" }
-clap = { version = "4.4", features = ["derive"] }
-anyhow = "1.0"
