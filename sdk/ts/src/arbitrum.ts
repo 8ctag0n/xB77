@@ -1,11 +1,12 @@
 import { 
   createKernelAccount, 
   createKernelAccountClient, 
-  createZeroDevPaymasterClient 
+  createZeroDevPaymasterClient
 } from "@zerodev/sdk";
+import { KERNEL_V3_1 } from "@zerodev/sdk/constants";
 import { toPermissionValidator, type Policy } from "@zerodev/permissions";
 import { toECDSASigner } from "@zerodev/permissions/signers";
-import { http, createPublicClient, type Hex, encodePacked } from "viem";
+import { http, createPublicClient, type Hex, encodePacked, concatHex } from "viem";
 import { arbitrumSepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 
@@ -13,7 +14,7 @@ import { privateKeyToAccount } from "viem/accounts";
  * xB77 Intent-Based Policy for ZeroDev Kernel v3
  * This policy carries the 128-dimension Intent Vector to the on-chain SovereignPolicy.sol.
  */
-export const createSemanticPolicy = (intentVector: number[]): Policy => {
+export const createSemanticPolicy = (intentVector: number[], policyAddress: Hex): Policy => {
   if (intentVector.length !== 128) {
     throw new Error("Intent vector must have exactly 128 dimensions");
   }
@@ -26,9 +27,12 @@ export const createSemanticPolicy = (intentVector: number[]): Policy => {
 
   return {
     getPolicyData: () => encodedVector,
-    getPolicySignature: () => "0x" as Hex, // No client-side signature needed for semantic check
-    address: "0x0000000000000000000000000000000000000000", // Will be replaced by actual SovereignPolicy address
-  };
+    getPolicyInfoInBytes: () => concatHex(["0x0000", policyAddress]), // 0x0000 = FOR_ALL_VALIDATION flag
+    policyParams: {
+      type: "custom",
+      policyAddress,
+    } as any,
+  } as unknown as Policy;
 };
 
 export class ArbitrumAgentAccount {
@@ -48,14 +52,13 @@ export class ArbitrumAgentAccount {
       signer: privateKeyToAccount(sessionKeyPrivateKey)
     });
 
-    const semanticPolicy = createSemanticPolicy(intentVector);
-    // Override the address with our deployed SovereignPolicy
-    (semanticPolicy as any).address = policyAddress;
+    const semanticPolicy = createSemanticPolicy(intentVector, policyAddress);
 
     const permissionPlugin = await toPermissionValidator(this.publicClient, {
       signer: sessionKeySigner,
       policies: [semanticPolicy],
       entryPoint: this.entryPoint as any,
+      kernelVersion: KERNEL_V3_1,
     });
 
     const kernelAccount = await createKernelAccount(this.publicClient, {
@@ -63,21 +66,21 @@ export class ArbitrumAgentAccount {
         regular: permissionPlugin,
       },
       entryPoint: this.entryPoint as any,
+      kernelVersion: KERNEL_V3_1,
     });
 
     return createKernelAccountClient({
       account: kernelAccount,
       chain: arbitrumSepolia,
       bundlerTransport: http("https://rpc.zerodev.app/api/v2/bundler/YOUR_ZERODEV_PROJECT_ID"),
-      middleware: {
-        sponsorUserOperation: async ({ userOperation }) => {
+      paymaster: {
+        getPaymasterData: async (userOperation: any) => {
           const paymasterClient = createZeroDevPaymasterClient({
             chain: arbitrumSepolia,
             transport: http("https://rpc.zerodev.app/api/v2/paymaster/YOUR_ZERODEV_PROJECT_ID"),
           });
           return paymasterClient.sponsorUserOperation({
             userOperation,
-            entryPoint: this.entryPoint as any,
           });
         }
       }
