@@ -186,10 +186,10 @@ jobs:
         run: bun test --cwd sdk/ts test/cross-conformance.test.ts
 
   release:
-    name: GitHub Release (sdk-v* tags only)
+    name: GitHub Release
     runs-on: ubuntu-latest
     needs: [test-zig, test-ts, test-rust, test-cross-conformance]
-    if: startsWith(github.ref, 'refs/tags/sdk-v')
+    if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/sdk-v')
     permissions:
       contents: write
     steps:
@@ -255,13 +255,16 @@ jobs:
           body: |
             xB77 SDK release — `${{ github.ref_name }}`.
 
-            ## Install (no npm/crates.io required — fetch direct)
+            ## Install (fetch direct or via GitHub Packages)
 
             ### TypeScript
             ```bash
-            curl -L -O https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/xb77-sdk-1.0.0.tgz
-            npm i ./xb77-sdk-1.0.0.tgz
-            # or pin from git: npm i github:${{ github.repository }}#${{ github.ref_name }}
+            # via GitHub Packages (add @8ctag0n:registry=https://npm.pkg.github.com to .npmrc)
+            npm i @xb77/sdk@${{ github.ref_name }}
+            
+            # or direct tarball
+            curl -L -O https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/xb77-sdk-2.1.22.tgz
+            npm i ./xb77-sdk-2.1.22.tgz
             ```
 
             ### Rust
@@ -277,3 +280,40 @@ jobs:
             ```
 
             All artifacts: `SHA256SUMS` in the assets.
+
+  publish-ts-sdk:
+    name: Publish to GitHub Packages
+    runs-on: ubuntu-latest
+    needs: [test-ts, test-cross-conformance]
+    if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/sdk-v')
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bun ${{ env.BUN_VERSION }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install Zig ${{ env.ZIG_VERSION }}
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Build WASM Core
+        run: zig build sdk-wasm
+
+      - name: Prepare and Publish
+        working-directory: sdk/ts
+        run: |
+          cp ../../zig-out/bin/xb77_core.wasm wasm/
+          bun install
+          bun run build
+          # Setup auth for GitHub Packages
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > .npmrc
+          # Publish to GitHub Packages
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
