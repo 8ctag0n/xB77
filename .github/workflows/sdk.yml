@@ -2,8 +2,7 @@ name: sdk
 
 on:
   push:
-    branches: [bedrock,"main", "merge/**", "feat/sdk-**"]
-    tags: ["sdk-v*"]
+    branches: [bedrock, "main", "dev", "merge/**", "feat/sdk-**"]
     paths:
       - "core/keystore/**"
       - "core/sdk/**"
@@ -11,6 +10,8 @@ on:
       - "sdk/**"
       - "build.zig"
       - ".github/workflows/sdk.yml"
+  push:
+    tags: ["v*", "sdk-v*"]
   pull_request:
     paths:
       - "core/keystore/**"
@@ -26,7 +27,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ZIG_VERSION: "0.15.2"
+  ZIG_VERSION: "0.15.1"
   BUN_VERSION: "1.3.10"
   RUST_TOOLCHAIN: "1.95.0"
 
