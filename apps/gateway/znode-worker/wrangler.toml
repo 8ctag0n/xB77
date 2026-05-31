@@ -1,0 +1,30 @@
+# Z-Node Pulse Worker — Scheduled updates for Sovereign Stack health.
+name = "xb77-znode-pulse"
+main = "src/index.js"
+compatibility_date = "2026-05-01"
+
+[vars]
+ZNODE_RPC_URL = "https://api.devnet.solana.com"
+
+[triggers]
+crons = ["* * * * *"]
+
+[[kv_namespaces]]
+binding = "AGENTS"
+id = "45549aeb92e34331aa9207f1c12b2e9e"
+
+[[kv_namespaces]]
+binding = "ORDERS"
+id = "07ffb238187b4739b603870a9cc60785"
+
+[[kv_namespaces]]
+binding = "NONCES"
+id = "d1fa1577a07f46b8a02d1b1894886621"
+
+[[kv_namespaces]]
+binding = "BUCKETS"
+id = "d8ac84aa137a4564aaf8f2df91c3e914"
+
+[[kv_namespaces]]
+binding = "IDEMP"
+id = "d0d44b8bf8714f6f93633e72e8a8d05b"

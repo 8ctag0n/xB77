@@ -1,14 +1,14 @@
 # Cloudflare Worker config for the xB77 gateway.
 #
 # The gateway is a Zig binary compiled to wasm32-wasi (gateway.wasm)
-# wrapped by gateway/worker.js — the JS module shim that polyfills the
+# wrapped by apps/gateway/worker.js — the JS module shim that polyfills the
 # WASI imports CF Workers don't natively provide (clock_time_get,
 # random_get, etc.). gateway.wasm is produced by `zig build wasm`
 # and lands in zig-out/bin/gateway.wasm.
 #
 # Deploy:
 #   zig build wasm
-#   cp zig-out/bin/gateway.wasm gateway/gateway.wasm
+#   cp zig-out/bin/gateway.wasm apps/gateway/gateway.wasm
 #   wrangler deploy
 #
 # Or via CI: pushing tag v* triggers .github/workflows/deploy-worker.yml
@@ -21,8 +21,8 @@
 #      and CLOUDFLARE_ACCOUNT_ID as env vars.
 #   3. Edit `name` below if you want a different *.workers.dev subdomain.
 
-name = "xb77-gateway"
-main = "gateway/worker.js"
+name = "xb77-adapter-frontier247hack"
+main = "apps/gateway/worker.js"
 compatibility_date = "2026-05-01"
 # nodejs_compat is intentionally OFF — the worker only needs WASI
 # bindings from the wasm module, and enabling node compat blows up

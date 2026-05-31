@@ -62,11 +62,13 @@ pub fn uploadAndVerify(
 
     // 1) INIT
     const init_sig = try sendInit(client, verifier_program_id, payer_kp, pda.address, salt, @intCast(proof_bytes.len));
+    errdefer allocator.free(init_sig);
     std.debug.print("\n[ZK-UP] init sig: {s}", .{init_sig});
 
     // 2) WRITE chunks
     var write_sigs = std.ArrayListUnmanaged([]u8){};
     errdefer {
+        allocator.free(init_sig);
         for (write_sigs.items) |s| allocator.free(s);
         write_sigs.deinit(allocator);
     }
@@ -89,6 +91,12 @@ pub fn uploadAndVerify(
 
     // 3) VERIFY
     const verify_sig = try sendVerify(client, verifier_program_id, payer_kp, pda.address);
+    errdefer {
+        allocator.free(init_sig);
+        for (write_sigs.items) |s| allocator.free(s);
+        write_sigs.deinit(allocator);
+        allocator.free(verify_sig);
+    }
     std.debug.print("\n[ZK-UP] verify sig: {s}", .{verify_sig});
     std.debug.print("\n[ZK-UP] (see validator logs for [ZK-JUDGE] verdict)\n", .{});
 

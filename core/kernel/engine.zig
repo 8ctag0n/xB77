@@ -12,9 +12,8 @@ const anchor = @import("../chain/anchor.zig");
 const mesh = @import("../mesh/mesh.zig");
 const strategist = @import("../kernel/strategist.zig");
 const prover_mod = @import("../kernel/prover.zig");
+const http_bridge = @import("../kernel/http_bridge.zig");
 const magicblock = @import("../chain/magicblock.zig");
-const identity = @import("../security/identity.zig");
-const shield = @import("../security/shield.zig");
 
 pub const Engine = struct {
     allocator: std.mem.Allocator,
@@ -23,6 +22,7 @@ pub const Engine = struct {
     awpool: awpool.AWPool,
     anchor_service: anchor.AnchorService,
     prover: prover_mod.SovereignProver,
+    http_telemetry: http_bridge.HttpBridge,
     strategist: strategist.Strategist,
     mb_client: magicblock.MagicBlockSDK,
     mb_session: ?magicblock.MagicBlockSDK.Session = null,
@@ -39,6 +39,7 @@ pub const Engine = struct {
             .awpool = pool,
             .anchor_service = anchor.AnchorService.init(allocator, &ctx.store),
             .prover = prover_mod.SovereignProver.init(allocator, &ctx.store, &ctx.sol_client),
+            .http_telemetry = http_bridge.HttpBridge.init(allocator, ctx),
             .strategist = strategist.Strategist.init(allocator, &ctx.store),
             .mb_client = magicblock.MagicBlockSDK.init(allocator, "https://devnet.magicblock.app"),
             .mb_session = null,
@@ -78,6 +79,16 @@ pub const Engine = struct {
             }
         }.run, .{&self.ctx.mesh_manager});
         discovery_thread.detach();
+
+        // HTTP Telemetry Bridge thread
+        const http_thread = try std.Thread.spawn(.{}, struct {
+            fn run(h_bridge: *http_bridge.HttpBridge) void {
+                h_bridge.start() catch |err| {
+                    std.debug.print("[Kernel]  HTTP Bridge Error: {}\n", .{err});
+                };
+            }
+        }.run, .{&self.http_telemetry});
+        http_thread.detach();
 
         // Local Bridge
         if (comptime builtin.target.os.tag != .wasi) {
@@ -140,6 +151,7 @@ pub const Engine = struct {
     fn tick(self: *Engine) !void {
         const ops_kp = &self.ctx.vaults.ops.sol_kp;
         self.prover.checkAndAnchor(ops_kp) catch {};
+        self.prover.checkAndProveReceipts() catch {};
         self.ctx.mesh_manager.tick() catch {};
     }
 

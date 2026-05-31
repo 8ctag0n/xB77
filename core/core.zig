@@ -5,11 +5,13 @@ pub const kernel = struct {
     pub const Engine = engine_mod.Engine;
     pub const config = @import("kernel/config.zig");
     pub const context = @import("kernel/context.zig");
-    pub const app = @import("kernel/app.zig");
     pub const orchestrator = @import("kernel/orchestrator.zig");
     pub const prover = @import("kernel/prover.zig");
     pub const strategist = @import("kernel/strategist.zig");
     pub const telemetry = @import("kernel/telemetry.zig");
+    pub const reasoning = @import("kernel/reasoning.zig");
+    pub const app = @import("kernel/app.zig");
+    pub const http_bridge = @import("kernel/http_bridge.zig");
 };
 
 pub const intelligence = struct {
@@ -32,6 +34,7 @@ pub const security = struct {
     pub const identity = @import("security/identity.zig");
     pub const shield = @import("security/shield.zig");
     pub const crypto = @import("security/crypto.zig");
+    pub const semantic = @import("security/semantic.zig");
 };
 
 pub const protocol = struct {
@@ -55,6 +58,8 @@ pub const mesh = struct {
     pub const elevenlabs = @import("mesh/elevenlabs.zig");
 };
 
+pub const circle = @import("circle/circle.zig");
+
 pub const chain = struct {
     pub const chain = @import("chain/chain.zig");
     pub const solana = @import("chain/solana.zig");
@@ -62,6 +67,14 @@ pub const chain = struct {
     pub const anchor = @import("chain/anchor.zig");
     pub const magicblock = @import("chain/magicblock.zig");
     pub const zk_uploader = @import("chain/zk_uploader.zig");
+    pub const arc_adapter = @import("chain/arc_adapter.zig");
+    pub const arbitrum_adapter = @import("chain/arbitrum_adapter.zig");
+    pub const sui_adapter = @import("chain/sui_adapter.zig");
+};
+
+pub const defi = struct {
+    pub const idl_parser = @import("defi/idl_parser.zig");
+    pub const polymarket = @import("defi/polymarket.zig");
 };
 
 // --- SDK surface (WASM-safe, stateless) ---
@@ -107,7 +120,7 @@ pub const business = struct {
     pub const receipt = commerce.receipt;
     pub const swap = commerce.swap;
     pub const identity = security.identity;
-    pub const app = kernel.app;
+    pub const app = @import("kernel/app.zig");
     pub const registry = commerce.registry;
     pub const constitution = security.constitution;
 };

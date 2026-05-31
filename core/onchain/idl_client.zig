@@ -1,6 +1,6 @@
 //! IDL-driven instruction encoder for xB77 on-chain programs.
 //!
-//! Mirrors the JS IdlClient (webapp_deploy/assets/src/lib/idl-client.js).
+//! Mirrors the JS IdlClient (apps/web/assets/src/lib/idl-client.js).
 //!
 //! API:
 //!   var client = try IdlClient.init(allocator, idl_json_bytes);

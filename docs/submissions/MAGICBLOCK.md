@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../../webapp_deploy/assets/logo-og.png" alt="xB77 — Autonomous Financial Infrastructure" width="800"/>
+  <img src="../../apps/web/assets/logo-og.png" alt="xB77 — Autonomous Financial Infrastructure" width="800"/>
 </p>
 
 # MagicBlock PER — Sovereign HFT Rail

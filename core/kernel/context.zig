@@ -17,6 +17,15 @@ const telemetry = @import("telemetry.zig");
 const registry_mod = @import("../commerce/registry.zig");
 const app_mod = @import("../kernel/app.zig");
 
+pub const PendingAuth = struct {
+    id: [32]u8,
+    amount: u64,
+    recipient: []const u8,
+    chain: types.Chain,
+    description: []const u8,
+    ts: i64,
+};
+
 pub const AgentContext = struct {
     allocator: std.mem.Allocator,
     config: config_mod.Config,
@@ -36,6 +45,7 @@ pub const AgentContext = struct {
     ipfs_client: @import("../mesh/ipfs.zig").IpfsClient,
     brain: @import("../intelligence/brain.zig").Brain,
     active_agents: std.StringHashMapUnmanaged(*std.process.Child),
+    pending_authorizations: std.ArrayListUnmanaged(PendingAuth),
 
     // --- Infrastructure Layer ---
     orchestrator: orchestrator.Orchestrator,
@@ -43,6 +53,14 @@ pub const AgentContext = struct {
 
     pub fn spawnAgent(self: *AgentContext, name: []const u8) !void {
         const allocator = self.allocator;
+
+        // --- Security: Sanitize name to prevent path traversal ---
+        for (name) |c| {
+            if (!std.ascii.isAlphanumeric(c) and c != '_' and c != '-') {
+                return error.InvalidAgentName;
+            }
+        }
+
         try std.fs.cwd().makePath("profiles");
         var config_buf: [256]u8 = undefined;
         const config_path = try std.fmt.bufPrint(&config_buf, "profiles/{s}.toml", .{name});
@@ -69,14 +87,48 @@ pub const AgentContext = struct {
         try self.active_agents.put(allocator, name_dupe, child);
     }
 
+    pub fn onPendingAuth(ptr: *anyopaque, request: pay.PaymentRequest, desc: []const u8) anyerror!void {
+        const self: *AgentContext = @ptrCast(@alignCast(ptr));
+        
+        var id: [32]u8 = undefined;
+        const ts = std.time.milliTimestamp();
+        var ts_buf: [8]u8 = undefined;
+        std.mem.writeInt(i64, &ts_buf, ts, .little);
+        std.crypto.hash.sha2.Sha256.hash(&ts_buf, &id, .{});
+
+        const recipient_str = switch (request.recipient) {
+            .sol => |pk| try crypto.pubkeyToString(self.allocator, &pk),
+            .evm => |addr| try evm.addressToHex(self.allocator, addr),
+        };
+
+        try self.pending_authorizations.append(self.allocator, .{
+            .id = id,
+            .amount = request.amount,
+            .recipient = recipient_str,
+            .chain = request.asset.chain,
+            .description = try self.allocator.dupe(u8, desc),
+            .ts = ts,
+        });
+
+        std.debug.print("\n[GUARD ]  High-value transaction QUEUED for Human Approval. ID: {x}...", .{id[0..4].*});
+    }
+
     pub fn init(allocator: std.mem.Allocator, config_path: []const u8, password: ?[]const u8) !AgentContext {
-        const config = try config_mod.Config.load(allocator, config_path);
+        var config = try config_mod.Config.load(allocator, config_path);
+        errdefer config.deinit(allocator);
+
         var vaults = try vault.VaultSet.init(allocator, config.vaults.path, password);
+        errdefer vaults.deinit();
         const sol_addr = try vaults.ops.address(.solana, allocator);
         defer allocator.free(sol_addr);
         
         var agent_id: [32]u8 = [_]u8{0} ** 32;
-        @memcpy(agent_id[0..@min(sol_addr.len, 32)], sol_addr[0..@min(sol_addr.len, 32)]);
+        // Proper pubkey parsing if possible, otherwise fallback to bytes
+        if (crypto.stringToPubkey(allocator, sol_addr)) |pk| {
+            @memcpy(&agent_id, &pk);
+        } else |_| {
+            @memcpy(agent_id[0..@min(sol_addr.len, 32)], sol_addr[0..@min(sol_addr.len, 32)]);
+        }
 
         const s = try store.Store.init(allocator, config.vaults.path);
         const merchant_path = try std.fs.path.join(allocator, &[_][]const u8{ config.vaults.path, "merchant.json" });
@@ -92,8 +144,11 @@ pub const AgentContext = struct {
 
         var registry_id: [32]u8 = [_]u8{0} ** 32;
         if (config.registry_program_id) |rid| {
-            _ = try crypto.stringToPubkey(allocator, rid); // MOCK: should actually copy bytes
-            @memcpy(registry_id[0..@min(rid.len, 32)], rid[0..@min(rid.len, 32)]);
+            if (crypto.stringToPubkey(allocator, rid)) |pk| {
+                @memcpy(&registry_id, &pk);
+            } else |_| {
+                @memcpy(registry_id[0..@min(rid.len, 32)], rid[0..@min(rid.len, 32)]);
+            }
         }
 
         var ctx = AgentContext{
@@ -104,7 +159,7 @@ pub const AgentContext = struct {
             .evm_client = evm.EvmClient.init(allocator, config.rpc.base),
             .mb_client = mb.MagicBlockSDK.init(allocator, "https://devnet.magicblock.app"),
             .constitution = const_mod.Constitution.init(allocator),
-            .compliance = compliance.ComplianceEngine.init(allocator, [_]u8{0} ** 32),
+            .compliance = compliance.ComplianceEngine.init(allocator),
             .store = s,
             .router = undefined, 
             .mesh_manager = try mesh.MeshManager.init(allocator, undefined, agent_id),
@@ -115,6 +170,7 @@ pub const AgentContext = struct {
             .ipfs_client = @import("../mesh/ipfs.zig").IpfsClient.init(allocator, config.ipfs.endpoint, config.ipfs.api_key),
             .brain = undefined,
             .active_agents = .{},
+            .pending_authorizations = .{},
             .orchestrator = orchestrator.Orchestrator.init(allocator),
             .telemetry = telemetry.TelemetryHub.init(allocator),
         };
@@ -152,10 +208,11 @@ pub const AgentContext = struct {
             config.facilitator,
         );
 
+        ctx.router.pending_auth_ptr = &ctx;
+        ctx.router.pending_auth_fn = onPendingAuth;
+
         ctx.router.mb_session = ctx.mb_client.openSovereignSession(&ctx.vaults.ops.sol_kp) catch |err| blk: {
-            if (!isQuietMode(allocator)) {
-                std.debug.print("\n[MAGIC ]  ShadowWire initialization failed: {s}. Using standard rails.", .{@errorName(err)});
-            }
+            std.debug.print("\n[MAGIC ]  {s}[WARN]{s} Sovereign Session initialization failed: {s}. Operating on Standard Rails.", .{ "\x1b[33;1m", "\x1b[0m", @errorName(err) });
             break :blk null;
         };
 
@@ -193,6 +250,11 @@ pub const AgentContext = struct {
             self.allocator.destroy(kv.value_ptr.*);
         }
         self.active_agents.deinit(self.allocator);
+        for (self.pending_authorizations.items) |p| {
+            self.allocator.free(p.recipient);
+            self.allocator.free(p.description);
+        }
+        self.pending_authorizations.deinit(self.allocator);
         _ = self.telemetry.endSession();
         self.merchant.deinit(self.allocator);
         self.mb_client.deinit();

@@ -12,6 +12,7 @@ pub const Constitution = struct {
     // --- xB77 Frontier Dynamic Policies ---
     required_sns_namespace: ?[]const u8 = null, // Opt-in: e.g. "*.agent.sol"
     force_hft_rail: bool = false,               // Opt-in: force MagicBlock PER
+    guardian_threshold_lamports: u64 = 5_000_000_000, // Default: 5 SOL
     
     mutex: std.Thread.Mutex,
 

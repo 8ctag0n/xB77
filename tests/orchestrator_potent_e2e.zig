@@ -37,6 +37,9 @@ test "Orchestrator Potent E2E: Agent Lifecycle & Credit-Gating" {
     std.debug.print("\n[TEST] Phase 2: Simulating /blink funding (0.5 SOL)...", .{});
     try orch.creditDeposit(agent_id, deposit_lamports);
     
+    // Bypass lease for test
+    try orch.last_sync_ts.put(allocator, agent_id, std.time.milliTimestamp());
+    
     try std.testing.expect(orch.canOperate(agent_id));
     std.debug.print("\n[ORCH]  Access Granted. Balance: {d} SC", .{orch.balances.get(agent_id).?});
 
@@ -69,14 +72,14 @@ test "Orchestrator Potent E2E: Agent Lifecycle & Credit-Gating" {
     // 5. Phase 4: Billing Cycle
     std.debug.print("\n[TEST] Phase 4: Processing Billing Cycle...", .{});
     // Base: (100ms * 1) + (500 * 5 / 1000) + (12 * 10) = 100 + 2 + 120 = 222 SC
-    // Markup (11%): ~24 SC
-    // Total: ~246 SC
+    // Markup (2.22%): 4 SC
+    // Total: 226 SC
     const cost = report.calculateCost();
     const balance_after_op = try orch.processUsage(agent_id, report);
     
     std.debug.print("\n[ORCH]  Billable Units: {d} SC | New Balance: {d} SC", .{cost, balance_after_op});
     
-    try std.testing.expect(cost >= 246);
+    try std.testing.expect(cost >= 226);
     try std.testing.expectEqual(500_000 - cost, balance_after_op);
 
     // 6. Phase 5: Bankruptcy & Auto-Kill

@@ -1,0 +1,5 @@
+# xB77 Local Arc Configuration (Foundry)
+rpc_solana = "https://api.devnet.solana.com"
+rpc_base = "http://127.0.0.1:8545"
+vault_path = "./.xb77/arc-local"
+settlement_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3"

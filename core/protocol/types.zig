@@ -5,12 +5,13 @@ pub const EthAddress = [20]u8;    // EVM
 pub const BtcAddress = [20]u8;    // Bitcoin (Hash160)
 pub const Signature = [64]u8;     // Ed25519 (Solana) / ECDSA (EVM es distinto, lo vemos luego)
 pub const Hash = [32]u8;
-
 pub const Chain = enum {
     solana,
     base,
     arbitrum,
     bitcoin,
+    arc,
+    sui,
 };
 
 pub const Asset = struct {
@@ -60,6 +61,7 @@ pub const VaultHeader = extern struct {
     depth: u8,              // Tree depth (e.g., 14 for 16k leaves)
     _pad: [7]u8,
     next_index: u64,        // Current insertion pointer
+    total_proofs: u64,      // Total ZK-proofs generated
     last_l1_root: [32]u8,   // Last root successfully anchored to Solana
     last_sync_ts: i64,      // Timestamp of last L1 anchor
     checksum: [32]u8,       // Header integrity check (Keccak256)

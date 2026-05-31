@@ -322,7 +322,7 @@ pub const MeshManager = struct {
         var encoder = awp.AwpEncoder.init(self.allocator);
         defer encoder.deinit();
 
-        const loan_msg = try encoder.encodeLoanRequest(.{
+        const bin_msg = try encoder.encodeLoanRequest(.{
             .amount = amount,
             .interest_bps = interest_bps,
             .duration_sec = duration_sec,
@@ -335,11 +335,31 @@ pub const MeshManager = struct {
             for (self.buckets[i].items) |peer| {
                 var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch continue;
                 defer stream.close();
-                _ = try stream.write(loan_msg);
+                _ = try stream.write(bin_msg);
                 sent_count += 1;
             }
         }
         std.debug.print(" Sent to {d} peers.", .{sent_count});
+    }
+
+    pub fn broadcastMission(self: *MeshManager, mission: awp.MissionDirectiveMsg) !void {
+        var encoder = awp.AwpEncoder.init(self.allocator);
+        defer encoder.deinit();
+
+        const bin_msg = try encoder.encodeMissionDirective(mission);
+
+        std.debug.print("\n[MESH  ]  Broadcasting Mission {x} to Swarm...", .{mission.id[0..4].*});
+
+        var sent_count: usize = 0;
+        for (0..256) |i| {
+            for (self.buckets[i].items) |peer| {
+                var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch continue;
+                defer stream.close();
+                _ = try stream.write(bin_msg);
+                sent_count += 1;
+            }
+        }
+        std.debug.print(" Shared with {d} peers.", .{sent_count});
     }
 
     fn handleIncomingMessage(self: *MeshManager, peer: *Peer, data: []const u8) !void {

@@ -1,0 +1,10 @@
+{
+  "business_name": "omega-merch",
+  "contact": "@agent",
+  "services": [
+    {
+      "name": "Cyber-Audit-Service",
+      "price": 1000000
+    }
+  ]
+}

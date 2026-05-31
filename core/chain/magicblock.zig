@@ -4,6 +4,21 @@ const types = core.types;
 const crypto = core.crypto;
 const solana_mod = @import("../chain/solana.zig");
 
+/// MagicBlock's Delegation Program on Solana (devnet + mainnet).
+/// CPI to this program is what makes a PER session show up on MagicBlock's
+/// own explorer. Currently the L1 escrow path (openSovereignSession +
+/// commitToSolana) targets our own xb77 program for the hackathon-window
+/// deliverable; switching to MagicBlock's Delegation Program is the next
+/// iteration — gated behind XB77_MAGICBLOCK_USE_DELEGATION env var so the
+/// fallback escrow stays available while the Delegation CPI is being
+/// validated end-to-end against their devnet.
+pub const MAGICBLOCK_DELEGATION_PROGRAM_ID =
+    "DELeGGvXpWV2fqJUhqcF5ZSYMS4JTLjteaAMARRSaeSh";
+
+/// xB77's own escrow program (xb77_core). Used while the Delegation
+/// Program wire is being validated.
+const XB77_ESCROW_PROGRAM_ID = "73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3";
+
 /// MagicBlock Sovereign SDK (Native Zig Implementation).
 /// Focuses on Private Ephemeral Rollups (PER) for HFT Agent Commerce.
 pub const MagicBlockSDK = struct {
@@ -47,6 +62,25 @@ pub const MagicBlockSDK = struct {
     pub fn openSovereignSession(self: *MagicBlockSDK, agent_kp: *const types.Keypair) !Session {
         std.debug.print("\n[MAGIC ] ️ Initiating Sovereign Session (PER) for Agent {x}...", .{agent_kp.public[0..4]});
         
+        // Demo-Deluxe Mode: Mock session opening
+        const is_demo = blk: {
+            const env = std.process.getEnvVarOwned(self.allocator, "XB77_DEMO_MODE") catch break :blk false;
+            defer self.allocator.free(env);
+            break :blk std.mem.eql(u8, env, "1");
+        };
+
+        if (is_demo) {
+            std.debug.print("\n[MAGIC ]  {s}[DEMO-DELUXE ACTIVE]{s} Mocking PER Session...", .{ "\x1b[35;1m", "\x1b[0m" });
+            var session_id: [32]u8 = undefined;
+            std.crypto.random.bytes(&session_id);
+            return Session{
+                .id = session_id,
+                .authority = agent_kp.public,
+                .expiry = std.time.timestamp() + 86400, // 24h for demo
+                .is_active = true,
+            };
+        }
+
         // 1. Generar Session ID aleatorio
         var session_id: [32]u8 = undefined;
         std.crypto.random.bytes(&session_id);
@@ -74,7 +108,20 @@ pub const MagicBlockSDK = struct {
             const ix_data = try tx_mod.buildOpenPerSessionInstruction(self.allocator, amount, session_id, expiry);
             defer self.allocator.free(ix_data);
 
-            const program_id = try crypto.stringToPubkey(self.allocator, "73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3");
+            // Toggle between xB77's own escrow program and MagicBlock's
+            // Delegation Program via env. Default keeps xB77 path for
+            // determinism; flipping the env routes the L1 anchor through
+            // MagicBlock so sessions appear on their explorer.
+            const use_delegation = blk: {
+                const env = std.process.getEnvVarOwned(self.allocator, "XB77_MAGICBLOCK_USE_DELEGATION") catch break :blk false;
+                defer self.allocator.free(env);
+                break :blk std.mem.eql(u8, env, "1");
+            };
+            const program_id_str = if (use_delegation)
+                MAGICBLOCK_DELEGATION_PROGRAM_ID
+            else
+                XB77_ESCROW_PROGRAM_ID;
+            const program_id = try crypto.stringToPubkey(self.allocator, program_id_str);
             
             // PDA del Escrow: [b"per_escrow", agent_pubkey, session_id]
             var seeds = [_][]const u8{ "per_escrow", &agent_kp.public, &session_id };
@@ -186,7 +233,20 @@ pub const MagicBlockSDK = struct {
             const ix_data = try tx_mod.buildClosePerSessionInstruction(self.allocator, session.id);
             defer self.allocator.free(ix_data);
 
-            const program_id = try crypto.stringToPubkey(self.allocator, "73vhQZLxjEyAFXHorS1yNEQqCCtXWGAvrBF8RJrHBkv3");
+            // Toggle between xB77's own escrow program and MagicBlock's
+            // Delegation Program via env. Default keeps xB77 path for
+            // determinism; flipping the env routes the L1 anchor through
+            // MagicBlock so sessions appear on their explorer.
+            const use_delegation = blk: {
+                const env = std.process.getEnvVarOwned(self.allocator, "XB77_MAGICBLOCK_USE_DELEGATION") catch break :blk false;
+                defer self.allocator.free(env);
+                break :blk std.mem.eql(u8, env, "1");
+            };
+            const program_id_str = if (use_delegation)
+                MAGICBLOCK_DELEGATION_PROGRAM_ID
+            else
+                XB77_ESCROW_PROGRAM_ID;
+            const program_id = try crypto.stringToPubkey(self.allocator, program_id_str);
             
             // PDA del Escrow: [b"per_escrow", agent_pubkey, session_id]
             var seeds = [_][]const u8{ "per_escrow", &agent_kp.public, &session.id };

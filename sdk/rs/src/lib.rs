@@ -46,6 +46,7 @@ pub enum Action {
     RegisterAgent = 0x02,
     ClaimCredits = 0x03,
     QueryPulse = 0x04,
+    LinkAgent = 0x05,
 }
 
 /// Error code enum — locked in addendum §A.2.

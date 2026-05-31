@@ -26,7 +26,8 @@ test "Ghost Payment E2E: Settlement and ZK Anchoring" {
     ;
     try std.fs.cwd().writeFile(.{ .sub_path = config_path, .data = config_content });
 
-    var ctx = try context.AgentContext.init(allocator, config_path, null);
+    const password = "test_password_deluxe";
+    var ctx = try context.AgentContext.init(allocator, config_path, password);
     defer ctx.deinit();
 
     // Re-vincular el router porque AgentContext.init devuelve por valor y rompe los punteros internos

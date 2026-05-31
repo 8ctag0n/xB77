@@ -55,7 +55,16 @@ circuits/state_anchor/Prover.toml
 circuits/state_anchor/target/
 circuits/state_anchor/proofs/
 
+# Onchain build outputs (ephemeral, regenerable)
+onchain/*/build/
+onchain/evm/out/build-info/
+onchain/sui/Pub.*.toml
+
 # Wrangler / Cloudflare Pages local cache
 .wrangler/
 **/.wrangler/
 .cf_deploy_summary
+apps/web/remotion/out/
+
+# isolated worktrees for in-session dev
+.worktrees/

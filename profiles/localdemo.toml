@@ -1,0 +1,7 @@
+# xB77 Sovereign Agent Configuration
+[vaults]
+path = ".xb77/localdemo"
+
+[rpc]
+solana = "https://api.devnet.solana.com"
+base = "https://sepolia.base.org"

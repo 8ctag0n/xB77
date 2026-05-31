@@ -1,0 +1,8 @@
+# xB77 Sovereign Agent Configuration
+rpc_solana = "https://api.devnet.solana.com"
+rpc_base = "https://sepolia.base.org"
+vault_path = "./.xb77/total-sim"
+mesh_port = 7777
+portal_port = 8081
+ipfs_endpoint = "https://api.quicknode.com/ipfs/v1/"
+ipfs_api_key = ""

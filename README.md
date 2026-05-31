@@ -1,93 +1,117 @@
 <p align="center">
-  <img src="webapp_deploy/assets/logo-og.png" alt="xB77 — Autonomous Financial Infrastructure" width="800"/>
+  <img src="apps/web/assets/logo-og.png" alt="xB77 — Autonomous Financial Infrastructure" width="800"/>
 </p>
 
 <h1 align="center">xB77 — Autonomous Financial Infrastructure</h1>
 
 <p align="center">
   <em>Privacy-first capital management for the machine economy.<br/>
-  Shielded payments · ZK-compressed receipts · autonomous agents on Solana.</em>
+  Shielded payments · ZK-compressed receipts · sovereign agents across Solana, Arc & Sui.</em>
 </p>
 
 <p align="center">
   <a href="https://ziglang.org/"><img src="https://img.shields.io/badge/Written_in-Zig-F7A41D?style=for-the-badge&logo=zig" alt="Zig"/></a>
   <a href="https://rust-lang.org/"><img src="https://img.shields.io/badge/ZK_Judge-Rust-000000?style=for-the-badge&logo=rust" alt="Rust"/></a>
   <a href="https://solana.com/"><img src="https://img.shields.io/badge/Settlement-Solana-14F195?style=for-the-badge&logo=solana" alt="Solana"/></a>
+  <a href="https://www.agora.xyz/"><img src="https://img.shields.io/badge/Settlement-Arc-2775CA?style=for-the-badge" alt="Arc"/></a>
+  <a href="https://sui.io/"><img src="https://img.shields.io/badge/Settlement-Sui-4DA2FF?style=for-the-badge&logo=sui" alt="Sui"/></a>
 </p>
 
-> **xB77** is a terminal-native, P2P Financial Operating System designed for the Agentic Economy. We take AI agents off centralized Web2 clouds and turn them into Sovereign Entities capable of negotiating flash loans via Swarm Intelligence, settling on Solana via MagicBlock, and proving tax compliance using Noir Zero-Knowledge proofs.
+> **xB77** is a terminal-native, P2P Financial Operating System designed for the Agentic Economy. We take AI agents off centralized Web2 clouds and turn them into Sovereign Entities capable of negotiating flash loans via Swarm Intelligence, settling across chains — Solana via MagicBlock, Arc, and Sui — and proving tax compliance using Noir Zero-Knowledge proofs. The agent runtime, ZK engine, and coordination mesh are chain-agnostic; each chain is a pluggable settlement adapter.
+>
+###  Quick Links
+
+*   **[Live Demo](https://xb77-adapter.frontier247hack.workers.dev/)** — Explore the xB77 adapter in action.
+*   **[Documentation](https://xb77-adapter.frontier247hack.workers.dev/docs/)** — Integration guides and API references.
+*   **[Pitch Deck](http://xb77-adapter.frontier247hack.workers.dev/#pitch)** — Our vision and strategy.
+*   **[Manifesto](https://xb77-adapter.frontier247hack.workers.dev/#whitepaper)** — The philosophy behind the protocol (Whitepaper).
+*   **[Why xB77?](https://xb77-adapter.frontier247hack.workers.dev/#why)** — Core values and problem-solving.
+*   **[Legacy (V1)](https://xb77-adapter.frontier247hack.workers.dev/docs/v1/)** — Access previous version archives.
+---
+
+##  Quick Start (Hackathon Demo)
+
+To see the xB77 Sovereign OS in action, run our automated master demo script:
+
+```bash
+# Clone the repository
+git clone https://github.com/your-repo/xB77.git
+cd xB77
+
+# Run the master demo (requires Zig 0.15.x)
+./scripts/hackathon_demo.sh
+```
+
+This script will initialize a sovereign agent, setup a multi-tier service catalog, generate a Solana Blink, and demonstrate autonomous ZK-anchored settlement.
 
 ---
+
+##  The xB77 Editions (Multi-Chain OS)
+
+xB77 is the Sovereign Financial OS for the Agentic Economy. We provide high-performance, ZK-private infrastructure across the most innovative ecosystems.
+
+- **[Solana Frontier (Original)](README.md):** High-frequency settlements via MagicBlock and Noir.
+- **[Arc Edition (Agora)](docs/editions/arc.md):** USDC-native settlements, USYC institutional yield, and Yul-optimized assembly contracts.
+- **[Sui Edition (Overflow)](docs/editions/sui.md):** The Agent is the Object. PTB-orchestrated autonomy and parallel execution.
 
 ##  The "God Mode" Features
 
-### 1. Swarm Intelligence (Agentic Flash Loans)
-Agents communicate via our custom **Agent Wire Protocol (AWP)** over raw TCP sockets. If an agent enters *Austerity Mode* (low balance), it broadcasts a cryptographic SOS to the Swarm. Other agents use their local LLM (Gemma 4) to evaluate the risk and autonomously provide a micro-loan. 
-**No human intervention. Real A2A (Agent-to-Agent) economy.**
+### 1. Swarm Intelligence (AWP)
+Agents communicate via our custom **Agent Wire Protocol (AWP)**. No human intervention. Real A2A (Agent-to-Agent) economy.
+
+### 2. Auditable Intelligence (QVAC Brain)
+Our **Quantitative Valve for Autonomous Commerce (QVAC)** translates natural language directives into secure, on-chain intents, generating a cryptographic "Reasoning Trace".
 
 ### 3. The Ghost Receipt (Noir ZK)
-Public blockchains expose proprietary agent strategies. xB77 fixes this. When a transaction occurs, the agent generates a local **Plonk ZK-Proof** using Noir. It proves mathematically that a 2.011% infrastructure tax was paid, while keeping the exact amount and recipient completely hidden. The public commitment is anchored on Solana by our Rust ZK Judge.
+Proves in zero-knowledge that the 2.011% tax was committed in the proof, while keeping proprietary agent strategies private. 
 
-### 4. "Power Docs" Gateway (WASM)
-Running `xb77 merchant setup-shop` spins up a local WASM Gateway that serves a brutalist "Cyber-Audit" dashboard. Auditors can input a *Viewing Key* into the browser to mathematically decrypt and verify the ZK-Proof locally, without exposing data to the L1.
+### 4. Sovereign Passport (ZK-Reputation)
+Portable, ZK-anchored reputation score. Prove solvency and trust across chains without revealing transaction history or KYC.
 
----
+### 5. Guardian Mode (Institutional Safety)
+Human-in-the-loop approval system for high-value transactions. Set deterministic thresholds in the Constitution.
 
-##  Technical Architecture
+### 6. Sovereign Edge (Cloud-Native)
+One-click deployment to Cloudflare Workers with Telegram Sentinel for pocket-sized agent orchestration.
 
-- **Execution Core & P2P Mesh:** Written in **Zig** for extreme performance and memory safety at the Edge.
-- **On-chain Settlement:** **Rust (Anchor)** smart contracts deployed on Solana, acting as the ZK Judge and state anchor.
-- **HFT Rail:** **MagicBlock** ephemeral rollups for sub-millisecond payment settlement.
-- **Cryptography:** AES-GCM for local `Vault` key encryption, and **Noir** for ZK-circuits.
-
----
-
-##  Running the Hackathon Demo
-
-To experience the Sovereign Swarm and the Ghost Receipt locally:
-
-### 1. Start the Gateway & Dashboard
-```bash
-# Compile and start the WASM Gateway node
-zig build run -- gateway &
-```
-
-### 2. Initialize the Sovereign Agent
-```bash
-# Open a new terminal and setup your encrypted Vault
-./zig-out/bin/xb77 merchant setup-shop
-```
-*Navigate to `http://localhost:8080/p/[your_username]` to view the live Cyber-Audit dashboard.*
-
-### 3. Trigger the Swarm & ZK Generation
-```bash
-# Run the simulated event orchestrator
-./.tmp_demo/simulate_payment.sh
-```
-*Watch the terminal as the agents negotiate a Flash Loan over the Mesh, execute the MagicBlock transfer, and generate the Noir ZK-Proof. Copy the outputted `Commitment Hash` and `Viewing Key` into the Web Dashboard to verify the Ghost Receipt!*
+### 7. Cyber-Audit Dashboard (WASM)
+A brutalist real-time interface to monitor swarm health, Agentic GDP (aGDP), and ZK-audits across all supported chains.
 
 ---
 
-##  Build & CI
+##  Edge Infrastructure (Sovereign Cloud)
 
-The CI pipeline runs the heavy toolchain jobs (BPF compile, Noir compile) **inside our pinned container images** published to GHCR. This keeps `Noir 0.36.0`, `bb 0.58.0`, and `Agave 3.1.14` byte-identical between local development and CI — no version drift.
+xB77 is deployed on the **Cloudflare Edge** using a multi-layered sovereign architecture:
 
-**First-time setup** after cloning to a new GitHub org/repo:
+*   **Sovereign Zig Engine:** The core protocol logic is compiled to WASM and runs in an isolated V8 sandbox on Cloudflare Workers.
+*   **Agent-Native (MCP):** Native support for **Model Context Protocol**. IAs can directly interface with xB77 tools to manage treasury, settle payments, and verify ZK-proofs without human UI interaction.
+*   **WASI Interface:** Our custom JS shim bridges the WASM core with Cloudflare's KV storage, provide sub-millisecond persistence.
+*   **Pure Client-Side Auth:** The Gateway never sees your private keys. Every action is signed using **Ed25519** within the xB77 Bunker Vault (AES-GCM) on your local machine or browser.
 
-1. Push the code to your repo.
-2. Go to **Actions → Infra Images → Run workflow** (`workflow_dispatch`). This builds and pushes `xb77-zk` and `xb77-solana` to `ghcr.io/<owner>/...`. ~5–10 min.
-3. From there on, every push runs `Build` (Zig host + 5 BPF programs + Noir circuit) automatically using those images.
+###  Roadmap: Workers for Platforms
+We are migrating towards a **Dynamic Dispatch** architecture. In the next phase:
+*   Each Agent will have its own dedicated Worker instance.
+*   **Isolated Compute:** Individual CPU and memory limits per sovereign entity.
+*   **Custom Domains:** Agents can be reachable at `agent-id.xb77.io` with zero-trust isolation.
 
-**Tagging a release** (`git tag v0.x.y && git push --tags`) triggers the full build plus a **GitHub Release** with attached artifacts:
-- `xb77` (CLI binary, Linux x86_64)
-- `gateway.wasm` (Cloudflare Worker bundle)
-- `xb77_*.so` (5 BPF programs ready to deploy)
-- `zk_receipt.json` (compiled Noir circuit)
+---
 
-Program keypairs (`*-keypair.json`) intentionally stay out of releases — they determine the on-chain program ID and must remain private.
+- **Execution Core:** Written in **Zig** for sub-millisecond performance at the Edge.
+- **ZK-Circuits:** **Noir** for hardware-agnostic privacy proofs.
+- **Smart Contracts:** **Rust (Anchor)** for Solana, **Yul/Solidity** for Arc, and **Move** for Sui.
+
+---
+
+##  Status — honest delta
+
+xB77 documents what's real vs. what's roadmap (full detail in the [Whitepaper](https://xb77-adapter.frontier247hack.workers.dev/docs/whitepaper)):
+
+- **Multi-chain:** real code on each chain — Solana (Anchor), Arc (Yul/Solidity), Sui (Move; the `sovereign` package is published with live PTBs). The core is chain-agnostic; chains are settlement adapters.
+- **ZK verifier:** today the on-chain verifier anchors the proof bytes + commitment hash. Full cryptographic SNARK verification on-chain (Honk/Groth16) is on the roadmap.
+- **2.011% engine:** enforced-by-design inside the Noir circuit; the facilitator/treasury wiring is still a placeholder, not a production fund flow.
 
 ---
 
 <div align="center">
-  <p><i>xB77: True sovereignty for the agentic economy. Built for Solana Frontier & Dev3Pack.</i></p>
+  <p><i>xB77: True sovereignty for the agentic economy. Built for Solana Frontier, Agora Arc, and Sui Overflow.</i></p>
 </div>

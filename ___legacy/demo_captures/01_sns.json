@@ -1,0 +1,68 @@
+{
+  "section": "01_sns",
+  "title": "Sovereign Identity",
+  "subtitle": "Native .sol resolution in Zig, matches Bonfida mainnet",
+  "ts_start": "2026-05-12T04:01:19Z",
+  "duration_ms": 5832,
+  "exit_code": 0,
+  "lines": [
+    {
+      "stream": "stdout",
+      "t_ms": 0,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 648,
+      "text": "[SNS TEST] Resolving 'bonfida.sol' via API...",
+      "ansi": "[SNS TEST] Resolving 'bonfida.sol' via API..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1296,
+      "text": "[SNS TEST] API Result: Fw1ETanDZafof7xEULsnq9UY6o71Tpds89tNwPkWLb1v",
+      "ansi": "[SNS TEST] API Result: Fw1ETanDZafof7xEULsnq9UY6o71Tpds89tNwPkWLb1v"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1944,
+      "text": "[SNS TEST] Resolving 'bonfida.sol' Natively...",
+      "ansi": "[SNS TEST] Resolving 'bonfida.sol' Natively..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 2592,
+      "text": "[CRYPTO] SNS Registry PDA for bonfida: Crf8hzfthWGbGbLTVCiqRqV5MVnbpHB1L9KQMd6gsinb (bump: 252)",
+      "ansi": "[CRYPTO] SNS Registry PDA for bonfida: Crf8hzfthWGbGbLTVCiqRqV5MVnbpHB1L9KQMd6gsinb (bump: 252)"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 3240,
+      "text": "[SOLANA] Account Info Response: {\"jsonrpc\":\"2.0\",\"result\":{\"context\":{\"apiVersion\":\"4.0.0-rc.0\",\"slot\":419179134},\"value\":{\"data\":[\"PVPCSzg2DtOBOiPfst/YIKtYIct5KaONLqqyUug4JZXd2T43CyhRYg4Vw8Pp55sKbLCn2Y+KDVYSu33vP3hIJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY2x1ZTIuc29s\",\"base64\"],\"executable\":false,\"lamports\":1621680,\"owner\":\"namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX\",\"rentEpoch\":18446744073709551615,\"space\":105}},\"id\":1}",
+      "ansi": "[SOLANA] Account Info Response: {\"jsonrpc\":\"2.0\",\"result\":{\"context\":{\"apiVersion\":\"4.0.0-rc.0\",\"slot\":419179134},\"value\":{\"data\":[\"PVPCSzg2DtOBOiPfst/YIKtYIct5KaONLqqyUug4JZXd2T43CyhRYg4Vw8Pp55sKbLCn2Y+KDVYSu33vP3hIJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY2x1ZTIuc29s\",\"base64\"],\"executable\":false,\"lamports\":1621680,\"owner\":\"namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX\",\"rentEpoch\":18446744073709551615,\"space\":105}},\"id\":1}"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 3888,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 4536,
+      "text": "[SNS TEST] Native Result: Fw1ETanDZafof7xEULsnq9UY6o71Tpds89tNwPkWLb1v",
+      "ansi": "[SNS TEST] Native Result: Fw1ETanDZafof7xEULsnq9UY6o71Tpds89tNwPkWLb1v"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 5184,
+      "text": "[SNS TEST]  MATCH! Native engine is 100% Sovereign.",
+      "ansi": "[SNS TEST]  MATCH! Native engine is 100% Sovereign."
+    }
+  ],
+  "extracted": {
+    "address": "Fw1ETanDZafof7xEULsnq9UY6o71Tpds89tNwPkWLb1v",
+    "match": true
+  }
+}

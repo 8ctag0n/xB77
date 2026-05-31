@@ -58,10 +58,10 @@ localnet-setup: localnet-verifier localnet-gateway localnet-init
 localnet-e2e: localnet-start-bg proof-badge localnet-setup localnet-verify
 
 deploy-app:
-	cd webapp_deploy && bunx wrangler@latest pages deploy . --project-name xb77-public-app
+	cd apps/web && bunx wrangler@latest pages deploy . --project-name xb77-public-app
 
 webapp-dev:
-	cd webapp_deploy && bunx wrangler@latest pages dev . --port 8788
+	cd apps/web && bunx wrangler@latest pages dev . --port 8788
 
 docs-dev:
 	cd docs && npm run docs:dev
@@ -73,3 +73,17 @@ docs-build:
 
 demo-payment:
 	cd sdk && bun run scripts/demo_payment.ts
+
+# --- Deluxe Orchestration ---
+
+node-up:
+	@echo "\x1b[32;1m[xB77] Starting Sovereign Z-Node + Agent Mesh...\x1b[0m"
+	@./zig-out/bin/xb77 serve --run-local &
+	@sleep 2
+	@echo "\x1b[36m[xB77] Z-Node active. Spawning agents...\x1b[0m"
+	@./zig-out/bin/xb77 -p alpha-1 init
+	@./zig-out/bin/xb77 -p alpha-2 init
+	@echo "\x1b[32m[xB77] Swarm is live. Dashboard: http://localhost:8788/network\x1b[0m"
+
+release:
+	./scripts/release.sh

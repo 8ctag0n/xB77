@@ -1,0 +1,97 @@
+{
+  "section": "10_mic_drop",
+  "title": "Sovereign & Active",
+  "subtitle": "Five programs. Three services. One agent.",
+  "ts_start": "2026-05-12T04:02:12Z",
+  "duration_ms": 14532,
+  "exit_code": 0,
+  "lines": [
+    {
+      "stream": "stdout",
+      "t_ms": 0,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 1038,
+      "text": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0",
+      "ansi": "[STORE ]  Found EXISTING vault. Magic: xB77, Version: 1, Next Index: 0"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 2076,
+      "text": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent afe52485...",
+      "ansi": "[MAGIC ] \ufe0f Initiating Sovereign Session (PER) for Agent afe52485..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 3114,
+      "text": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session abe5e9ab...",
+      "ansi": "[MAGIC ]  Locking 2000000000 lamports in L1 Escrow for Session abe5e9ab..."
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 4152,
+      "text": "",
+      "ansi": ""
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 5190,
+      "text": "--- xB77 SOVEREIGN AGENT STATUS (megademo) ---",
+      "ansi": "\u001b[33;1m--- xB77 SOVEREIGN AGENT STATUS (megademo) ---\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 6228,
+      "text": "[IDENTITY] Anonymous Agent",
+      "ansi": "\u001b[36m[IDENTITY]\u001b[0m Anonymous Agent"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 7266,
+      "text": "[BRAIN   ] Gemma 3 (Active via TS Shim :8088)",
+      "ansi": "\u001b[36m[BRAIN   ]\u001b[0m Gemma 3 \u001b[32m(Active via TS Shim :8088)\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 8304,
+      "text": "[HFT RAIL ] MagicBlock (Live Sequencer)",
+      "ansi": "\u001b[36m[HFT RAIL ]\u001b[0m MagicBlock \u001b[32m(Live Sequencer)\u001b[0m"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 9342,
+      "text": "--------------------------------------------------",
+      "ansi": "--------------------------------------------------"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 10380,
+      "text": "Solana L1: Cqd17sbnd58rv1JzoLYNQqMdkfsXhpMU5PbvjvxDw7zV",
+      "ansi": "Solana L1: Cqd17sbnd58rv1JzoLYNQqMdkfsXhpMU5PbvjvxDw7zV"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 11418,
+      "text": "Base EVM:  0x5919efc62c37c551c47653cc569c1bbb2fa76550",
+      "ansi": "Base EVM:  0x5919efc62c37c551c47653cc569c1bbb2fa76550"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 12456,
+      "text": "ZK Ledger: Root 0x0ce8... (0 entries)",
+      "ansi": "ZK Ledger: Root 0x0ce8... (0 entries)"
+    },
+    {
+      "stream": "stdout",
+      "t_ms": 13494,
+      "text": "Status:    SOVEREIGN & ACTIVE",
+      "ansi": "Status:    \u001b[32;1mSOVEREIGN & ACTIVE\u001b[0m"
+    }
+  ],
+  "extracted": {
+    "address": "Cqd17sbnd58rv1JzoLYNQqMdkfsXhpMU5PbvjvxDw7zV"
+  }
+}

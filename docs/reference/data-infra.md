@@ -198,7 +198,7 @@ curl http://localhost:8787/api/network/pulse
 # expected: real slot from the validator
 
 # 3. serve the webapp
-cd webapp_deploy && ./build.sh
+cd apps/web && ./build.sh
 bunx wrangler@latest pages dev . --port 8788
 # open: http://127.0.0.1:8788/#network
 ```

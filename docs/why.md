@@ -36,7 +36,7 @@ graph LR
         direction TB
         AG2["Sovereign Agent\n(owns keys, generates proofs)"]
         ZK["ZK Engine\n(local, private)"]
-        CHAIN2["Solana\n(proof hash only)"]
+        CHAIN2["Settlement Chain\n(proof hash only)"]
         AG2 -->|"prove intent"| ZK
         ZK -->|"2176 B proof"| CHAIN2
         CHAIN2 -.->|"verdict: GREEN\n(nothing exposed)"| AG2

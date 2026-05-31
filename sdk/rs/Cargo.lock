@@ -2136,7 +2136,7 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "xb77"
-version = "1.0.0"
+version = "2.1.0"
 dependencies = [
  "ed25519-dalek",
  "hex",

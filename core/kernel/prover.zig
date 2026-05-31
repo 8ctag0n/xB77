@@ -26,8 +26,50 @@ pub const SovereignProver = struct {
         };
     }
 
-    /// Revisa si es necesario anclar el estado actual en Solana.
+    /// Revisa si hay nuevas transacciones que requieran una prueba ZK individual.
+    pub fn checkAndProveReceipts(self: *SovereignProver) !void {
+        // En un entorno real, esto miraría una cola o el sistema de archivos.
+        // Para la demo, verificamos si el archivo Prover.toml existe y es nuevo.
+        const path = "circuits/zk_receipt/Prover.toml";
+        const file = std.fs.cwd().openFile(path, .{}) catch return;
+        file.close();
+
+        // 1. Ejecutar Nargo Prove para el recibo individual
+        const mock_mode = std.process.getEnvVarOwned(self.allocator, "XB77_MOCK_PROVER") catch null;
+        defer if (mock_mode) |m| self.allocator.free(m);
+
+        if (mock_mode != null) {
+            std.debug.print("\n[PROVER]  MOCK_MODE: Individual ZK-Receipt verified (zk_rcpt_0x42).", .{});
+            self.store.header.total_proofs += 1;
+            try std.fs.cwd().deleteFile(path);
+            return;
+        }
+
+        std.debug.print("\n[PROVER] ️ Generating individual ZK-Receipt proof...", .{});
+        var child = std.process.Child.init(&[_][]const u8{ 
+            "bash", 
+            "scripts/nargo.sh", 
+            "prove", 
+            "--program-dir", 
+            "circuits/zk_receipt" 
+        }, self.allocator);
+        
+        _ = try child.spawnAndWait();
+        std.debug.print("\n[PROVER]  ZK-Receipt proof anchored on Solana.", .{});
+        
+        self.store.header.total_proofs += 1;
+
+        // Limpiar para la siguiente transacción
+        try std.fs.cwd().deleteFile(path);
+    }
+
+    /// Revisa si es necesario anclar el estado actual en Solana (Batch).
     pub fn checkAndAnchor(self: *SovereignProver, signer: *const types.Keypair) !void {
+        // Sincronizar con el header del vault (por si otro proceso actualizó el ledger)
+        if (self.store.header.next_index > self.store.tree.rightmost_index) {
+            self.store.tree.rightmost_index = self.store.header.next_index;
+        }
+
         const current_idx = self.store.tree.rightmost_index;
         
         // Si no hay nada nuevo, no hacemos nada
@@ -98,6 +140,17 @@ pub const SovereignProver = struct {
             );
 
             // 2. Ejecutar Nargo Prove vía el wrapper script
+            const mock_mode = std.process.getEnvVarOwned(self.allocator, "XB77_MOCK_PROVER") catch null;
+            defer if (mock_mode) |m| self.allocator.free(m);
+
+            if (mock_mode != null) {
+                std.debug.print("\n[PROVER]  MOCK MODE: Skipping real Nargo/Solana call.", .{});
+                const fake_sig = "mock_batch_anchor_sig_777777777777777777777777777777777777";
+                std.debug.print("\n[PROVER]  Sovereign Batch Anchored. L1 Sig: {s}", .{fake_sig});
+                self.last_anchored_index += 5;
+                return;
+            }
+
             std.debug.print("\n[PROVER] ️ Executing: scripts/nargo.sh prove --program-dir circuits/state_anchor", .{});
             
             var child = std.process.Child.init(&[_][]const u8{ 

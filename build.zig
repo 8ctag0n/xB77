@@ -22,7 +22,7 @@ pub fn build(b: *std.Build) void {
 
     // --- MCP Module ---
     const mcp_module = b.addModule("mcp", .{
-        .root_source_file = b.path("mcp/server.zig"),
+        .root_source_file = b.path("apps/mcp/server.zig"),
         .imports = &.{
             .{ .name = "core", .module = core_module },
         },
@@ -32,7 +32,7 @@ pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{
         .name = "xb77",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("cli/main.zig"),
+            .root_source_file = b.path("apps/cli/main.zig"),
             .target = target,
             .optimize = optimize,
         }),
@@ -57,7 +57,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         }),
     });
-    znode_exe.addCSourceFile(.{ .file = b.path("znode/main.c"), .flags = &.{"-std=c11"} });
+    znode_exe.addCSourceFile(.{ .file = b.path("apps/znode/main.c"), .flags = &.{"-std=c11"} });
     znode_exe.addCSourceFile(.{ .file = b.path("deps/znode.c"), .flags = &.{"-std=c11"} });
     znode_exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
     znode_exe.addIncludePath(b.path("deps"));
@@ -122,7 +122,7 @@ pub fn build(b: *std.Build) void {
     const wasm_gateway = b.addExecutable(.{
         .name = "gateway",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("gateway/main.zig"),
+            .root_source_file = b.path("apps/gateway/main.zig"),
             .target = wasm_target,
             .optimize = .ReleaseSmall,
             .strip = true,
@@ -138,6 +138,29 @@ pub fn build(b: *std.Build) void {
     
     const wasm_step = b.step("wasm", "Build the Gateway WASM binary for Cloudflare Workers");
     wasm_step.dependOn(&install_wasm.step);
+
+    // --- Arbitrum Stylus (Zig Native Contract) ---
+    const stylus_wasm = b.addExecutable(.{
+        .name = "constitution",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("onchain/stylus/main.zig"),
+            .target = b.resolveTargetQuery(.{
+                .cpu_arch = .wasm32,
+                .os_tag = .freestanding,
+            }),
+            .optimize = .ReleaseSmall,
+            .strip = true,
+        }),
+    });
+    stylus_wasm.root_module.addImport("core", core_module);
+    stylus_wasm.entry = .disabled;
+    stylus_wasm.rdynamic = true;
+
+    const install_stylus = b.addInstallArtifact(stylus_wasm, .{
+        .dest_dir = .{ .override = .{ .custom = "bin" } },
+    });
+    const stylus_step = b.step("stylus", "Build the Zig-native Arbitrum Stylus contract");
+    stylus_step.dependOn(&install_stylus.step);
 
     // --- SDK Core WASM (xb77_core.wasm) ---
     // Stateless SDK surface compiled to wasm32-wasi. Wrappers (TS/Py/Rust)
@@ -267,7 +290,7 @@ pub fn build(b: *std.Build) void {
     });
     merchant_unit_tests.root_module.addImport("core", core_module);
     const sdk_module = b.createModule(.{
-        .root_source_file = b.path("sdk/merchant_sdk.zig"),
+        .root_source_file = b.path("sdk/zig/merchant_sdk.zig"),
     });
     sdk_module.addImport("core", core_module);
     merchant_unit_tests.root_module.addImport("sdk", sdk_module);
@@ -443,7 +466,7 @@ pub fn build(b: *std.Build) void {
     const sdk_lib = b.addLibrary(.{
         .name = "xb77_sdk",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("sdk/xb77_sdk.zig"),
+            .root_source_file = b.path("sdk/zig/xb77_sdk.zig"),
             .target = target,
             .optimize = optimize,
         }),
@@ -468,7 +491,7 @@ pub fn build(b: *std.Build) void {
     const merchant_sdk = b.addLibrary(.{
         .name = "xb77_merchant",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("sdk/merchant_sdk.zig"),
+            .root_source_file = b.path("sdk/zig/merchant_sdk.zig"),
             .target = target,
             .optimize = optimize,
         }),
@@ -481,13 +504,15 @@ pub fn build(b: *std.Build) void {
     const merchant_wasm = b.addExecutable(.{
         .name = "xb77_merchant",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("sdk/merchant_sdk.zig"),
+            .root_source_file = b.path("sdk/zig/merchant_sdk.zig"),
             .target = wasm_target,
             .optimize = .ReleaseSmall,
         }),
     });
     merchant_wasm.root_module.addImport("core", core_module);
-    
+    merchant_wasm.entry = .disabled;
+    merchant_wasm.rdynamic = true;
+
     const install_merchant_wasm = b.addInstallArtifact(merchant_wasm, .{
         .dest_dir = .{ .override = .{ .custom = "bin" } },
     });
@@ -536,6 +561,48 @@ pub fn build(b: *std.Build) void {
     const trident_smoke_step = b.step("trident-smoke", "Run the Trident Integration Smoke Test");
     trident_smoke_step.dependOn(&run_trident_smoke.step);
 
+    const agora_arc_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/agora_arc_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    agora_arc_unit_tests.root_module.addImport("core", core_module);
+    const run_agora_arc_unit_tests = b.addRunArtifact(agora_arc_unit_tests);
+
+    const semantic_unit_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/semantic_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    semantic_unit_tests.root_module.addImport("core", core_module);
+    const run_semantic_unit_tests = b.addRunArtifact(semantic_unit_tests);
+
+    const e2e_intelligence_exe = b.addExecutable(.{
+        .name = "e2e-intelligence",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/e2e_intelligence.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    e2e_intelligence_exe.root_module.addImport("core", core_module);
+    b.installArtifact(e2e_intelligence_exe);
+
+    const local_arb_test_exe = b.addExecutable(.{
+        .name = "local_arb_test",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/local_arbitrum_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    local_arb_test_exe.root_module.addImport("core", core_module);
+    b.installArtifact(local_arb_test_exe);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);
     test_step.dependOn(&run_tx_unit_tests.step);
@@ -554,4 +621,6 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_ghost_payment_e2e_tests.step);
     test_step.dependOn(&run_negotiation_unit_tests.step);
     test_step.dependOn(&run_onchain_unit_tests.step);
+    test_step.dependOn(&run_agora_arc_unit_tests.step);
+    test_step.dependOn(&run_semantic_unit_tests.step);
 }

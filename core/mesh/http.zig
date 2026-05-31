@@ -76,7 +76,7 @@ pub const HttpClient = struct {
     pub fn get(self: *HttpClient, url: []const u8) !HttpResponse {
         if (self.telemetry) |t| t.recordRpc();
         return if (comptime builtin.target.os.tag == .wasi)
-            error.NotImplemented // TODO: GET in WASM
+            try self.fetchWasm("GET", url, "")
         else
             try self.postNative(url, .GET, "", null);
     }
@@ -227,8 +227,12 @@ pub const HttpClient = struct {
     }
 
     fn postWasm(self: *HttpClient, url: []const u8, payload: []const u8) !HttpResponse {
+        return self.fetchWasm("POST", url, payload);
+    }
+
+    fn fetchWasm(self: *HttpClient, method: []const u8, url: []const u8, payload: []const u8) !HttpResponse {
         // En WASM (Cloudflare Workers), delegamos el fetch a JS
-        const result_ptr = js_fetch(url.ptr, url.len, payload.ptr, payload.len);
+        const result_ptr = js_fetch(method.ptr, method.len, url.ptr, url.len, payload.ptr, payload.len);
         if (@intFromPtr(result_ptr) == 0) return error.FetchFailed;
 
         // El resultado viene como un buffer serializado: [status: u16][body_len: u32][body...]
@@ -236,7 +240,6 @@ pub const HttpClient = struct {
         const body_len = std.mem.readInt(u32, result_ptr[2..6], .little);
         const body = try self.allocator.dupe(u8, result_ptr[6 .. 6 + body_len]);
         
-        // Liberar el buffer asignado por JS (si es necesario, por ahora asumimos que es temporal o gestionado)
         return HttpResponse{
             .status = status,
             .body = body,
@@ -245,4 +248,4 @@ pub const HttpClient = struct {
     }
 };
 
-extern fn js_fetch(url_ptr: [*]const u8, url_len: usize, body_ptr: [*]const u8, body_len: usize) [*]const u8;
+extern fn js_fetch(m_ptr: [*]const u8, m_len: usize, u_ptr: [*]const u8, u_len: usize, b_ptr: [*]const u8, b_len: usize) [*]const u8;

@@ -1,6 +1,6 @@
 //! Solana legacy transaction builder.
 //!
-//! Mirrors solana-tx.js (webapp_deploy/assets/src/lib/solana-tx.js).
+//! Mirrors solana-tx.js (apps/web/assets/src/lib/solana-tx.js).
 //!
 //! Wire format (legacy tx):
 //!   tx       = signatures || message

@@ -10,7 +10,7 @@
 
 The rise of autonomous AI agents as economic actors creates a fundamental infrastructure problem. Agents need to transact, prove compliance, and coordinate at machine speed — yet existing payment rails were built for humans: slow, transparent, and custodial.
 
-xB77 is a sovereign commerce layer purpose-built for autonomous agents on Solana. It provides:
+xB77 is a sovereign commerce layer purpose-built for autonomous agents. Its core — agent runtime, ZK proof engine, and coordination mesh — is chain-agnostic; settlement is delegated to per-chain adapters (Solana, Arc, Sui). It provides:
 
 - **ZK-batched payments** — transaction intents wrapped in zero-knowledge proofs before hitting the chain
 - **Shielded flows** — agent strategy, counterparty identity, and amounts remain private
@@ -36,7 +36,7 @@ graph TB
         ZN["ZNode\n(Geyser stream)"]
     end
 
-    subgraph solana["Solana Programs"]
+    subgraph solana["Settlement Adapters — Solana shown"]
         CORE["xb77_core\n(CMT anchor)"]
         VF["xb77_zk_verifier\n(proof PDA)"]
         REG["xb77_registry\n(identity)"]
@@ -194,9 +194,9 @@ stateDiagram-v2
 
 ---
 
-## 8. Roadmap: From Stub to Full Verifier
+## 8. Roadmap: Verifier Maturity
 
-This section is honest about the current state and what is required to make the verifier production-grade.
+This section is honest about the current state and what is required to make the verifier production-grade. For the product/version roadmap (including multi-chain settlement), see the [Roadmap](/roadmap).
 
 ### Phase 1 — Current (Hackathon, May 2026)
 

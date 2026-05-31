@@ -10,5 +10,7 @@ no-entrypoint = []
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-solana-program = "~3.0"
-solana-system-interface = { version = "*", features = ["bincode"] }
+solana-program = "1.18"
+verifier-lib = { git = "https://github.com/reilabs/sunspot.git", rev = "7edafaf6a3b47cdcb8d008e87d477abe82e5ca1d" }
+constant_time_eq = "=0.3.1"
+blake3 = "=1.8.2"

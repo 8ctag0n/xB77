@@ -310,7 +310,7 @@ fi
 step "CF Worker gateway (wrangler dev)"
 note "spawning: bunx wrangler@latest dev --local --port ${GW_PORT}"
 (
-  cd "${REPO}/gateway/worker"
+  cd "${REPO}/apps/gateway/worker"
   ZNODE_RPC_URL="http://127.0.0.1:${RPC_PORT}" \
   bunx wrangler@latest dev --local --port "${GW_PORT}" >"${WRANGLER_LOG}" 2>&1
 ) &
@@ -332,11 +332,11 @@ ok "wrangler healthy on :${GW_PORT} (PID ${WRANGLER_PID})"
 
 # ─── 5. Webapp build + serve ───────────────────────────────────────────
 step "Webapp build + serve"
-( cd "${REPO}/webapp_deploy" && ./build.sh ) >/dev/null
+( cd "${REPO}/apps/web" && ./build.sh ) >/dev/null
 ok "webapp built (assets/js/* regenerated)"
 
 (
-  cd "${REPO}/webapp_deploy"
+  cd "${REPO}/apps/web"
   python3 -m http.server "${WEB_PORT}" --bind 127.0.0.1 >"${WEBAPP_LOG}" 2>&1
 ) &
 WEBAPP_PID=$!
@@ -363,7 +363,7 @@ PULSE="$(curl -fsS "http://127.0.0.1:${GW_PORT}/api/v1/network/pulse" 2>&1 || ec
 # path is wired end-to-end. Skipped via --no-onchain-smoke.
 if [[ "${SKIP_ONCHAIN_SMOKE:-0}" != "1" ]]; then
   step "Onchain smoke (anchorState → xb77_compression)"
-  if ( cd "${REPO}" && bun test webapp_deploy/test/onchain-e2e.test.js 2>&1 | tee "${WORK}/onchain-smoke.log" | grep -q "1 pass" ); then
+  if ( cd "${REPO}" && bun test apps/web/test/onchain-e2e.test.js 2>&1 | tee "${WORK}/onchain-smoke.log" | grep -q "1 pass" ); then
     SIG="$(grep -oE 'anchorState tx: [1-9A-HJ-NP-Za-km-z]+' "${WORK}/onchain-smoke.log" | tail -1 | awk '{print $3}')"
     ok "onchain tx landed: ${SIG:-???}"
   else

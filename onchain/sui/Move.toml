@@ -1,0 +1,13 @@
+[package]
+name = "sovereign"
+version = "0.1.0"
+authors = ["xB77 Labs"]
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
+
+[addresses]
+sovereign = "0x0"
+
+[environments]
+localnet = "b435985a"

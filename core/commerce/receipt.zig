@@ -60,8 +60,17 @@ pub const ZkReceipt = struct {
         var fba = std.heap.FixedBufferAllocator.init(&buf);
         const allocator = fba.allocator();
 
-        const p_str = try crypto.bytesToHex(allocator, &self.recipient_bytes);
-        const s_str = try crypto.bytesToHex(allocator, &self.secret_salt);
+        // Aplicamos el módulo para asegurar que caben en un Field de Noir
+        const r_u256 = std.mem.readInt(u256, &self.recipient_bytes, .little) % poseidon.bn254.Fr.P;
+        const salt_u256 = std.mem.readInt(u256, &self.secret_salt, .little) % poseidon.bn254.Fr.P;
+
+        var r_bytes: [32]u8 = undefined;
+        std.mem.writeInt(u256, &r_bytes, r_u256, .big); // Noir usually expects big-endian hex for Fields
+        var s_bytes: [32]u8 = undefined;
+        std.mem.writeInt(u256, &s_bytes, salt_u256, .big);
+
+        const p_str = try crypto.bytesToHex(allocator, &r_bytes);
+        const s_str = try crypto.bytesToHex(allocator, &s_bytes);
 
         const content = try std.fmt.allocPrint(allocator,
             \\amount = {d}

@@ -197,6 +197,22 @@ pub const SolanaClient = struct {
         return sig;
     }
 
+    pub fn getSlot(self: *SolanaClient) !u64 {
+        const payload = try std.fmt.allocPrint(self.allocator,
+            \\{{"jsonrpc":"2.0","id":1,"method":"getSlot","params":[]}}
+        , .{});
+        defer self.allocator.free(payload);
+
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
+
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{});
+        defer parsed.deinit();
+
+        const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
+        return @intCast(result.integer);
+    }
+
     pub fn getLatestBlockhash(self: *SolanaClient) !types.Hash {
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"getLatestBlockhash","params":[]}}
