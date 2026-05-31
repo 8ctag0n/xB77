@@ -96,6 +96,7 @@ export default withMermaid({
           items: [
             { text: 'Quickstart', link: '/guide/quickstart' },
             { text: 'Deploy', link: '/guide/deploy' },
+            { text: 'Arbitrum & ZeroDev', link: '/guide/arbitrum-zerodev' },
             { text: 'Demo Walkthrough', link: '/guide/demo' },
           ],
         },

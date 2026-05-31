@@ -1,100 +1,89 @@
 # Quickstart
 
-Spin up an xB77 agent on devnet in five minutes. Everything you need is in
-the SDK — no infra, no orchestration, no custodial fees.
+Spin up an xB77 agent on devnet in five minutes. xB77 uses a high-performance **Zig-native** core compiled to WASM for edge execution.
 
-## Install
+## Build the SDK
 
-```bash
-npm install -g @xb77/cli
-xb77 --version
-```
-
-The CLI works on macOS, Linux, and WSL2. It bundles the SDK, the agent
-runtime, and the deploy tooling.
-
-## Bootstrap a project
+Before launching, you must build the WASM core and the TypeScript SDK.
 
 ```bash
-xb77 init my-agent --network devnet
-cd my-agent
+# Clone the repository
+git clone https://github.com/8ctag0n/xB77.git
+cd xB77
+
+# Build the WASM core (requires Zig 0.15.1)
+zig build sdk-wasm
+
+# Install and build the TS SDK
+cd sdk/ts
+bun install
+bun run build
 ```
 
-Layout:
+## Configure a Profile
 
-```
-my-agent/
-├── agent.toml         # constitution + payment rules
-├── src/
-│   └── pipelines/     # business logic
-└── .xb77/             # generated keys, never commit
-```
+xB77 uses `.toml` profiles to define agent identities and connection parameters. See `profiles/` for examples.
 
-## Configure the constitution
-
-Open `agent.toml`. The constitution declares what the agent is *allowed* to
-do — limits the ZK pipeline enforces at the protocol level.
+Create a `my-agent.toml`:
 
 ```toml
-[constitution]
-max_payment      = "1000 USDC"
-daily_limit      = "10000 USDC"
-allowed_chains   = ["solana"]
-require_approval = ["amount > 5000 USDC"]
-infra_tax        = 0.02011        # 2.011%, paid to Sovereign Credits
+[profile]
+name = "Alpha-Agent"
+gateway = "https://gateway.xb77.dev"
+rpc = "https://api.devnet.solana.com"
 
-[agent.cfo-alpha]
-role = "Treasury"
-neural_key = "auto"               # generated on first launch
+[constitution]
+max_payment      = 1000000000     # 1000 USDC (6 decimals)
+daily_limit      = 10000000000    # 10000 USDC
+infra_tax        = 0.02011        # 2.011%, enforced by ZK-Receipt
 ```
 
-## Launch
+## Launch (Native)
+
+You can run the agent directly using the Zig-native CLI or the TS wrapper.
+
+### Native CLI
 
 ```bash
-xb77 launch --agent cfo-alpha
+# Build the CLI
+zig build -Doptimize=ReleaseSafe
+./zig-out/bin/xb77 launch --profile profiles/alpha.toml
 ```
+
+### TS Wrapper
+
+```typescript
+import { XB77 } from "@xb77/sdk";
+
+const sdk = await XB77.load(); // Loads wasm automatically
+const req = sdk.buildSignedRequest({
+  action: Action.SubmitOrder,
+  payload: JSON.stringify({ symbol: "SOL/USDC", amount: 100 }),
+  privkey: myPrivateKey,
+});
+```
+
+## Launch Lifecycle
 
 Behind the scenes:
 
-1. Generates a Neural Key pair (Ed25519 + ZK identity commitment).
-2. Registers the agent on the configured network's on-chain registry.
-3. Starts the local runtime that watches for intents and emits proofs.
-
-Logs stream to stdout. `Ctrl+C` to stop; the agent re-attaches on the next
-`launch` without losing state.
+1. **Keystore Activation**: Generates or unseals an Ed25519 identity.
+2. **Registry Sync**: Registers the agent's ZK-identity on-chain.
+3. **Ghost Mesh Attachment**: Starts the local runtime that watches for intents and emits proofs.
 
 ## Verify it's alive
 
-Open the live network view in the public webapp:
+Check your agent's status via the gateway:
 
-- [`/network` on the demo site](https://xb77.dev/#network) — paste your
-  agent's pubkey into the audit input, or watch the slot tick in
-  Network Pulse.
-- Or hit the REST adapter directly: `curl
-  https://gateway.xb77.dev/api/agents` and look for your `agent.id`.
+```bash
+curl https://gateway.xb77.dev/status/<your-agent-pubkey>
+```
 
-The webapp's `window.DataSource` client is what consumes those endpoints.
-Full data-layer reference is in [Data Infrastructure](/reference/data-infra).
+Or view the [Network Pulse](https://xb77.dev/#network) in the webapp.
 
 ## Where to go next
 
-- **[Architecture](/architecture)** — how agents, pipelines, ZK engine and
-  settlement layer fit together.
-- **[Whitepaper](/whitepaper)** — the long-form rationale and protocol design.
-- **[Data Infrastructure](/reference/data-infra)** — REST endpoints, the
-  `DataSource` client, fallback chain.
-- **[On-Chain Programs](/reference/programs)** — Solana programs reference.
+- **[Arbitrum & ZeroDev](/guide/arbitrum-zerodev)** — Intent-based session keys and Stylus validation.
+- **[Architecture](/architecture)** — How Zig, WASM, and ZK engine fit together.
+- **[On-Chain Programs](/reference/programs)** — Solana/Sui/EVM implementation details.
 - **[Proof Format](/reference/proof-format)** — Noir circuit and Ghost Receipt.
-
-## Common issues
-
-**`xb77: command not found`** — npm's global bin is not in your `PATH`. Run
-`npm bin -g` and add that directory to your shell rc.
-
-**Agent stalls at `awaiting registry confirmation`** — the on-chain
-registry is slow on devnet's first slot after a restart. Wait 30s; the
-launch resumes automatically.
-
-**Webapp shows `// SNAPSHOT` instead of `// LIVE`** — the gateway adapter
-is unreachable from the browser. That's intentional fallback behavior, not
-a failure; see [Data Infrastructure](/reference/data-infra) for the chain.
