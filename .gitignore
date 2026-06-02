@@ -57,8 +57,13 @@ circuits/state_anchor/proofs/
 
 # Onchain build outputs (ephemeral, regenerable)
 onchain/*/build/
-onchain/evm/out/build-info/
+onchain/evm/out/
+onchain/evm/broadcast/
+onchain/evm/cache/
 onchain/sui/Pub.*.toml
+
+# Local anvil deployment state
+.anvil-addresses
 
 # Wrangler / Cloudflare Pages local cache
 .wrangler/
