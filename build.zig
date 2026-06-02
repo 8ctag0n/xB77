@@ -140,27 +140,64 @@ pub fn build(b: *std.Build) void {
     wasm_step.dependOn(&install_wasm.step);
 
     // --- Arbitrum Stylus (Zig Native Contract) ---
-    const stylus_wasm = b.addExecutable(.{
-        .name = "constitution",
+    // Shared wasm32-freestanding target for all Stylus contracts
+    const stylus_target = b.resolveTargetQuery(.{
+        .cpu_arch = .wasm32,
+        .os_tag = .freestanding,
+    });
+
+    // Helper to create a Stylus WASM executable
+    const StylusContract = struct {
+        fn add(
+            b2: *std.Build,
+            name: []const u8,
+            src: []const u8,
+            core_mod: *std.Build.Module,
+            st: std.Build.ResolvedTarget,
+        ) *std.Build.Step.InstallArtifact {
+            const contract = b2.addExecutable(.{
+                .name = name,
+                .root_module = b2.createModule(.{
+                    .root_source_file = b2.path(src),
+                    .target = st,
+                    .optimize = .ReleaseSmall,
+                    .strip = true,
+                }),
+            });
+            contract.root_module.addImport("core", core_mod);
+            contract.entry = .disabled;
+            contract.rdynamic = true;
+            return b2.addInstallArtifact(contract, .{
+                .dest_dir = .{ .override = .{ .custom = "bin" } },
+            });
+        }
+    };
+
+    const install_constitution = StylusContract.add(b, "constitution",    "onchain/stylus/main.zig",         core_module, stylus_target);
+    const install_settlement   = StylusContract.add(b, "settlement",      "onchain/stylus/settlement.zig",   core_module, stylus_target);
+    const install_univ4_hook   = StylusContract.add(b, "uniswap_hook",    "onchain/stylus/uniswap_hook.zig", core_module, stylus_target);
+    const install_aave_guard   = StylusContract.add(b, "aave_guard",      "onchain/stylus/aave_guard.zig",   core_module, stylus_target);
+    const install_gmx_guard    = StylusContract.add(b, "gmx_guard",       "onchain/stylus/gmx_guard.zig",    core_module, stylus_target);
+
+    const stylus_step = b.step("stylus", "Build all Zig-native Arbitrum Stylus contracts");
+    stylus_step.dependOn(&install_constitution.step);
+    stylus_step.dependOn(&install_settlement.step);
+    stylus_step.dependOn(&install_univ4_hook.step);
+    stylus_step.dependOn(&install_aave_guard.step);
+    stylus_step.dependOn(&install_gmx_guard.step);
+
+    // Stylus local test suite (native build, uses mock_hooks.zig)
+    const stylus_tests = b.addTest(.{
         .root_module = b.createModule(.{
-            .root_source_file = b.path("onchain/stylus/main.zig"),
-            .target = b.resolveTargetQuery(.{
-                .cpu_arch = .wasm32,
-                .os_tag = .freestanding,
-            }),
-            .optimize = .ReleaseSmall,
-            .strip = true,
+            .root_source_file = b.path("onchain/stylus/test_stylus.zig"),
+            .target = target,
+            .optimize = optimize,
         }),
     });
-    stylus_wasm.root_module.addImport("core", core_module);
-    stylus_wasm.entry = .disabled;
-    stylus_wasm.rdynamic = true;
-
-    const install_stylus = b.addInstallArtifact(stylus_wasm, .{
-        .dest_dir = .{ .override = .{ .custom = "bin" } },
-    });
-    const stylus_step = b.step("stylus", "Build the Zig-native Arbitrum Stylus contract");
-    stylus_step.dependOn(&install_stylus.step);
+    stylus_tests.root_module.addImport("core", core_module);
+    const run_stylus_tests = b.addRunArtifact(stylus_tests);
+    const stylus_test_step = b.step("test-stylus", "Run Stylus contract tests locally (no chain needed)");
+    stylus_test_step.dependOn(&run_stylus_tests.step);
 
     // --- SDK Core WASM (xb77_core.wasm) ---
     // Stateless SDK surface compiled to wasm32-wasi. Wrappers (TS/Py/Rust)
