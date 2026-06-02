@@ -88,7 +88,7 @@ const SUCCESS: i32 = 0;
 const REVERT: i32  = 1;
 
 // ── Entrypoint ─────────────────────────────────────────────────────────────
-pub fn user_entrypoint(len: i32) i32 {
+pub fn user_entrypoint(len: i32) callconv(if (@import("builtin").cpu.arch == .wasm32) @as(std.builtin.CallingConvention, .{ .wasm_mvp = .{} }) else .auto) i32 {
     if (len < 4) return SUCCESS;
     const alloc = sdk.ContractAllocator.get();
     defer sdk.ContractAllocator.reset();

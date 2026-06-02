@@ -73,7 +73,7 @@ const TOPIC_BRIDGE_VERIFIED: [32]u8 = [_]u8{ 0x29, 0x3A, 0x4B, 0x5C } ++ [_]u8{0
 const TOPIC_RECURSIVE_SLASH: [32]u8 = [_]u8{ 0x6D, 0x7E, 0x8F, 0x90 } ++ [_]u8{0} ** 28;
 
 // ── Entrypoint ─────────────────────────────────────────────────────────────
-pub fn user_entrypoint(len: i32) i32 {
+pub fn user_entrypoint(len: i32) callconv(if (@import("builtin").cpu.arch == .wasm32) @as(std.builtin.CallingConvention, .{ .wasm_mvp = .{} }) else .auto) i32 {
     if (len < 4) return SUCCESS;
 
     const allocator = sdk.ContractAllocator.get();
