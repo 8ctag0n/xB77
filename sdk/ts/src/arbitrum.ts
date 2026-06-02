@@ -20,6 +20,7 @@ import {
   toHex,
   keccak256,
 } from "viem";
+import { grantPermissions as viemGrantPermissions } from "viem/experimental";
 import { arbitrumSepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 
@@ -84,6 +85,19 @@ export interface BridgeVerifyResult {
   trusted: boolean;
   chainId: XB77ChainId;
   agentId: Hex;
+}
+
+// ── ERC-7715 permission types ─────────────────────────────────────────────
+export const SEMANTIC_INTENT_PERMISSION_TYPE = "semantic-intent" as const;
+
+export interface SemanticIntentPermissionData {
+  intentVector: Hex;     // 512 bytes, int32[128] ABI-packed
+  expirySeconds?: number; // default 86400 (24h)
+}
+
+export interface GrantPermissionsResult {
+  permissionsContext: Hex;
+  expiry: number;
 }
 
 // ── Interest rate modes (Aave v3) ─────────────────────────────────────────
@@ -701,6 +715,42 @@ export class XB77ArbitrumClient {
       opts.aaveGuardAddress,
       opts.gmxGuardAddress,
     );
+  }
+
+  // ── ERC-7715 — wallet_grantPermissions ───────────────────────────────────
+
+  /**
+   * Request a semantic-intent permission grant from a wallet via ERC-7715.
+   *
+   * The wallet client must be extended with viem experimental actions:
+   *   `walletClient.extend(experimental())` or support `wallet_grantPermissions` natively.
+   *
+   * The returned `permissionsContext` replaces the flow of building a ZeroDev
+   * Kernel client directly — any ERC-7715-compatible wallet can issue the grant
+   * without custom xB77 integration.
+   */
+  async grantPermissions(
+    walletClient: any,
+    sessionKeyPubkey: Hex,
+    intentVector: IntentVector,
+    opts?: { expiry?: number },
+  ): Promise<GrantPermissionsResult> {
+    const expiry = opts?.expiry ?? Math.floor(Date.now() / 1000) + 86_400;
+    // viem/experimental types model only the built-in ERC-7715 permission types.
+    // Custom types ("semantic-intent") and the full ECDSA key signer shape are valid
+    // per the JSON-RPC spec but require a cast here.
+    const result = await viemGrantPermissions(walletClient, {
+      expiry,
+      signer: { type: "key", data: { id: sessionKeyPubkey } },
+      permissions: [{
+        type: { custom: SEMANTIC_INTENT_PERMISSION_TYPE },
+        data: { intentVector: encodeIntentVector(intentVector) } satisfies SemanticIntentPermissionData,
+      }],
+    } as any);
+    return {
+      permissionsContext: result.permissionsContext as Hex,
+      expiry: result.expiry,
+    };
   }
 
   // ── Agent account ────────────────────────────────────────────────────────
