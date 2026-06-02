@@ -87,7 +87,7 @@ export interface BridgeVerifyResult {
   agentId: Hex;
 }
 
-// ── ERC-7715 permission types ─────────────────────────────────────────────
+// ── ERC-7715 / ERC-7779 permission types ─────────────────────────────────
 export const SEMANTIC_INTENT_PERMISSION_TYPE = "semantic-intent" as const;
 
 export interface SemanticIntentPermissionData {
@@ -98,6 +98,56 @@ export interface SemanticIntentPermissionData {
 export interface GrantPermissionsResult {
   permissionsContext: Hex;
   expiry: number;
+}
+
+// ── ERC-7779 cross-chain proof root ───────────────────────────────────────
+
+/** One chain entry in a cross-chain permission grant (ERC-7779). */
+export interface CrossChainPermissionEntry {
+  /** EVM chain ID (e.g. 421614 for Arbitrum Sepolia) or xB77 chain ID for non-EVM. */
+  chainId: number;
+  /** The account or guard address on that chain. */
+  account: Hex;
+}
+
+/**
+ * Build a Merkle root over a set of cross-chain permission entries (ERC-7779).
+ *
+ * Each leaf = keccak256(keccak256(abi.encode(chainId, account))).
+ * The root can be passed as `crossChainProofRoot` to `grantPermissions()` so
+ * a single wallet signature covers Arbitrum + Solana + Sui simultaneously.
+ *
+ * Compatible with `isBridgeAgentTrusted()` in SovereignPolicy: the Stylus
+ * constitution verifies each chain's leaf membership against this root.
+ */
+export function buildCrossChainRoot(entries: CrossChainPermissionEntry[]): Hex {
+  if (entries.length === 0) throw new Error("crossChainRoot: at least one entry required");
+
+  const leaves = entries
+    .map((e) => {
+      const encoded = encodeAbiParameters(
+        [{ type: "uint256" }, { type: "address" }],
+        [BigInt(e.chainId), e.account],
+      );
+      // Double-hash (OpenZeppelin pattern) to prevent second-preimage attacks.
+      return keccak256(keccak256(encoded));
+    })
+    .sort(); // sort for deterministic root regardless of input order
+
+  return _merkleRoot(leaves);
+}
+
+function _merkleRoot(leaves: Hex[]): Hex {
+  if (leaves.length === 1) return leaves[0];
+  const next: Hex[] = [];
+  for (let i = 0; i < leaves.length; i += 2) {
+    const left  = leaves[i];
+    const right = leaves[i + 1] ?? left; // duplicate last leaf for odd count
+    // Sort pair so the tree is order-independent at each level.
+    const [a, b] = left <= right ? [left, right] : [right, left];
+    next.push(keccak256(concatHex([a, b])));
+  }
+  return _merkleRoot(next);
 }
 
 // ── Interest rate modes (Aave v3) ─────────────────────────────────────────
@@ -733,7 +783,11 @@ export class XB77ArbitrumClient {
     walletClient: any,
     sessionKeyPubkey: Hex,
     intentVector: IntentVector,
-    opts?: { expiry?: number },
+    opts?: {
+      expiry?: number;
+      /** ERC-7779: Merkle root covering all chains this grant is valid on. Build with `buildCrossChainRoot()`. */
+      crossChainProofRoot?: Hex;
+    },
   ): Promise<GrantPermissionsResult> {
     const expiry = opts?.expiry ?? Math.floor(Date.now() / 1000) + 86_400;
     // viem/experimental types model only the built-in ERC-7715 permission types.
@@ -746,6 +800,7 @@ export class XB77ArbitrumClient {
         type: { custom: SEMANTIC_INTENT_PERMISSION_TYPE },
         data: { intentVector: encodeIntentVector(intentVector) } satisfies SemanticIntentPermissionData,
       }],
+      ...(opts?.crossChainProofRoot ? { crossChainProofRoot: opts.crossChainProofRoot } : {}),
     } as any);
     return {
       permissionsContext: result.permissionsContext as Hex,
