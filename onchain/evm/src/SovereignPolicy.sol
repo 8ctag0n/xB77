@@ -59,12 +59,11 @@ contract SovereignPolicy is IPolicy, IXB77AgentValidator {
 
     /// @inheritdoc IXB77AgentValidator
     function isAgentApproved(
-        address agent,
+        address,
         bytes calldata intentVector
     ) external view override returns (bool approved, int32 similarity) {
         if (intentVector.length < 512) return (false, 0);
         (approved, similarity) = _callStylusValidate(intentVector[0:512]);
-        emit SemanticValidation(agent, approved, similarity);
     }
 
     /// @inheritdoc IXB77AgentValidator
@@ -84,9 +83,7 @@ contract SovereignPolicy is IPolicy, IXB77AgentValidator {
         (bool success, bytes memory result) = constitutionStylus.staticcall(stylusPayload);
         if (!success || result.length < 32) return false;
 
-        bool trusted = abi.decode(result, (uint256)) == 1;
-        emit CrossChainAgentVerified(chainId, agentId, trusted);
-        return trusted;
+        return abi.decode(result, (uint256)) == 1;
     }
 
     // ── Internal ───────────────────────────────────────────────────────────
