@@ -1,8 +1,8 @@
 # ERC-7715 sobre SovereignPolicy
 
-**Estado:** Pendiente de implementación  
+**Estado:** Implementado  
 **Prioridad:** Alta — distribución via wallets estándar sin integración custom  
-**Investigado:** 2026-06-02
+**Investigado:** 2026-06-02 | **Actualizado:** 2026-06-02
 
 ---
 
@@ -149,21 +149,20 @@ contract SovereignCaveatEnforcer is ICaveatEnforcer {
 
 Con este contrato, MetaMask puede incluir `SovereignCaveatEnforcer` como caveat en su Delegation Toolkit. Los usuarios con MetaMask hacen el grant exactamente igual que con ZeroDev.
 
-### 4. ERC-7779: cross-chain proof root (~2 días)
+### 4. xB77 cross-chain root (~2 días)
 
-xB77 ya tiene bridge verify multi-chain. ERC-7779 permite que una sola firma del owner cubra Arbitrum + Solana + Sui:
+xB77 ya tiene bridge verify multi-chain. `buildCrossChainRoot()` permite construir un Merkle root que cubre Arbitrum + Solana + Sui y puede acompañar el grant como metadato:
 
 ```typescript
-// Una firma → permisos en 3 chains
-await walletClient.grantPermissions({
-  permissions: [{ type: "semantic-intent", data: { intentVector } }],
-  // ERC-7779: Merkle root que cubre (chainId, account, sessionKey) para cada chain
-  crossChainProofRoot: buildCrossChainRoot([
-    { chainId: 421614, account: arbitrumGuardAddress },
-    // Solana y Sui via bridge verify (adaptador)
-  ]),
-});
+// Construir root que cubre múltiples chains
+const root = buildCrossChainRoot([
+  { chainId: 421614, account: arbitrumGuardAddress },
+  { chainId: XB77_CHAIN.SOLANA, account: solanaPeerHash },
+]);
+// root es verificable on-chain via isBridgeAgentTrusted() en SovereignPolicy
 ```
+
+**Nota:** `buildCrossChainRoot()` es una utilidad xB77 — no está estandarizada en ningún ERC. ERC-7779 trata sobre storage collision prevention en migración de smart accounts (EIP-7702), no sobre permisos multi-chain.
 
 Encaja directamente con `isBridgeAgentTrusted()` que ya existe en `SovereignPolicy`.
 

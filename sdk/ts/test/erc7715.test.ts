@@ -1,5 +1,5 @@
 /**
- * Unit tests for ERC-7715 / ERC-7779 SDK additions.
+ * Unit tests for ERC-7715 SDK additions + xB77 cross-chain utilities.
  *
  * These tests cover pure TS logic (no node, no wallet needed):
  *   - SEMANTIC_INTENT_PERMISSION_TYPE constant
@@ -68,7 +68,7 @@ describe("encodeIntentVector", () => {
   });
 });
 
-// ── buildCrossChainRoot ──────────────────────────────────────────────────────
+// ── buildCrossChainRoot (xB77 multi-chain utility) ───────────────────────────
 
 const ARB  = "0x1111111111111111111111111111111111111111" as `0x${string}`;
 const SOL  = "0x2222222222222222222222222222222222222222" as `0x${string}`;

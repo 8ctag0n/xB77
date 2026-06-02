@@ -87,7 +87,23 @@ export interface BridgeVerifyResult {
   agentId: Hex;
 }
 
-// ── ERC-7715 / ERC-7779 permission types ─────────────────────────────────
+// ── ERC-7579 / SmartSessions types ───────────────────────────────────────
+
+export interface EnableSmartSessionOpts {
+  /** Biconomy SmartSessions module address on the target chain. */
+  smartSessionsModule: Hex;
+  /** 32-byte session identifier (keccak256 of session config in SmartSessions). */
+  permissionId: Hex;
+  /** 128-dim semantic intent vector to enforce on every UserOp within this session. */
+  intentVector: IntentVector;
+}
+
+export interface SmartSessionEnabledResult {
+  hash: Hash;
+  permissionId: Hex;
+}
+
+// ── ERC-7715 permission types ─────────────────────────────────────────────
 export const SEMANTIC_INTENT_PERMISSION_TYPE = "semantic-intent" as const;
 
 export interface SemanticIntentPermissionData {
@@ -98,11 +114,16 @@ export interface SemanticIntentPermissionData {
 export interface GrantPermissionsResult {
   permissionsContext: Hex;
   expiry: number;
+  /** Optional wallet-specific routing metadata returned alongside the grant. */
+  signerMeta?: {
+    userOpBuilder?: Hex;      // ZeroDev / ERC-4337 path
+    delegationManager?: Hex;  // MetaMask / ERC-7710 path
+  };
 }
 
-// ── ERC-7779 cross-chain proof root ───────────────────────────────────────
+// ── xB77 cross-chain permission root ─────────────────────────────────────
 
-/** One chain entry in a cross-chain permission grant (ERC-7779). */
+/** One chain entry in a multi-chain xB77 permission grant. */
 export interface CrossChainPermissionEntry {
   /** EVM chain ID (e.g. 421614 for Arbitrum Sepolia) or xB77 chain ID for non-EVM. */
   chainId: number;
@@ -111,11 +132,10 @@ export interface CrossChainPermissionEntry {
 }
 
 /**
- * Build a Merkle root over a set of cross-chain permission entries (ERC-7779).
+ * Build a Merkle root over a set of cross-chain permission entries.
  *
+ * xB77-specific utility — not part of any ERC standard.
  * Each leaf = keccak256(keccak256(abi.encode(chainId, account))).
- * The root can be passed as `crossChainProofRoot` to `grantPermissions()` so
- * a single wallet signature covers Arbitrum + Solana + Sui simultaneously.
  *
  * Compatible with `isBridgeAgentTrusted()` in SovereignPolicy: the Stylus
  * constitution verifies each chain's leaf membership against this root.
@@ -785,27 +805,70 @@ export class XB77ArbitrumClient {
     intentVector: IntentVector,
     opts?: {
       expiry?: number;
-      /** ERC-7779: Merkle root covering all chains this grant is valid on. Build with `buildCrossChainRoot()`. */
-      crossChainProofRoot?: Hex;
     },
   ): Promise<GrantPermissionsResult> {
     const expiry = opts?.expiry ?? Math.floor(Date.now() / 1000) + 86_400;
     // viem/experimental types model only the built-in ERC-7715 permission types.
-    // Custom types ("semantic-intent") and the full ECDSA key signer shape are valid
+    // Custom types ("semantic-intent") and the secp256k1 signer shape are valid
     // per the JSON-RPC spec but require a cast here.
     const result = await viemGrantPermissions(walletClient, {
+      chainId: toHex(421614), // Arbitrum Sepolia — required field per ERC-7715 spec
       expiry,
-      signer: { type: "key", data: { id: sessionKeyPubkey } },
+      signer: { type: "key", data: { type: "secp256k1", publicKey: sessionKeyPubkey } },
       permissions: [{
         type: { custom: SEMANTIC_INTENT_PERMISSION_TYPE },
         data: { intentVector: encodeIntentVector(intentVector) } satisfies SemanticIntentPermissionData,
       }],
-      ...(opts?.crossChainProofRoot ? { crossChainProofRoot: opts.crossChainProofRoot } : {}),
     } as any);
     return {
       permissionsContext: result.permissionsContext as Hex,
       expiry: result.expiry,
+      ...(result.signerMeta ? { signerMeta: result.signerMeta } : {}),
     };
+  }
+
+  // ── ERC-7579 SmartSessions ────────────────────────────────────────────────
+
+  /**
+   * Enable an xB77 semantic session on a Biconomy SmartSessions-powered account.
+   *
+   * Calls `SovereignSessionValidator.enableSession(account, permissionId, enableData)`
+   * where `enableData = abi.encode(encodeIntentVector(intentVector))`.
+   *
+   * Prerequisites:
+   *   1. The account must have the SmartSessions module (ERC-7579) installed.
+   *   2. `opts.validatorAddress` must be a deployed `SovereignSessionValidator`.
+   *   3. The `agentClient` must be authorized to call the validator on behalf of the account.
+   */
+  async enableSmartSession(
+    agentClient: Awaited<ReturnType<typeof this.createAgentClient>>,
+    validatorAddress: Hex,
+    opts: EnableSmartSessionOpts,
+  ): Promise<SmartSessionEnabledResult> {
+    const encodedVector = encodeIntentVector(opts.intentVector);
+
+    // enableSession(address account, bytes32 permissionId, bytes enableData)
+    const encoded = encodeAbiParameters(
+      [
+        { type: "address" },
+        { type: "bytes32" },
+        { type: "bytes" },
+      ],
+      [
+        opts.smartSessionsModule,
+        opts.permissionId,
+        encodeAbiParameters([{ type: "bytes" }], [encodedVector]),
+      ],
+    );
+
+    // selector = keccak256("enableSession(address,bytes32,bytes)")[0:4]
+    const sel = "0x9ee16db3" as Hex; // pre-computed
+    const hash = await agentClient.sendTransaction({
+      to: validatorAddress,
+      data: concatHex([sel, encoded]),
+    });
+
+    return { hash, permissionId: opts.permissionId };
   }
 
   // ── Agent account ────────────────────────────────────────────────────────
