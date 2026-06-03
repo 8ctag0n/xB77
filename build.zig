@@ -40,12 +40,12 @@ pub fn build(b: *std.Build) void {
     exe.pie = false;
     exe.root_module.addImport("core", core_module);
     exe.root_module.addImport("mcp", mcp_module);
-    exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11", "-fno-stack-check", "-fPIC", "-fno-sanitize=all", "-fno-asynchronous-unwind-tables", "-fno-unwind-tables"} });
+    exe.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11", "-fno-stack-check", "-fPIC", "-fno-sanitize=all", "-fno-asynchronous-unwind-tables", "-fno-unwind-tables"} });
     exe.root_module.strip = true;
     exe.root_module.omit_frame_pointer = true;
     exe.root_module.stack_check = false;
-    exe.addIncludePath(b.path("deps"));
-    exe.linkLibC();
+    exe.root_module.addIncludePath(b.path("deps"));
+    exe.root_module.linkSystemLibrary("c", .{});
 
     b.installArtifact(exe);
 
@@ -57,12 +57,12 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         }),
     });
-    znode_exe.addCSourceFile(.{ .file = b.path("apps/znode/main.c"), .flags = &.{"-std=c11"} });
-    znode_exe.addCSourceFile(.{ .file = b.path("deps/znode.c"), .flags = &.{"-std=c11"} });
-    znode_exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
-    znode_exe.addIncludePath(b.path("deps"));
-    znode_exe.addIncludePath(.{ .cwd_relative = "/usr/include" });
-    znode_exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
+    znode_exe.root_module.addCSourceFile(.{ .file = b.path("apps/znode/main.c"), .flags = &.{"-std=c11"} });
+    znode_exe.root_module.addCSourceFile(.{ .file = b.path("deps/znode.c"), .flags = &.{"-std=c11"} });
+    znode_exe.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    znode_exe.root_module.addIncludePath(b.path("deps"));
+    znode_exe.root_module.addIncludePath(.{ .cwd_relative = "/usr/include" });
+    znode_exe.root_module.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
     // Debian/Ubuntu place libcurl under a multi-arch path (e.g.
     // /usr/lib/x86_64-linux-gnu). Only add it when it actually exists,
     // otherwise Zig 0.15 errors with "unable to open library directory".
@@ -70,13 +70,13 @@ pub fn build(b: *std.Build) void {
         "/usr/lib/x86_64-linux-gnu",
         "/usr/lib/aarch64-linux-gnu",
     }) |multiarch| {
-        if (std.fs.accessAbsolute(multiarch, .{})) |_| {
-            znode_exe.addLibraryPath(.{ .cwd_relative = multiarch });
+        if (std.Io.Dir.accessAbsolute(b.graph.io, multiarch, .{})) |_| {
+            znode_exe.root_module.addLibraryPath(.{ .cwd_relative = multiarch });
         } else |_| {}
     }
     znode_exe.root_module.strip = true;
-    znode_exe.linkLibC();
-    znode_exe.linkSystemLibrary("curl");
+    znode_exe.root_module.linkSystemLibrary("c", .{});
+    znode_exe.root_module.linkSystemLibrary("curl", .{});
 
     b.installArtifact(znode_exe);
 
@@ -90,12 +90,12 @@ pub fn build(b: *std.Build) void {
         }),
     });
     e2e_exe.root_module.addImport("core", core_module);
-    e2e_exe.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11", "-fno-stack-check", "-fPIC", "-fno-sanitize=all", "-fno-asynchronous-unwind-tables", "-fno-unwind-tables"} });
+    e2e_exe.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11", "-fno-stack-check", "-fPIC", "-fno-sanitize=all", "-fno-asynchronous-unwind-tables", "-fno-unwind-tables"} });
     e2e_exe.root_module.strip = true;
     e2e_exe.root_module.omit_frame_pointer = true;
     e2e_exe.root_module.stack_check = false;
-    e2e_exe.addIncludePath(b.path("deps"));
-    e2e_exe.linkLibC();
+    e2e_exe.root_module.addIncludePath(b.path("deps"));
+    e2e_exe.root_module.linkSystemLibrary("c", .{});
     b.installArtifact(e2e_exe);
 
     const run_cmd = b.addRunArtifact(exe);
@@ -253,9 +253,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     store_unit_tests.root_module.addImport("core", core_module);
-    store_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
-    store_unit_tests.addIncludePath(b.path("deps"));
-    store_unit_tests.linkLibC();
+    store_unit_tests.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    store_unit_tests.root_module.addIncludePath(b.path("deps"));
+    store_unit_tests.root_module.linkSystemLibrary("c", .{});
     const run_store_unit_tests = b.addRunArtifact(store_unit_tests);
 
     const zk_unit_tests = b.addTest(.{
@@ -266,9 +266,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     zk_unit_tests.root_module.addImport("core", core_module);
-    zk_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
-    zk_unit_tests.addIncludePath(b.path("deps"));
-    zk_unit_tests.linkLibC();
+    zk_unit_tests.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    zk_unit_tests.root_module.addIncludePath(b.path("deps"));
+    zk_unit_tests.root_module.linkSystemLibrary("c", .{});
     const run_zk_unit_tests = b.addRunArtifact(zk_unit_tests);
 
     const cmt_unit_tests = b.addTest(.{
@@ -279,9 +279,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     cmt_unit_tests.root_module.addImport("core", core_module);
-    cmt_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
-    cmt_unit_tests.addIncludePath(b.path("deps"));
-    cmt_unit_tests.linkLibC();
+    cmt_unit_tests.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    cmt_unit_tests.root_module.addIncludePath(b.path("deps"));
+    cmt_unit_tests.root_module.linkSystemLibrary("c", .{});
     const run_cmt_unit_tests = b.addRunArtifact(cmt_unit_tests);
 
     const ghost_proof_unit_tests = b.addTest(.{
@@ -292,9 +292,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     ghost_proof_unit_tests.root_module.addImport("core", core_module);
-    ghost_proof_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
-    ghost_proof_unit_tests.addIncludePath(b.path("deps"));
-    ghost_proof_unit_tests.linkLibC();
+    ghost_proof_unit_tests.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    ghost_proof_unit_tests.root_module.addIncludePath(b.path("deps"));
+    ghost_proof_unit_tests.root_module.linkSystemLibrary("c", .{});
     const run_ghost_proof_unit_tests = b.addRunArtifact(ghost_proof_unit_tests);
 
     const awp_unit_tests = b.addTest(.{
@@ -315,7 +315,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     brain_unit_tests.root_module.addImport("core", core_module);
-    brain_unit_tests.linkLibC();
+    brain_unit_tests.root_module.linkSystemLibrary("c", .{});
     const run_brain_unit_tests = b.addRunArtifact(brain_unit_tests);
 
     const merchant_unit_tests = b.addTest(.{
@@ -341,9 +341,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     app_unit_tests.root_module.addImport("core", core_module);
-    app_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
-    app_unit_tests.addIncludePath(b.path("deps"));
-    app_unit_tests.linkLibC();
+    app_unit_tests.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    app_unit_tests.root_module.addIncludePath(b.path("deps"));
+    app_unit_tests.root_module.linkSystemLibrary("c", .{});
     const run_app_unit_tests = b.addRunArtifact(app_unit_tests);
 
     const compression_unit_tests = b.addTest(.{
@@ -354,9 +354,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     compression_unit_tests.root_module.addImport("core", core_module);
-    compression_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
-    compression_unit_tests.addIncludePath(b.path("deps"));
-    compression_unit_tests.linkLibC();
+    compression_unit_tests.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    compression_unit_tests.root_module.addIncludePath(b.path("deps"));
+    compression_unit_tests.root_module.linkSystemLibrary("c", .{});
     const run_compression_unit_tests = b.addRunArtifact(compression_unit_tests);
 
     const strategist_unit_tests = b.addTest(.{
@@ -367,9 +367,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     strategist_unit_tests.root_module.addImport("core", core_module);
-    strategist_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
-    strategist_unit_tests.addIncludePath(b.path("deps"));
-    strategist_unit_tests.linkLibC();
+    strategist_unit_tests.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    strategist_unit_tests.root_module.addIncludePath(b.path("deps"));
+    strategist_unit_tests.root_module.linkSystemLibrary("c", .{});
     const run_strategist_unit_tests = b.addRunArtifact(strategist_unit_tests);
 
     const orchestrator_e2e_tests = b.addTest(.{
@@ -400,9 +400,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     ghost_payment_e2e_tests.root_module.addImport("core", core_module);
-    ghost_payment_e2e_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
-    ghost_payment_e2e_tests.addIncludePath(b.path("deps"));
-    ghost_payment_e2e_tests.linkLibC();
+    ghost_payment_e2e_tests.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    ghost_payment_e2e_tests.root_module.addIncludePath(b.path("deps"));
+    ghost_payment_e2e_tests.root_module.linkSystemLibrary("c", .{});
     const run_ghost_payment_e2e_tests = b.addRunArtifact(ghost_payment_e2e_tests);
 
     // --- RPC Check Utility ---
@@ -415,7 +415,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     rpc_check.root_module.addImport("core", core_module);
-    rpc_check.linkLibC();
+    rpc_check.root_module.linkSystemLibrary("c", .{});
     b.installArtifact(rpc_check);
 
     // --- E2E Sovereign Anchor Test ---
@@ -428,9 +428,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     e2e_anchor.root_module.addImport("core", core_module);
-    e2e_anchor.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
-    e2e_anchor.addIncludePath(b.path("deps"));
-    e2e_anchor.linkLibC();
+    e2e_anchor.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    e2e_anchor.root_module.addIncludePath(b.path("deps"));
+    e2e_anchor.root_module.linkSystemLibrary("c", .{});
     b.installArtifact(e2e_anchor);
 
     // --- E2E ZK Upload (drives core/chain/zk_uploader.zig) ---
@@ -443,9 +443,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     zk_upload_e2e.root_module.addImport("core", core_module);
-    zk_upload_e2e.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
-    zk_upload_e2e.addIncludePath(b.path("deps"));
-    zk_upload_e2e.linkLibC();
+    zk_upload_e2e.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    zk_upload_e2e.root_module.addIncludePath(b.path("deps"));
+    zk_upload_e2e.root_module.linkSystemLibrary("c", .{});
     b.installArtifact(zk_upload_e2e);
 
     // --- E2E Compression VerifyTransition (sends real tx to xb77_compression) ---
@@ -458,9 +458,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     compression_e2e.root_module.addImport("core", core_module);
-    compression_e2e.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
-    compression_e2e.addIncludePath(b.path("deps"));
-    compression_e2e.linkLibC();
+    compression_e2e.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    compression_e2e.root_module.addIncludePath(b.path("deps"));
+    compression_e2e.root_module.linkSystemLibrary("c", .{});
     b.installArtifact(compression_e2e);
 
     // --- Mesh P2P Ping ---
@@ -522,7 +522,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     sns_test.root_module.addImport("core", core_module);
-    sns_test.linkLibC();
+    sns_test.root_module.linkSystemLibrary("c", .{});
     b.installArtifact(sns_test);
     // --- Merchant SDK (Standalone Package) ---
     const merchant_sdk = b.addLibrary(.{
@@ -575,9 +575,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
     onchain_unit_tests.root_module.addImport("core", core_module);
-    onchain_unit_tests.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
-    onchain_unit_tests.addIncludePath(b.path("deps"));
-    onchain_unit_tests.linkLibC();
+    onchain_unit_tests.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    onchain_unit_tests.root_module.addIncludePath(b.path("deps"));
+    onchain_unit_tests.root_module.linkSystemLibrary("c", .{});
     const run_onchain_unit_tests = b.addRunArtifact(onchain_unit_tests);
 
     // --- Trident Smoke Test ---
@@ -591,7 +591,7 @@ pub fn build(b: *std.Build) void {
     });
     trident_smoke.root_module.addImport("core", core_module);
     trident_smoke.root_module.addIncludePath(b.path("deps"));
-    trident_smoke.linkLibC();
+    trident_smoke.root_module.linkSystemLibrary("c", .{});
     b.installArtifact(trident_smoke);
 
     const run_trident_smoke = b.addRunArtifact(trident_smoke);

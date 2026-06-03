@@ -73,3 +73,9 @@ apps/web/remotion/out/
 
 # isolated worktrees for in-session dev
 .worktrees/
+
+# Zig v0.16 Upgrade Artifacts
+zig-x86_64-linux-0.16.0/
+zig-x86_64-linux-0.16.0.tar.xz
+test.zig
+test_build.zig
