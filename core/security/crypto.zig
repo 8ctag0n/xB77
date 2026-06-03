@@ -1,6 +1,8 @@
 const std = @import("std");
 const types = @import("../protocol/types.zig");
 
+const builtin = @import("builtin");
+
 pub const Ed25519 = std.crypto.sign.Ed25519;
 pub const Secp256k1 = std.crypto.ecc.Secp256k1;
 pub const Keccak256 = std.crypto.hash.sha3.Keccak256;
@@ -21,7 +23,11 @@ pub fn doubleSha256(input: []const u8, out: *[32]u8) void {
 
 /// Genera un nuevo par de llaves Ed25519 (Solana).
 pub fn generateKeypair() types.Keypair {
-    const kp = Ed25519.KeyPair.generate();
+    const io = if (comptime builtin.target.os.tag != .freestanding) 
+        std.Io.Threaded.global_single_threaded.io() 
+    else 
+        undefined;
+    const kp = Ed25519.KeyPair.generate(io);
     return .{
         .public = kp.public_key.toBytes(),
         .secret = kp.secret_key.toBytes(),
@@ -40,7 +46,11 @@ pub fn sign(message: []const u8, keypair: *const types.Keypair) types.Signature 
 
 /// Genera un nuevo par de llaves Secp256k1 (Ethereum).
 pub fn generateEthKeypair() !types.EthKeypair {
-    const kp = EcdsaKeccak.KeyPair.generate();
+    const io = if (comptime builtin.target.os.tag != .freestanding) 
+        std.Io.Threaded.global_single_threaded.io() 
+    else 
+        undefined;
+    const kp = EcdsaKeccak.KeyPair.generate(io);
     const uncompressed_pk = kp.public_key.p.toUncompressedSec1();
     var hash: [32]u8 = undefined;
     Keccak256.hash(uncompressed_pk[1..], &hash, .{});
@@ -119,13 +129,25 @@ pub fn decodeBase58(allocator: std.mem.Allocator, input: []const u8) ![]u8 {
     return result;
 }
 
+pub fn base58ToBytes(out: []u8, input: []const u8) !void {
+    var gpa = std.heap.DebugAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+    
+    const decoded = try decodeBase58(allocator, input);
+    defer allocator.free(decoded);
+    
+    if (decoded.len > out.len) return error.BufferTooSmall;
+    const offset = out.len - decoded.len;
+    @memset(out[0..offset], 0);
+    @memcpy(out[offset..out.len], decoded);
+}
+
 pub fn signEthMessage(message_hash: [32]u8, secret_key_bytes: [32]u8) !EthSignature {
     const sk = try EcdsaKeccak.SecretKey.fromBytes(secret_key_bytes);
     const keypair = try EcdsaKeccak.KeyPair.fromSecretKey(sk);
     const sig = try keypair.signPrehashed(message_hash, null);
     
-    // En Ethereum EIP-1559, v es 0 o 1.
-    // Probamos ambos para ver cuál recupera nuestra clave pública.
     for (0..2) |v| {
         const recovered_pk = recoverEthPublicKey(message_hash, sig.r, sig.s, @intCast(v)) catch continue;
         if (std.mem.eql(u8, &recovered_pk.p.toUncompressedSec1(), &keypair.public_key.p.toUncompressedSec1())) {
@@ -149,8 +171,6 @@ pub fn recoverEthPublicKey(message_hash: [32]u8, r: [32]u8, s: [32]u8, v: u8) !E
     
     const r_inv = r_scalar.invert();
     
-    // Q = r_inv * (s * R - m * G)
-    // Q = (s * r_inv) * R + (-m * r_inv) * G
     const s1_bytes = s_scalar.mul(r_inv).toBytes(.big);
     const s2_bytes = m_scalar.neg().mul(r_inv).toBytes(.big);
     
@@ -190,7 +210,6 @@ pub fn stringToPubkey(allocator: std.mem.Allocator, str: []const u8) !types.Pubk
         return error.InvalidAddressLength;
     }
     
-    // Padeamos a la izquierda si es necesario
     const offset = 32 - decoded.len;
     @memcpy(pk[offset..32], decoded);
     
@@ -203,7 +222,6 @@ pub fn encodeEthAddress(allocator: std.mem.Allocator, address: types.EthAddress)
     return std.fmt.allocPrint(allocator, "0x{s}", .{hex});
 }
 
-/// Computes the hashed name for SNS resolution.
 pub fn getSnsHashedName(name: []const u8, out: *[32]u8) void {
     const prefix = "SPL Name Service";
     var h = Sha256.init(.{});
@@ -212,8 +230,6 @@ pub fn getSnsHashedName(name: []const u8, out: *[32]u8) void {
     h.final(out);
 }
 
-/// Derives a Program Derived Address (PDA) from seeds and a program ID.
-/// Ported from Solana's create_program_address.
 pub fn createProgramAddress(seeds: [][]const u8, program_id: *const types.Pubkey) ![32]u8 {
     var hasher = Sha256.init(.{});
     for (seeds) |seed| {
@@ -226,24 +242,19 @@ pub fn createProgramAddress(seeds: [][]const u8, program_id: *const types.Pubkey
     var hash: [32]u8 = undefined;
     hasher.final(&hash);
 
-    // Solana PDAs MUST NOT be on the Ed25519 curve.
-    // Usamos Edwards25519.fromBytes para verificar si los bytes 
-    // corresponden a un punto válido en la curva.
     if (std.crypto.ecc.Edwards25519.fromBytes(hash)) |_| {
-        // std.debug.print("\n[CRYPTO] Hash is on curve: {x}", .{hash[0..4].*});
-        return error.InvalidPda; // Is on curve, so invalid as PDA
+        return error.InvalidPda;
     } else |err| {
         if (err == error.InvalidEncoding or err == error.NonCanonical) {
-            return hash; // Not on curve, valid PDA
+            return hash;
         }
         return err;
     }
 }
 
-/// Finds a valid PDA by iterating through bumps (255 down to 0).
 pub fn findProgramAddress(seeds: [][]const u8, program_id: *const types.Pubkey) !struct { address: [32]u8, bump: u8 } {
     var bump: u8 = 255;
-    var extended_seeds: [16][]const u8 = undefined; // Max 16 seeds
+    var extended_seeds: [16][]const u8 = undefined;
     if (seeds.len >= 16) return error.TooManySeeds;
     
     for (seeds, 0..) |s, i| extended_seeds[i] = s;

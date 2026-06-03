@@ -61,15 +61,17 @@ pub const Store = struct {
     index_path: []const u8,
     tree: cmt.ConcurrentMerkleTree,
     vault_ptr: []align(4096) u8,
-    vault_file: std.fs.File,
+    vault_file: std.Io.File,
     header: *types.VaultHeader,
 
     // El mapa de búsqueda rápida: Pubkey -> CMT Index
     account_index: std.AutoHashMapUnmanaged([32]u8, u64),
 
     pub fn init(allocator: std.mem.Allocator, base_path: []const u8) !Store {
+        const io = std.Io.Threaded.global_single_threaded.io();
+
         // Aseguramos que el directorio exista
-        std.fs.cwd().makePath(base_path) catch |err| {
+        std.Io.Dir.cwd().createDirPath(io, base_path) catch |err| {
             if (err != error.PathAlreadyExists) return err;
         };
 
@@ -78,23 +80,23 @@ pub const Store = struct {
         const index_path = try std.fs.path.join(allocator, &[_][]const u8{ base_path, "accounts.idx" });
         
         // Asegurar que el ledger existe
-        const ledger_init = try std.fs.cwd().createFile(file_path, .{ .truncate = false });
-        ledger_init.close();
+        const ledger_init = try std.Io.Dir.cwd().createFile(io, file_path, .{ .truncate = false });
+        ledger_init.close(io);
 
-        const vault_file = try std.fs.cwd().createFile(vault_path, .{ .read = true, .truncate = false });
+        const vault_file = try std.Io.Dir.cwd().createFile(io, vault_path, .{ .read = true, .truncate = false });
         
         // Profundidad 14 = 16k leaves = 32k total nodes = ~1MB
         const depth: u8 = 14;
         const nodes_count = (@as(u64, 1) << (depth + 1)) - 1;
         const vault_size = types.VaultHeader.HEADER_SIZE + (nodes_count * 32);
         
-        try vault_file.setEndPos(vault_size);
+        try vault_file.setLength(io, vault_size);
 
         // Mapear el archivo en memoria (mmap)
         const vault_ptr = try std.posix.mmap(
             null,
             vault_size,
-            std.posix.PROT.READ | std.posix.PROT.WRITE,
+            std.posix.PROT{ .READ = true, .WRITE = true },
             .{ .TYPE = .SHARED },
             vault_file.handle,
             0,
@@ -147,8 +149,10 @@ pub const Store = struct {
     /// Actualiza el anclaje de L1 en el header del Vault.
     /// Invocado tras una transacción exitosa en Solana.
     pub fn updateL1Anchor(self: *Store, root: [32]u8) !void {
+        const io = std.Io.Threaded.global_single_threaded.io();
         self.header.last_l1_root = root;
-        self.header.last_sync_ts = std.time.timestamp();
+        const ts = std.Io.Timestamp.now(io, .real).nanoseconds;
+        self.header.last_sync_ts = @intCast(@divTrunc(ts, 1000000000));
         
         // Calcular checksum del header (opcional por ahora, pero deluxe)
         // @todo: Implementar header checksum verification
@@ -162,9 +166,10 @@ pub const Store = struct {
     }
 
     pub fn deinit(self: *Store) void {
+        const io = std.Io.Threaded.global_single_threaded.io();
         self.account_index.deinit(self.allocator);
         std.posix.munmap(self.vault_ptr);
-        self.vault_file.close();
+        self.vault_file.close(io);
         self.allocator.free(self.file_path);
         self.allocator.free(self.vault_path);
         self.allocator.free(self.index_path);
@@ -172,14 +177,15 @@ pub const Store = struct {
     }
 
     pub fn record(self: *Store, entry: LedgerEntry) !void {
+        const io = std.Io.Threaded.global_single_threaded.io();
         // 1. Persistir en Ledger JSONL (Auditoría Humana)
-        const ledger_file = try std.fs.cwd().openFile(self.file_path, .{ .mode = .read_write });
-        defer ledger_file.close();
-        try ledger_file.seekFromEnd(0);
+        const ledger_file = try std.Io.Dir.cwd().openFile(io, self.file_path, .{ .mode = .read_write });
+        defer ledger_file.close(std.Io.Threaded.global_single_threaded.io());
+        try ledger_file.seekFromEnd(io, 0);
 
         const line = try std.fmt.allocPrint(self.allocator, "{f}\n", .{std.json.fmt(entry, .{})});
         defer self.allocator.free(line);
-        try ledger_file.writeAll(line);
+        try ledger_file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), io, line);
 
         // 2. Actualizar el Sovereign Vault
         const leaf = if (self.tree.hash_type == .poseidon) 
@@ -212,13 +218,17 @@ pub const Store = struct {
     }
 
     pub fn getHistory(self: *Store, allocator: std.mem.Allocator) ![]LedgerEntry {
-        const file = try std.fs.cwd().openFile(self.file_path, .{ .mode = .read_only });
-        defer file.close();
+        const io = std.Io.Threaded.global_single_threaded.io();
+        const file = try std.Io.Dir.cwd().openFile(io, self.file_path, .{ .mode = .read_only });
 
-        const content = try file.readToEndAlloc(allocator, 1024 * 1024); // 1MB limit for now
+        defer file.close(io);
+
+        var read_buffer: [1024]u8 = undefined;
+        var reader = file.reader(io, &read_buffer);
+        const content = try reader.interface.allocRemaining(allocator, .unlimited);
         defer allocator.free(content);
 
-        var list = std.ArrayListUnmanaged(LedgerEntry){};
+        var list = std.ArrayListUnmanaged(LedgerEntry).empty;
         errdefer list.deinit(allocator);
 
         var lines = std.mem.splitScalar(u8, content, '\n');

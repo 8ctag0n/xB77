@@ -31,8 +31,8 @@ pub const SovereignProver = struct {
         // En un entorno real, esto miraría una cola o el sistema de archivos.
         // Para la demo, verificamos si el archivo Prover.toml existe y es nuevo.
         const path = "circuits/zk_receipt/Prover.toml";
-        const file = std.fs.cwd().openFile(path, .{}) catch return;
-        file.close();
+        const file = std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), path, .{}) catch return;
+        file.close(std.Io.Threaded.global_single_threaded.io());
 
         // 1. Ejecutar Nargo Prove para el recibo individual
         const mock_mode = std.process.getEnvVarOwned(self.allocator, "XB77_MOCK_PROVER") catch null;
@@ -41,7 +41,7 @@ pub const SovereignProver = struct {
         if (mock_mode != null) {
             std.debug.print("\n[PROVER]  MOCK_MODE: Individual ZK-Receipt verified (zk_rcpt_0x42).", .{});
             self.store.header.total_proofs += 1;
-            try std.fs.cwd().deleteFile(path);
+            try std.Io.Dir.cwd().deleteFile(std.Io.Threaded.global_single_threaded.io(), path);
             return;
         }
 
@@ -60,7 +60,7 @@ pub const SovereignProver = struct {
         self.store.header.total_proofs += 1;
 
         // Limpiar para la siguiente transacción
-        try std.fs.cwd().deleteFile(path);
+        try std.Io.Dir.cwd().deleteFile(std.Io.Threaded.global_single_threaded.io(), path);
     }
 
     /// Revisa si es necesario anclar el estado actual en Solana (Batch).
@@ -125,8 +125,8 @@ pub const SovereignProver = struct {
 
             // 1. Generar Prover.toml para Noir
             const prover_toml_path = "circuits/state_anchor/Prover.toml";
-            const file = try std.fs.cwd().createFile(prover_toml_path, .{});
-            defer file.close();
+            const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), prover_toml_path, .{});
+            defer file.close(std.Io.Threaded.global_single_threaded.io());
             
             try self.store.tree.exportBatchToNoir(
                 log_indices,
@@ -172,7 +172,7 @@ pub const SovereignProver = struct {
 
             // 3. Obtener la prueba real
             const proof_file_path = "circuits/state_anchor/proofs/state_anchor.proof";
-            const real_proof = std.fs.cwd().readFileAlloc(self.allocator, proof_file_path, 1024 * 64) catch |err| {
+            const real_proof = std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), self.allocator, proof_file_path, 1024 * 64) catch |err| {
                 std.debug.print("\n[PROVER]  Could not read proof file: {any}", .{err});
                 return err;
             };

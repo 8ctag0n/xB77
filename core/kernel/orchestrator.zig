@@ -82,7 +82,7 @@ pub const Orchestrator = struct {
         defer req.deinit(self.allocator);
 
         // Map headers_json to actual []const HttpHeader
-        var headers = std.ArrayListUnmanaged(http.HttpHeader){};
+        var headers = std.ArrayListUnmanaged(http.HttpHeader).empty;
         defer {
             for (headers.items) |h| {
                 self.allocator.free(h.name);

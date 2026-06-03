@@ -114,7 +114,7 @@ pub const HttpBridge = struct {
         // Count active local agents + 1 (self)
         const agents_online = self.ctx.active_agents.count() + 1;
 
-        var services_buf = std.ArrayListUnmanaged(u8){};
+        var services_buf = std.ArrayListUnmanaged(u8).empty;
         defer services_buf.deinit(self.allocator);
         try services_buf.appendSlice(self.allocator, "[");
         for (self.ctx.merchant.services, 0..) |s, i| {
@@ -127,7 +127,7 @@ pub const HttpBridge = struct {
         }
         try services_buf.appendSlice(self.allocator, "]");
 
-        var rules_buf = std.ArrayListUnmanaged(u8){};
+        var rules_buf = std.ArrayListUnmanaged(u8).empty;
         defer rules_buf.deinit(self.allocator);
         try rules_buf.appendSlice(self.allocator, "[");
         if (self.ctx.brain.constitution) |cons| {
@@ -177,7 +177,7 @@ pub const HttpBridge = struct {
             self.allocator.free(history);
         }
 
-        var json_buf = std.ArrayListUnmanaged(u8){};
+        var json_buf = std.ArrayListUnmanaged(u8).empty;
         defer json_buf.deinit(self.allocator);
 
         try json_buf.appendSlice(self.allocator, "{\"transactions\":[");
@@ -219,7 +219,7 @@ pub const HttpBridge = struct {
     }
 
     fn handlePending(self: *HttpBridge, stream: std.net.Stream) !void {
-        var json_buf = std.ArrayListUnmanaged(u8){};
+        var json_buf = std.ArrayListUnmanaged(u8).empty;
         defer json_buf.deinit(self.allocator);
 
         try json_buf.appendSlice(self.allocator, "{\"pending\":[");

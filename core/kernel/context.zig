@@ -61,13 +61,13 @@ pub const AgentContext = struct {
             }
         }
 
-        try std.fs.cwd().makePath("profiles");
+        try std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), "profiles");
         var config_buf: [256]u8 = undefined;
         const config_path = try std.fmt.bufPrint(&config_buf, "profiles/{s}.toml", .{name});
         
         {
-            const file = try std.fs.cwd().createFile(config_path, .{});
-            defer file.close();
+            const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), config_path, .{});
+            defer file.close(std.Io.Threaded.global_single_threaded.io());
             const content = try std.fmt.allocPrint(allocator, 
                 \\# xB77 Sovereign Agent Configuration
                 \\[vaults]
@@ -77,7 +77,7 @@ pub const AgentContext = struct {
                 \\base = "{s}"
             , .{ name, self.config.rpc.solana, self.config.rpc.base });
             defer allocator.free(content);
-            try file.writeAll(content);
+            try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), content);
         }
 
         var child = try allocator.create(std.process.Child);

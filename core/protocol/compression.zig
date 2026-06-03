@@ -78,12 +78,12 @@ pub const CompressionEngine = struct {
         defer tree.allocator.free(to_siblings);
         try tree.getProof(to_idx, to_siblings);
         // 2. Crear el directorio si no existe
-        std.fs.cwd().makePath(target_dir) catch {};
+        std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), target_dir) catch {};
         const prover_path = try std.fs.path.join(tree.allocator, &[_][]const u8{ target_dir, "Prover.toml" });
         defer tree.allocator.free(prover_path);
 
-        const file = try std.fs.cwd().createFile(prover_path, .{});
-        defer file.close();
+        const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), prover_path, .{});
+        defer file.close(std.Io.Threaded.global_single_threaded.io());
         var buf: [4096]u8 = undefined;
         var w_buffered = file.writer(&buf);
 

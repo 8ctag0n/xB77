@@ -62,7 +62,7 @@ fn encodeString(allocator: std.mem.Allocator, s: []const u8) ![]u8 {
 }
 
 pub fn encodeList(allocator: std.mem.Allocator, items: anytype) ![]u8 {
-    var out = std.ArrayListUnmanaged(u8){};
+    var out = std.ArrayListUnmanaged(u8).empty;
     defer out.deinit(allocator);
 
     const T = @TypeOf(items);

@@ -45,7 +45,7 @@ pub const Vault = struct {
             .sol_kp = undefined,
             .eth_kp = null,
             .policy = policy,
-            .history = std.ArrayListUnmanaged(SpendRecord){},
+            .history = std.ArrayListUnmanaged(SpendRecord).empty,
             .storage_path = try allocator.dupe(u8, storage_path),
         };
         errdefer allocator.free(v.storage_path);
@@ -62,10 +62,13 @@ pub const Vault = struct {
         const PLAIN_LEN: usize = 96; // sol_secret[64] || eth_secret[32]
         const BLOB_LEN: usize = PLAIN_LEN + keystore.SEAL_OVERHEAD; // 140
 
-        if (std.fs.cwd().openFile(key_path, .{})) |file| {
-            defer file.close();
+        if (std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), key_path, .{})) |file| {
+            defer file.close(std.Io.Threaded.global_single_threaded.io());
             var buf: [BLOB_LEN]u8 = undefined;
-            const bytes_read = try file.readAll(&buf);
+            var read_tmp: [1024]u8 = undefined;
+            var r = file.reader(std.Io.Threaded.global_single_threaded.io(), &read_tmp);
+            try r.interface.readSliceAll(&buf);
+            const bytes_read = buf.len; // readSliceAll returns void on success
             if (bytes_read == buf.len) {
                 if (password) |pwd| {
                     var decrypted: [PLAIN_LEN]u8 = undefined;
@@ -126,9 +129,9 @@ pub const Vault = struct {
             var blob: [BLOB_LEN]u8 = undefined;
             try keystore.seal(&plain, pwd, &blob);
 
-            const file = try std.fs.cwd().createFile(key_path, .{});
-            defer file.close();
-            try file.writeAll(&blob);
+            const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), key_path, .{});
+            defer file.close(std.Io.Threaded.global_single_threaded.io());
+            try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), &blob);
 
             std.debug.print("\n[Vault]  Bunker Vault inicializado y cifrado con AES-GCM.\n", .{});
         } else {
@@ -150,10 +153,11 @@ pub const Vault = struct {
     }
 
     fn loadHistory(self: *Vault) !void {
-        const file = std.fs.cwd().openFile(self.storage_path, .{}) catch return;
-        defer file.close();
+        const file = std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), self.storage_path, .{}) catch return;
+        defer file.close(std.Io.Threaded.global_single_threaded.io());
 
-        const content = try file.readToEndAlloc(self.allocator, 1024 * 1024);
+        var read_buf: [1024]u8 = undefined;
+        var r_interface = file.reader(std.Io.Threaded.global_single_threaded.io(), &read_buf).interface; const content = try r_interface.allocRemaining(self.allocator, .unlimited);
         defer self.allocator.free(content);
 
         var lines = std.mem.splitScalar(u8, content, '\n');
@@ -230,13 +234,13 @@ pub const Vault = struct {
             .asset = .{ .chain = asset.chain, .symbol = try self.allocator.dupe(u8, asset.symbol) },
         });
 
-        const file = try std.fs.cwd().createFile(self.storage_path, .{ .truncate = false });
-        defer file.close();
+        const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), self.storage_path, .{ .truncate = false });
+        defer file.close(std.Io.Threaded.global_single_threaded.io());
         try file.seekFromEnd(0);
         
         var fmt_buf: [256]u8 = undefined;
         const line = try std.fmt.bufPrint(&fmt_buf, "{d},{d},{s}\n", .{ ts, amount, asset.symbol });
-        try file.writeAll(line);
+        try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), line);
     }
 };
 
@@ -248,7 +252,7 @@ pub const VaultSet = struct {
 
     pub fn init(allocator: std.mem.Allocator, base_path: []const u8, password: ?[]const u8) !VaultSet {
         // Aseguramos que la carpeta base exista y termine en separador
-        try std.fs.cwd().makePath(base_path);
+        try std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), base_path);
 
         const default_policy = SpendPolicy{
             .daily_limit = 1_000_000_000,

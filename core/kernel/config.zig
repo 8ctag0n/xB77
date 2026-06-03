@@ -26,7 +26,7 @@ pub const Config = struct {
     settlement_address: ?[]const u8 = null,
 
     pub fn load(allocator: std.mem.Allocator, path: []const u8) !Config {
-        const file = std.fs.cwd().openFile(path, .{}) catch |err| {
+        const file = std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), path, .{}) catch |err| {
             if (err == error.FileNotFound) {
                 return Config{
                     .rpc = .{
@@ -47,9 +47,11 @@ pub const Config = struct {
             }
             return err;
         };
-        defer file.close();
+        defer file.close(std.Io.Threaded.global_single_threaded.io());
 
-        const content = try file.readToEndAlloc(allocator, 10 * 1024);
+        var read_buf: [1024]u8 = undefined;
+        var r = file.reader(std.Io.Threaded.global_single_threaded.io(), &read_buf);
+        const content = try r.interface.allocRemaining(allocator, .unlimited);
         defer allocator.free(content);
 
         var config = Config{
@@ -138,8 +140,8 @@ pub const Config = struct {
     }
 
     pub fn save(self: *const Config, allocator: std.mem.Allocator, path: []const u8) !void {
-        const file = try std.fs.cwd().createFile(path, .{});
-        defer file.close();
+        const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), path, .{});
+        defer file.close(std.Io.Threaded.global_single_threaded.io());
         var buf: [4096]u8 = undefined;
         var writer_buffered = file.writer(&buf);
 

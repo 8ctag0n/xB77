@@ -317,7 +317,7 @@ pub const ConcurrentMerkleTree = struct {
         total_tax: u64,
         file_writer: anytype
     ) !void {
-        var list = std.ArrayListUnmanaged(u8){};
+        var list = std.ArrayListUnmanaged(u8).empty;
         defer list.deinit(self.allocator);
         const w = list.writer(self.allocator);
 
