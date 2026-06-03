@@ -1,3 +1,4 @@
+const builtin = @import("builtin");
 const std = @import("std");
 const core = @import("../core.zig");
 const types = core.types;
@@ -62,11 +63,10 @@ pub const MagicBlockSDK = struct {
     pub fn openSovereignSession(self: *MagicBlockSDK, agent_kp: *const types.Keypair) !Session {
         std.debug.print("\n[MAGIC ] ️ Initiating Sovereign Session (PER) for Agent {x}...", .{agent_kp.public[0..4]});
         
-        // Demo-Deluxe Mode: Mock session opening
         const is_demo = blk: {
-            const env = std.process.getEnvVarOwned(self.allocator, "XB77_DEMO_MODE") catch break :blk false;
-            defer self.allocator.free(env);
-            break :blk std.mem.eql(u8, env, "1");
+            if (comptime builtin.target.os.tag == .freestanding) break :blk false;
+            const env = std.c.getenv("XB77_DEMO_MODE") orelse break :blk false;
+            break :blk std.mem.eql(u8, std.mem.span(env), "1");
         };
 
         if (is_demo) {
@@ -130,7 +130,7 @@ pub const MagicBlockSDK = struct {
             // Build and sign TX
             const blockhash = try sol.getLatestBlockhash();
             
-            var buf = std.ArrayListUnmanaged(u8){};
+            var buf = std.ArrayListUnmanaged(u8).empty;
             defer buf.deinit(self.allocator);
             const writer = buf.writer(self.allocator);
 
@@ -196,7 +196,7 @@ pub const MagicBlockSDK = struct {
         var client = http_mod.HttpClient.init(self.allocator);
 
         // Serialización del payload compatible con el bridge de xB77
-        var body_buf = std.ArrayListUnmanaged(u8){};
+        var body_buf = std.ArrayListUnmanaged(u8).empty;
         defer body_buf.deinit(self.allocator);
         
         try body_buf.writer(self.allocator).print("{f}", .{std.json.fmt(.{
@@ -254,7 +254,7 @@ pub const MagicBlockSDK = struct {
             
             const blockhash = try sol.getLatestBlockhash();
             
-            var buf = std.ArrayListUnmanaged(u8){};
+            var buf = std.ArrayListUnmanaged(u8).empty;
             defer buf.deinit(self.allocator);
             const writer = buf.writer(self.allocator);
 

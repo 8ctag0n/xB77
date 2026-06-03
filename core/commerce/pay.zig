@@ -152,7 +152,7 @@ pub const PaymentRouter = struct {
         var sig_str: []const u8 = undefined;
         
         if (std.mem.eql(u8, request.asset.symbol, "SOL")) {
-            var transfers = std.ArrayListUnmanaged(tx_mod.Transfer){};
+            var transfers = std.ArrayListUnmanaged(tx_mod.Transfer).empty;
             defer transfers.deinit(self.allocator);
             try transfers.append(self.allocator, .{ .to = request.recipient.sol, .lamports = request.amount });
             const fac_pk = if (self.facilitator) |f| try crypto.stringToPubkey(self.allocator, f) else null;
@@ -245,7 +245,7 @@ pub const PaymentRouter = struct {
                     // al Escrow del programa core o directamente al merchant con un flag de escrow.
                     // Para el demo, usamos una transferencia directa con Memo que el programa core intercepta.
                     
-                    var transfers = std.ArrayListUnmanaged(tx_mod.Transfer){};
+                    var transfers = std.ArrayListUnmanaged(tx_mod.Transfer).empty;
                     defer transfers.deinit(self_ptr.allocator);
                     
                     // En un entorno productivo, el hire_id se usaría para derivar una PDA de Escrow.

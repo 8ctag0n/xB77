@@ -112,14 +112,15 @@ pub const HttpClient = struct {
         extra_headers: []const HttpHeader,
     ) !HttpResponse {
         if (std.mem.startsWith(u8, url, "mock:")) return error.UnsupportedUriScheme;
+        const io = std.Io.Threaded.global_single_threaded.io();
 
-        var client = std.http.Client{ .allocator = self.allocator };
+        var client = std.http.Client{ .allocator = self.allocator, .io = io };
         defer client.deinit();
         const uri = try std.Uri.parse(url);
 
         // Build header list: defaults + caller-supplied.
         const Header = struct { name: []const u8, value: []const u8 };
-        var headers = std.ArrayListUnmanaged(Header){};
+        var headers = std.ArrayListUnmanaged(Header).empty;
         defer headers.deinit(self.allocator);
         try headers.append(self.allocator, .{ .name = "Accept-Encoding", .value = "identity" });
         // Default Content-Type for non-GET only if caller didn't set one.
@@ -146,7 +147,7 @@ pub const HttpClient = struct {
         var response = try req.receiveHead(&redirect_buffer);
 
         // Capture response headers (owned copies).
-        var resp_headers = std.ArrayListUnmanaged(HttpHeader){};
+        var resp_headers = std.ArrayListUnmanaged(HttpHeader).empty;
         errdefer {
             for (resp_headers.items) |h| {
                 self.allocator.free(h.name);
@@ -183,14 +184,15 @@ pub const HttpClient = struct {
         if (std.mem.startsWith(u8, url, "mock:")) {
             return error.UnsupportedUriScheme;
         }
+        const io = std.Io.Threaded.global_single_threaded.io();
 
-        var client = std.http.Client{ .allocator = self.allocator };
+        var client = std.http.Client{ .allocator = self.allocator, .io = io };
         defer client.deinit();
 
         const Header = struct { name: []const u8, value: []const u8 };
         const uri = try std.Uri.parse(url);
         
-        var headers = std.ArrayListUnmanaged(Header){};
+        var headers = std.ArrayListUnmanaged(Header).empty;
         defer headers.deinit(self.allocator);
         try headers.append(self.allocator, .{ .name = "Content-Type", .value = "application/json" });
         try headers.append(self.allocator, .{ .name = "Accept-Encoding", .value = "identity" });

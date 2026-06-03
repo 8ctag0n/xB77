@@ -53,8 +53,8 @@ pub const ZkReceipt = struct {
     }
 
     pub fn writeProverToml(self: *const ZkReceipt, path: []const u8) !void {
-        const file = try std.fs.cwd().createFile(path, .{});
-        defer file.close();
+        const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), path, .{});
+        defer file.close(std.Io.Threaded.global_single_threaded.io());
         
         var buf: [8192]u8 = undefined;
         var fba = std.heap.FixedBufferAllocator.init(&buf);
@@ -85,6 +85,6 @@ pub const ZkReceipt = struct {
             s_str,
         });
 
-        try file.writeAll(content);
+        try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), content);
     }
 };

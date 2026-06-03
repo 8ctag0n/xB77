@@ -227,7 +227,7 @@ pub const SolanaRpc = struct {
         limit: u32,
         until_sig: ?[]const u8,
     ) ![]SignatureEntry {
-        var body_buf = std.ArrayListUnmanaged(u8){};
+        var body_buf = std.ArrayListUnmanaged(u8).empty;
         defer body_buf.deinit(self.allocator);
         const w = body_buf.writer(self.allocator);
         try w.print(

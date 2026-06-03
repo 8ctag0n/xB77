@@ -31,14 +31,14 @@ pub const AnchorService = struct {
 
         // 1. Exportar Prover.toml
         const tmp_dir = ".anchor_tmp";
-        try std.fs.cwd().makePath(tmp_dir);
+        try std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), tmp_dir);
         defer std.fs.cwd().deleteTree(tmp_dir) catch {};
 
         const prover_path = try std.fs.path.join(self.allocator, &[_][]const u8{ tmp_dir, "Prover.toml" });
         defer self.allocator.free(prover_path);
 
-        const file = try std.fs.cwd().createFile(prover_path, .{});
-        defer file.close();
+        const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), prover_path, .{});
+        defer file.close(std.Io.Threaded.global_single_threaded.io());
 
         // Necesitamos la hoja que corresponde al log
         // En este caso usamos la última registrada en el CMT

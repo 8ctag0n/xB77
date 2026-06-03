@@ -30,7 +30,7 @@ pub const RegistryManager = struct {
         // Para la demo, el propio cliente actúa como admin si tiene permisos.
         const signer_kp = &self.sol_client.keypair.?; 
 
-        var buf = std.ArrayListUnmanaged(u8){};
+        var buf = std.ArrayListUnmanaged(u8).empty;
         defer buf.deinit(self.allocator);
         const writer = buf.writer(self.allocator);
 
@@ -144,7 +144,7 @@ pub const RegistryManager = struct {
     fn sendInstruction(self: *RegistryManager, ix_data: []const u8, accounts: []const @import("../protocol/tx.zig").AccountMeta, signer: *const types.Keypair) ![]const u8 {
         const blockhash = try self.sol_client.getLatestBlockhash();
         
-        var buf = std.ArrayListUnmanaged(u8){};
+        var buf = std.ArrayListUnmanaged(u8).empty;
         defer buf.deinit(self.allocator);
         const writer = buf.writer(self.allocator);
 
@@ -155,7 +155,7 @@ pub const RegistryManager = struct {
         
         const message_start = buf.items.len;
         
-        var unique_keys = std.ArrayListUnmanaged(types.Pubkey){};
+        var unique_keys = std.ArrayListUnmanaged(types.Pubkey).empty;
         defer unique_keys.deinit(self.allocator);
         
         for (accounts) |acc| {

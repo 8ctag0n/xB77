@@ -31,7 +31,7 @@ pub const IdlParser = struct {
         return .{
             .allocator = allocator,
             .program_name = name,
-            .instructions = std.ArrayListUnmanaged(IdlInstruction){},
+            .instructions = std.ArrayListUnmanaged(IdlInstruction).empty,
         };
     }
 
@@ -103,7 +103,7 @@ pub const IdlParser = struct {
 
     /// Genera un "Contexto LLM-Friendly" para que Gemma/QVAC entienda el protocolo
     pub fn generateLlmContext(self: *const IdlParser) ![]const u8 {
-        var buf = std.ArrayListUnmanaged(u8){};
+        var buf = std.ArrayListUnmanaged(u8).empty;
         const writer = buf.writer(self.allocator);
 
         try writer.print("PROTOCOL: {s}\n", .{self.program_name});

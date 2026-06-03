@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub const MerchantService = struct {
     name: []const u8,
@@ -14,36 +15,41 @@ pub const MerchantConfig = struct {
     services: []MerchantService,
 
     pub fn save(self: *const MerchantConfig, path: []const u8) !void {
-        const file = try std.fs.cwd().createFile(path, .{});
-        defer file.close();
+        if (comptime builtin.target.os.tag == .freestanding) return error.UnsupportedOs;
+        const io = std.Io.Threaded.global_single_threaded.io();
+
+        const file = try std.Io.Dir.cwd().createFile(io, path, .{});
+        defer file.close(io);
 
         // Generar un JSON simple para descubrimiento (xb77.json) manual
-        var buf = std.ArrayListUnmanaged(u8){};
+        var buf = std.ArrayListUnmanaged(u8).empty;
         defer buf.deinit(std.heap.page_allocator);
-        const writer = buf.writer(std.heap.page_allocator);
 
-        try writer.writeAll("{\n  \"business_name\": \"");
-        try writer.writeAll(self.business_name);
-        try writer.writeAll("\",\n  \"contact\": \"");
-        try writer.writeAll(self.contact);
-        try writer.writeAll("\",\n  \"services\": [\n");
+        try buf.appendSlice(std.heap.page_allocator, "{\n  \"business_name\": \"");
+        try buf.appendSlice(std.heap.page_allocator, self.business_name);
+        try buf.appendSlice(std.heap.page_allocator, "\",\n  \"contact\": \"");
+        try buf.appendSlice(std.heap.page_allocator, self.contact);
+        try buf.appendSlice(std.heap.page_allocator, "\",\n  \"services\": [\n");
 
         for (self.services, 0..) |s, i| {
-            try writer.print("    {{\n      \"name\": \"{s}\",\n      \"price\": {d}\n    }}{s}\n", .{
+            try buf.print(std.heap.page_allocator, "    {{\n      \"name\": \"{s}\",\n      \"price\": {d}\n    }}{s}\n", .{
                 s.name,
                 s.price_lamports,
                 if (i < self.services.len - 1) "," else "",
             });
         }
-        try writer.writeAll("  ]\n}");
+        try buf.appendSlice(std.heap.page_allocator, "  ]\n}");
 
-        try file.writeAll(buf.items);
+        try file.writeStreamingAll(io, buf.items);
     }
 
     pub fn load(allocator: std.mem.Allocator, path: []const u8) !MerchantConfig {
-        const file = std.fs.cwd().openFile(path, .{}) catch |err| {
+        if (comptime builtin.target.os.tag == .freestanding) return error.UnsupportedOs;
+        const io = std.Io.Threaded.global_single_threaded.io();
+
+        const file = std.Io.Dir.cwd().openFile(io, path, .{}) catch |err| {
             if (err == error.FileNotFound) {
-                // Default config with allocator-owned strings — deinit() frees
+                // If not found, return a default config. Note: deinit() will free
                 // all three fields unconditionally, so passing literals here
                 // panics with "Invalid free" the first time the config is torn
                 // down. Always hand back owned memory.
@@ -55,37 +61,15 @@ pub const MerchantConfig = struct {
             }
             return err;
         };
-        defer file.close();
+        defer file.close(io);
 
-        const content = try file.readToEndAlloc(allocator, 1024 * 1024);
+        var read_buffer: [1024]u8 = undefined;
+        var reader = file.reader(io, &read_buffer);
+        const content = try reader.interface.allocRemaining(allocator, .unlimited);
         defer allocator.free(content);
 
-        const parsed = try std.json.parseFromSlice(std.json.Value, allocator, content, .{ .ignore_unknown_fields = true });
-        defer parsed.deinit();
-
-        const obj = parsed.value.object;
-        const b_name = try allocator.dupe(u8, obj.get("business_name").?.string);
-        const contact = try allocator.dupe(u8, obj.get("contact").?.string);
-
-        const services_json = obj.get("services").?.array;
-        var services = try allocator.alloc(MerchantService, services_json.items.len);
-
-        for (services_json.items, 0..) |s_val, i| {
-            const s_obj = s_val.object;
-            services[i] = .{
-                .name = try allocator.dupe(u8, s_obj.get("name").?.string),
-                .description = "Imported Service",
-                .price_lamports = @intCast(s_obj.get("price").?.integer),
-                .stock = if (s_obj.get("stock")) |v| @intCast(v.integer) else 10,
-                .status = .available,
-            };
-        }
-
-        return MerchantConfig{
-            .business_name = b_name,
-            .contact = contact,
-            .services = services,
-        };
+        const parsed = try std.json.parseFromSlice(MerchantConfig, allocator, content, .{ .ignore_unknown_fields = true });
+        return parsed.value;
     }
 
     pub fn deinit(self: *MerchantConfig, allocator: std.mem.Allocator) void {
@@ -93,28 +77,25 @@ pub const MerchantConfig = struct {
         allocator.free(self.contact);
         for (self.services) |s| {
             allocator.free(s.name);
-            // description is a literal "Imported Service" or "Sovereign Service" usually, 
-            // but if it was allocated we should free it.
-            // In handleSetupShop it is a literal. In load it is a literal.
+            allocator.free(s.description);
         }
         allocator.free(self.services);
     }
 
     pub fn generateBlink(self: *const MerchantConfig, allocator: std.mem.Allocator, base_url: []const u8) ![]u8 {
-        var buf = std.ArrayListUnmanaged(u8){};
+        var buf = std.ArrayListUnmanaged(u8).empty;
         errdefer buf.deinit(allocator);
-        const writer = buf.writer(allocator);
 
-        try writer.writeAll("{\n");
-        try writer.print("  \"icon\": \"{s}/api/brand/blink-icon.svg\",\n", .{base_url});
-        try writer.print("  \"title\": \"[ SOVEREIGN AGENT ] {s}\",\n", .{self.business_name});
-        try writer.writeAll("  \"description\": \"ZK-verified autonomous commerce on Solana.\\nPayments settle in real-time via the xB77 MagicBlock HFT rail.\\nEvery receipt is mathematically auditable. Pick a tier to engage.\",\n");
-        try writer.writeAll("  \"label\": \"Hire Agent\",\n");
-        try writer.writeAll("  \"links\": {\n");
-        try writer.writeAll("    \"actions\": [\n");
+        try buf.appendSlice(allocator, "{\n");
+        try buf.print(allocator, "  \"icon\": \"{s}/api/brand/blink-icon.svg\",\n", .{base_url});
+        try buf.print(allocator, "  \"title\": \"[ SOVEREIGN AGENT ] {s}\",\n", .{self.business_name});
+        try buf.appendSlice(allocator, "  \"description\": \"ZK-verified autonomous commerce on Solana.\\nPayments settle in real-time via the xB77 MagicBlock HFT rail.\\nEvery receipt is mathematically auditable. Pick a tier to engage.\",\n");
+        try buf.appendSlice(allocator, "  \"label\": \"Hire Agent\",\n");
+        try buf.appendSlice(allocator, "  \"links\": {\n");
+        try buf.appendSlice(allocator, "    \"actions\": [\n");
 
         for (self.services) |s| {
-            try writer.print("      {{\n        \"type\": \"transaction\",\n        \"label\": \"{s} - {d} SOL\",\n        \"href\": \"{s}/api/actions/pay?service={s}&amount={d}\"\n      }},\n", .{
+            try buf.print(allocator, "      {{\n        \"type\": \"transaction\",\n        \"label\": \"{s} - {d} SOL\",\n        \"href\": \"{s}/api/actions/pay?service={s}&amount={d}\"\n      }},\n", .{
                 s.name,
                 s.price_lamports / 1000000,
                 base_url,
@@ -122,13 +103,14 @@ pub const MerchantConfig = struct {
                 s.price_lamports,
             });
         }
-        try writer.print(
+        try buf.print(
+            allocator,
             "      {{\n        \"type\": \"transaction\",\n        \"label\": \"Custom Tip\",\n        \"href\": \"{s}/api/actions/tip?amount={{amount}}\",\n        \"parameters\": [\n          {{ \"name\": \"amount\", \"label\": \"SOL amount\", \"required\": true }}\n        ]\n      }}\n",
             .{base_url},
         );
-        try writer.writeAll("    ]\n");
-        try writer.writeAll("  }\n");
-        try writer.writeAll("}");
+        try buf.appendSlice(allocator, "    ]\n");
+        try buf.appendSlice(allocator, "  }\n");
+        try buf.appendSlice(allocator, "}");
 
         return try buf.toOwnedSlice(allocator);
     }

@@ -66,7 +66,7 @@ pub fn uploadAndVerify(
     std.debug.print("\n[ZK-UP] init sig: {s}", .{init_sig});
 
     // 2) WRITE chunks
-    var write_sigs = std.ArrayListUnmanaged([]u8){};
+    var write_sigs = std.ArrayListUnmanaged([]u8).empty;
     errdefer {
         allocator.free(init_sig);
         for (write_sigs.items) |s| allocator.free(s);
@@ -109,12 +109,6 @@ pub fn uploadAndVerify(
         .write_sigs = try write_sigs.toOwnedSlice(allocator),
     };
 }
-
-// ---------------------------------------------------------------------------
-// Per-instruction tx senders. Each one builds a legacy Solana tx with the
-// account ordering required by Solana's message format:
-//   writable signers > readonly signers > writable non-signers > readonly non-signers
-// ---------------------------------------------------------------------------
 
 fn sendInit(
     client: *solana.SolanaClient,
@@ -180,10 +174,6 @@ fn sendVerify(
 
     const ix_data = [_]u8{TAG_VERIFY};
 
-    // Accounts: payer(s,w), buffer(r), program(r)  -- buffer is readonly here.
-    // Layout requires writable signers > readonly signers > writable non-signers
-    // > readonly non-signers. With the buffer readonly + no writable non-signers,
-    // it sits next to program in the readonly-unsigned tail.
     const accounts = [_]types.Pubkey{ payer_kp.public, buffer_pda, program_id };
     const num_readonly_unsigned: u8 = 2;
     const program_idx: u8 = 2;
@@ -192,7 +182,6 @@ fn sendVerify(
     return try buildAndSend(allocator, client, payer_kp, blockhash, accounts[0..], num_readonly_unsigned, program_idx, ix_account_idxs[0..], ix_data[0..]);
 }
 
-/// Generic legacy-tx builder + sender. One instruction, single signer = payer.
 fn buildAndSend(
     allocator: std.mem.Allocator,
     client: *solana.SolanaClient,
@@ -204,38 +193,37 @@ fn buildAndSend(
     ix_account_idxs: []const u8,
     ix_data: []const u8,
 ) ![]u8 {
-    var buf = std.ArrayListUnmanaged(u8){};
+    var buf = std.ArrayListUnmanaged(u8).empty;
     defer buf.deinit(allocator);
-    const writer = buf.writer(allocator);
 
     // 1 signature, reserved.
-    try tx_mod.writeCompactU16(writer, 1);
+    try tx_mod.appendCompactU16(allocator, &buf, 1);
     try buf.appendNTimes(allocator, 0, 64);
 
     const message_start = buf.items.len;
 
     // Message header.
-    try writer.writeByte(1); // num_required_signatures
-    try writer.writeByte(0); // num_readonly_signed
-    try writer.writeByte(num_readonly_unsigned);
+    try buf.append(allocator, 1); // num_required_signatures
+    try buf.append(allocator, 0); // num_readonly_signed
+    try buf.append(allocator, num_readonly_unsigned);
 
     // Account keys (compact-array).
-    try tx_mod.writeCompactU16(writer, @intCast(accounts.len));
+    try tx_mod.appendCompactU16(allocator, &buf, @intCast(accounts.len));
     for (accounts) |k| try buf.appendSlice(allocator, &k);
 
     // Recent blockhash.
     try buf.appendSlice(allocator, &blockhash);
 
     // 1 instruction.
-    try tx_mod.writeCompactU16(writer, 1);
-    try writer.writeByte(program_idx);
+    try tx_mod.appendCompactU16(allocator, &buf, 1);
+    try buf.append(allocator, program_idx);
 
     // Account indices for this ix.
-    try tx_mod.writeCompactU16(writer, @intCast(ix_account_idxs.len));
-    for (ix_account_idxs) |i| try writer.writeByte(i);
+    try tx_mod.appendCompactU16(allocator, &buf, @intCast(ix_account_idxs.len));
+    for (ix_account_idxs) |i| try buf.append(allocator, i);
 
     // Ix data.
-    try tx_mod.writeCompactU16(writer, @intCast(ix_data.len));
+    try tx_mod.appendCompactU16(allocator, &buf, @intCast(ix_data.len));
     try buf.appendSlice(allocator, ix_data);
 
     // Sign over the message slice and patch into the signature slot.
@@ -244,10 +232,6 @@ fn buildAndSend(
     @memcpy(buf.items[1..65], &signature);
 
     const sig = try client.sendTransaction(buf.items);
-    // Poll until the validator has actually applied the tx; otherwise the
-    // next ix's preflight simulates against stale state (e.g. the buffer
-    // PDA created by INIT looks "not yet existing" to WRITE preflight, and
-    // the program returns AccountDataTooSmall).
     try waitForConfirmation(client, sig);
     return sig;
 }
@@ -290,7 +274,8 @@ fn waitForConfirmation(client: *solana.SolanaClient, signature: []const u8) !voi
             }
         } else |_| {}
 
-        std.Thread.sleep(CONFIRM_POLL_MS * std.time.ns_per_ms);
+        const io = std.Io.Threaded.global_single_threaded.io();
+        try std.Io.sleep(io, .{ .nanoseconds = CONFIRM_POLL_MS * std.time.ns_per_ms }, .awake);
         elapsed += CONFIRM_POLL_MS;
     }
     return error.ConfirmationTimeout;

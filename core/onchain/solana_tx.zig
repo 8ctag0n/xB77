@@ -93,7 +93,7 @@ pub fn classifyAccounts(
     payer: *const Pubkey,
     instructions: []const Instruction,
 ) !struct { header: Header, keys: []Pubkey } {
-    var entries = std.ArrayListUnmanaged(AccountEntry){};
+    var entries = std.ArrayListUnmanaged(AccountEntry).empty;
     defer entries.deinit(allocator);
 
     // Helper: find or insert an entry, upgrading flags.
@@ -187,7 +187,7 @@ pub fn buildLegacyTx(
     const header = classified.header;
     const num_sigs = header.num_required_sigs;
 
-    var buf = std.ArrayListUnmanaged(u8){};
+    var buf = std.ArrayListUnmanaged(u8).empty;
     errdefer buf.deinit(allocator);
     const writer = buf.writer(allocator);
 
@@ -241,7 +241,7 @@ pub fn signTx(tx_buf: []u8, keypair: *const types.Keypair) void {
 test "encodeCompactU16" {
     const allocator = std.testing.allocator;
 
-    var buf = std.ArrayListUnmanaged(u8){};
+    var buf = std.ArrayListUnmanaged(u8).empty;
     defer buf.deinit(allocator);
 
     // 0 → 0x00

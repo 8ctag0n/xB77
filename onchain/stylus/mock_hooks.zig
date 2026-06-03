@@ -19,7 +19,7 @@ const std = @import("std");
 
 // ── Global test state ───────────────────────────────────────────────────────
 
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var gpa = std.heap.DebugAllocator(.{}){};
 const allocator = gpa.allocator();
 
 /// Simulated EVM storage: slot[32] → value[32]
