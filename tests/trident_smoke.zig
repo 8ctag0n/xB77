@@ -7,7 +7,7 @@ const types = core.types;
 const solana = core.solana;
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     const allocator = gpa.allocator();
 
     std.debug.print("\n{s}--- XB77 TRIDENT INTEGRATION TEST ---{s}", .{ "\x1b[33;1m", "\x1b[0m" });

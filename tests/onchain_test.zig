@@ -92,7 +92,7 @@ test "wincode: 125-byte VerifyTransition fixture" {
 test "idl_client: encodeInstruction VerifyTransition → 125 bytes" {
     const allocator = std.testing.allocator;
 
-    const idl_json = try std.fs.cwd().readFileAlloc(allocator, "idls/xb77_compression.json", 64 * 1024);
+    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), allocator, "idls/xb77_compression.json", 64 * 1024);
     defer allocator.free(idl_json);
 
     var client = try IdlClient.init(allocator, idl_json);
@@ -203,7 +203,7 @@ test "solana_tx: sign + Ed25519 verify" {
 test "solana_tx: compact-u16 encoding" {
     const allocator = std.testing.allocator;
 
-    var buf = std.ArrayListUnmanaged(u8){};
+    var buf = std.ArrayListUnmanaged(u8).empty;
     defer buf.deinit(allocator);
 
     try solana_tx.writeCompactU16(buf.writer(allocator), 0);

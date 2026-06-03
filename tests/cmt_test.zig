@@ -38,7 +38,7 @@ test "Sovereign State: CMT Append and Verify" {
 test "Sovereign State: Store Rehydration" {
     const allocator = std.testing.allocator;
     const test_dir = "./.test_store_cmt";
-    std.fs.cwd().makePath(test_dir) catch {};
+    std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), test_dir) catch {};
     defer std.fs.cwd().deleteTree(test_dir) catch {};
 
     {

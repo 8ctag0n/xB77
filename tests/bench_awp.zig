@@ -18,7 +18,8 @@ pub fn main() !void {
         .recipient = .{ .sol = [_]u8{0xAA} ** 32 },
     });
 
-    const start_time = std.time.nanoTimestamp();
+    const io = std.Io.Threaded.global_single_threaded.io();
+    const start_time = @divTrunc(std.Io.Timestamp.now(io, .awake).nanoseconds, 1);
 
     var i: usize = 0;
     var checksum: u64 = 0;
@@ -28,7 +29,7 @@ pub fn main() !void {
         checksum += decoded.amount + @as(u64, @intCast(decoder.pos));
     }
 
-    const end_time = std.time.nanoTimestamp();
+    const end_time = @divTrunc(std.Io.Timestamp.now(io, .awake).nanoseconds, 1);
     
     // Obligamos al compilador a mantener el loop imprimiendo el checksum
     std.debug.print("Checksum:      {x}\n", .{checksum});

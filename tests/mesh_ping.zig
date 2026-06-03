@@ -8,26 +8,29 @@ pub fn main() !void {
     
     std.debug.print("\n--- xB77 Mesh P2P Handshake (The Baptism) ---\n", .{});
 
-    var stream = std.net.tcpConnectToHost(std.heap.page_allocator, target_ip, target_port) catch |err| {
+    const io = std.Io.Threaded.global_single_threaded.io();
+    const host = try std.Io.net.HostName.init(target_ip);
+    var stream = host.connect(io, target_port, .{ .mode = .stream }) catch |err| {
         std.debug.print(" Error: No se pudo conectar a la Mesh ({any}).\n", .{err});
         std.debug.print(" Asegurate de que el Agente esté corriendo en modo 'serve'.\n", .{});
         return;
     };
-    defer stream.close();
+    defer stream.close(io);
 
     std.debug.print(" Conectado a la Mesh en {s}:{d}. Negociando...\n", .{target_ip, target_port});
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     const allocator = gpa.allocator();
     
     var encoder = awp.AwpEncoder.init(allocator);
     defer encoder.deinit();
 
     // 1. Enviar Handshake (Identidad)
+    const ts = std.Io.Timestamp.now(io, .real).nanoseconds;
     const handshake = awp.HandshakeMsg{
         .protocol_version = 1,
         .agent_id = [_]u8{0xAA} ** 32, // ID del Agente Remoto
-        .timestamp = std.time.timestamp(),
+        .timestamp = @intCast(@divTrunc(ts, 1000000000)),
         .signature = [_]u8{0xBB} ** 64,
         .state_root = [_]u8{0xCC} ** 32,
     };
@@ -47,6 +50,8 @@ pub fn main() !void {
     std.debug.print(" Mesh Order: BUY 5 SOL @ 145 USDC.\n", .{});
     
     // Enviar el paquete binario completo por la red
-    try stream.writeAll(encoder.buf.items);
+    var write_buffer: [1024]u8 = undefined;
+    var writer = stream.writer(io, &write_buffer);
+    try writer.interface.writeAll(encoder.buf.items);
     std.debug.print(" Paquetes P2P inyectados en la Mesh. xB77 está vivo.\n", .{});
 }

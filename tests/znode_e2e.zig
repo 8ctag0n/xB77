@@ -8,16 +8,18 @@ pub fn main() !void {
     
     std.debug.print("\n--- xB77 Z-Node E2E Laboratory (AWP Native) ---\n", .{});
 
-    var stream = std.net.connectUnixSocket(socket_path) catch |err| {
+    const io = std.Io.Threaded.global_single_threaded.io();
+    const ua = try std.Io.net.UnixAddress.init(socket_path);
+    var stream = ua.connect(io) catch |err| {
         std.debug.print(" Error: No se pudo conectar al Agente ({any}).\n", .{err});
         std.debug.print(" Asegúrate de que el Agente esté corriendo (xb77 context).\n", .{});
         return;
     };
-    defer stream.close();
+    defer stream.close(io);
 
     std.debug.print(" Conectado vía AWP. Enviando ráfaga soberana...\n", .{});
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     const allocator = gpa.allocator();
     
     var encoder = awp.AwpEncoder.init(allocator);
@@ -48,6 +50,8 @@ pub fn main() !void {
     std.debug.print(" AWP Order: SELL USDC queued (EXPECT MATCH!).\n", .{});
     
     // Disparar toda la ráfaga junta
-    try stream.writeAll(encoder.buf.items);
+    var write_buffer: [1024]u8 = undefined;
+    var writer = stream.writer(io, &write_buffer);
+    try writer.interface.writeAll(encoder.buf.items);
     std.debug.print(" Ráfaga atómica enviada al Z-Node Bridge.\n", .{});
 }

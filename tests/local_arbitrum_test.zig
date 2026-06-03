@@ -5,7 +5,7 @@ const arbitrum = core.chain.arbitrum_adapter;
 const semantic = core.security.semantic;
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
@@ -62,15 +62,15 @@ pub fn main() !void {
         const agent_id = [_]u8{0xAB} ** 32;
         const proof    = [_]u8{0xCD} ** 32;
 
-        var payload = std.ArrayList(u8).init(allocator);
-        defer payload.deinit();
+        var payload = std.ArrayList(u8).empty;
+        defer payload.deinit(allocator);
 
-        try payload.appendSlice(&[_]u8{ 0x3a, 0x4b, 0x5c, 0x6d }); // SEL_BRIDGE_VERIFY
+        try payload.appendSlice(allocator, &[_]u8{ 0x3a, 0x4b, 0x5c, 0x6d }); // SEL_BRIDGE_VERIFY
         var chain_padded = [_]u8{0} ** 32;
         chain_padded[31] = chain_id;
-        try payload.appendSlice(&chain_padded);
-        try payload.appendSlice(&agent_id);
-        try payload.appendSlice(&proof);
+        try payload.appendSlice(allocator, &chain_padded);
+        try payload.appendSlice(allocator, &agent_id);
+        try payload.appendSlice(allocator, &proof);
 
         std.debug.print("  Payload length: {d} bytes (expect 100)\n", .{payload.items.len});
         std.debug.assert(payload.items.len == 100); // 4 selector + 3×32

@@ -229,7 +229,7 @@ pub const AwpEncoder = struct {
     pub fn init(allocator: std.mem.Allocator) AwpEncoder {
         return .{
             .allocator = allocator,
-            .buf = std.ArrayListUnmanaged(u8){},
+            .buf = std.ArrayListUnmanaged(u8).empty,
         };
     }
 

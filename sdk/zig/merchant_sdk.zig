@@ -119,7 +119,7 @@ pub const MerchantSDK = struct {
         std.debug.print("[SDK] Publishing decentralized catalog...\n", .{});
         
         // 1. Generar el JSON del catálogo
-        var buf = std.ArrayListUnmanaged(u8){};
+        var buf = std.ArrayListUnmanaged(u8).empty;
         defer buf.deinit(self.allocator);
         const writer = buf.writer(self.allocator);
         

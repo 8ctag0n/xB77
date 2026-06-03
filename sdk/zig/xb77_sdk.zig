@@ -18,14 +18,18 @@ pub const Client = struct {
     }
 
     pub fn submitOrder(self: *Client, msg: awp.OrderMsg) !void {
-        var stream = try std.net.connectUnixSocket(self.socket_path);
-        defer stream.close();
+        const io = std.Io.Threaded.global_single_threaded.io();
+        const ua = try std.Io.net.UnixAddress.init(self.socket_path);
+        var stream = try ua.connect(io);
+        defer stream.close(io);
 
         var encoder = awp.AwpEncoder.init(self.allocator);
         defer encoder.deinit();
 
         const bytes = try encoder.encodeOrder(msg);
-        try stream.writeAll(bytes);
+        var write_buffer: [1024]u8 = undefined;
+        var writer = stream.writer(io, &write_buffer);
+        try writer.interface.writeAll(bytes);
     }
 };
 
@@ -40,7 +44,7 @@ export fn xb77_submit_order_c(
     amount: u64, 
     price: u64
 ) bool {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     const allocator = gpa.allocator();
 
     var client = Client.init(allocator, "/tmp/xb77_znode.sock");

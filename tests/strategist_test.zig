@@ -8,7 +8,7 @@ test "Strategist: Austerity Mode Trigger" {
     
     // Setup temporary store
     const tmp_path = ".tmp_strategist_test";
-    try std.fs.cwd().makePath(tmp_path);
+    try std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), tmp_path);
     defer std.fs.cwd().deleteTree(tmp_path) catch {};
     
     var s = try store.Store.init(allocator, tmp_path);

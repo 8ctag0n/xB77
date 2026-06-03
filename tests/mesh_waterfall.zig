@@ -8,13 +8,15 @@ pub fn main() !void {
     
     std.debug.print("\n--- xB77 Mesh Waterfall Test (The Sweep) ---\n", .{});
 
-    var stream = std.net.tcpConnectToHost(std.heap.page_allocator, target_ip, target_port) catch |err| {
+    const io = std.Io.Threaded.global_single_threaded.io();
+    const host = try std.Io.net.HostName.init(target_ip);
+    var stream = host.connect(io, target_port, .{ .mode = .stream }) catch |err| {
         std.debug.print(" Error: No se pudo conectar a la Mesh ({any}).\n", .{err});
         return;
     };
-    defer stream.close();
+    defer stream.close(io);
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     const allocator = gpa.allocator();
     var encoder = awp.AwpEncoder.init(allocator);
     defer encoder.deinit();
@@ -46,6 +48,8 @@ pub fn main() !void {
     });
     std.debug.print(" 1 BUY order of 2.5 SOL injected. Sweeping liquidty...\n", .{});
     
-    try stream.writeAll(encoder.buf.items);
+    var write_buffer: [1024]u8 = undefined;
+    var writer = stream.writer(io, &write_buffer);
+    try writer.interface.writeAll(encoder.buf.items);
     std.debug.print(" Waterfall burst sent to xB77 Agent.\n", .{});
 }

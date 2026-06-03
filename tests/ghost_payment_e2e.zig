@@ -12,7 +12,7 @@ test "Ghost Payment E2E: Settlement and ZK Anchoring" {
 
     // 1. Setup Temporary Workspace
     const tmp_path = ".tmp_test_ghost";
-    std.fs.cwd().makePath(tmp_path) catch {};
+    std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), tmp_path) catch {};
     defer std.fs.cwd().deleteTree(tmp_path) catch {};
 
     // 2. Initialize Agent Context

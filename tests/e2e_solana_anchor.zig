@@ -7,7 +7,7 @@ const tx = core.tx;
 const crypto = core.crypto;
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
@@ -21,7 +21,7 @@ pub fn main() !void {
 
     // 2. Levantar el Sovereign Store (Memoria Persistente)
     const test_path = "./.test_e2e_anchor";
-    defer std.fs.cwd().deleteTree(test_path) catch {};
+    defer std.Io.Dir.cwd().deleteTree(std.Io.Threaded.global_single_threaded.io(), test_path) catch {};
     
     var s = try store.Store.init(allocator, test_path);
     defer s.deinit();

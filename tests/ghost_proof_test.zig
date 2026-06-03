@@ -6,7 +6,7 @@ const store = core.store;
 test "The Ghost Proof: Zig to Noir State Anchor" {
     const allocator = std.testing.allocator;
     const test_dir = "./.test_noir_bridge";
-    std.fs.cwd().makePath(test_dir) catch {};
+    std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), test_dir) catch {};
     defer std.fs.cwd().deleteTree(test_dir) catch {};
 
     var s = try store.Store.init(allocator, test_dir);
@@ -27,7 +27,7 @@ test "The Ghost Proof: Zig to Noir State Anchor" {
     const prover_path = try std.fs.path.join(allocator, &[_][]const u8{ test_dir, "Prover.toml" });
     defer allocator.free(prover_path);
     
-    var content_list = std.ArrayListUnmanaged(u8){};
+    var content_list = std.ArrayListUnmanaged(u8).empty;
     defer content_list.deinit(allocator);
 
     // 2. Exportar Batch de 5 (simulados)
@@ -56,14 +56,14 @@ test "The Ghost Proof: Zig to Noir State Anchor" {
         &writer
     );
 
-    const file = try std.fs.cwd().createFile(prover_path, .{});
-    defer file.close();
-    try file.writeAll(content_list.items);
+    const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), prover_path, .{});
+    defer file.close(std.Io.Threaded.global_single_threaded.io());
+    try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), content_list.items);
 
     std.debug.print("\n[GHOST ]  Prover.toml (Batch) exported to {s}", .{prover_path});
 
     // 3. Verificar que el archivo existe y tiene el formato de batch
-    const content = try std.fs.cwd().readFileAlloc(allocator, prover_path, 1024 * 10);
+    const content = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), allocator, prover_path, 1024 * 10);
     defer allocator.free(content);
 
     try std.testing.expect(std.mem.indexOf(u8, content, "initial_root = \"0x") != null);
