@@ -9,7 +9,7 @@ pub fn watch(cli: *const Cli) !void {
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
     defer ctx.deinit();
 
-    const stdout_file = std.fs.File.stdout();
+    const stdout_file = std.Io.File.stdout();
     var stdout_wrapper = stdout_file.writer(&.{});
     const stdout = &stdout_wrapper.interface;
 
@@ -59,8 +59,8 @@ pub fn watch(cli: *const Cli) !void {
 
     while (true) {
         // Tail ledger.jsonl
-        if (std.fs.cwd().openFile(ledger_path, .{})) |file| {
-            defer file.close();
+        if (std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), ledger_path, .{})) |file| {
+            defer file.close(std.Io.Threaded.global_single_threaded.io());
             const stat = file.stat() catch null;
             if (stat) |s| {
                 if (s.size < ledger_offset) ledger_offset = 0;
@@ -95,8 +95,8 @@ pub fn watch(cli: *const Cli) !void {
         } else |_| {}
 
         // Tail agent.log (last line only)
-        if (std.fs.cwd().openFile(log_path, .{})) |file| {
-            defer file.close();
+        if (std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), log_path, .{})) |file| {
+            defer file.close(std.Io.Threaded.global_single_threaded.io());
             const stat = file.stat() catch null;
             if (stat) |s| {
                 const start: u64 = if (s.size > 512) s.size - 512 else 0;

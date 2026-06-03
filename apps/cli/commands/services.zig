@@ -121,7 +121,7 @@ fn generateBlink(cli: *const Cli, ctx: *core.context.AgentContext) !void {
     std.debug.print(LIME ++ "[SUCCESS]" ++ RST ++ " Blink JSON generated. Distribute this URL to your users.\n", .{});
 }
 
-fn readLine(file: std.fs.File, buffer: []u8) ![]const u8 {
+fn readLine(file: std.Io.File, buffer: []u8) ![]const u8 {
     var pos: usize = 0;
     while (pos < buffer.len) {
         var byte_buf: [1]u8 = undefined;
@@ -135,7 +135,7 @@ fn readLine(file: std.fs.File, buffer: []u8) ![]const u8 {
 }
 
 fn setupShop(cli: *const Cli, ctx: *core.context.AgentContext) !void {
-    const stdin_file = std.fs.File.stdin();
+    const stdin_file = std.Io.File.stdin();
     var buf: [1024]u8 = undefined;
 
     std.debug.print("\n " ++ MAG ++ "╔══════════════════════════════════════════════════╗" ++ RST ++ " \n", .{});

@@ -96,11 +96,11 @@ pub fn receipt(cli: *const Cli, args: []const [:0]u8) !void {
     const ledger_path = try std.fs.path.join(cli.allocator, &[_][]const u8{ config.vaults.path, "ledger.jsonl" });
     defer cli.allocator.free(ledger_path);
 
-    const file = std.fs.cwd().openFile(ledger_path, .{}) catch {
+    const file = std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), ledger_path, .{}) catch {
         std.debug.print(RED ++ "[ERR]" ++ RST ++ " No se encontró el ledger en {s}.\n", .{ledger_path});
         return;
     };
-    defer file.close();
+    defer file.close(std.Io.Threaded.global_single_threaded.io());
     const content = try file.readToEndAlloc(cli.allocator, 8 * 1024 * 1024);
     defer cli.allocator.free(content);
 

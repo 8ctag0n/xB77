@@ -15,20 +15,17 @@ pub const Cli = struct {
     ///   3. default `http://127.0.0.1:8787` (local mock-gateway)
     gateway_url: []const u8,
     chain: []const u8,
-    /// Owned when set from env var; null when literal/default. Internal — use
-    /// `gateway_url` for reads.
-    gateway_url_owned: ?[]u8 = null,
 };
 
 pub const ParsedArgs = struct {
     cli: Cli,
     command: []const u8,
-    cmd_args: []const [:0]u8,
+    cmd_args: []const [:0]const u8,
 
-    /// Owned by the caller. Frees the password if it was env-allocated.
+    /// Owned by the caller. No longer needs to free env vars as they point into the map.
     pub fn deinit(self: *ParsedArgs, allocator: std.mem.Allocator) void {
-        if (self.cli.password) |p| allocator.free(p);
-        if (self.cli.gateway_url_owned) |g| allocator.free(g);
+        _ = self;
+        _ = allocator;
     }
 };
 
@@ -41,8 +38,9 @@ const GATEWAY_DEFAULT: []const u8 = "http://127.0.0.1:8787";
 /// point inside it for non-default profiles.
 pub fn parse(
     allocator: std.mem.Allocator,
-    args: []const [:0]u8,
+    args: []const [:0]const u8,
     config_buf: *[256]u8,
+    env_map: *const std.process.Environ.Map,
 ) !?ParsedArgs {
     if (args.len < 2) return null;
 
@@ -87,17 +85,38 @@ pub fn parse(
     else
         try std.fmt.bufPrint(config_buf, "profiles/{s}.toml", .{profile});
 
-    const password = std.process.getEnvVarOwned(allocator, "XB77_PASSWORD") catch null;
+    const password = env_map.get("XB77_PASSWORD");
 
-    // Resolve gateway URL: flag > env > default. The env-derived form is owned.
     var gateway_url: []const u8 = GATEWAY_DEFAULT;
-    var gateway_url_owned: ?[]u8 = null;
     if (gateway_flag) |g| {
         gateway_url = g;
-    } else if (std.process.getEnvVarOwned(allocator, "XB77_GATEWAY")) |g| {
-        gateway_url_owned = g;
+    } else if (env_map.get("XB77_GATEWAY")) |g| {
         gateway_url = g;
-    } else |_| {}
+    }
+
+    var args_start: usize = 1;
+    while (args_start < args.len) : (args_start += 1) {
+        const arg = args[args_start];
+        if (std.mem.eql(u8, arg, "--profile") or std.mem.eql(u8, arg, "-p")) {
+            args_start += 1;
+            if (args_start >= args.len) return error.MissingProfileValue;
+            profile = args[args_start];
+        } else if (std.mem.eql(u8, arg, "--gateway")) {
+            args_start += 1;
+            if (args_start >= args.len) return error.MissingGatewayValue;
+            gateway_flag = args[args_start];
+        } else if (std.mem.eql(u8, arg, "--chain")) {
+            args_start += 1;
+            if (args_start >= args.len) return error.MissingChainValue;
+            chain = args[args_start];
+        } else {
+            // Primer argumento que no empieza con '-' es el comando
+            if (!std.mem.startsWith(u8, arg, "-")) break;
+        }
+    }
+
+    if (args_start >= args.len) return null;
+    const command = args[args_start];
 
     return ParsedArgs{
         .cli = .{
@@ -107,11 +126,11 @@ pub fn parse(
             .password = password,
             .gateway_url = gateway_url,
             .chain = chain,
-            .gateway_url_owned = gateway_url_owned,
         },
-        .command = args[command_idx],
-        .cmd_args = args[command_idx + 1 ..],
+        .command = command,
+        .cmd_args = args[args_start + 1 ..],
     };
+
 }
 
 pub fn printUsage() void {

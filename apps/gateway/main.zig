@@ -3,7 +3,7 @@ const core = @import("core");
 const types = core.types;
 const crypto = core.security.crypto;
 
-var global_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+var global_allocator = std.heap.DebugAllocator(.{}){};
 var kv_cache: ?std.StringHashMap([]const u8) = null;
 
 /// xB77 Sovereign Gateway Engine (v1)
@@ -161,7 +161,7 @@ fn handle_action(allocator: std.mem.Allocator, req: Request, action_byte: u8) *R
     _ = std.fmt.hexToBytes(nonce_bytes[0..12], req.nonce.?) catch return build_error(allocator, 401, "invalid_signature", "bad nonce hex");
 
     // Canonical bytes: action_byte (1) || ts_be_u64_ms (8) || nonce_bytes (12) || body (N)
-    var canonical = std.ArrayListUnmanaged(u8){};
+    var canonical = std.ArrayListUnmanaged(u8).empty;
     defer canonical.deinit(allocator);
     canonical.append(allocator, action_byte) catch return build_error(allocator, 500, "internal", "mem");
     var ts_be: [8]u8 = undefined;

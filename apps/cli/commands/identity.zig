@@ -25,7 +25,7 @@ pub fn init(cli: *const Cli) !void {
     std.debug.print("{s}", .{banner});
     std.debug.print("\n" ++ CYAN ++ "[" ++ WHT ++ "SYSTEM" ++ CYAN ++ "]" ++ RST ++ " INITIALIZING_AGENT_CORE: " ++ GOLD ++ "{s}" ++ RST ++ "\n", .{cli.profile});
 
-    std.fs.cwd().makePath("profiles") catch {};
+    std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), "profiles") catch {};
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
     defer ctx.deinit();
 
@@ -226,7 +226,7 @@ pub fn identity(cli: *const Cli, args: []const [:0]u8) !void {
             .signature = sig,
         };
 
-        var json_list = std.ArrayListUnmanaged(u8){};
+        var json_list = std.ArrayListUnmanaged(u8).empty;
         defer json_list.deinit(cli.allocator);
         try json_list.writer(cli.allocator).print("{any}", .{std.json.fmt(payload, .{})});
 

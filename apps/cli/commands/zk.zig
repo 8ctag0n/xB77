@@ -76,13 +76,13 @@ fn proveCircuit(allocator: std.mem.Allocator, package: []const u8, skip_prove: b
         std.debug.print("[ZK] --skip-prove detected. Generating mock 0x42 proof at {s}...\n", .{proof_path});
         const proof_dir = try std.fmt.allocPrint(allocator, "circuits/{s}/proofs", .{package});
         defer allocator.free(proof_dir);
-        try std.fs.cwd().makePath(proof_dir);
+        try std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), proof_dir);
         
-        const file = try std.fs.cwd().createFile(proof_path, .{});
-        defer file.close();
+        const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), proof_path, .{});
+        defer file.close(std.Io.Threaded.global_single_threaded.io());
         var mock_data: [256]u8 = undefined;
         @memset(&mock_data, 0x42);
-        try file.writeAll(&mock_data);
+        try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), &mock_data);
         return proof_path;
     }
 
@@ -193,9 +193,10 @@ fn uploadProof(cli: *const Cli, proof_path: []const u8, rpc_url_in: []const u8) 
     std.debug.print("[ZK] uploading {s} → {s}\n", .{ proof_path, VERIFIER_PROGRAM_ID });
 
     // Load proof bytes.
-    const file = try std.fs.cwd().openFile(proof_path, .{});
-    defer file.close();
-    const proof_bytes = try file.readToEndAlloc(allocator, 64 * 1024);
+    const file = try std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), proof_path, .{});
+    defer file.close(std.Io.Threaded.global_single_threaded.io());
+    var read_buf: [1024]u8 = undefined;
+    const proof_bytes = try file.reader(std.Io.Threaded.global_single_threaded.io(), &read_buf).interface.allocRemaining(allocator, .unlimited);
     defer allocator.free(proof_bytes);
     std.debug.print("[ZK] proof: {d} bytes\n", .{proof_bytes.len});
 

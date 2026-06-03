@@ -13,21 +13,21 @@ pub fn spawn(cli: *const Cli, args: []const [:0]u8) !void {
     const name = args[0];
     std.debug.print(" Instanciando nuevo Agente Soberano: {s}...\n", .{name});
 
-    try std.fs.cwd().makePath("profiles");
+    try std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), "profiles");
 
     var config_buf: [256]u8 = undefined;
     const path = try std.fmt.bufPrint(&config_buf, "profiles/{s}.toml", .{name});
 
-    const file = try std.fs.cwd().createFile(path, .{});
-    defer file.close();
+    const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), path, .{});
+    defer file.close(std.Io.Threaded.global_single_threaded.io());
 
-    try file.writeAll(
+    try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), 
         \\# xB77 Sovereign Agent Configuration
         \\[vaults]
         \\path = ".xb77/
     );
-    try file.writeAll(name);
-    try file.writeAll(
+    try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), name);
+    try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), 
         \\"
         \\
         \\[rpc]

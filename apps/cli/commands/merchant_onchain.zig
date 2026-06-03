@@ -77,7 +77,7 @@ pub fn register(cli: *const Cli, args: []const [:0]u8) !void {
     std.debug.print("[MERCHANT-REG] PDA:     {s}\n", .{m_pda_str});
 
     // Encode InitMerchant via IDL.
-    const idl_json = try std.fs.cwd().readFileAlloc(allocator, idl_path, 64 * 1024);
+    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), allocator, idl_path, 64 * 1024);
     defer allocator.free(idl_json);
 
     var client = try onchain.IdlClient.init(allocator, idl_json);

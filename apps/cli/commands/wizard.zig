@@ -29,17 +29,17 @@ pub fn run(cli: *const Cli) !void {
     std.debug.print("{s}[3/4]{s} Guardian Threshold: {s}{s} SOL{s}\n", .{ GOLD, RST, CYAN, threshold, RST });
     
     // Simulate internal spawn
-    try std.fs.cwd().makePath("profiles");
+    try std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), "profiles");
     var config_buf: [256]u8 = undefined;
     const path = try std.fmt.bufPrint(&config_buf, "profiles/{s}.toml", .{name});
-    const file = try std.fs.cwd().createFile(path, .{});
-    defer file.close();
+    const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), path, .{});
+    defer file.close(std.Io.Threaded.global_single_threaded.io());
 
-    try file.writeAll("# xB77 Sovereign Agent Configuration\n[vaults]\npath = \".xb77/");
-    try file.writeAll(name);
-    try file.writeAll("\"\n\n[rpc]\nsolana = \"https://api.devnet.solana.com\"\nbase = \"https://sepolia.base.org\"\n\n[guardian]\nthreshold = ");
-    try file.writeAll(threshold);
-    try file.writeAll("\n");
+    try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), "# xB77 Sovereign Agent Configuration\n[vaults]\npath = \".xb77/");
+    try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), name);
+    try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), "\"\n\n[rpc]\nsolana = \"https://api.devnet.solana.com\"\nbase = \"https://sepolia.base.org\"\n\n[guardian]\nthreshold = ");
+    try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), threshold);
+    try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), "\n");
 
     std.debug.print("{s}[SUCCESS]{s} Agent profile created at {s}\n", .{ LIME, RST, path });
     std.debug.print("\n{s}NEXT STEP:{s} Run 'xb77 -p {s} init' to generate your sovereign keys.\n\n", .{ GOLD, RST, name });

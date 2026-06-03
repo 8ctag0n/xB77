@@ -76,8 +76,8 @@ pub fn deploy(cli: *const Cli, args: []const [:0]u8) !void {
 
     std.debug.print("\n Preparando despliegue para el Agente Soberano ({s})...\n", .{cli.config_path});
 
-    const file = try std.fs.cwd().openFile(cli.config_path, .{});
-    defer file.close();
+    const file = try std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), cli.config_path, .{});
+    defer file.close(std.Io.Threaded.global_single_threaded.io());
     const config_toml = try file.readToEndAlloc(cli.allocator, 1024 * 64);
     defer cli.allocator.free(config_toml);
 
@@ -105,7 +105,7 @@ pub fn deploy(cli: *const Cli, args: []const [:0]u8) !void {
         .is_custodial = true,
     };
 
-    var json_list = std.ArrayListUnmanaged(u8){};
+    var json_list = std.ArrayListUnmanaged(u8).empty;
     defer json_list.deinit(cli.allocator);
     try json_list.writer(cli.allocator).print("{f}", .{std.json.fmt(manifest, .{})});
     const json_body = json_list.items;
@@ -167,7 +167,7 @@ pub fn link(cli: *const Cli, args: []const [:0]u8) !void {
     );
     defer req.deinit(cli.allocator);
 
-    var headers = std.ArrayListUnmanaged(core.net.http.HttpHeader){};
+    var headers = std.ArrayListUnmanaged(core.net.http.HttpHeader).empty;
     defer {
         for (headers.items) |h| {
             cli.allocator.free(h.name);
@@ -220,7 +220,7 @@ pub fn exportRemote(cli: *const Cli) !void {
         .signature = signature,
     };
 
-    var json_list = std.ArrayListUnmanaged(u8){};
+    var json_list = std.ArrayListUnmanaged(u8).empty;
     defer json_list.deinit(cli.allocator);
     try json_list.writer(cli.allocator).print("{f}", .{std.json.fmt(req, .{})});
 
@@ -244,7 +244,7 @@ pub fn exportRemote(cli: *const Cli) !void {
     const data = parsed.value;
 
     const base_path = ctx.config.vaults.path;
-    try std.fs.cwd().makePath(base_path);
+    try std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), base_path);
 
     const ledger_path = try std.fs.path.join(cli.allocator, &[_][]const u8{ base_path, "ledger.jsonl" });
     defer cli.allocator.free(ledger_path);

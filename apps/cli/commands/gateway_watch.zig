@@ -88,7 +88,7 @@ pub fn watch(cli: *const Cli, args: []const [:0]u8) !void {
     // PID file for the stack teardown trap.
     {
         const pid_path = "/tmp/xb77-gateway-watch.pid";
-        var pid_file = std.fs.cwd().createFile(pid_path, .{ .truncate = true }) catch null;
+        var pid_file = std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), pid_path, .{ .truncate = true }) catch null;
         if (pid_file) |*f| {
             defer f.close();
             const pid = std.os.linux.getpid();
@@ -122,7 +122,7 @@ pub fn watch(cli: *const Cli, args: []const [:0]u8) !void {
                 continue;
             }
 
-            var payload = std.ArrayListUnmanaged(u8){};
+            var payload = std.ArrayListUnmanaged(u8).empty;
             defer payload.deinit(allocator);
             const w = payload.writer(allocator);
             try w.writeAll("{\"pipelines\":[");

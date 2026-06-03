@@ -20,16 +20,14 @@ const pulse_cmd = @import("commands/pulse.zig");
 const deploy_cmd = @import("commands/deploy.zig");
 const wizard_cmd = @import("commands/wizard.zig");
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+pub fn main(init: std.process.Init) !void {
+    const allocator = init.gpa;
 
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
+    const args = try init.minimal.args.toSlice(init.arena.allocator());
+    // init.arena will clean up args on exit
 
     var config_buf: [256]u8 = undefined;
-    const parsed_or_null = flags.parse(allocator, args, &config_buf) catch |err| {
+    const parsed_or_null = flags.parse(allocator, args, &config_buf, init.environ_map) catch |err| {
         std.debug.print("Error parsing arguments: {}\n", .{err});
         return;
     };

@@ -162,7 +162,7 @@ fn runSigned(
     // Parse the SDK's headers_json into a flat key/value array.
     var parsed = try std.json.parseFromSlice(std.json.Value, cli.allocator, req.headers_json, .{});
     defer parsed.deinit();
-    var hdr_kv = std.ArrayListUnmanaged(HttpHeader){};
+    var hdr_kv = std.ArrayListUnmanaged(HttpHeader).empty;
     defer hdr_kv.deinit(cli.allocator);
     var it = parsed.value.object.iterator();
     while (it.next()) |entry| {

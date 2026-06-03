@@ -6,10 +6,10 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
     var stdin_buf: [4096]u8 = undefined;
     var stdout_buf: [4096]u8 = undefined;
     
-    var stdin = std.fs.File.stdin().reader(&stdin_buf);
-    var stdout = std.fs.File.stdout().writer(&stdout_buf);
+    var stdin = std.Io.File.stdin().reader(&stdin_buf);
+    var stdout = std.Io.File.stdout().writer(&stdout_buf);
 
-    var buf = std.ArrayListUnmanaged(u8){};
+    var buf = std.ArrayListUnmanaged(u8).empty;
     defer buf.deinit(allocator);
 
     while (true) {
@@ -102,16 +102,16 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 const agent_name = args.get("name").?.string;
                 
                 // Simulación de Spawn (creación de config)
-                try std.fs.cwd().makePath("profiles");
+                try std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), "profiles");
                 var config_buf: [512]u8 = undefined;
                 const path = try std.fmt.bufPrint(&config_buf, "profiles/{s}.toml", .{agent_name});
-                const file = try std.fs.cwd().createFile(path, .{});
-                defer file.close();
+                const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), path, .{});
+                defer file.close(std.Io.Threaded.global_single_threaded.io());
                 
                 const agent_port = 7777 + ctx.active_agents.count() + 1;
                 const config_text = try std.fmt.allocPrint(allocator, "# xB77 Profile: {s}\n[vaults]\npath = \".xb77/{s}\"\nmesh_port = {d}\n[rpc]\nsolana = \"https://api.devnet.solana.com\"\nbase = \"https://sepolia.base.org\"\n", .{ agent_name, agent_name, agent_port });
                 defer allocator.free(config_text);
-                try file.writeAll(config_text);
+                try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), config_text);
 
                 // --- DYNAMIC SPAWNING ---
                 // Launch: ./xb77 serve --profile <agent_name>
@@ -135,7 +135,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 defer allocator.free(res);
                 try sendResponse(&stdout, res);
             } else if (std.mem.eql(u8, name, "get_swarm_topology")) {
-                var report = std.ArrayListUnmanaged(u8){};
+                var report = std.ArrayListUnmanaged(u8).empty;
                 defer report.deinit(allocator);
                 try report.writer(allocator).print("--- Swarm P2P Topology Map ---\n", .{});
 
@@ -157,7 +157,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                     d.close();
                 }
 
-                var escaped = std.ArrayListUnmanaged(u8){};
+                var escaped = std.ArrayListUnmanaged(u8).empty;
                 defer escaped.deinit(allocator);
                 for (report.items) |c| {
                     if (c == '\n') {
@@ -301,8 +301,8 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                             // 2. Read ledger for this agent
                             var path_buf: [512]u8 = undefined;
                             const path = try std.fmt.bufPrint(&path_buf, ".xb77/{s}/ledger.jsonl", .{agent_name});
-                            const file = std.fs.cwd().openFile(path, .{ .mode = .read_only }) catch continue;
-                            defer file.close();
+                            const file = std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), path, .{ .mode = .read_only }) catch continue;
+                            defer file.close(std.Io.Threaded.global_single_threaded.io());
 
                             const content = try file.readToEndAlloc(allocator, 1024 * 1024);
                             defer allocator.free(content);
@@ -324,7 +324,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 }
 
                 // 3. Also check main ledger (root)
-                const main_file = std.fs.cwd().openFile(".xb77/ledger.jsonl", .{ .mode = .read_only }) catch null;
+                const main_file = std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), ".xb77/ledger.jsonl", .{ .mode = .read_only }) catch null;
                 if (main_file) |f| {
                     defer f.close();
                     const content = try f.readToEndAlloc(allocator, 1024 * 1024);
@@ -343,7 +343,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                     }
                 }
 
-                var report = std.ArrayListUnmanaged(u8){};
+                var report = std.ArrayListUnmanaged(u8).empty;
                 defer report.deinit(allocator);
                 try report.writer(allocator).print(
                     \\--- Swarm Financial Intelligence Report ---
@@ -362,7 +362,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                     if (risk_blocks + compliance_fails == 0) "OPTIMAL" else "DEGRADED",
                 });
 
-                var escaped = std.ArrayListUnmanaged(u8){};
+                var escaped = std.ArrayListUnmanaged(u8).empty;
                 defer escaped.deinit(allocator);
                 for (report.items) |c| {
                     if (c == '\n') {
@@ -417,7 +417,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 try sendResponse(&stdout, res);
             } else if (std.mem.eql(u8, name, "list_active_swarm")) {
                 var dir = std.fs.cwd().openDir("profiles", .{ .iterate = true }) catch null;
-                var content = std.ArrayListUnmanaged(u8){};
+                var content = std.ArrayListUnmanaged(u8).empty;
                 defer content.deinit(allocator);
 
                 if (dir) |*d| {
@@ -437,7 +437,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 }
 
                 // Manual JSON building to avoid std.json.stringify issues
-                var escaped = std.ArrayListUnmanaged(u8){};
+                var escaped = std.ArrayListUnmanaged(u8).empty;
                 defer escaped.deinit(allocator);
                 for (content.items) |c| {
                     if (c == '\n') {
@@ -456,7 +456,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 const args = params.get("arguments").?.object;
                 const agent_name = args.get("name").?.string;
                 
-                var content = std.ArrayListUnmanaged(u8){};
+                var content = std.ArrayListUnmanaged(u8).empty;
                 defer content.deinit(allocator);
 
                 // 1. Kill the process if active
@@ -471,13 +471,13 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 var path_buf: [512]u8 = undefined;
                 const path = try std.fmt.bufPrint(&path_buf, "profiles/{s}.toml", .{agent_name});
                 
-                if (std.fs.cwd().deleteFile(path)) {
+                if (std.Io.Dir.cwd().deleteFile(std.Io.Threaded.global_single_threaded.io(), path)) {
                     try content.writer(allocator).print("Profile deleted. Liquidity sweep initiated.", .{});
                 } else |err| {
                     try content.writer(allocator).print("Failed to delete profile for '{s}': {any}", .{agent_name, err});
                 }
                 
-                var escaped = std.ArrayListUnmanaged(u8){};
+                var escaped = std.ArrayListUnmanaged(u8).empty;
                 defer escaped.deinit(allocator);
                 for (content.items) |c| {
                     if (c == '\n') {
@@ -513,7 +513,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 const path = try std.fmt.bufPrint(&path_buf, ".xb77/{s}/ledger.jsonl", .{agent_name});
                 
                 var history_content: []const u8 = "No history found for agent.";
-                const file = std.fs.cwd().openFile(path, .{ .mode = .read_only }) catch null;
+                const file = std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), path, .{ .mode = .read_only }) catch null;
                 var file_content: ?[]u8 = null;
                 
                 if (file) |f| {
@@ -525,7 +525,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 }
                 defer if (file_content) |fc| allocator.free(fc);
 
-                var escaped = std.ArrayListUnmanaged(u8){};
+                var escaped = std.ArrayListUnmanaged(u8).empty;
                 defer escaped.deinit(allocator);
                 for (history_content) |c| {
                     if (c == '\n') {

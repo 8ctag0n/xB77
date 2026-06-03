@@ -28,7 +28,7 @@ pub const LinkCmd = struct {
             .signature = signature,
         };
 
-        var json_buf = std.ArrayListUnmanaged(u8){};
+        var json_buf = std.ArrayListUnmanaged(u8).empty;
         defer json_buf.deinit(allocator);
         try std.json.stringify(payload, .{}, json_buf.writer(allocator));
 

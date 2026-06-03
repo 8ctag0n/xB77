@@ -23,11 +23,11 @@ pub fn execute(cli: *const Cli, args: []const [:0]u8) !void {
 
     // 2. Usar nuestro IdlParser real para leer un IDL de prueba
     const idl_path = "idls/xb77_gateway.json";
-    const file = std.fs.cwd().openFile(idl_path, .{}) catch |err| {
+    const file = std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), idl_path, .{}) catch |err| {
         std.debug.print("\x1b[31;1m[ERROR]\x1b[0m Could not open IDL at {s}: {}\n", .{idl_path, err});
         return;
     };
-    defer file.close();
+    defer file.close(std.Io.Threaded.global_single_threaded.io());
 
     const idl_content = try file.readToEndAlloc(cli.allocator, 1024 * 1024);
     defer cli.allocator.free(idl_content);

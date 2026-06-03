@@ -92,7 +92,7 @@ pub fn submitOrder(cli: *const Cli, args: []const [:0]u8) !void {
     const recipient: [32]u8 = kp.public;
 
     // Load IDL and encode SubmitPrivateOrder.
-    const idl_json = try std.fs.cwd().readFileAlloc(allocator, idl_path, 64 * 1024);
+    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), allocator, idl_path, 64 * 1024);
     defer allocator.free(idl_json);
 
     const IdlClientT = onchain.IdlClient;
@@ -282,7 +282,7 @@ pub fn initGateway(cli: *const Cli, args: []const [:0]u8) !void {
     }
 
     // Encode InitGateway via IDL.
-    const idl_json = try std.fs.cwd().readFileAlloc(allocator, idl_path, 64 * 1024);
+    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), allocator, idl_path, 64 * 1024);
     defer allocator.free(idl_json);
 
     var client = try onchain.IdlClient.init(allocator, idl_json);
