@@ -15,7 +15,7 @@ pub const Writer = struct {
     buf: std.ArrayListUnmanaged(u8),
 
     pub fn init() Writer {
-        return .{ .buf = .{} };
+        return .{ .buf = .empty };
     }
 
     pub fn deinit(self: *Writer, allocator: std.mem.Allocator) void {
@@ -43,27 +43,39 @@ pub const Writer = struct {
     }
 
     pub fn u16W(self: *Writer, allocator: std.mem.Allocator, v: u16) !void {
-        try self.buf.writer(allocator).writeInt(u16, v, .little);
+        var _b: [2]u8 = undefined;
+        std.mem.writeInt(u16, &_b, v, .little);
+        try self.buf.appendSlice(allocator, &_b);
     }
 
     pub fn i16W(self: *Writer, allocator: std.mem.Allocator, v: i16) !void {
-        try self.buf.writer(allocator).writeInt(i16, v, .little);
+        var _b: [2]u8 = undefined;
+        std.mem.writeInt(i16, &_b, v, .little);
+        try self.buf.appendSlice(allocator, &_b);
     }
 
     pub fn u32W(self: *Writer, allocator: std.mem.Allocator, v: u32) !void {
-        try self.buf.writer(allocator).writeInt(u32, v, .little);
+        var _b: [4]u8 = undefined;
+        std.mem.writeInt(u32, &_b, v, .little);
+        try self.buf.appendSlice(allocator, &_b);
     }
 
     pub fn i32W(self: *Writer, allocator: std.mem.Allocator, v: i32) !void {
-        try self.buf.writer(allocator).writeInt(i32, v, .little);
+        var _b: [4]u8 = undefined;
+        std.mem.writeInt(i32, &_b, v, .little);
+        try self.buf.appendSlice(allocator, &_b);
     }
 
     pub fn u64W(self: *Writer, allocator: std.mem.Allocator, v: u64) !void {
-        try self.buf.writer(allocator).writeInt(u64, v, .little);
+        var _b: [8]u8 = undefined;
+        std.mem.writeInt(u64, &_b, v, .little);
+        try self.buf.appendSlice(allocator, &_b);
     }
 
     pub fn i64W(self: *Writer, allocator: std.mem.Allocator, v: i64) !void {
-        try self.buf.writer(allocator).writeInt(i64, v, .little);
+        var _b: [8]u8 = undefined;
+        std.mem.writeInt(i64, &_b, v, .little);
+        try self.buf.appendSlice(allocator, &_b);
     }
 
     pub fn boolW(self: *Writer, allocator: std.mem.Allocator, v: bool) !void {

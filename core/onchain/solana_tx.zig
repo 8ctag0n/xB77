@@ -18,6 +18,14 @@ const std = @import("std");
 const crypto_mod = @import("../security/crypto.zig");
 const types = @import("../protocol/types.zig");
 
+// Shim: provides writeByte/writeAll over ArrayListUnmanaged for writeCompactU16.
+const ArrayListWriter = struct {
+    list: *std.ArrayListUnmanaged(u8),
+    allocator: std.mem.Allocator,
+    pub fn writeByte(self: ArrayListWriter, b: u8) !void { try self.list.append(self.allocator, b); }
+    pub fn writeAll(self: ArrayListWriter, data: []const u8) !void { try self.list.appendSlice(self.allocator, data); }
+};
+
 pub const Pubkey = [32]u8;
 pub const Blockhash = [32]u8;
 
@@ -189,7 +197,7 @@ pub fn buildLegacyTx(
 
     var buf = std.ArrayListUnmanaged(u8).empty;
     errdefer buf.deinit(allocator);
-    const writer = buf.writer(allocator);
+    const writer = ArrayListWriter{ .list = &buf, .allocator = allocator };
 
     // Signatures placeholder.
     try writeCompactU16(writer, num_sigs);
@@ -245,22 +253,22 @@ test "encodeCompactU16" {
     defer buf.deinit(allocator);
 
     // 0 → 0x00
-    try writeCompactU16(buf.writer(allocator), 0);
+    try writeCompactU16(ArrayListWriter{ .list = &buf, .allocator = allocator }, 0);
     try std.testing.expectEqualSlices(u8, &[_]u8{0x00}, buf.items);
     buf.clearRetainingCapacity();
 
     // 127 → 0x7F
-    try writeCompactU16(buf.writer(allocator), 127);
+    try writeCompactU16(ArrayListWriter{ .list = &buf, .allocator = allocator }, 127);
     try std.testing.expectEqualSlices(u8, &[_]u8{0x7F}, buf.items);
     buf.clearRetainingCapacity();
 
     // 128 → 0x80 0x01
-    try writeCompactU16(buf.writer(allocator), 128);
+    try writeCompactU16(ArrayListWriter{ .list = &buf, .allocator = allocator }, 128);
     try std.testing.expectEqualSlices(u8, &[_]u8{0x80, 0x01}, buf.items);
     buf.clearRetainingCapacity();
 
     // 125 (instruction data length in fixture) → single byte 0x7D
-    try writeCompactU16(buf.writer(allocator), 125);
+    try writeCompactU16(ArrayListWriter{ .list = &buf, .allocator = allocator }, 125);
     try std.testing.expectEqualSlices(u8, &[_]u8{0x7D}, buf.items);
 }
 
@@ -268,11 +276,11 @@ test "buildLegacyTx: single instruction, single signer" {
     const allocator = std.testing.allocator;
 
     var payer: Pubkey = undefined;
-    std.crypto.random.bytes(&payer);
+    std.Io.Threaded.global_single_threaded.io().random(&payer);
     var prog: Pubkey = undefined;
-    std.crypto.random.bytes(&prog);
+    std.Io.Threaded.global_single_threaded.io().random(&prog);
     var bh: Blockhash = undefined;
-    std.crypto.random.bytes(&bh);
+    std.Io.Threaded.global_single_threaded.io().random(&bh);
 
     const data = [_]u8{ 1, 2, 3 };
     const ix = Instruction{

@@ -157,9 +157,9 @@ pub const SolanaRpc = struct {
         timeout_ms: u64,
         interval_ms: u64,
     ) !bool {
-        const t0: u64 = @intCast(std.time.milliTimestamp());
+        const t0: u64 = @intCast(std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds());
         while (true) {
-            const elapsed: u64 = @intCast(std.time.milliTimestamp() - @as(i64, @intCast(t0)));
+            const elapsed: u64 = @intCast(std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds() - @as(i64, @intCast(t0)));
             if (elapsed >= timeout_ms) return false;
 
             if (try self.getSignatureStatus(sig)) |s| {
@@ -171,7 +171,7 @@ pub const SolanaRpc = struct {
                 }
             }
 
-            std.Thread.sleep(interval_ms * std.time.ns_per_ms);
+            std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(interval_ms * std.time.ns_per_ms) }, .awake) catch {};
         }
     }
 
@@ -229,13 +229,12 @@ pub const SolanaRpc = struct {
     ) ![]SignatureEntry {
         var body_buf = std.ArrayListUnmanaged(u8).empty;
         defer body_buf.deinit(self.allocator);
-        const w = body_buf.writer(self.allocator);
-        try w.print(
+        try body_buf.print(self.allocator,
             \\{{"jsonrpc":"2.0","id":{d},"method":"getSignaturesForAddress","params":["{s}",{{"limit":{d},"commitment":"confirmed"
         ,
             .{ self.nextId(), address_b58, limit });
-        if (until_sig) |u| try w.print("," ++ "\"until\":\"{s}\"", .{u});
-        try w.writeAll("}]}");
+        if (until_sig) |u| try body_buf.print(self.allocator, "," ++ "\"until\":\"{s}\"", .{u});
+        try body_buf.appendSlice(self.allocator, "}]}");
 
         const parsed = try self.call(body_buf.items);
         defer parsed.deinit();
