@@ -8,10 +8,11 @@ pragma solidity ^0.8.20;
  */
 contract Settlement {
     address public immutable owner;
-    address public constant USDC_ERC20 = 0x7777777777777777777777777777777777777777;
-    
-    // Circle CCTP V2 TokenMessenger (Sepolia dummy)
-    address public constant CIRCLE_TOKEN_MESSENGER = 0x1234567890123456789012345678901234567890;
+    // USDC on Arbitrum Sepolia (official Circle deployment)
+    address public constant USDC_ERC20 = 0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d;
+
+    // Circle CCTP V2 TokenMessenger on Arbitrum Sepolia
+    address public constant CIRCLE_TOKEN_MESSENGER = 0x9f3B8679c73C2Fef8b59B4f3444d4e156fb70AA5;
 
     event Settled(address indexed agent, uint256 amount, bytes32 commitment);
     event CCTPSettlement(uint32 sourceDomain, address indexed agent, uint256 amount);

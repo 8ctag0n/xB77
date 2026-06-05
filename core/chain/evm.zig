@@ -108,6 +108,59 @@ pub const EvmClient = struct {
         return hash;
     }
 
+    // Send a tx via eth_sendTransaction (no signing — use for local/dev nodes).
+    // For production, sign externally and use sendRawTransaction.
+    // `to_str`: hex address string like "0x1234..." or "1234..."
+    // `data_hex`: hex-encoded calldata (no 0x prefix)
+    // Returns the tx hash as an owned slice.
+    pub fn sendTx(self: *EvmClient, to_str: []const u8, data_hex: []const u8) ![]u8 {
+        const to_addr = if (std.mem.startsWith(u8, to_str, "0x")) to_str else
+            try std.fmt.allocPrint(self.allocator, "0x{s}", .{to_str});
+        defer if (!std.mem.startsWith(u8, to_str, "0x")) self.allocator.free(to_addr);
+
+        const payload = try std.fmt.allocPrint(self.allocator,
+            \\{{"jsonrpc":"2.0","id":1,"method":"eth_sendTransaction","params":[{{"to":"{s}","data":"0x{s}"}}]}}
+        , .{ to_addr, data_hex });
+        defer self.allocator.free(payload);
+
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
+
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{});
+        defer parsed.deinit();
+
+        if (parsed.value.object.get("error")) |err_val| {
+            std.debug.print("[EVM] sendTx error: {s}\n", .{err_val.object.get("message").?.string});
+            return error.RpcError;
+        }
+
+        const result = parsed.value.object.get("result") orelse return error.RpcError;
+        return try self.allocator.dupe(u8, result.string);
+    }
+
+    // callView but with a string address (for Stylus contract addresses stored as []const u8)
+    pub fn callViewStr(self: *EvmClient, to_str: []const u8, data_hex: []const u8) ![]u8 {
+        const to_addr = if (std.mem.startsWith(u8, to_str, "0x")) to_str else
+            try std.fmt.allocPrint(self.allocator, "0x{s}", .{to_str});
+        defer if (!std.mem.startsWith(u8, to_str, "0x")) self.allocator.free(to_addr);
+
+        const payload = try std.fmt.allocPrint(self.allocator,
+            \\{{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{{"to":"{s}","data":"0x{s}"}},"latest"]}}
+        , .{ to_addr, data_hex });
+        defer self.allocator.free(payload);
+
+        var response = try self.http_client.post(self.endpoint, payload);
+        defer response.deinit();
+
+        const parsed = try std.json.parseFromSlice(std.json.Value, self.allocator, response.body, .{});
+        defer parsed.deinit();
+
+        const result = parsed.value.object.get("result") orelse return error.InvalidResponse;
+        const result_str = result.string;
+        const clean = if (std.mem.startsWith(u8, result_str, "0x")) result_str[2..] else result_str;
+        return try self.allocator.dupe(u8, clean);
+    }
+
     pub fn callView(self: *EvmClient, to: types.EthAddress, data_hex: []const u8) ![]u8 {
         const to_hex = try addressToHex(self.allocator, to);
         defer self.allocator.free(to_hex);

@@ -640,6 +640,14 @@ pub fn build(b: *std.Build) void {
     local_arb_test_exe.root_module.addImport("core", core_module);
     b.installArtifact(local_arb_test_exe);
 
+    // ── New Stylus contracts: anchor, settlement_engine, zk_verifier ─────────
+    const install_anchor     = StylusContract.add(b, "xb77_anchor",            "onchain/stylus/anchor.zig",            core_module, stylus_target);
+    const install_settlement_engine = StylusContract.add(b, "xb77_settlement_engine", "onchain/stylus/settlement_engine.zig", core_module, stylus_target);
+    const install_zk_verifier= StylusContract.add(b, "xb77_zk_verifier",       "onchain/stylus/zk_verifier.zig",       core_module, stylus_target);
+    stylus_step.dependOn(&install_anchor.step);
+    stylus_step.dependOn(&install_settlement_engine.step);
+    stylus_step.dependOn(&install_zk_verifier.step);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);
     test_step.dependOn(&run_tx_unit_tests.step);
