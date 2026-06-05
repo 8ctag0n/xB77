@@ -17,83 +17,104 @@ pub const HttpBridge = struct {
     }
 
     pub fn start(self: *HttpBridge) !void {
-        const address = std.net.Address.parseIp("127.0.0.1", self.port) catch |err| {
+        const io = std.Io.Threaded.global_single_threaded.io();
+        const address = std.Io.net.IpAddress.parseIp4("127.0.0.1", self.port) catch |err| {
             std.debug.print("\n[HTTP  ]  Error parsing address: {any}", .{err});
             return err;
         };
 
-        var server = try address.listen(.{ .reuse_address = true });
-        defer server.deinit();
+        var server = try address.listen(io, .{ .reuse_address = true });
+        defer server.deinit(io);
 
         std.debug.print("\n[HTTP  ]  Sovereign Bridge active at http://127.0.0.1:{d}", .{self.port});
 
         while (true) {
-            const conn = try server.accept();
-            self.handleConnection(conn) catch |err| {
+            const stream = try server.accept(io);
+            self.handleConnection(stream) catch |err| {
                 std.debug.print("\n[HTTP  ]  Connection error: {any}", .{err});
             };
         }
     }
 
-    fn handleConnection(self: *HttpBridge, conn: std.net.Server.Connection) !void {
-        defer conn.stream.close();
+    fn handleConnection(self: *HttpBridge, stream: std.Io.net.Stream) !void {
+        const io = std.Io.Threaded.global_single_threaded.io();
+        defer stream.close(io);
 
+        var rb: [4096]u8 = undefined;
+        var r = stream.reader(io, &rb);
         var buf: [4096]u8 = undefined;
-        const bytes_read = try conn.stream.read(&buf);
+        const bytes_read = try r.interface.readSliceShort(&buf);
         if (bytes_read == 0) return;
 
         const request = buf[0..bytes_read];
         const first_line = std.mem.sliceTo(request, '\r');
-        
+
         var it = std.mem.splitScalar(u8, first_line, ' ');
         const method = it.next() orelse return;
         const path = it.next() orelse return;
 
         if (std.mem.eql(u8, method, "OPTIONS")) {
-            try self.sendCorsHeader(conn.stream);
+            try self.sendCorsHeader(stream);
             return;
         }
 
         if (std.mem.eql(u8, path, "/api/v1/network/pulse") or std.mem.eql(u8, path, "/status")) {
-            try self.handleStatus(conn.stream);
+            try self.handleStatus(stream);
         } else if (std.mem.startsWith(u8, path, "/api/v1/wallet/transactions") or std.mem.eql(u8, path, "/ledger")) {
-            try self.handleLedger(conn.stream);
+            try self.handleLedger(stream);
         } else if (std.mem.startsWith(u8, path, "/api/v1/agents/fleet")) {
-            try self.handleAgents(conn.stream);
+            try self.handleAgents(stream);
         } else if (std.mem.startsWith(u8, path, "/api/v1/guardian/pending")) {
-            try self.handlePending(conn.stream);
+            try self.handlePending(stream);
         } else if (std.mem.startsWith(u8, path, "/api/v1/guardian/approve")) {
-            try self.handleApprove(conn.stream);
+            try self.handleApprove(stream);
         } else if (std.mem.startsWith(u8, path, "/api/v1/audit/attestation")) {
-            try self.handleAttestation(conn.stream);
+            try self.handleAttestation(stream);
         } else if (std.mem.startsWith(u8, path, "/api/v1/intelligence/yield")) {
-            try self.handleYield(conn.stream);
+            try self.handleYield(stream);
         } else if (std.mem.startsWith(u8, path, "/api/v1/intelligence/negotiations")) {
-            try self.handleNegotiations(conn.stream);
+            try self.handleNegotiations(stream);
         } else if (std.mem.startsWith(u8, path, "/api/v1/intelligence/performance")) {
-            try self.handlePerformance(conn.stream);
+            try self.handlePerformance(stream);
         } else if (std.mem.startsWith(u8, path, "/api/v1/wallet/balances")) {
-            try self.handleBalances(conn.stream);
+            try self.handleBalances(stream);
         } else if (std.mem.startsWith(u8, path, "/api/v1/missions/active")) {
-            try self.handleMissions(conn.stream);
+            try self.handleMissions(stream);
         } else {
-            try self.sendNotFound(conn.stream);
+            try self.sendNotFound(stream);
         }
     }
 
-    fn sendCorsHeader(self: *HttpBridge, stream: std.net.Stream) !void {
+    fn streamWrite(stream: std.Io.net.Stream, data: []const u8) !void {
+        const io = std.Io.Threaded.global_single_threaded.io();
+        var wb: [65536]u8 = undefined;
+        var w = stream.writer(io, &wb);
+        try w.interface.writeAll(data);
+        try w.interface.flush();
+    }
+
+    fn sendResponse(stream: std.Io.net.Stream, header: []const u8, body: []const u8) !void {
+        const io = std.Io.Threaded.global_single_threaded.io();
+        var wb: [65536]u8 = undefined;
+        var w = stream.writer(io, &wb);
+        try w.interface.writeAll(header);
+        try w.interface.writeAll(body);
+        try w.interface.flush();
+    }
+
+    fn sendCorsHeader(self: *HttpBridge, stream: std.Io.net.Stream) !void {
         _ = self;
-        try stream.writeAll("HTTP/1.1 204 No Content\r\n" ++
+        try streamWrite(stream, "HTTP/1.1 204 No Content\r\n" ++
             "Access-Control-Allow-Origin: *\r\n" ++
             "Access-Control-Allow-Methods: GET, OPTIONS\r\n" ++
             "Access-Control-Allow-Headers: *\r\n" ++
             "Connection: close\r\n\r\n");
     }
 
-    fn handleStatus(self: *HttpBridge, stream: std.net.Stream) !void {
+    fn handleStatus(self: *HttpBridge, stream: std.Io.net.Stream) !void {
         const sol_addr = try self.ctx.vaults.ops.address(.solana, self.allocator);
         defer self.allocator.free(sol_addr);
-        
+
         const root = self.ctx.store.tree.getRoot();
         const root_hex = std.fmt.bytesToHex(root, .lower);
 
@@ -119,7 +140,7 @@ pub const HttpBridge = struct {
         try services_buf.appendSlice(self.allocator, "[");
         for (self.ctx.merchant.services, 0..) |s, i| {
             if (i > 0) try services_buf.appendSlice(self.allocator, ",");
-            const s_json = try std.fmt.allocPrint(self.allocator, 
+            const s_json = try std.fmt.allocPrint(self.allocator,
                 \\{{"name":"{s}","price":{d},"blink_url":"https://xb77.io/blink/{s}"}}
             , .{ s.name, s.price_lamports, s.name });
             defer self.allocator.free(s_json);
@@ -130,7 +151,8 @@ pub const HttpBridge = struct {
         var rules_buf = std.ArrayListUnmanaged(u8).empty;
         defer rules_buf.deinit(self.allocator);
         try rules_buf.appendSlice(self.allocator, "[");
-        if (self.ctx.brain.constitution) |cons| {
+        {
+            const cons = &self.ctx.constitution;
             for (cons.rules.items, 0..) |rule, i| {
                 if (i > 0) try rules_buf.appendSlice(self.allocator, ",");
                 const r_json = try std.fmt.allocPrint(self.allocator, "\"{s}\"", .{rule});
@@ -140,6 +162,7 @@ pub const HttpBridge = struct {
         }
         try rules_buf.appendSlice(self.allocator, "]");
 
+        const io = std.Io.Threaded.global_single_threaded.io();
         const json = try std.fmt.allocPrint(self.allocator,
             \\{{
             \\  "slot": 250412311,
@@ -155,19 +178,18 @@ pub const HttpBridge = struct {
             \\  "merchant": {{ "name": "{s}", "services": {s} }},
             \\  "constitution": {{ "rules": {s} }}
             \\}}
-        , .{ agents_online, self.ctx.store.header.total_proofs, std.time.milliTimestamp(), sol_addr, root_hex, total_gdp, self.ctx.pending_authorizations.items.len, self.ctx.merchant.business_name, services_buf.items, rules_buf.items });
+        , .{ agents_online, self.ctx.store.header.total_proofs, std.Io.Timestamp.now(io, .real).toMilliseconds(), sol_addr, root_hex, total_gdp, self.ctx.pending_authorizations.items.len, self.ctx.merchant.business_name, services_buf.items, rules_buf.items });
         defer self.allocator.free(json);
 
         var header_buf: [1024]u8 = undefined;
-        const header = try std.fmt.bufPrint(&header_buf, 
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n", 
-            .{ json.len }
+        const header = try std.fmt.bufPrint(&header_buf,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n",
+            .{json.len}
         );
-        try stream.writeAll(header);
-        try stream.writeAll(json);
+        try sendResponse(stream, header, json);
     }
 
-    fn handleLedger(self: *HttpBridge, stream: std.net.Stream) !void {
+    fn handleLedger(self: *HttpBridge, stream: std.Io.net.Stream) !void {
         const history = try self.ctx.store.getHistory(self.allocator);
         defer {
             for (history) |e| {
@@ -192,15 +214,14 @@ pub const HttpBridge = struct {
         try json_buf.appendSlice(self.allocator, "]}");
 
         var header_buf: [1024]u8 = undefined;
-        const header = try std.fmt.bufPrint(&header_buf, 
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n", 
-            .{ json_buf.items.len }
+        const header = try std.fmt.bufPrint(&header_buf,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n",
+            .{json_buf.items.len}
         );
-        try stream.writeAll(header);
-        try stream.writeAll(json_buf.items);
+        try sendResponse(stream, header, json_buf.items);
     }
 
-    fn handleAgents(self: *HttpBridge, stream: std.net.Stream) !void {
+    fn handleAgents(self: *HttpBridge, stream: std.Io.net.Stream) !void {
         const sol_addr = try self.ctx.vaults.ops.address(.solana, self.allocator);
         defer self.allocator.free(sol_addr);
 
@@ -210,23 +231,22 @@ pub const HttpBridge = struct {
         defer self.allocator.free(json);
 
         var header_buf: [1024]u8 = undefined;
-        const header = try std.fmt.bufPrint(&header_buf, 
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n", 
-            .{ json.len }
+        const header = try std.fmt.bufPrint(&header_buf,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n",
+            .{json.len}
         );
-        try stream.writeAll(header);
-        try stream.writeAll(json);
+        try sendResponse(stream, header, json);
     }
 
-    fn handlePending(self: *HttpBridge, stream: std.net.Stream) !void {
+    fn handlePending(self: *HttpBridge, stream: std.Io.net.Stream) !void {
         var json_buf = std.ArrayListUnmanaged(u8).empty;
         defer json_buf.deinit(self.allocator);
 
         try json_buf.appendSlice(self.allocator, "{\"pending\":[");
-        
+
         // If queue is empty, add a high-value mock for the demo
         if (self.ctx.pending_authorizations.items.len == 0) {
-            const mock_json = 
+            const mock_json =
                 \\{"id":"auth_777_v1","amount":15000000000,"recipient":"ag_whale_x01","chain":"solana","desc":"Large Arbitrage Deployment","ts":1715000000000}
             ;
             try json_buf.appendSlice(self.allocator, mock_json);
@@ -244,36 +264,33 @@ pub const HttpBridge = struct {
         try json_buf.appendSlice(self.allocator, "]}");
 
         var header_buf: [1024]u8 = undefined;
-        const header = try std.fmt.bufPrint(&header_buf, 
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n", 
-            .{ json_buf.items.len }
+        const header = try std.fmt.bufPrint(&header_buf,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n",
+            .{json_buf.items.len}
         );
-        try stream.writeAll(header);
-        try stream.writeAll(json_buf.items);
+        try sendResponse(stream, header, json_buf.items);
     }
 
-    fn handleApprove(self: *HttpBridge, stream: std.net.Stream) !void {
+    fn handleApprove(self: *HttpBridge, stream: std.Io.net.Stream) !void {
         _ = self;
-        // In a real product, we'd parse the ID from the body and process the real tx.
-        // For the demo, we return a successful verification signature.
         const json = "{\"ok\":true,\"sig\":\"approved_by_guardian_sig_777777777777\"}";
 
         var header_buf: [1024]u8 = undefined;
-        const header = try std.fmt.bufPrint(&header_buf, 
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n", 
-            .{ json.len }
+        const header = try std.fmt.bufPrint(&header_buf,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n",
+            .{json.len}
         );
-        try stream.writeAll(header);
-        try stream.writeAll(json);
+        try sendResponse(stream, header, json);
     }
 
-    fn handleAttestation(self: *HttpBridge, stream: std.net.Stream) !void {
+    fn handleAttestation(self: *HttpBridge, stream: std.Io.net.Stream) !void {
+        const io = std.Io.Threaded.global_single_threaded.io();
         const sol_addr = try self.ctx.vaults.ops.address(.solana, self.allocator);
         defer self.allocator.free(sol_addr);
 
         const root = self.ctx.store.tree.getRoot();
         const root_hex = std.fmt.bytesToHex(root, .lower);
-        
+
         const history = try self.ctx.store.getHistory(self.allocator);
         defer {
             for (history) |e| {
@@ -288,7 +305,8 @@ pub const HttpBridge = struct {
             if (e.entry_type == .receipt) total_gdp += e.amount;
         }
 
-        const data_to_sign = try std.fmt.allocPrint(self.allocator, "xB77_ATTESTATION:{s}:{d}:{d}", .{ root_hex, total_gdp, std.time.timestamp() });
+        const ts = std.Io.Timestamp.now(io, .real).toSeconds();
+        const data_to_sign = try std.fmt.allocPrint(self.allocator, "xB77_ATTESTATION:{s}:{d}:{d}", .{ root_hex, total_gdp, ts });
         defer self.allocator.free(data_to_sign);
 
         const signature = @import("../security/crypto.zig").sign(data_to_sign, &self.ctx.vaults.ops.sol_kp);
@@ -303,22 +321,20 @@ pub const HttpBridge = struct {
             \\  "attestation_sig": "{s}",
             \\  "status": "VERIFIED_BY_KERNEL"
             \\}}
-        , .{ sol_addr, root_hex, total_gdp, std.time.timestamp(), sig_hex });
+        , .{ sol_addr, root_hex, total_gdp, ts, sig_hex });
         defer self.allocator.free(json);
 
         var header_buf: [1024]u8 = undefined;
-        const header = try std.fmt.bufPrint(&header_buf, 
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n", 
-            .{ json.len }
+        const header = try std.fmt.bufPrint(&header_buf,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n",
+            .{json.len}
         );
-        try stream.writeAll(header);
-        try stream.writeAll(json);
+        try sendResponse(stream, header, json);
     }
 
-    fn handleYield(self: *HttpBridge, stream: std.net.Stream) !void {
+    fn handleYield(self: *HttpBridge, stream: std.Io.net.Stream) !void {
         _ = self;
-        // This would call the Strategist.calculateOptimalYield()
-        const json = 
+        const json =
             \\{
             \\  "protocol": "Kamino Finance",
             \\  "strategy": "JupSOL/USDC CLMM",
@@ -329,18 +345,16 @@ pub const HttpBridge = struct {
         ;
 
         var header_buf: [1024]u8 = undefined;
-        const header = try std.fmt.bufPrint(&header_buf, 
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n", 
-            .{ json.len }
+        const header = try std.fmt.bufPrint(&header_buf,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n",
+            .{json.len}
         );
-        try stream.writeAll(header);
-        try stream.writeAll(json);
+        try sendResponse(stream, header, json);
     }
 
-    fn handleNegotiations(self: *HttpBridge, stream: std.net.Stream) !void {
+    fn handleNegotiations(self: *HttpBridge, stream: std.Io.net.Stream) !void {
         _ = self;
-        // ... previous implementation ...
-        const json = 
+        const json =
             \\{
             \\  "negotiations": [
             \\    {"from": "ag_trader_01", "to": "ag_cfo_alpha", "msg": "AWP_QUOTE_REQ", "payload": "1.2 SOL @ 4h", "status": "sent"},
@@ -351,18 +365,16 @@ pub const HttpBridge = struct {
         ;
 
         var header_buf: [1024]u8 = undefined;
-        const header = try std.fmt.bufPrint(&header_buf, 
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n", 
-            .{ json.len }
+        const header = try std.fmt.bufPrint(&header_buf,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n",
+            .{json.len}
         );
-        try stream.writeAll(header);
-        try stream.writeAll(json);
+        try sendResponse(stream, header, json);
     }
 
-    fn handlePerformance(self: *HttpBridge, stream: std.net.Stream) !void {
+    fn handlePerformance(self: *HttpBridge, stream: std.Io.net.Stream) !void {
         _ = self;
-        // High-fidelity performance vector for the Bloomberg-style chart
-        const json = 
+        const json =
             \\{
             \\  "pnl_history": [10.2, 12.5, 11.8, 14.2, 16.5, 15.9, 18.4, 21.2, 20.8, 24.5, 27.2, 26.8, 30.1, 34.5, 33.2, 38.4, 42.1, 41.5, 45.8, 49.2, 48.7, 54.2, 58.5, 57.9, 62.4, 66.8, 65.2, 71.4, 75.2, 78.5],
             \\  "yield_efficiency": 94.2,
@@ -371,19 +383,16 @@ pub const HttpBridge = struct {
         ;
 
         var header_buf: [1024]u8 = undefined;
-        const header = try std.fmt.bufPrint(&header_buf, 
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n", 
-            .{ json.len }
+        const header = try std.fmt.bufPrint(&header_buf,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n",
+            .{json.len}
         );
-        try stream.writeAll(header);
-        try stream.writeAll(json);
+        try sendResponse(stream, header, json);
     }
 
-    fn handleBalances(self: *HttpBridge, stream: std.net.Stream) !void {
+    fn handleBalances(self: *HttpBridge, stream: std.Io.net.Stream) !void {
         _ = self;
-        // In a real product, we'd query the L1/L2 clients.
-        // For the deluxe demo, we return a high-fidelity allocation map.
-        const json = 
+        const json =
             \\{
             \\  "balances": [
             \\    {"currency": "USDC", "amount": "12,450", "usd": "$12,450.00", "pct": "45%", "color": "#c8ff2e", "rawAmount": 12450},
@@ -396,17 +405,16 @@ pub const HttpBridge = struct {
         ;
 
         var header_buf: [1024]u8 = undefined;
-        const header = try std.fmt.bufPrint(&header_buf, 
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n", 
-            .{ json.len }
+        const header = try std.fmt.bufPrint(&header_buf,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n",
+            .{json.len}
         );
-        try stream.writeAll(header);
-        try stream.writeAll(json);
+        try sendResponse(stream, header, json);
     }
 
-    fn handleMissions(self: *HttpBridge, stream: std.net.Stream) !void {
+    fn handleMissions(self: *HttpBridge, stream: std.Io.net.Stream) !void {
         _ = self;
-        const json = 
+        const json =
             \\{
             \\  "missions": [
             \\    {
@@ -425,17 +433,16 @@ pub const HttpBridge = struct {
         ;
 
         var header_buf: [1024]u8 = undefined;
-        const header = try std.fmt.bufPrint(&header_buf, 
-            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n", 
-            .{ json.len }
+        const header = try std.fmt.bufPrint(&header_buf,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n",
+            .{json.len}
         );
-        try stream.writeAll(header);
-        try stream.writeAll(json);
+        try sendResponse(stream, header, json);
     }
 
-    fn sendNotFound(self: *HttpBridge, stream: std.net.Stream) !void {
+    fn sendNotFound(self: *HttpBridge, stream: std.Io.net.Stream) !void {
         _ = self;
-        try stream.writeAll("HTTP/1.1 404 Not Found\r\n" ++
+        try streamWrite(stream, "HTTP/1.1 404 Not Found\r\n" ++
             "Access-Control-Allow-Origin: *\r\n" ++
             "Content-Length: 0\r\n" ++
             "Connection: close\r\n\r\n");

@@ -80,9 +80,10 @@ pub const AgentContext = struct {
             try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), content);
         }
 
-        var child = try allocator.create(std.process.Child);
-        child.* = std.process.Child.init(&[_][]const u8{ "./zig-out/bin/xb77", "-p", name, "serve" }, allocator);
-        try child.spawn();
+        const _io = std.Io.Threaded.global_single_threaded.io();
+        const _argv = [_][]const u8{ "./zig-out/bin/xb77", "-p", name, "serve" };
+        const child = try allocator.create(std.process.Child);
+        child.* = try std.process.spawn(_io, .{ .argv = &_argv });
         const name_dupe = try allocator.dupe(u8, name);
         try self.active_agents.put(allocator, name_dupe, child);
     }
@@ -91,7 +92,7 @@ pub const AgentContext = struct {
         const self: *AgentContext = @ptrCast(@alignCast(ptr));
         
         var id: [32]u8 = undefined;
-        const ts = std.time.milliTimestamp();
+        const ts = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds();
         var ts_buf: [8]u8 = undefined;
         std.mem.writeInt(i64, &ts_buf, ts, .little);
         std.crypto.hash.sha2.Sha256.hash(&ts_buf, &id, .{});
@@ -170,7 +171,7 @@ pub const AgentContext = struct {
             .ipfs_client = @import("../mesh/ipfs.zig").IpfsClient.init(allocator, config.ipfs.endpoint, config.ipfs.api_key),
             .brain = undefined,
             .active_agents = .{},
-            .pending_authorizations = .{},
+            .pending_authorizations = std.ArrayListUnmanaged(PendingAuth).empty,
             .orchestrator = orchestrator.Orchestrator.init(allocator),
             .telemetry = telemetry.TelemetryHub.init(allocator),
         };
@@ -181,7 +182,7 @@ pub const AgentContext = struct {
         
         ctx.mb_client.sol_client = &ctx.sol_client;
 
-        ctx.brain = @import("../intelligence/brain.zig").Brain.init(allocator, &ctx.constitution);
+        ctx.brain = @import("../intelligence/brain.zig").Brain.init(allocator, &ctx.store);
         ctx.mesh_manager.store = &ctx.store;
         ctx.registry_manager.sol_client = &ctx.sol_client;
         
@@ -192,10 +193,10 @@ pub const AgentContext = struct {
         // Optional: opt into Hard SNS Enforcement via env var. Keeps the
         // sovereign-identity gate visible in demos and audits without forcing
         // it on every profile.
-        if (std.process.getEnvVarOwned(allocator, "XB77_SNS_NAMESPACE")) |ns| {
+        if (@as(?[]const u8, if (std.c.getenv("XB77_SNS_NAMESPACE")) |_p| std.mem.span(_p) else null)) |ns| {
             ctx.constitution.required_sns_namespace = ns;
             std.debug.print("\n[Shield]  Hard SNS Enforcement: namespace '{s}' is now mandatory for non-trivial transfers.\n", .{ns});
-        } else |_| {}
+        }
 
         ctx.router = pay.PaymentRouter.init(
             allocator,
@@ -245,7 +246,7 @@ pub const AgentContext = struct {
     pub fn deinit(self: *AgentContext) void {
         var it = self.active_agents.iterator();
         while (it.next()) |kv| {
-            _ = kv.value_ptr.*.kill() catch {};
+            kv.value_ptr.*.kill(std.Io.Threaded.global_single_threaded.io());
             self.allocator.free(kv.key_ptr.*);
             self.allocator.destroy(kv.value_ptr.*);
         }
@@ -273,7 +274,7 @@ pub const AgentContext = struct {
 };
 
 fn isQuietMode(allocator: std.mem.Allocator) bool {
-    if (std.process.getEnvVarOwned(allocator, "XB77_DEMO")) |val| {
+    if (@as(?[]const u8, if (std.c.getenv("XB77_DEMO")) |_p| std.mem.span(_p) else null)) |val| {
         allocator.free(val);
         return true;
     } else |_| return false;

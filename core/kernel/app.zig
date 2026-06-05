@@ -39,7 +39,7 @@ pub const AppManager = struct {
 
     pub fn createPlan(self: *AppManager, asset: types.Asset, amount: u64, period_sec: u64, max_periods: u32) !RecurringPlan {
         var plan_id: [32]u8 = undefined;
-        std.crypto.random.bytes(&plan_id);
+        std.Io.Threaded.global_single_threaded.io().random(&plan_id);
 
         const plan = RecurringPlan{
             .plan_id = plan_id,
@@ -56,7 +56,7 @@ pub const AppManager = struct {
     pub fn createQuote(self: *AppManager, service_id: []const u8, amount: u64, expiry: u64) !awp.AppQuoteMsg {
         _ = self; _ = service_id;
         var quote_id: [32]u8 = undefined;
-        std.crypto.random.bytes(&quote_id);
+        std.Io.Threaded.global_single_threaded.io().random(&quote_id);
 
         return awp.AppQuoteMsg{
             .quote_id = quote_id,
@@ -69,7 +69,7 @@ pub const AppManager = struct {
     pub fn acceptQuote(self: *AppManager, quote: awp.AppQuoteMsg) !awp.AppHireMsg {
         _ = self;
         var hire_id: [32]u8 = undefined;
-        std.crypto.random.bytes(&hire_id);
+        std.Io.Threaded.global_single_threaded.io().random(&hire_id);
 
         return awp.AppHireMsg{
             .hire_id = hire_id,

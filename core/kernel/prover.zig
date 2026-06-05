@@ -35,7 +35,7 @@ pub const SovereignProver = struct {
         file.close(std.Io.Threaded.global_single_threaded.io());
 
         // 1. Ejecutar Nargo Prove para el recibo individual
-        const mock_mode = std.process.getEnvVarOwned(self.allocator, "XB77_MOCK_PROVER") catch null;
+        const mock_mode = @as(?[]const u8, if (std.c.getenv("XB77_MOCK_PROVER")) |_p| std.mem.span(_p) else null);
         defer if (mock_mode) |m| self.allocator.free(m);
 
         if (mock_mode != null) {
@@ -46,15 +46,10 @@ pub const SovereignProver = struct {
         }
 
         std.debug.print("\n[PROVER] ️ Generating individual ZK-Receipt proof...", .{});
-        var child = std.process.Child.init(&[_][]const u8{ 
-            "bash", 
-            "scripts/nargo.sh", 
-            "prove", 
-            "--program-dir", 
-            "circuits/zk_receipt" 
-        }, self.allocator);
-        
-        _ = try child.spawnAndWait();
+        const _io2 = std.Io.Threaded.global_single_threaded.io();
+        const _argv2 = [_][]const u8{ "bash", "scripts/nargo.sh", "prove", "--program-dir", "circuits/zk_receipt" };
+        var child2 = try std.process.spawn(_io2, .{ .argv = &_argv2 });
+        _ = try child2.wait(_io2);
         std.debug.print("\n[PROVER]  ZK-Receipt proof anchored on Solana.", .{});
         
         self.store.header.total_proofs += 1;
@@ -140,7 +135,7 @@ pub const SovereignProver = struct {
             );
 
             // 2. Ejecutar Nargo Prove vía el wrapper script
-            const mock_mode = std.process.getEnvVarOwned(self.allocator, "XB77_MOCK_PROVER") catch null;
+            const mock_mode = @as(?[]const u8, if (std.c.getenv("XB77_MOCK_PROVER")) |_p| std.mem.span(_p) else null);
             defer if (mock_mode) |m| self.allocator.free(m);
 
             if (mock_mode != null) {
@@ -153,17 +148,18 @@ pub const SovereignProver = struct {
 
             std.debug.print("\n[PROVER] ️ Executing: scripts/nargo.sh prove --program-dir circuits/state_anchor", .{});
             
-            var child = std.process.Child.init(&[_][]const u8{ 
-                "bash", 
-                "scripts/nargo.sh", 
+            const _argv = [_][]const u8{
+                "bash",
+                "scripts/nargo.sh",
                 "prove",
                 "--program-dir",
-                "circuits/state_anchor"
-            }, self.allocator);
+                "circuits/state_anchor",
+            };
+            const _io = std.Io.Threaded.global_single_threaded.io();
+            var child = try std.process.spawn(_io, .{ .argv = &_argv });
+            const term = try child.wait(_io);
 
-            const term = try child.spawnAndWait();
-
-            if (term != .Exited or term.Exited != 0) {
+            if (term != .exited or term.exited != 0) {
                 std.debug.print("\n[PROVER]  ZK Proof generation failed. Verify container runtime (Docker/Podman).", .{});
                 return error.ZkProofGenerationFailed;
             } 
@@ -172,7 +168,7 @@ pub const SovereignProver = struct {
 
             // 3. Obtener la prueba real
             const proof_file_path = "circuits/state_anchor/proofs/state_anchor.proof";
-            const real_proof = std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), self.allocator, proof_file_path, 1024 * 64) catch |err| {
+            const real_proof = std.Io.Dir.cwd().readFileAlloc(_io, proof_file_path, self.allocator, std.Io.Limit.limited(1024 * 64)) catch |err| {
                 std.debug.print("\n[PROVER]  Could not read proof file: {any}", .{err});
                 return err;
             };

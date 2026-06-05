@@ -143,7 +143,7 @@ pub const Config = struct {
         const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), path, .{});
         defer file.close(std.Io.Threaded.global_single_threaded.io());
         var buf: [4096]u8 = undefined;
-        var writer_buffered = file.writer(&buf);
+        var writer_buffered = file.writer(std.Io.Threaded.global_single_threaded.io(), &buf);
 
         try writer_buffered.interface.print("# xB77 Sovereign Agent Configuration\n", .{});
         if (self.name) |n| try writer_buffered.interface.print("name = \"{s}\"\n", .{n});

@@ -23,7 +23,7 @@ pub const ReasoningTrace = struct {
         description: []const u8,
         risk_score: f32,
     ) !ReasoningTrace {
-        const ts = std.time.timestamp();
+        const ts = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toSeconds();
         
         // Generate a hash of the reasoning for on-chain anchoring
         var hasher = std.crypto.hash.sha2.Sha256.init(.{});

@@ -55,7 +55,7 @@ pub const Orchestrator = struct {
             try self.balances.put(self.allocator, agent_id, balance);
             
             // Actualizar el Heartbeat: El Gateway nos ha validado
-            try self.last_sync_ts.put(self.allocator, agent_id, std.time.milliTimestamp());
+            try self.last_sync_ts.put(self.allocator, agent_id, std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds());
             
             return balance;
         }
@@ -66,9 +66,9 @@ pub const Orchestrator = struct {
     pub fn registerAgent(self: *Orchestrator, agent_id: types.Pubkey, keypair: *const types.Keypair) !u64 {
         const sdk = @import("../core.zig").sdk_core;
         
-        const timestamp = @as(u64, @intCast(std.time.milliTimestamp()));
+        const timestamp = @as(u64, @intCast(std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds()));
         var nonce: [12]u8 = undefined;
-        std.crypto.random.bytes(&nonce);
+        std.Io.Threaded.global_single_threaded.io().random(&nonce);
 
         const req = try sdk.buildSignedRequest(
             self.allocator,
@@ -126,10 +126,10 @@ pub const Orchestrator = struct {
     pub fn processUsage(self: *Orchestrator, agent_id: types.Pubkey, report: telemetry.TelemetryReport) !u64 {
         const cost = report.calculateCost();
         
-        if (std.process.getEnvVarOwned(self.allocator, "XB77_DEMO")) |val| {
+        if (@as(?[]const u8, if (std.c.getenv("XB77_DEMO")) |_p| std.mem.span(_p) else null)) |val| {
             self.allocator.free(val);
             return 1000000; 
-        } else |_| {}
+        }
 
         var balance = self.balances.get(agent_id) orelse try self.syncBalance(agent_id);
         
@@ -148,9 +148,9 @@ pub const Orchestrator = struct {
         // For the demo, we'll try to find the keypair or skip reporting if not available.
         // Actually, Orchestrator should probably have access to the agent's identity.
         
-        const timestamp = @as(u64, @intCast(std.time.milliTimestamp()));
+        const timestamp = @as(u64, @intCast(std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds()));
         var nonce: [12]u8 = undefined;
-        std.crypto.random.bytes(&nonce);
+        std.Io.Threaded.global_single_threaded.io().random(&nonce);
 
         const payload = try std.fmt.allocPrint(self.allocator, "{{\"cost\":{d},\"report_ts\":{d}}}", .{cost, timestamp});
         defer self.allocator.free(payload);
@@ -178,17 +178,17 @@ pub const Orchestrator = struct {
     /// Verifica si un agente tiene permitido operar.
     pub fn canOperate(self: *Orchestrator, agent_id: types.Pubkey) bool {
         // En modo DEMO, todos los agentes tienen crédito infinito para que la presentación no falle.
-        if (std.process.getEnvVarOwned(self.allocator, "XB77_DEMO")) |val| {
+        if (@as(?[]const u8, if (std.c.getenv("XB77_DEMO")) |_p| std.mem.span(_p) else null)) |val| {
             self.allocator.free(val);
             return true;
-        } else |_| {}
+        }
 
         // --- Sovereign Heartbeat Check ---
         // Para que esto sea un servicio vendido por nosotros, el agente
         // debe haber sincronizado con el Gateway en los últimos 30 minutos.
         // Si no, forzamos un sync o bloqueamos.
         const last_sync = self.last_sync_ts.get(agent_id) orelse 0;
-        const now = std.time.milliTimestamp();
+        const now = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds();
         if (now - last_sync > 30 * 60 * 1000) {
             _ = self.syncBalance(agent_id) catch {
                 std.debug.print("\n[ORCH  ]  ERROR: Operational Lease Expired. Please reconnect to Gateway.\n", .{});

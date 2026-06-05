@@ -114,7 +114,7 @@ pub const Engine = struct {
 
             tick_count += 1;
             std.debug.print("\n[Kernel] --- TICK END ---", .{});
-            std.Thread.sleep(10 * std.time.ns_per_s);
+            std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(10 * std.time.ns_per_s) }, .awake) catch {};
         }
     }
 
@@ -135,7 +135,7 @@ pub const Engine = struct {
             },
             .expand => {
                 var name_buf: [32]u8 = undefined;
-                const name = try std.fmt.bufPrint(&name_buf, "worker-{d}", .{@mod(std.time.milliTimestamp(), 1000)});
+                const name = try std.fmt.bufPrint(&name_buf, "worker-{d}", .{@mod(std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds(), 1000)});
                 try self.ctx.spawnAgent(name);
             },
             else => {},
@@ -178,7 +178,7 @@ pub const Engine = struct {
                 defer if (sig_hex.len > 8) self.allocator.free(sig_hex);
 
                 self.ctx.store.record(.{
-                    .timestamp = std.time.milliTimestamp(),
+                    .timestamp = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds(),
                     .chain = event.chain,
                     .entry_type = .audit,
                     .description = "Sovereign Transaction Accepted",
@@ -192,7 +192,7 @@ pub const Engine = struct {
                     var path_buf: [256]u8 = undefined;
                     const prover_path = std.fmt.bufPrint(&path_buf, "{s}/zk_prover_{s}.toml", .{ self.ctx.config.vaults.path, sig_hex[0..8] }) catch "Prover.toml";
                     r.writeProverToml(prover_path) catch {};
-                } else |_| {}
+                }
             },
             else => {},
         }

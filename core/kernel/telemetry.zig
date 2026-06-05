@@ -33,7 +33,7 @@ pub const TelemetryHub = struct {
     }
 
     pub fn startSession(self: *TelemetryHub) void {
-        self.start_time = std.time.milliTimestamp();
+        self.start_time = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds();
         self.rpc_count = 0;
         self.token_count = 0;
     }
@@ -47,7 +47,7 @@ pub const TelemetryHub = struct {
     }
 
     pub fn endSession(self: *TelemetryHub) TelemetryReport {
-        const end_time = std.time.milliTimestamp();
+        const end_time = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds();
         return TelemetryReport{
             .compute_ms = @intCast(end_time - self.start_time),
             .rpc_calls = self.rpc_count,
