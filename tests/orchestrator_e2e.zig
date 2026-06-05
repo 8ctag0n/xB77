@@ -23,7 +23,7 @@ test "Orchestrator E2E: Full Billing Lifecycle" {
     try orch.creditDeposit(agent_id, lamports);
     
     // Bypass lease for test
-    try orch.last_sync_ts.put(allocator, agent_id, std.time.milliTimestamp());
+    try orch.last_sync_ts.put(allocator, agent_id, std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds());
     
     try std.testing.expect(orch.canOperate(agent_id));
     const initial_balance = orch.balances.get(agent_id).?;
@@ -39,7 +39,7 @@ test "Orchestrator E2E: Full Billing Lifecycle" {
     hub.recordTokens(2000);
     
     // Simulate 500ms of compute
-    std.Thread.sleep(500 * std.time.ns_per_ms);
+    std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(500 * std.time.ns_per_ms) }, .awake) catch {};
     
     const report = hub.endSession();
     
@@ -63,7 +63,7 @@ test "Orchestrator E2E: Full Billing Lifecycle" {
         .compute_ms = 1_000_000,
         .rpc_calls = 100_000,
         .ai_tokens = 0,
-        .timestamp = std.time.milliTimestamp(),
+        .timestamp = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds(),
     };
     
     const err = orch.processUsage(agent_id, bankrupt_report);

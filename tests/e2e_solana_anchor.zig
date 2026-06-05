@@ -51,7 +51,7 @@ pub fn main() !void {
     var balance: u64 = 0;
     var retries: usize = 0;
     while (retries < 10) : (retries += 1) {
-        std.Thread.sleep(1 * std.time.ns_per_s);
+        std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(1 * std.time.ns_per_s) }, .awake) catch {};
         balance = try client.getBalance(agent_address);
         if (balance > 0) break;
         std.debug.print(".", .{});

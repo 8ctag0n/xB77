@@ -88,7 +88,7 @@ test "Ghost Payment E2E: Settlement and ZK Anchoring" {
     // takes minutes — gated behind XB77_RUN_REAL_ZK so `zig build test` stays
     // fast. The end-to-end ZK pipeline is covered by step 4 + 5 of
     // scripts/demo_deluxe.sh against a live validator.
-    const run_real_zk = std.process.getEnvVarOwned(allocator, "XB77_RUN_REAL_ZK") catch null;
+    const run_real_zk = @as(?[]const u8, if (std.c.getenv("XB77_RUN_REAL_ZK")) |_p| std.mem.span(_p) else null);
     if (run_real_zk) |s| {
         defer allocator.free(s);
         try prover.checkAndAnchor(&ctx.vaults.ops.sol_kp);

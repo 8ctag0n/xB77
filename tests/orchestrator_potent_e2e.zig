@@ -38,7 +38,7 @@ test "Orchestrator Potent E2E: Agent Lifecycle & Credit-Gating" {
     try orch.creditDeposit(agent_id, deposit_lamports);
     
     // Bypass lease for test
-    try orch.last_sync_ts.put(allocator, agent_id, std.time.milliTimestamp());
+    try orch.last_sync_ts.put(allocator, agent_id, std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds());
     
     try std.testing.expect(orch.canOperate(agent_id));
     std.debug.print("\n[ORCH]  Access Granted. Balance: {d} SC", .{orch.balances.get(agent_id).?});
@@ -65,7 +65,7 @@ test "Orchestrator Potent E2E: Agent Lifecycle & Credit-Gating" {
     hub.recordTokens(500); // 500 AI tokens used
     
     // Simulate compute time (100ms)
-    std.Thread.sleep(100 * std.time.ns_per_ms);
+    std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(100 * std.time.ns_per_ms) }, .awake) catch {};
     
     const report = hub.endSession();
     
@@ -90,7 +90,7 @@ test "Orchestrator Potent E2E: Agent Lifecycle & Credit-Gating" {
         .compute_ms = 500_000, // 500 seconds
         .rpc_calls = 5_000,
         .ai_tokens = 10_000,
-        .timestamp = std.time.milliTimestamp(),
+        .timestamp = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds(),
     };
     
     // Force set balance to something small to trigger failure

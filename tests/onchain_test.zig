@@ -147,9 +147,9 @@ test "solana_tx: buildLegacyTx structure" {
 
     const payer = crypto_mod.generateKeypair();
     var prog: [32]u8 = undefined;
-    std.crypto.random.bytes(&prog);
+    std.Io.Threaded.global_single_threaded.io().random(&prog);
     var bh: [32]u8 = undefined;
-    std.crypto.random.bytes(&bh);
+    std.Io.Threaded.global_single_threaded.io().random(&bh);
 
     const data = [_]u8{ 0xAA, 0xBB };
     const ix = solana_tx.Instruction{
@@ -174,9 +174,9 @@ test "solana_tx: sign + Ed25519 verify" {
 
     const kp = crypto_mod.generateKeypair();
     var prog: [32]u8 = undefined;
-    std.crypto.random.bytes(&prog);
+    std.Io.Threaded.global_single_threaded.io().random(&prog);
     var bh: [32]u8 = undefined;
-    std.crypto.random.bytes(&bh);
+    std.Io.Threaded.global_single_threaded.io().random(&bh);
 
     const data = [_]u8{ 1, 2, 3 };
     const ix = solana_tx.Instruction{

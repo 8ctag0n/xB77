@@ -15,9 +15,8 @@ pub fn main() !void {
 
     var adapter = ArbitrumAdapter.init(
         allocator,
+        "0x7777777777777777777777777777777777777777", // replace with real deployed constitution address
         "https://sepolia-rollup.arbitrum.io/rpc",
-        [_]u8{0x42} ** 20,
-        [_]u8{0x77} ** 20, // replace with real deployed constitution address
     );
     defer adapter.deinit();
 
