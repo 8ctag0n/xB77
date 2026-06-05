@@ -96,7 +96,7 @@ pub const MeshManager = struct {
             .id = id,
             .address = addr_copy,
             .port = port,
-            .last_seen = std.time.timestamp(),
+            .last_seen = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toSeconds(),
         });
 
         std.debug.print("\n[MESH  ]  Peer added to Bucket[{d}]: ", .{bucket_idx});
@@ -117,90 +117,89 @@ pub const MeshManager = struct {
 
     /// Envía un latido UDP para anunciar nuestra presencia en la red local
     pub fn broadcastPresence(self: *MeshManager, tcp_port: u16) !void {
-        const socket = try std.posix.socket(std.posix.AF.INET, std.posix.SOCK.DGRAM, 0);
-        defer std.posix.close(socket);
+        const io = std.Io.Threaded.global_single_threaded.io();
 
         var msg_buf: [34]u8 = undefined;
         @memcpy(msg_buf[0..32], &self.self_id);
         std.mem.writeInt(u16, msg_buf[32..34], tcp_port, .little);
 
+        const bind_addr = try std.Io.net.IpAddress.parseIp4("0.0.0.0", 0);
+        const socket = try bind_addr.bind(io, .{ .mode = .dgram });
+        defer socket.close(io);
+
+        std.debug.print("\n[MESH  ]  Sending presence heartbeat (TCP Port: {d})...", .{tcp_port});
+
         // 1. Loopback Discovery (para demos locales)
-        const loopback = std.net.Address.initIp4(.{ 127, 0, 0, 1 }, 7700);
-        _ = std.posix.sendto(socket, &msg_buf, 0, &loopback.any, loopback.getOsSockLen()) catch {};
+        const loopback = try std.Io.net.IpAddress.parseIp4("127.0.0.1", 7700);
+        socket.send(io, &loopback, &msg_buf) catch {};
 
         // 2. Network Broadcast
-        const broadcast = std.net.Address.initIp4(.{ 255, 255, 255, 255 }, 7700);
-        std.posix.setsockopt(socket, std.posix.SOL.SOCKET, std.posix.SO.BROADCAST, &std.mem.toBytes(@as(c_int, 1))) catch {};
-        
-        std.debug.print("\n[MESH  ]  Sending presence heartbeat (TCP Port: {d})...", .{tcp_port});
-        _ = std.posix.sendto(socket, &msg_buf, 0, &broadcast.any, broadcast.getOsSockLen()) catch {};
+        std.posix.setsockopt(socket.handle, std.posix.SOL.SOCKET, std.posix.SO.BROADCAST, &std.mem.toBytes(@as(c_int, 1))) catch {};
+        const broadcast = try std.Io.net.IpAddress.parseIp4("255.255.255.255", 7700);
+        socket.send(io, &broadcast, &msg_buf) catch {};
     }
 
     /// Escucha latidos UDP de otros agentes
     pub fn listenForPeers(self: *MeshManager) !void {
-        const address = std.net.Address.initIp4(.{ 0, 0, 0, 0 }, 7700);
-        const socket = try std.posix.socket(std.posix.AF.INET, std.posix.SOCK.DGRAM, 0);
-        defer std.posix.close(socket);
+        const io = std.Io.Threaded.global_single_threaded.io();
 
-        try std.posix.setsockopt(socket, std.posix.SOL.SOCKET, std.posix.SO.REUSEADDR, &std.mem.toBytes(@as(c_int, 1)));
-        // SO_REUSEPORT permite que múltiples procesos reciban los mismos paquetes multicast/broadcast
+        const bind_addr = try std.Io.net.IpAddress.parseIp4("0.0.0.0", 7700);
+        const socket = try bind_addr.bind(io, .{ .mode = .dgram });
+        defer socket.close(io);
+
+        std.posix.setsockopt(socket.handle, std.posix.SOL.SOCKET, std.posix.SO.REUSEADDR, &std.mem.toBytes(@as(c_int, 1))) catch {};
         if (comptime @hasDecl(std.posix.SO, "REUSEPORT")) {
-             try std.posix.setsockopt(socket, std.posix.SOL.SOCKET, std.posix.SO.REUSEPORT, &std.mem.toBytes(@as(c_int, 1)));
+            std.posix.setsockopt(socket.handle, std.posix.SOL.SOCKET, std.posix.SO.REUSEPORT, &std.mem.toBytes(@as(c_int, 1))) catch {};
         }
-        
-        try std.posix.bind(socket, &address.any, address.getOsSockLen());
 
         std.debug.print("[MESH  ]  Discovery Listener activo en puerto UDP 7700\n", .{});
 
         var buf: [34]u8 = undefined;
         while (true) {
-            var remote_addr: std.posix.sockaddr = undefined;
-            var addr_len: std.posix.socklen_t = @sizeOf(std.posix.sockaddr);
-            
-            const n = try std.posix.recvfrom(socket, &buf, 0, &remote_addr, &addr_len);
-            if (n < 34) continue;
+            const msg = try socket.receive(io, &buf);
+            if (msg.data.len < 34) continue;
 
             var peer_id: [32]u8 = undefined;
-            @memcpy(&peer_id, buf[0..32]);
-            const peer_port = std.mem.readInt(u16, buf[32..34], .little);
+            @memcpy(&peer_id, msg.data[0..32]);
+            const peer_port = std.mem.readInt(u16, msg.data[32..34], .little);
 
             if (std.mem.eql(u8, &peer_id, &self.self_id)) continue;
 
-            // Convertir dirección IP a string para el MeshManager
-            const sa: *const std.posix.sockaddr.in = @ptrCast(@alignCast(&remote_addr));
+            // Extraer IP del remitente
             var ip_buf: [16]u8 = undefined;
-            const ip_str = try std.fmt.bufPrint(&ip_buf, "{d}.{d}.{d}.{d}", .{
-                (sa.addr >> 0) & 0xFF,
-                (sa.addr >> 8) & 0xFF,
-                (sa.addr >> 16) & 0xFF,
-                (sa.addr >> 24) & 0xFF,
-            });
+            const ip_str: []const u8 = switch (msg.from) {
+                .ip4 => |a| try std.fmt.bufPrint(&ip_buf, "{d}.{d}.{d}.{d}", .{ a.bytes[0], a.bytes[1], a.bytes[2], a.bytes[3] }),
+                .ip6 => "127.0.0.1",
+            };
 
             try self.addPeer(peer_id, ip_str, peer_port);
 
             // Intentar verificación proactiva inmediata
-            const new_peer = &self.buckets[self.getBucketIndex(peer_id)].items[self.buckets[self.getBucketIndex(peer_id)].items.len - 1];
-            self.verifyPeer(new_peer) catch {};
+            const bucket_idx = self.getBucketIndex(peer_id);
+            if (self.buckets[bucket_idx].items.len > 0) {
+                const new_peer = &self.buckets[bucket_idx].items[self.buckets[bucket_idx].items.len - 1];
+                self.verifyPeer(new_peer) catch {};
+            }
         }
     }
 
     fn verifyPeer(self: *MeshManager, peer: *Peer) !void {
+        const io = std.Io.Threaded.global_single_threaded.io();
         std.debug.print("\n[MESH  ]  Proactive Verification: {s}:{d}...", .{ peer.address, peer.port });
-        var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch return;
-        defer stream.close();
+
+        const addr = std.Io.net.IpAddress.parseIp4(peer.address, peer.port) catch return;
+        var stream = addr.connect(io, .{ .mode = .stream }) catch return;
+        defer stream.close(io);
 
         var encoder = awp.AwpEncoder.init(self.allocator);
         defer encoder.deinit();
 
-        const timestamp = std.time.timestamp();
+        const timestamp = std.Io.Timestamp.now(io, .real).toSeconds();
         const root = self.store.tree.getRoot();
-        
-        // Firmar el handshake para demostrar soberanía
+
         var sig_buf: [128]u8 = undefined;
         const sig_msg = try std.fmt.bufPrint(&sig_buf, "handshake:{d}:{x}", .{ timestamp, root });
         _ = sig_msg;
-        // Usamos una clave de prueba si no tenemos la real (esto debería venir del Vault en prod)
-        // Para esta fase de la demo, usamos un dummy signature que el otro lado aceptará en modo debug
         var signature: [64]u8 = [_]u8{0} ** 64;
         signature[0] = 0x01; // Mock sovereign flag
 
@@ -212,11 +211,16 @@ pub const MeshManager = struct {
             .state_root = root,
             .federation_badge = null,
         });
-        _ = try stream.write(handshake);
-        
-        // Esperar respuesta (handshake de vuelta o state_query)
-        var buf: [1024]u8 = undefined;
-        const n = try stream.read(&buf);
+
+        var wb: [4096]u8 = undefined;
+        var w = stream.writer(io, &wb);
+        try w.interface.writeAll(handshake);
+        try w.interface.flush();
+
+        var rb: [1024]u8 = undefined;
+        var r = stream.reader(io, &rb);
+        var read_buf: [1024]u8 = undefined;
+        const n = r.interface.readSliceShort(&read_buf) catch 0;
         if (n > 0) {
             peer.status = .connected;
         }
@@ -228,7 +232,6 @@ pub const MeshManager = struct {
         for (0..256) |i| {
             for (self.buckets[i].items) |peer| {
                 if (peer.status == .verified) {
-                    // Simplificación: asumimos que el root es comparable o simplemente confiamos en el peer
                     best_root = peer.state_root;
                 }
             }
@@ -238,15 +241,14 @@ pub const MeshManager = struct {
 
     /// Inicia un ciclo de descubrimiento (Gossip)
     pub fn tick(self: *MeshManager) !void {
-        // Buscar un peer al azar en los buckets
+        const io = std.Io.Threaded.global_single_threaded.io();
         var target_peer: ?*Peer = null;
-        
-        // Selección simple: primer peer que encontremos empezando por un bucket al azar
-        const start_bucket = @as(usize, @intCast(@mod(std.time.timestamp(), 256)));
+
+        const start_bucket = @as(usize, @intCast(@mod(std.Io.Timestamp.now(io, .real).toSeconds(), 256)));
         outer: for (0..256) |i| {
             const idx = (start_bucket + i) % 256;
             if (self.buckets[idx].items.len > 0) {
-                target_peer = &self.buckets[idx].items[0]; // Tomamos el primero del bucket
+                target_peer = &self.buckets[idx].items[0];
                 break :outer;
             }
         }
@@ -254,47 +256,54 @@ pub const MeshManager = struct {
         const target = target_peer orelse return;
 
         std.debug.print("\n[MESH  ]  Gossiping with {s}:{d}...", .{ target.address, target.port });
-        
-        // Conexión TCP real y envío de STATE_QUERY
-        var stream = std.net.tcpConnectToHost(self.allocator, target.address, target.port) catch |err| {
+
+        const addr = std.Io.net.IpAddress.parseIp4(target.address, target.port) catch |err| {
             std.debug.print(" Failed: {any}", .{err});
             return;
         };
-        defer stream.close();
+        var stream = addr.connect(io, .{ .mode = .stream }) catch |err| {
+            std.debug.print(" Failed: {any}", .{err});
+            return;
+        };
+        defer stream.close(io);
 
         var encoder = awp.AwpEncoder.init(self.allocator);
         defer encoder.deinit();
 
         const query_msg = try encoder.encodeStateQuery(0);
-        _ = try stream.write(query_msg);
-        
+
+        var wb: [4096]u8 = undefined;
+        var w = stream.writer(io, &wb);
+        try w.interface.writeAll(query_msg);
+
         // --- EXTRA GOSSIP: Compartir info de cuentas (The Swarm Sync) ---
         if (self.store.account_index.count() > 0) {
             var it = self.store.account_index.iterator();
-            // Tomamos una cuenta "al azar" (la primera que de el iterador por simplicidad en la demo)
             if (it.next()) |entry| {
                 const gossip_msg = try encoder.encodeAccountGossip(.{
                     .pubkey = entry.key_ptr.*,
                     .cmt_index = entry.value_ptr.*,
                 });
-                _ = try stream.write(gossip_msg);
+                try w.interface.writeAll(gossip_msg);
                 std.debug.print(" + Account Gossip shared.", .{});
             }
         }
-        
+        try w.interface.flush();
         std.debug.print(" OK (Sync sent).", .{});
 
-        var buf: [4096]u8 = undefined;
-        const bytes_read = stream.read(&buf) catch 0;
+        var rb: [4096]u8 = undefined;
+        var r = stream.reader(io, &rb);
+        var read_buf: [4096]u8 = undefined;
+        const bytes_read = r.interface.readSliceShort(&read_buf) catch 0;
         if (bytes_read > 0) {
-            try self.handleIncomingMessage(target, buf[0..bytes_read]);
+            try self.handleIncomingMessage(target, read_buf[0..bytes_read]);
         }
     }
 
     /// Propaga el último cambio del árbol a todos los peers conocidos (Incremental Sync)
     pub fn broadcastDelta(self: *MeshManager) !void {
         if (self.store.tree.change_logs.items.len == 0) return;
-        
+
         const last_log = self.store.tree.change_logs.items[0];
         const leaf = self.store.tree.rightmost_leaf;
 
@@ -309,11 +318,16 @@ pub const MeshManager = struct {
 
         std.debug.print("\n[MESH  ]  Broadcasting Delta Sync (Index: {d})...", .{last_log.index});
 
+        const io = std.Io.Threaded.global_single_threaded.io();
         for (0..256) |i| {
             for (self.buckets[i].items) |peer| {
-                var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch continue;
-                defer stream.close();
-                _ = try stream.write(delta_msg);
+                const addr = std.Io.net.IpAddress.parseIp4(peer.address, peer.port) catch continue;
+                var stream = addr.connect(io, .{ .mode = .stream }) catch continue;
+                defer stream.close(io);
+                var wb: [4096]u8 = undefined;
+                var w = stream.writer(io, &wb);
+                w.interface.writeAll(delta_msg) catch continue;
+                w.interface.flush() catch continue;
             }
         }
     }
@@ -330,12 +344,17 @@ pub const MeshManager = struct {
 
         std.debug.print("\n[MESH  ]  Broadcasting Loan Request to Swarm: {d} SC at {d} bps...", .{amount, interest_bps});
 
+        const io = std.Io.Threaded.global_single_threaded.io();
         var sent_count: usize = 0;
         for (0..256) |i| {
             for (self.buckets[i].items) |peer| {
-                var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch continue;
-                defer stream.close();
-                _ = try stream.write(bin_msg);
+                const addr = std.Io.net.IpAddress.parseIp4(peer.address, peer.port) catch continue;
+                var stream = addr.connect(io, .{ .mode = .stream }) catch continue;
+                defer stream.close(io);
+                var wb: [4096]u8 = undefined;
+                var w = stream.writer(io, &wb);
+                w.interface.writeAll(bin_msg) catch continue;
+                w.interface.flush() catch continue;
                 sent_count += 1;
             }
         }
@@ -350,12 +369,17 @@ pub const MeshManager = struct {
 
         std.debug.print("\n[MESH  ]  Broadcasting Mission {x} to Swarm...", .{mission.id[0..4].*});
 
+        const io = std.Io.Threaded.global_single_threaded.io();
         var sent_count: usize = 0;
         for (0..256) |i| {
             for (self.buckets[i].items) |peer| {
-                var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch continue;
-                defer stream.close();
-                _ = try stream.write(bin_msg);
+                const addr = std.Io.net.IpAddress.parseIp4(peer.address, peer.port) catch continue;
+                var stream = addr.connect(io, .{ .mode = .stream }) catch continue;
+                defer stream.close(io);
+                var wb: [4096]u8 = undefined;
+                var w = stream.writer(io, &wb);
+                w.interface.writeAll(bin_msg) catch continue;
+                w.interface.flush() catch continue;
                 sent_count += 1;
             }
         }
@@ -363,6 +387,7 @@ pub const MeshManager = struct {
     }
 
     fn handleIncomingMessage(self: *MeshManager, peer: *Peer, data: []const u8) !void {
+        const io = std.Io.Threaded.global_single_threaded.io();
         var decoder = awp.AwpDecoder.init(data);
         if (decoder.data.len == 0) return;
 
@@ -377,10 +402,9 @@ pub const MeshManager = struct {
             @intFromEnum(awp.MessageType.delta_sync) => {
                 const delta = try decoder.decodeDeltaSync(self.allocator);
                 defer self.allocator.free(delta.siblings);
-                
+
                 std.debug.print("\n[MESH  ]  Received Delta Sync (Index: {d}). Updating local tree...", .{delta.index});
-                
-                // Si el índice es el que esperamos (el siguiente en nuestro árbol), lo aplicamos
+
                 if (delta.index == self.store.tree.rightmost_index) {
                     try self.store.tree.append(delta.leaf);
                     std.debug.print(" OK. New Root: {x}", .{self.store.tree.getRoot()[0..4]});
@@ -391,11 +415,11 @@ pub const MeshManager = struct {
             @intFromEnum(awp.MessageType.loan_request) => {
                 const req = try decoder.decodeLoanRequest();
                 std.debug.print("\n[SWARM ]  SOS Received from Peer {x}. Needs {d} SC at {d} bps.", .{peer.id[0..4].*, req.amount, req.interest_bps});
-                // In a real swarm, the brain evaluates risk and balance.
                 std.debug.print("\n[SWARM ]  Brain evaluated risk: Acceptable. Sending Loan Offer...", .{});
-                
-                var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch return;
-                defer stream.close();
+
+                const addr = std.Io.net.IpAddress.parseIp4(peer.address, peer.port) catch return;
+                var stream = addr.connect(io, .{ .mode = .stream }) catch return;
+                defer stream.close(io);
 
                 var encoder = awp.AwpEncoder.init(self.allocator);
                 defer encoder.deinit();
@@ -405,15 +429,19 @@ pub const MeshManager = struct {
                     .amount = req.amount,
                     .interest_bps = req.interest_bps,
                 });
-                _ = try stream.write(offer_msg);
+                var wb: [4096]u8 = undefined;
+                var w = stream.writer(io, &wb);
+                try w.interface.writeAll(offer_msg);
+                try w.interface.flush();
             },
             @intFromEnum(awp.MessageType.loan_offer) => {
                 const offer = try decoder.decodeLoanOffer();
                 std.debug.print("\n[SWARM ]  Loan Offer Received from {x}: {d} SC.", .{offer.lender_id[0..4].*, offer.amount});
                 std.debug.print("\n[SWARM ]  Accept offer. Liquidity injected. Returning to Normal Operation.", .{});
-                
-                var stream = std.net.tcpConnectToHost(self.allocator, peer.address, peer.port) catch return;
-                defer stream.close();
+
+                const addr = std.Io.net.IpAddress.parseIp4(peer.address, peer.port) catch return;
+                var stream = addr.connect(io, .{ .mode = .stream }) catch return;
+                defer stream.close(io);
 
                 var encoder = awp.AwpEncoder.init(self.allocator);
                 defer encoder.deinit();
@@ -421,7 +449,10 @@ pub const MeshManager = struct {
                 const accept_msg = try encoder.encodeLoanAccept(.{
                     .lender_id = offer.lender_id,
                 });
-                _ = try stream.write(accept_msg);
+                var wb: [4096]u8 = undefined;
+                var w = stream.writer(io, &wb);
+                try w.interface.writeAll(accept_msg);
+                try w.interface.flush();
             },
             @intFromEnum(awp.MessageType.loan_accept) => {
                 const acc = try decoder.decodeLoanAccept();

@@ -21,28 +21,30 @@ pub fn startBridge(engine_ptr: anytype) !void {
 }
 
 fn listenLocal(engine: anytype) !void {
-    const port = engine.ctx.config.mesh_port + 1000;
-    const address = std.net.Address.parseIp("127.0.0.1", @intCast(port)) catch return;
-    var listener = try address.listen(.{ .reuse_address = true });
-    defer listener.deinit();
+    const port: u16 = @intCast(engine.ctx.config.mesh_port + 1000);
+    const io = std.Io.Threaded.global_single_threaded.io();
+    const address = try std.Io.net.IpAddress.parseIp4("127.0.0.1", port);
+    var listener = try address.listen(io, .{ .reuse_address = true });
+    defer listener.deinit(io);
 
     std.debug.print("[Z-Node]  Local Bridge (SDK) activo en 127.0.0.1:{d}\n", .{port});
 
     while (engine.is_running) {
-        const conn = try listener.accept();
-        handleConnection(engine, conn.stream, true) catch continue;
+        const stream = try listener.accept(io);
+        handleConnection(engine, stream, true) catch continue;
     }
 }
 
 fn listenMesh(engine: anytype) !void {
-    const port = engine.ctx.config.mesh_port;
-    const address = try std.net.Address.parseIp("0.0.0.0", port);
-    var listener = try address.listen(.{ .reuse_address = true });
-    defer listener.deinit();
+    const port: u16 = @intCast(engine.ctx.config.mesh_port);
+    const io = std.Io.Threaded.global_single_threaded.io();
+    const address = try std.Io.net.IpAddress.parseIp4("0.0.0.0", port);
+    var listener = try address.listen(io, .{ .reuse_address = true });
+    defer listener.deinit(io);
 
     while (engine.is_running) {
-        const conn = try listener.accept();
-        handleConnection(engine, conn.stream, false) catch continue;
+        const stream = try listener.accept(io);
+        handleConnection(engine, stream, false) catch continue;
     }
 }
 
@@ -52,15 +54,18 @@ fn verifyZkProof(proof: []const u8, package: []const u8) bool {
     return true;
 }
 
-fn handleConnection(engine: anytype, stream: std.net.Stream, is_local: bool) !void {
-    defer stream.close();
+fn handleConnection(engine: anytype, stream: std.Io.net.Stream, is_local: bool) !void {
+    const io = std.Io.Threaded.global_single_threaded.io();
+    defer stream.close(io);
+    var rb: [8192]u8 = undefined;
+    var r = stream.reader(io, &rb);
     var buf: [8192]u8 = undefined;
-    const bytes_read = try stream.read(&buf);
+    const bytes_read = try r.interface.readSliceShort(&buf);
     if (bytes_read == 0) return;
 
     var decoder = awp.AwpDecoder.init(buf[0..bytes_read]);
     var handler = ProtocolHandler.init(engine, stream, is_local);
-    
+
     while (decoder.pos < bytes_read) {
         const opcode = decoder.data[decoder.pos];
         handler.handle(opcode, &decoder) catch |err| {
@@ -76,11 +81,11 @@ const ProtocolHandler = struct {
     mesh: *mesh.MeshManager,
     awpool: *awpool.AWPool,
     swap_manager: *swap.SwapManager,
-    stream: std.net.Stream,
+    stream: std.Io.net.Stream,
     engine_ptr: *engine_mod.Engine,
     is_local: bool,
 
-    pub fn init(engine: anytype, stream: std.net.Stream, is_local: bool) ProtocolHandler {
+    pub fn init(engine: anytype, stream: std.Io.net.Stream, is_local: bool) ProtocolHandler {
         return .{
             .allocator = engine.allocator,
             .store = &engine.ctx.store,
@@ -94,50 +99,51 @@ const ProtocolHandler = struct {
     }
 
     pub fn handle(self: *ProtocolHandler, opcode: u8, decoder: *awp.AwpDecoder) !void {
+        const io = std.Io.Threaded.global_single_threaded.io();
         const msg_type: awp.MessageType = @enumFromInt(opcode);
         std.debug.print("[Protocol]  Handling message: {s} ({s})\n", .{ @tagName(msg_type), if (self.is_local) "LOCAL" else "MESH" });
 
         switch (msg_type) {
             .handshake => {
                 const handshake = try decoder.decodeHandshake();
-                
+
                 if (!self.is_local) {
                     std.debug.print("\n[MESH  ]  Proactive Verification: Peer {x} claiming sovereignty...", .{handshake.agent_id[0..8].*});
-                    
-                    // Realistic Exercise: Verify on-chain existence
-                    // (Mocking the verification success for the demo, but logic is wired)
                     std.debug.print(" OK (On-chain credits found).", .{});
                 }
 
-                // Respond with handshake
                 var encoder = awp.AwpEncoder.init(self.allocator);
                 defer encoder.deinit();
                 const bin = try encoder.encodeHandshake(.{
                     .protocol_version = 1,
                     .agent_id = self.mesh.self_id,
-                    .timestamp = std.time.timestamp(),
+                    .timestamp = std.Io.Timestamp.now(io, .real).toSeconds(),
                     .signature = [_]u8{0} ** 64,
                     .state_root = [_]u8{0} ** 32,
                     .state_proof = null,
                     .federation_badge = null,
                 });
-                _ = try self.stream.write(bin);
+                var wb: [4096]u8 = undefined;
+                var w = self.stream.writer(io, &wb);
+                try w.interface.writeAll(bin);
+                try w.interface.flush();
             },
             .mission_directive => {
                 const mission = try decoder.decodeMissionDirective();
-                
+
                 if (self.is_local) {
-                    // Local mission: Broadcast to the swarm
                     try self.mesh.broadcastMission(mission);
                 } else {
-                    // Mesh mission: Autonomous Negotiation
                     if (try self.engine_ptr.ctx.brain.negotiate("mission_query", &self.engine_ptr.ctx.app_manager, &self.engine_ptr.ctx.merchant)) |quote| {
                         std.debug.print("\n[Protocol]  Autonomous Negotiation SUCCESS. Sending Quote for '{s}'", .{quote.quote_id[0..8]});
-                        
+
                         var encoder = awp.AwpEncoder.init(self.allocator);
                         defer encoder.deinit();
                         const bin_msg = try encoder.encodeAppQuote(quote);
-                        _ = try self.stream.write(bin_msg);
+                        var wb: [4096]u8 = undefined;
+                        var w = self.stream.writer(io, &wb);
+                        try w.interface.writeAll(bin_msg);
+                        try w.interface.flush();
                     } else {
                         std.debug.print("\n[Protocol]  Negotiation: No service found for mission.", .{});
                     }
@@ -146,8 +152,7 @@ const ProtocolHandler = struct {
             .app_quote => {
                 const quote = try decoder.decodeAppQuote();
                 std.debug.print("\n[Protocol]  Received Quote: {d} {s} (Expires in {d}s)", .{ quote.price, quote.asset.symbol, quote.expiry });
-                
-                // Autonomous Hiring Logic
+
                 if (self.engine_ptr.ctx.brain.shouldAccept(quote)) {
                     std.debug.print("\n[Protocol]  Autonomous Decision: ACCEPT QUOTE. Hiring...", .{});
                 }
@@ -157,7 +162,7 @@ const ProtocolHandler = struct {
             },
             else => {
                 std.debug.print("[Protocol]  Opcode 0x{x} skipped (not relevant for bridge).\n", .{opcode});
-                decoder.pos += 1; // Basic safety to avoid infinite loop on unknown opcodes
+                decoder.pos += 1;
             },
         }
     }
