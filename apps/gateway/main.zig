@@ -203,7 +203,7 @@ fn exec_register(allocator: std.mem.Allocator, agent_id: []const u8, pubkey: []c
     const agent_key = std.fmt.allocPrint(allocator, "agent:{s}", .{agent_id}) catch return build_error(allocator, 500, "internal", "mem");
     defer allocator.free(agent_key);
 
-    const now = std.time.milliTimestamp();
+    const now = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds();
     var credits: u64 = 0; // Default: Austerity Mode (0 SC)
 
     if (get_kv(allocator, agent_key)) |existing| {

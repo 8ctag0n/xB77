@@ -6,8 +6,9 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
     var stdin_buf: [4096]u8 = undefined;
     var stdout_buf: [4096]u8 = undefined;
     
-    var stdin = std.Io.File.stdin().reader(&stdin_buf);
-    var stdout = std.Io.File.stdout().writer(&stdout_buf);
+    const io = std.Io.Threaded.global_single_threaded.io();
+    var stdin = std.Io.File.stdin().reader(io, &stdin_buf);
+    var stdout = std.Io.File.stdout().writer(io, &stdout_buf);
 
     var buf = std.ArrayListUnmanaged(u8).empty;
     defer buf.deinit(allocator);
@@ -84,15 +85,12 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
 
                 // --- Real-world Execution via Bun + ZeroDev SDK ---
                 const argv = &[_][]const u8{ "bun", "sdk/ts/src/execute_semantic_tx.ts", intent, amount };
-                var child = std.process.Child.init(argv, allocator);
-                child.stdout_behavior = .Pipe;
-                child.stderr_behavior = .Pipe;
-                
-                try child.spawn();
-                
-                const out_buf = try child.stdout.?.readToEndAlloc(allocator, 1024 * 16);
+                var child = try std.process.spawn(io, .{ .argv = argv, .stdout = .pipe, .stderr = .ignore });
+                var _cb: [65536]u8 = undefined;
+                var _cr = child.stdout.?.reader(io, &_cb);
+                const out_buf = try _cr.interface.allocRemaining(allocator, .unlimited);
                 defer allocator.free(out_buf);
-                _ = try child.wait();
+                _ = try child.wait(io);
 
                 const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"{s}\"}}]}}", .{out_buf});
                 defer allocator.free(res);
@@ -116,45 +114,37 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 // --- DYNAMIC SPAWNING ---
                 // Launch: ./xb77 serve --profile <agent_name>
                 const argv = &[_][]const u8{ "zig-out/bin/xb77", "serve", "--profile", agent_name };
-                var child = try allocator.create(std.process.Child);
-                child.* = std.process.Child.init(argv, allocator);
-                
-                // Redirigir stdout/stderr para no ensuciar la terminal del MCP, 
-                // pero podríamos capturarlos en logs después.
-                child.stdin_behavior = .Ignore;
-                child.stdout_behavior = .Ignore;
-                child.stderr_behavior = .Ignore;
-
-                try child.spawn();
+                const child = try allocator.create(std.process.Child);
+                child.* = try std.process.spawn(io, .{ .argv = argv, .stdin = .ignore, .stdout = .ignore, .stderr = .ignore });
                 
                 const name_copy = try allocator.dupe(u8, agent_name);
                 try ctx.active_agents.put(allocator, name_copy, child);
                 // -----------------------
 
-                const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Sovereign Agent '{s}' spawned and RUNNING (PID: {d}). \\nConfiguration: {s}\"}}]}}", .{agent_name, child.id, path});
+                const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Sovereign Agent '{s}' spawned and RUNNING (PID: {d}). \\nConfiguration: {s}\"}}]}}", .{agent_name, child.id orelse 0, path});
                 defer allocator.free(res);
                 try sendResponse(&stdout, res);
             } else if (std.mem.eql(u8, name, "get_swarm_topology")) {
                 var report = std.ArrayListUnmanaged(u8).empty;
                 defer report.deinit(allocator);
-                try report.writer(allocator).print("--- Swarm P2P Topology Map ---\n", .{});
+                { const _s = try std.fmt.allocPrint(allocator, "--- Swarm P2P Topology Map ---\n", .{}); defer allocator.free(_s); try report.appendSlice(allocator, _s); }
 
-                var dir = std.fs.cwd().openDir("profiles", .{ .iterate = true }) catch null;
+                var dir = std.Io.Dir.cwd().openDir(io, "profiles", .{ .iterate = true }) catch null;
                 if (dir) |*d| {
                     var it = d.iterate();
-                    while (try it.next()) |entry| {
+                    while (try it.next(io)) |entry| {
                         if (std.mem.endsWith(u8, entry.name, ".toml")) {
                             const agent_name = entry.name[0 .. entry.name.len - 5];
                             const is_running = ctx.active_agents.contains(agent_name);
                             
-                            try report.writer(allocator).print("Agent: {s} [{s}]\n", .{ agent_name, if (is_running) "ACTIVE" else "OFFLINE" });
+                            { const _s = try std.fmt.allocPrint(allocator, "Agent: {s} [{s}]\n", .{ agent_name, if (is_running) "ACTIVE" else "OFFLINE" }); defer allocator.free(_s); try report.appendSlice(allocator, _s); }
                             
                             // Para esta demo, simulamos la lectura de los peers que el agente ha guardado en su MeshManager.
                             // En una versión final, esto vendría de una consulta IPC al proceso hijo.
-                            try report.writer(allocator).print("  L Connections: [Mesh Syncing via UDP Heartbeat...]\n", .{});
+                            { const _s = try std.fmt.allocPrint(allocator, "  L Connections: [Mesh Syncing via UDP Heartbeat...]\n", .{}); defer allocator.free(_s); try report.appendSlice(allocator, _s); }
                         }
                     }
-                    d.close();
+                    d.close(io);
                 }
 
                 var escaped = std.ArrayListUnmanaged(u8).empty;
@@ -196,10 +186,13 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 const bin_msg = try encoder.encodeMissionDirective(mission);
                 
                 // Enviar al socket local para que el bridge lo propague
-                const address = try std.net.Address.initUnix("/tmp/xb77_znode.sock");
-                const stream = try std.net.tcpConnectToAddress(address);
-                defer stream.close();
-                _ = try stream.write(bin_msg);
+                const _ua = try std.Io.net.UnixAddress.init("/tmp/xb77_znode.sock");
+                const stream = try _ua.connect(io);
+                defer stream.close(io);
+                var _wb: [4096]u8 = undefined;
+                var _w = stream.writer(io, &_wb);
+                try _w.interface.writeAll(bin_msg);
+                try _w.interface.flush();
 
                 const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Sovereign Mission Issued! \\nBudget: {d} | Slippage: {d} bps. \\nStatus: Broadcasting to swarm...\"}}]}}", .{budget, slippage});
                 defer allocator.free(res);
@@ -209,70 +202,71 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 const text = args.get("text").?.string;
                 
                 const mission = try ctx.brain.interpret(text);
-                
+                defer @constCast(&mission).deinit();
+                var session_id: [32]u8 = undefined;
+                io.random(&session_id);
+                const directive = awp.MissionDirectiveMsg{
+                    .id = session_id,
+                    .owner_root = [_]u8{0} ** 32,
+                    .policy_root = [_]u8{0} ** 32,
+                    .nullifier = [_]u8{0} ** 32,
+                    .max_budget = 1_000_000,
+                    .slippage_bps = 100,
+                    .logic_hash = [_]u8{0} ** 32,
+                    .zk_proof = mission.decision,
+                };
+
                 var encoder = awp.AwpEncoder.init(allocator);
                 defer encoder.deinit();
-                const bin_msg = try encoder.encodeMissionDirective(mission.directive);
+                const bin_msg = try encoder.encodeMissionDirective(directive);
 
                 // Enviar al socket local para que el bridge lo propague
-                const address = try std.net.Address.initUnix("/tmp/xb77_znode.sock");
-                const stream = std.net.tcpConnectToAddress(address) catch |err| {
-                    const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Error connecting to Z-Node Bridge: {any}. Ensure 'xb77 serve' is running.\"}}]}}", .{err});
+                const _ua2 = try std.Io.net.UnixAddress.init("/tmp/xb77_znode.sock");
+                const stream2 = _ua2.connect(io) catch |err| {
+                    const res = try std.fmt.allocPrint(allocator, "{{\"content\":[{{\"type\":\"text\",\"text\":\"Error connecting to Z-Node Bridge: {any}.\"}}]}}", .{err});
                     defer allocator.free(res);
                     try sendResponse(&stdout, res);
                     return;
                 };
-                defer stream.close();
-                _ = try stream.write(bin_msg);
+                defer stream2.close(io);
+                var _wb2: [4096]u8 = undefined;
+                var _w2 = stream2.writer(io, &_wb2);
+                try _w2.interface.writeAll(bin_msg);
+                try _w2.interface.flush();
 
-                const res = try std.fmt.allocPrint(allocator, 
-                    \\{{"content":[ {{"type":"text","text":"QVAC Directive Interpreted & Issued!\n- Mission ID: {s}\n- Budget: {d} lamports\n- Slippage: {d} bps\n- Status: Broadcasting to swarm..."}} ]}}
-                , .{ 
-                    &std.fmt.bytesToHex(mission.directive.id, .lower), 
-                    mission.directive.max_budget, 
-                    mission.directive.slippage_bps
-                });
+                const res = try std.fmt.allocPrint(allocator,
+                    "{{\"content\":[{{\"type\":\"text\",\"text\":\"QVAC Directive Issued! Decision: {s}\"}}]}}",
+                    .{mission.decision}
+                );
                 defer allocator.free(res);
                 try sendResponse(&stdout, res);
             } else if (std.mem.eql(u8, name, "parse_directive")) {
                 const args = params.get("arguments").?.object;
                 const text = args.get("text").?.string;
-                
-                const mission = try ctx.brain.interpret(text);
-                
-                var encoder = awp.AwpEncoder.init(allocator);
-                defer encoder.deinit();
-                const bin_msg = try encoder.encodeMissionDirective(mission.directive);
-                _ = bin_msg;
 
-                // Opcional: Propagar automáticamente si el usuario lo desea, 
-                // pero por ahora solo devolvemos la interpretación.
-                
-                const res = try std.fmt.allocPrint(allocator, 
-                    \\{{"content":[ {{"type":"text","text":"QVAC Local Interpretation:\n- Mission ID: {s}\n- Budget: {d} lamports\n- Slippage: {d} bps\n- Logic Hash: {s}\n- ZK Proof: {s}"}} ]}}
-                , .{ 
-                    &std.fmt.bytesToHex(mission.directive.id, .lower), 
-                    mission.directive.max_budget, 
-                    mission.directive.slippage_bps,
-                    &std.fmt.bytesToHex(mission.directive.logic_hash, .lower),
-                    mission.directive.zk_proof
-                });
+                const mission = try ctx.brain.interpret(text);
+                defer @constCast(&mission).deinit();
+
+                const res = try std.fmt.allocPrint(allocator,
+                    "{{\"content\":[{{\"type\":\"text\",\"text\":\"QVAC Interpretation: {s} (risk: {d:.2})\"}}]}}",
+                    .{mission.decision, mission.risk_score}
+                );
                 defer allocator.free(res);
                 try sendResponse(&stdout, res);
             } else if (std.mem.eql(u8, name, "snapshot_swarm")) {
                 // 1. Generate analytics summary
                 var active_agents: u32 = 0;
 
-                var dir = std.fs.cwd().openDir("profiles", .{ .iterate = true }) catch null;
+                var dir = std.Io.Dir.cwd().openDir(io, "profiles", .{ .iterate = true }) catch null;
                 if (dir) |*d| {
                     var it = d.iterate();
-                    while (try it.next()) |entry| {
+                    while (try it.next(io)) |entry| {
                         if (std.mem.endsWith(u8, entry.name, ".toml")) active_agents += 1;
                     }
-                    d.close();
+                    d.close(io);
                 }
 
-                const state_json = try std.fmt.allocPrint(allocator, "{{\"active_agents\": {d}, \"timestamp\": {d}}}", .{active_agents, std.time.timestamp()});
+                const state_json = try std.fmt.allocPrint(allocator, "{{\"active_agents\": {d}, \"timestamp\": {d}}}", .{active_agents, std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toSeconds()});
                 defer allocator.free(state_json);
 
                 // 2. Upload to QuickNode IPFS
@@ -290,10 +284,10 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 var active_agents: u32 = 0;
 
                 // 1. Scan profiles for active agents
-                var dir = std.fs.cwd().openDir("profiles", .{ .iterate = true }) catch null;
+                var dir = std.Io.Dir.cwd().openDir(io, "profiles", .{ .iterate = true }) catch null;
                 if (dir) |*d| {
                     var it = d.iterate();
-                    while (try it.next()) |entry| {
+                    while (try it.next(io)) |entry| {
                         if (std.mem.endsWith(u8, entry.name, ".toml")) {
                             active_agents += 1;
                             const agent_name = entry.name[0 .. entry.name.len - 5];
@@ -304,7 +298,9 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                             const file = std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), path, .{ .mode = .read_only }) catch continue;
                             defer file.close(std.Io.Threaded.global_single_threaded.io());
 
-                            const content = try file.readToEndAlloc(allocator, 1024 * 1024);
+                            var _rb1: [65536]u8 = undefined;
+                            var _rr1 = file.reader(io, &_rb1);
+                            const content = try _rr1.interface.allocRemaining(allocator, .unlimited);
                             defer allocator.free(content);
 
                             var lines = std.mem.splitScalar(u8, content, '\n');
@@ -320,14 +316,16 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                             }
                         }
                     }
-                    d.close();
+                    d.close(io);
                 }
 
                 // 3. Also check main ledger (root)
                 const main_file = std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), ".xb77/ledger.jsonl", .{ .mode = .read_only }) catch null;
                 if (main_file) |f| {
-                    defer f.close();
-                    const content = try f.readToEndAlloc(allocator, 1024 * 1024);
+                    defer f.close(io);
+                    var _rb2: [65536]u8 = undefined;
+                    var _rr2 = f.reader(io, &_rb2);
+                    const content = try _rr2.interface.allocRemaining(allocator, .unlimited);
                     defer allocator.free(content);
 
                     var lines = std.mem.splitScalar(u8, content, '\n');
@@ -345,7 +343,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
 
                 var report = std.ArrayListUnmanaged(u8).empty;
                 defer report.deinit(allocator);
-                try report.writer(allocator).print(
+                { const _s = try std.fmt.allocPrint(allocator, 
                     \\--- Swarm Financial Intelligence Report ---
                     \\Active Agents: {d}
                     \\Total Volume: {d}
@@ -360,7 +358,7 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                     risk_blocks,
                     compliance_fails,
                     if (risk_blocks + compliance_fails == 0) "OPTIMAL" else "DEGRADED",
-                });
+                }); defer allocator.free(_s); try report.appendSlice(allocator, _s); }
 
                 var escaped = std.ArrayListUnmanaged(u8).empty;
                 defer escaped.deinit(allocator);
@@ -416,24 +414,24 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 defer allocator.free(res);
                 try sendResponse(&stdout, res);
             } else if (std.mem.eql(u8, name, "list_active_swarm")) {
-                var dir = std.fs.cwd().openDir("profiles", .{ .iterate = true }) catch null;
+                var dir = std.Io.Dir.cwd().openDir(io, "profiles", .{ .iterate = true }) catch null;
                 var content = std.ArrayListUnmanaged(u8).empty;
                 defer content.deinit(allocator);
 
                 if (dir) |*d| {
                     var it = d.iterate();
-                    while (try it.next()) |entry| {
+                    while (try it.next(io)) |entry| {
                         if (std.mem.endsWith(u8, entry.name, ".toml")) {
                             const agent_name = entry.name[0 .. entry.name.len - 5];
                             const status = if (ctx.active_agents.contains(agent_name)) "RUNNING" else "OFFLINE";
-                            try content.writer(allocator).print("- Agent: {s} [{s}]\n", .{ agent_name, status });
+                            { const _s = try std.fmt.allocPrint(allocator, "- Agent: {s} [{s}]\n", .{ agent_name, status }); defer allocator.free(_s); try content.appendSlice(allocator, _s); }
                         }
                     }
-                    d.close();
+                    d.close(io);
                 }
 
                 if (content.items.len == 0) {
-                    try content.writer(allocator).print("No active agents in the swarm.", .{});
+                    { const _s = try std.fmt.allocPrint(allocator, "No active agents in the swarm.", .{}); defer allocator.free(_s); try content.appendSlice(allocator, _s); }
                 }
 
                 // Manual JSON building to avoid std.json.stringify issues
@@ -461,10 +459,10 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
 
                 // 1. Kill the process if active
                 if (ctx.active_agents.fetchRemove(agent_name)) |kv| {
-                    _ = kv.value.*.kill() catch {};
+                    kv.value.*.kill(io);
                     allocator.free(kv.key);
                     allocator.destroy(kv.value);
-                    try content.writer(allocator).print("Agent '{s}' process terminated. ", .{agent_name});
+                    { const _s = try std.fmt.allocPrint(allocator, "Agent '{s}' process terminated. ", .{agent_name}); defer allocator.free(_s); try content.appendSlice(allocator, _s); }
                 }
                 
                 // 2. Delete the profile file
@@ -472,9 +470,9 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 const path = try std.fmt.bufPrint(&path_buf, "profiles/{s}.toml", .{agent_name});
                 
                 if (std.Io.Dir.cwd().deleteFile(std.Io.Threaded.global_single_threaded.io(), path)) {
-                    try content.writer(allocator).print("Profile deleted. Liquidity sweep initiated.", .{});
+                    { const _s = try std.fmt.allocPrint(allocator, "Profile deleted. Liquidity sweep initiated.", .{}); defer allocator.free(_s); try content.appendSlice(allocator, _s); }
                 } else |err| {
-                    try content.writer(allocator).print("Failed to delete profile for '{s}': {any}", .{agent_name, err});
+                    { const _s = try std.fmt.allocPrint(allocator, "Failed to delete profile for '{s}': {any}", .{agent_name, err}); defer allocator.free(_s); try content.appendSlice(allocator, _s); }
                 }
                 
                 var escaped = std.ArrayListUnmanaged(u8).empty;
@@ -517,8 +515,10 @@ pub fn run(allocator: std.mem.Allocator, ctx: *core.context.AgentContext) !void 
                 var file_content: ?[]u8 = null;
                 
                 if (file) |f| {
-                    file_content = try f.readToEndAlloc(allocator, 1024 * 1024); // 1MB max
-                    f.close();
+                    var _rb3: [65536]u8 = undefined;
+                    var _rr3 = f.reader(io, &_rb3);
+                    file_content = try _rr3.interface.allocRemaining(allocator, .unlimited);
+                    f.close(io);
                     if (file_content.?.len > 0) {
                         history_content = file_content.?;
                     }
