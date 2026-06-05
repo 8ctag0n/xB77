@@ -160,6 +160,31 @@ pub const SolanaClient = struct {
         return @intCast(value.integer);
     }
 
+    pub fn anchorMeshState(
+        self: *SolanaClient,
+        initial_root: [32]u8,
+        final_root: [32]u8,
+        batch_indices: [5]u64,
+        batch_siblings: [5][14][32]u8,
+        amounts: [5]u64,
+        entry_types: [5]u8,
+        tx_hashes: [5][32]u8,
+        total_tax: u64,
+        proof: []const u8,
+        signer: anytype,
+    ) ![]u8 {
+        _ = initial_root; _ = final_root; _ = batch_indices;
+        _ = batch_siblings; _ = amounts; _ = entry_types;
+        _ = tx_hashes; _ = total_tax; _ = proof; _ = signer;
+        return try self.allocator.dupe(u8, "stub_anchor_sig_not_implemented");
+    }
+
+    pub fn getCompressedBalanceByOwner(self: *SolanaClient, address: []const u8) !u64 {
+        _ = address;
+        _ = self;
+        return 0; // ZK-compressed balance not yet implemented
+    }
+
     pub fn getAccountInfo(self: *SolanaClient, address: []const u8) ![]const u8 {
         const payload = try std.fmt.allocPrint(self.allocator,
             \\{{"jsonrpc":"2.0","id":1,"method":"getAccountInfo","params":["{s}", {{"encoding":"base64"}}]}}
@@ -179,11 +204,20 @@ pub const SolanaClient = struct {
         const base64_data = data_arr.array.items[0].string;
         
         const base64_decoder = std.base64.standard.Decoder;
-        const decoded_len = try base64_decoder.calcSize(base64_data.len);
+        const decoded_len = try base64_decoder.calcSizeUpperBound(base64_data.len);
         const decoded_buf = try self.allocator.alloc(u8, decoded_len);
         errdefer self.allocator.free(decoded_buf);
         try base64_decoder.decode(decoded_buf, base64_data);
         return decoded_buf;
+    }
+
+    pub fn requestAirdrop(self: *SolanaClient, address: []const u8, lamports: u64) !void {
+        const req = try std.fmt.allocPrint(self.allocator,
+            "{{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"requestAirdrop\",\"params\":[\"{s}\",{d}]}}",
+            .{ address, lamports });
+        defer self.allocator.free(req);
+        var response = try self.http_client.post(self.endpoint, req);
+        defer response.deinit();
     }
 
     pub fn getSignatureStatus(self: *SolanaClient, signature: []const u8) !?[]const u8 {

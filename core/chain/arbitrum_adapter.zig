@@ -13,6 +13,22 @@ pub const PreFlightResult = struct {
     similarity: i32,
 };
 
+pub fn neutralIntent() semantic.Semantic.FixedVector {
+    return [_]i32{0} ** semantic.Semantic.DIMENSIONS;
+}
+
+pub fn intentFromTransfer(recipient: []const u8, amount: u64) semantic.Semantic.FixedVector {
+    _ = recipient;
+    if (amount > 500_000_000) {
+        return [_]i32{semantic.Semantic.SCALE} ** semantic.Semantic.DIMENSIONS;
+    }
+    var v = [_]i32{0} ** semantic.Semantic.DIMENSIONS;
+    for (0..semantic.Semantic.DIMENSIONS) |i| {
+        v[i] = if (i % 2 == 0) @as(i32, @intCast(amount % 100)) else 0;
+    }
+    return v;
+}
+
 pub const ArbitrumAdapter = struct {
     allocator: std.mem.Allocator,
     constitution_address: []const u8,
@@ -26,7 +42,16 @@ pub const ArbitrumAdapter = struct {
         };
     }
 
-    pub fn deinit(self: *ArbitrumAdapter) void {
+    pub const Provider = struct {
+        addr: []const u8,
+        pub fn getAddress(self: @This()) []const u8 { return self.addr; }
+    };
+
+    pub fn provider(self: *ArbitrumAdapter) Provider {
+        return .{ .addr = self.constitution_address };
+    }
+
+        pub fn deinit(self: *ArbitrumAdapter) void {
         _ = self;
     }
 

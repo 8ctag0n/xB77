@@ -34,7 +34,7 @@ pub const MagicBlockSDK = struct {
         is_active: bool,
 
         pub fn isExpired(self: *const Session) bool {
-            return std.time.timestamp() >= self.expiry;
+            return std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toSeconds() >= self.expiry;
         }
     };
 
@@ -72,20 +72,20 @@ pub const MagicBlockSDK = struct {
         if (is_demo) {
             std.debug.print("\n[MAGIC ]  {s}[DEMO-DELUXE ACTIVE]{s} Mocking PER Session...", .{ "\x1b[35;1m", "\x1b[0m" });
             var session_id: [32]u8 = undefined;
-            std.crypto.random.bytes(&session_id);
+            std.Io.Threaded.global_single_threaded.io().random(&session_id);
             return Session{
                 .id = session_id,
                 .authority = agent_kp.public,
-                .expiry = std.time.timestamp() + 86400, // 24h for demo
+                .expiry = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toSeconds() + 86400, // 24h for demo
                 .is_active = true,
             };
         }
 
         // 1. Generar Session ID aleatorio
         var session_id: [32]u8 = undefined;
-        std.crypto.random.bytes(&session_id);
+        std.Io.Threaded.global_single_threaded.io().random(&session_id);
 
-        const expiry = std.time.timestamp() + 3600; // 1 hora de turbo
+        const expiry = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toSeconds() + 3600; // 1 hora de turbo
 
         // 2. Anclar el Escrow en Solana (L1) REAL
         if (self.sol_client) |sol| {
@@ -113,8 +113,7 @@ pub const MagicBlockSDK = struct {
             // determinism; flipping the env routes the L1 anchor through
             // MagicBlock so sessions appear on their explorer.
             const use_delegation = blk: {
-                const env = std.process.getEnvVarOwned(self.allocator, "XB77_MAGICBLOCK_USE_DELEGATION") catch break :blk false;
-                defer self.allocator.free(env);
+                const env = @as(?[]const u8, if (std.c.getenv("XB77_MAGICBLOCK_USE_DELEGATION")) |_p| std.mem.span(_p) else null) orelse break :blk false;
                 break :blk std.mem.eql(u8, env, "1");
             };
             const program_id_str = if (use_delegation)
@@ -132,17 +131,15 @@ pub const MagicBlockSDK = struct {
             
             var buf = std.ArrayListUnmanaged(u8).empty;
             defer buf.deinit(self.allocator);
-            const writer = buf.writer(self.allocator);
-
-            try tx_mod.writeCompactU16(writer, 1);
+            try tx_mod.appendCompactU16(self.allocator, &buf, 1);
             try buf.appendNTimes(self.allocator, 0, 64);
             
             const message_start = buf.items.len;
-            try writer.writeByte(1); // num_sigs
-            try writer.writeByte(0); // num_signed_readonly
-            try writer.writeByte(2); // num_unsigned_readonly (program, system)
+            try buf.append(self.allocator, 1); // num_sigs
+            try buf.append(self.allocator, 0); // num_signed_readonly
+            try buf.append(self.allocator, 2); // num_unsigned_readonly (program, system)
             
-            try tx_mod.writeCompactU16(writer, 4); // signer, pda, program, system
+            try tx_mod.appendCompactU16(self.allocator, &buf, 4); // signer, pda, program, system
             try buf.appendSlice(self.allocator, &agent_kp.public);
             try buf.appendSlice(self.allocator, &pda_res.address);
             try buf.appendSlice(self.allocator, &program_id);
@@ -151,14 +148,14 @@ pub const MagicBlockSDK = struct {
             
             try buf.appendSlice(self.allocator, &blockhash);
             
-            try tx_mod.writeCompactU16(writer, 1);
-            try writer.writeByte(2); // program_id index
-            try tx_mod.writeCompactU16(writer, 3); // 3 accounts
-            try writer.writeByte(0); // signer
-            try writer.writeByte(1); // escrow pda
-            try writer.writeByte(3); // system program
+            try tx_mod.appendCompactU16(self.allocator, &buf, 1);
+            try buf.append(self.allocator, 2); // program_id index
+            try tx_mod.appendCompactU16(self.allocator, &buf, 3); // 3 accounts
+            try buf.append(self.allocator, 0); // signer
+            try buf.append(self.allocator, 1); // escrow pda
+            try buf.append(self.allocator, 3); // system program
             
-            try tx_mod.writeCompactU16(writer, @intCast(ix_data.len));
+            try tx_mod.appendCompactU16(self.allocator, &buf, @intCast(ix_data.len));
             try buf.appendSlice(self.allocator, ix_data);
 
             const message = buf.items[message_start..];
@@ -199,13 +196,19 @@ pub const MagicBlockSDK = struct {
         var body_buf = std.ArrayListUnmanaged(u8).empty;
         defer body_buf.deinit(self.allocator);
         
-        try body_buf.writer(self.allocator).print("{f}", .{std.json.fmt(.{
-            .sessionId = std.fmt.bytesToHex(session.id, .lower),
-            .target = try crypto.pubkeyToString(self.allocator, &tx.target),
-            .amount = tx.amount,
-            .payloadHash = std.fmt.bytesToHex(tx.payload_hash, .lower),
-            .signature = std.fmt.bytesToHex(tx.signature, .lower),
-        }, .{})});
+        {
+            const _target = try crypto.pubkeyToString(self.allocator, &tx.target);
+            defer self.allocator.free(_target);
+            const _json = try std.json.Stringify.valueAlloc(self.allocator, .{
+                .sessionId = std.fmt.bytesToHex(session.id, .lower),
+                .target = _target,
+                .amount = tx.amount,
+                .payloadHash = std.fmt.bytesToHex(tx.payload_hash, .lower),
+                .signature = std.fmt.bytesToHex(tx.signature, .lower),
+            }, .{});
+            defer self.allocator.free(_json);
+            try body_buf.appendSlice(self.allocator, _json);
+        }
 
         var response = try client.post(self.sequencer_url, body_buf.items);
         defer response.deinit();
@@ -238,8 +241,7 @@ pub const MagicBlockSDK = struct {
             // determinism; flipping the env routes the L1 anchor through
             // MagicBlock so sessions appear on their explorer.
             const use_delegation = blk: {
-                const env = std.process.getEnvVarOwned(self.allocator, "XB77_MAGICBLOCK_USE_DELEGATION") catch break :blk false;
-                defer self.allocator.free(env);
+                const env = @as(?[]const u8, if (std.c.getenv("XB77_MAGICBLOCK_USE_DELEGATION")) |_p| std.mem.span(_p) else null) orelse break :blk false;
                 break :blk std.mem.eql(u8, env, "1");
             };
             const program_id_str = if (use_delegation)
@@ -256,30 +258,28 @@ pub const MagicBlockSDK = struct {
             
             var buf = std.ArrayListUnmanaged(u8).empty;
             defer buf.deinit(self.allocator);
-            const writer = buf.writer(self.allocator);
-
-            try tx_mod.writeCompactU16(writer, 1);
+            try tx_mod.appendCompactU16(self.allocator, &buf, 1);
             try buf.appendNTimes(self.allocator, 0, 64);
             
             const message_start = buf.items.len;
-            try writer.writeByte(1); // num_sigs
-            try writer.writeByte(0); // num_signed_readonly
-            try writer.writeByte(1); // num_unsigned_readonly (program)
+            try buf.append(self.allocator, 1); // num_sigs
+            try buf.append(self.allocator, 0); // num_signed_readonly
+            try buf.append(self.allocator, 1); // num_unsigned_readonly (program)
             
-            try tx_mod.writeCompactU16(writer, 3); // signer, pda, program
+            try tx_mod.appendCompactU16(self.allocator, &buf, 3); // signer, pda, program
             try buf.appendSlice(self.allocator, &agent_kp.public);
             try buf.appendSlice(self.allocator, &pda_res.address);
             try buf.appendSlice(self.allocator, &program_id);
             
             try buf.appendSlice(self.allocator, &blockhash);
             
-            try tx_mod.writeCompactU16(writer, 1);
-            try writer.writeByte(2); // program_id index
-            try tx_mod.writeCompactU16(writer, 2); // 2 accounts
-            try writer.writeByte(0); // signer
-            try writer.writeByte(1); // escrow pda
+            try tx_mod.appendCompactU16(self.allocator, &buf, 1);
+            try buf.append(self.allocator, 2); // program_id index
+            try tx_mod.appendCompactU16(self.allocator, &buf, 2); // 2 accounts
+            try buf.append(self.allocator, 0); // signer
+            try buf.append(self.allocator, 1); // escrow pda
             
-            try tx_mod.writeCompactU16(writer, @intCast(ix_data.len));
+            try tx_mod.appendCompactU16(self.allocator, &buf, @intCast(ix_data.len));
             try buf.appendSlice(self.allocator, ix_data);
 
             const message = buf.items[message_start..];

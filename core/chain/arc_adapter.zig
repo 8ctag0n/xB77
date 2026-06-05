@@ -84,7 +84,7 @@ pub const ArcAdapter = struct {
                 }
 
                 // Fallback 2: Direct EVM RPC mock for Foundry
-                std.debug.print("\n[ARC-L1]  Settlement confirmed on Foundry/Anvil. 0x{x}", .{std.crypto.random.int(u64)});
+                std.debug.print("\n[ARC-L1]  Settlement confirmed on Foundry/Anvil. 0x{x}", .{blk: { var _v: u64 = undefined; std.Io.Threaded.global_single_threaded.io().random(std.mem.asBytes(&_v)); break :blk _v; }});
                 return "arc_tx_evm_rpc_local_success";
             },
             .stake => |s| {
