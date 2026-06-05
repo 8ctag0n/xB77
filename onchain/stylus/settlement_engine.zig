@@ -53,6 +53,7 @@ const SEL_BALANCE_OF = abi.selector("balanceOf(address)");
 // ── Entrypoint ────────────────────────────────────────────────────────────────
 
 export fn user_entrypoint(args_len: usize) i32 {
+    host.pay_for_memory_grow(0);
     run(args_len) catch |err| {
         const msg = @errorName(err);
         host.write_result(msg.ptr, msg.len);

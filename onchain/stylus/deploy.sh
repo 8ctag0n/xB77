@@ -35,9 +35,10 @@ check_contract() {
   local name="$1"
   local wasm="$OUT_DIR/$name.wasm"
   echo ">>> Checking $name..."
-  cargo stylus check \
-    --wasm-file "$wasm" \
-    --endpoint "$RPC"
+  # Run from onchain/stylus/ so cargo-stylus finds Cargo.toml + Stylus.toml
+  (cd onchain/stylus && cargo stylus check \
+    --wasm-file "../../$wasm" \
+    --endpoint "$RPC")
   echo "    OK"
 }
 
@@ -45,10 +46,10 @@ estimate_contract() {
   local name="$1"
   local wasm="$OUT_DIR/$name.wasm"
   echo ">>> Estimating $name..."
-  cargo stylus deploy \
-    --wasm-file "$wasm" \
+  (cd onchain/stylus && cargo stylus deploy \
+    --wasm-file "../../$wasm" \
     --endpoint "$RPC" \
-    --estimate-gas
+    --estimate-gas)
 }
 
 deploy_contract() {
@@ -56,11 +57,11 @@ deploy_contract() {
   local wasm="$OUT_DIR/$name.wasm"
   echo ">>> Deploying $name..."
   local addr
-  addr=$(cargo stylus deploy \
-    --wasm-file "$wasm" \
+  addr=$((cd onchain/stylus && cargo stylus deploy \
+    --wasm-file "../../$wasm" \
     --endpoint "$RPC" \
     --private-key "${DEPLOYER_KEY:?DEPLOYER_KEY not set}" \
-    --no-verify \
+    --no-verify) \
     2>&1 | grep -E "deployed at|contract address" | grep -oE "0x[0-9a-fA-F]{40}" | head -1)
 
   if [[ -z "$addr" ]]; then

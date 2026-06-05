@@ -48,6 +48,9 @@ const TOPIC_ROOT_ANCHORED = abi.selector("RootAnchored(bytes32,uint64)");
 // ── Entrypoint ────────────────────────────────────────────────────────────────
 
 export fn user_entrypoint(args_len: usize) i32 {
+    // Required by Stylus VM: import must be referenced so the WASM includes it.
+    // The VM instruments memory.grow at activation time using this import.
+    host.pay_for_memory_grow(0);
     run(args_len) catch |err| {
         const msg = @errorName(err);
         host.write_result(msg.ptr, msg.len);
