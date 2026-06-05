@@ -6,7 +6,7 @@ test "Ghost Strategy: Generate ZK Prover File" {
     const allocator = std.testing.allocator;
     const test_path = "./.test_zk";
     std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), test_path) catch {};
-    defer std.fs.cwd().deleteTree(test_path) catch {};
+    defer std.Io.Dir.cwd().deleteTree(std.Io.Threaded.global_single_threaded.io(), test_path) catch {};
 
     const amount: u64 = 1_000_000_000; // 1 SOL
     const tax: u64 = 20_110_000;      // 2.011%
@@ -20,7 +20,7 @@ test "Ghost Strategy: Generate ZK Prover File" {
     try r.writeProverToml(file_path);
 
     // Verificar contenido
-    const content = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), allocator, file_path, 4096);
+    const content = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), file_path, allocator, @enumFromInt(4096));
     defer allocator.free(content);
 
     try std.testing.expect(std.mem.indexOf(u8, content, "amount = 1000000000") != null);

@@ -92,7 +92,7 @@ test "wincode: 125-byte VerifyTransition fixture" {
 test "idl_client: encodeInstruction VerifyTransition → 125 bytes" {
     const allocator = std.testing.allocator;
 
-    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), allocator, "idls/xb77_compression.json", 64 * 1024);
+    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), "idls/xb77_compression.json", allocator, @enumFromInt(64 * 1024));
     defer allocator.free(idl_json);
 
     var client = try IdlClient.init(allocator, idl_json);
@@ -203,25 +203,37 @@ test "solana_tx: sign + Ed25519 verify" {
 test "solana_tx: compact-u16 encoding" {
     const allocator = std.testing.allocator;
 
+    // Inline writer that appends bytes to an ArrayListUnmanaged.
+    // Replaces the removed ArrayListUnmanaged.writer(allocator) API from Zig < 0.16.
+    const BufWriter = struct {
+        buf: *std.ArrayListUnmanaged(u8),
+        gpa: std.mem.Allocator,
+        pub fn writeByte(self: *@This(), byte: u8) !void {
+            try self.buf.append(self.gpa, byte);
+        }
+    };
+
     var buf = std.ArrayListUnmanaged(u8).empty;
     defer buf.deinit(allocator);
 
-    try solana_tx.writeCompactU16(buf.writer(allocator), 0);
+    var w = BufWriter{ .buf = &buf, .gpa = allocator };
+
+    try solana_tx.writeCompactU16(&w, 0);
     try std.testing.expectEqualSlices(u8, &[_]u8{0}, buf.items);
     buf.clearRetainingCapacity();
 
-    try solana_tx.writeCompactU16(buf.writer(allocator), 127);
+    try solana_tx.writeCompactU16(&w, 127);
     try std.testing.expectEqualSlices(u8, &[_]u8{0x7F}, buf.items);
     buf.clearRetainingCapacity();
 
-    try solana_tx.writeCompactU16(buf.writer(allocator), 128);
+    try solana_tx.writeCompactU16(&w, 128);
     try std.testing.expectEqualSlices(u8, &[_]u8{0x80, 0x01}, buf.items);
     buf.clearRetainingCapacity();
 
-    try solana_tx.writeCompactU16(buf.writer(allocator), 255);
+    try solana_tx.writeCompactU16(&w, 255);
     try std.testing.expectEqualSlices(u8, &[_]u8{0xFF, 0x01}, buf.items);
     buf.clearRetainingCapacity();
 
-    try solana_tx.writeCompactU16(buf.writer(allocator), 256);
+    try solana_tx.writeCompactU16(&w, 256);
     try std.testing.expectEqualSlices(u8, &[_]u8{0x80, 0x02}, buf.items);
 }

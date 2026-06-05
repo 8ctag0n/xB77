@@ -6,7 +6,7 @@ const types = core.types;
 test "Store - Basic record and retrieve" {
     const allocator = std.testing.allocator;
     const test_path = "./.test_xb77";
-    defer std.fs.cwd().deleteTree(test_path) catch {};
+    defer std.Io.Dir.cwd().deleteTree(std.Io.Threaded.global_single_threaded.io(), test_path) catch {};
 
     var s = try store.Store.init(allocator, test_path);
     defer s.deinit();
@@ -40,7 +40,7 @@ test "Store - Basic record and retrieve" {
 test "Store - Sovereign Persistence (The Photon-Killer Reboot)" {
     const allocator = std.testing.allocator;
     const test_path = "./.test_persistence";
-    defer std.fs.cwd().deleteTree(test_path) catch {};
+    defer std.Io.Dir.cwd().deleteTree(std.Io.Threaded.global_single_threaded.io(), test_path) catch {};
 
     var initial_root: [32]u8 = undefined;
 

@@ -126,9 +126,8 @@ pub const Orchestrator = struct {
     pub fn processUsage(self: *Orchestrator, agent_id: types.Pubkey, report: telemetry.TelemetryReport) !u64 {
         const cost = report.calculateCost();
         
-        if (@as(?[]const u8, if (std.c.getenv("XB77_DEMO")) |_p| std.mem.span(_p) else null)) |val| {
-            self.allocator.free(val);
-            return 1000000; 
+        if (std.posix.getenv("XB77_DEMO") != null) {
+            return 1000000;
         }
 
         var balance = self.balances.get(agent_id) orelse try self.syncBalance(agent_id);

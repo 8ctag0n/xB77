@@ -39,7 +39,7 @@ test "Sovereign State: Store Rehydration" {
     const allocator = std.testing.allocator;
     const test_dir = "./.test_store_cmt";
     std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), test_dir) catch {};
-    defer std.fs.cwd().deleteTree(test_dir) catch {};
+    defer std.Io.Dir.cwd().deleteTree(std.Io.Threaded.global_single_threaded.io(), test_dir) catch {};
 
     {
         var s = try store.Store.init(allocator, test_dir);

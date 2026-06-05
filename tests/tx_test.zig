@@ -41,7 +41,8 @@ test "Solana: Build Simple Transfer" {
     const to = [_]u8{2} ** 32;
     const blockhash = [_]u8{3} ** 32;
 
-    const tx_bytes = try tx.buildTransferTx(allocator, from, to, 1000, blockhash, null);
+    const transfers = [_]tx.Transfer{.{ .to = to, .lamports = 1000 }};
+    const tx_bytes = try tx.buildMultiTransferTx(allocator, from, &transfers, blockhash, 0, null);
     defer allocator.free(tx_bytes);
 
     // Verificaciones básicas de la estructura Solana

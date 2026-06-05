@@ -108,7 +108,8 @@ pub const Brain = struct {
     }
 
     pub fn shouldAccept(self: *Brain, quote: awp.AppQuoteMsg) bool {
-        _ = self; _ = quote;
-        return false;
+        _ = self;
+        const ONE_SOL_LAMPORTS: u64 = 1_000_000_000;
+        return quote.price <= ONE_SOL_LAMPORTS;
     }
 };

@@ -18,7 +18,55 @@
 </p>
 
 > **xB77** is a terminal-native, P2P Financial Operating System designed for the Agentic Economy. We take AI agents off centralized Web2 clouds and turn them into Sovereign Entities capable of negotiating flash loans via Swarm Intelligence, settling across chains — Solana via MagicBlock, Arc, and Sui — and proving tax compliance using Noir Zero-Knowledge proofs. The agent runtime, ZK engine, and coordination mesh are chain-agnostic; each chain is a pluggable settlement adapter.
->
+
+---
+
+## Arbitrum Hackathon 2026 — Best use of Stylus
+
+xB77 compiles its on-chain settlement logic **directly from Zig to Stylus WASM** — no Rust SDK,
+no Solidity, no intermediate layer. Three contracts handle the full ZK-anchor lifecycle:
+
+| Contract | Size | Data fee | Description |
+|---|---|---|---|
+| `xb77_anchor.wasm` | **2.6 KB** | 0.000057 ETH | Anchors ZK state roots on Arbitrum |
+| `xb77_settlement_engine.wasm` | **3.3 KB** | 0.000059 ETH | Agent USDC settlement + Circle CCTP |
+| `xb77_zk_verifier.wasm` | **3.4 KB** | 0.000059 ETH | Noir UltraPlonk verification via BN254 |
+
+All three pass `cargo stylus check` against Arbitrum Sepolia. Equivalent Solidity would be
+~15 KB; equivalent Rust SDK contracts ~50 KB. **Zig compiles to the `vm_hooks` ABI directly.**
+
+### Deployed contracts — Arbitrum Sepolia
+
+| Contract | Address |
+|---|---|
+| CompressionAnchor | `TBD — run ./onchain/stylus/deploy.sh deploy` |
+| SettlementEngine | `TBD` |
+| ZKVerifier | `TBD` |
+
+### Validate locally (no ETH required)
+
+```bash
+cd onchain/stylus
+cargo stylus check --wasm-file ../../zig-out/bin/xb77_anchor.wasm \
+  --endpoint https://sepolia-rollup.arbitrum.io/rpc
+# ✅ contract size: 2.6 KB — wasm data fee: 0.000057 ETH
+```
+
+### Why Zig → Stylus is different
+
+```
+Traditional:   Solidity → EVM opcodes (~15 KB, interpreted)
+Rust SDK:      Rust → WASM + SDK allocator (~50 KB, ~12 KB compressed)
+xB77:          Zig (freestanding) → WASM → vm_hooks ABI (~2.6 KB, zero overhead)
+```
+
+The Zig `freestanding` WASM target strips everything unused. Contracts export exactly
+`user_entrypoint(i32) -> i32` and import only the host functions they call. The Stylus VM
+instruments `memory.grow` at activation time — our contracts declare `pay_for_memory_grow`
+and let the VM handle gas. No allocator, no SDK, no runtime.
+
+---
+
 ###  Quick Links
 
 *   **[Live Demo](https://xb77-adapter.frontier247hack.workers.dev/)** — Explore the xB77 adapter in action.

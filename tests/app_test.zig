@@ -8,9 +8,9 @@ test "APP: Complete Flow (Quote -> Hire -> Escrow)" {
 
     // Create a temporary directory for this test
     const tmp_path = "./.tmp_app_test";
-    std.fs.cwd().deleteTree(tmp_path) catch {}; // Clean up previous run if panic occurred
+    std.Io.Dir.cwd().deleteTree(std.Io.Threaded.global_single_threaded.io(), tmp_path) catch {}; // Clean up previous run if panic occurred
     std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), tmp_path) catch {};
-    defer std.fs.cwd().deleteTree(tmp_path) catch {};
+    defer std.Io.Dir.cwd().deleteTree(std.Io.Threaded.global_single_threaded.io(), tmp_path) catch {};
 
     // Create a temporary agent.toml pointing to the tmp_path
     const config_content = 
@@ -19,7 +19,7 @@ test "APP: Complete Flow (Quote -> Hire -> Escrow)" {
         \\vault_path = "./.tmp_app_test"
     ;
     const config_path = tmp_path ++ "/agent.toml";
-    try std.fs.cwd().writeFile(.{ .sub_path = config_path, .data = config_content });
+    try std.Io.Dir.cwd().writeFile(std.Io.Threaded.global_single_threaded.io(), .{ .sub_path = config_path, .data = config_content });
 
     // 1. Setup Context (Mocked)
     const password = "test_password_deluxe";

@@ -30,7 +30,7 @@ pub const Log = struct {
     data: []u8,
     topics: [][32]u8,
 };
-var logs: std.ArrayListUnmanaged(Log) = .{};
+var logs: std.ArrayListUnmanaged(Log) = .{ .items = &.{}, .capacity = 0 };
 
 /// Mock responses for external contract calls: address+calldata_hash → response
 var call_responses: std.AutoHashMap(u64, []u8) = undefined;
@@ -61,7 +61,7 @@ var initialized = false;
 pub fn init() void {
     if (initialized) return;
     storage = std.AutoHashMap([32]u8, [32]u8).init(allocator);
-    logs = .{};
+    logs = .{ .items = &.{}, .capacity = 0 };
     call_responses = std.AutoHashMap(u64, []u8).init(allocator);
     initialized = true;
 }

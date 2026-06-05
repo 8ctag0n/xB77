@@ -7,7 +7,7 @@ test "The Ghost Proof: Zig to Noir State Anchor" {
     const allocator = std.testing.allocator;
     const test_dir = "./.test_noir_bridge";
     std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), test_dir) catch {};
-    defer std.fs.cwd().deleteTree(test_dir) catch {};
+    defer std.Io.Dir.cwd().deleteTree(std.Io.Threaded.global_single_threaded.io(), test_dir) catch {};
 
     var s = try store.Store.init(allocator, test_dir);
     defer s.deinit();
@@ -44,7 +44,17 @@ test "The Ghost Proof: Zig to Noir State Anchor" {
     const initial_root = try s.tree.computeEmptyNode(s.tree.depth);
     const total_tax = (entry.amount * 2011 * 5) / 100000;
 
-    var writer = content_list.writer(allocator);
+    // Inline writer adapter: exportBatchToNoir calls writeStreamingAll(io, data).
+    // Replaces the removed ArrayListUnmanaged.writer(allocator) API.
+    const ListWriter = struct {
+        buf: *std.ArrayListUnmanaged(u8),
+        gpa: std.mem.Allocator,
+        pub fn writeStreamingAll(self: *@This(), io: std.Io, data: []const u8) !void {
+            _ = io;
+            try self.buf.appendSlice(self.gpa, data);
+        }
+    };
+    var lw = ListWriter{ .buf = &content_list, .gpa = allocator };
     try s.tree.exportBatchToNoir(
         log_indices,
         amounts,
@@ -53,7 +63,7 @@ test "The Ghost Proof: Zig to Noir State Anchor" {
         initial_root,
         s.tree.getRoot(),
         total_tax,
-        &writer
+        &lw
     );
 
     const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), prover_path, .{});
@@ -63,7 +73,7 @@ test "The Ghost Proof: Zig to Noir State Anchor" {
     std.debug.print("\n[GHOST ]  Prover.toml (Batch) exported to {s}", .{prover_path});
 
     // 3. Verificar que el archivo existe y tiene el formato de batch
-    const content = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), allocator, prover_path, 1024 * 10);
+    const content = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), prover_path, allocator, @enumFromInt(1024 * 10));
     defer allocator.free(content);
 
     try std.testing.expect(std.mem.indexOf(u8, content, "initial_root = \"0x") != null);

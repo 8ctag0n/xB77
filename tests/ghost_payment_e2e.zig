@@ -13,7 +13,7 @@ test "Ghost Payment E2E: Settlement and ZK Anchoring" {
     // 1. Setup Temporary Workspace
     const tmp_path = ".tmp_test_ghost";
     std.Io.Dir.cwd().createDirPath(std.Io.Threaded.global_single_threaded.io(), tmp_path) catch {};
-    defer std.fs.cwd().deleteTree(tmp_path) catch {};
+    defer std.Io.Dir.cwd().deleteTree(std.Io.Threaded.global_single_threaded.io(), tmp_path) catch {};
 
     // 2. Initialize Agent Context
     // We need a dummy config file
@@ -24,7 +24,7 @@ test "Ghost Payment E2E: Settlement and ZK Anchoring" {
         \\rpc_base = "mock:http://localhost:8545"
         \\
     ;
-    try std.fs.cwd().writeFile(.{ .sub_path = config_path, .data = config_content });
+    try std.Io.Dir.cwd().writeFile(std.Io.Threaded.global_single_threaded.io(), .{ .sub_path = config_path, .data = config_content });
 
     const password = "test_password_deluxe";
     var ctx = try context.AgentContext.init(allocator, config_path, password);
