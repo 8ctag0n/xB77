@@ -181,11 +181,10 @@ pub const Store = struct {
         // 1. Persistir en Ledger JSONL (Auditoría Humana)
         const ledger_file = try std.Io.Dir.cwd().openFile(io, self.file_path, .{ .mode = .read_write });
         defer ledger_file.close(std.Io.Threaded.global_single_threaded.io());
-        try ledger_file.seekFromEnd(io, 0);
-
+        const ledger_end = try ledger_file.length(io);
         const line = try std.fmt.allocPrint(self.allocator, "{f}\n", .{std.json.fmt(entry, .{})});
         defer self.allocator.free(line);
-        try ledger_file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), io, line);
+        try std.Io.File.writePositionalAll(ledger_file, io, line, ledger_end);
 
         // 2. Actualizar el Sovereign Vault
         const leaf = if (self.tree.hash_type == .poseidon) 

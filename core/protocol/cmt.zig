@@ -319,59 +319,59 @@ pub const ConcurrentMerkleTree = struct {
     ) !void {
         var list = std.ArrayListUnmanaged(u8).empty;
         defer list.deinit(self.allocator);
-        const w = list.writer(self.allocator);
 
         const initial_root_hex = try crypto.bytesToHex(self.allocator, &initial_root);
         defer self.allocator.free(initial_root_hex);
-        try w.print("initial_root = \"0x{s}\"\n", .{initial_root_hex});
+        try list.print(self.allocator, "initial_root = \"0x{s}\"\n", .{initial_root_hex});
 
         const final_root_hex = try crypto.bytesToHex(self.allocator, &final_root);
         defer self.allocator.free(final_root_hex);
-        try w.print("final_root = \"0x{s}\"\n", .{final_root_hex});
+        try list.print(self.allocator, "final_root = \"0x{s}\"\n", .{final_root_hex});
 
-        try w.print("total_tax_collected = {d}\n", .{total_tax});
+        try list.print(self.allocator, "total_tax_collected = {d}\n", .{total_tax});
 
         // Arrays de 5
-        try w.print("indices = [", .{});
+        try list.print(self.allocator, "indices = [", .{});
         for (log_indices, 0..) |idx, i| {
-            try w.print("{d}{s}", .{ self.change_logs.items[idx].index, if (i == 4) "" else ", " });
+            try list.print(self.allocator, "{d}{s}", .{ self.change_logs.items[idx].index, if (i == 4) "" else ", " });
         }
-        try w.print("]\n", .{});
+        try list.print(self.allocator, "]\n", .{});
 
-        try w.print("amounts = [", .{});
+        try list.print(self.allocator, "amounts = [", .{});
         for (amounts, 0..) |amt, i| {
-            try w.print("{d}{s}", .{ amt, if (i == 4) "" else ", " });
+            try list.print(self.allocator, "{d}{s}", .{ amt, if (i == 4) "" else ", " });
         }
-        try w.print("]\n", .{});
+        try list.print(self.allocator, "]\n", .{});
 
-        try w.print("entry_types = [", .{});
+        try list.print(self.allocator, "entry_types = [", .{});
         for (entry_types, 0..) |t, i| {
-            try w.print("{d}{s}", .{ t, if (i == 4) "" else ", " });
+            try list.print(self.allocator, "{d}{s}", .{ t, if (i == 4) "" else ", " });
         }
-        try w.print("]\n", .{});
+        try list.print(self.allocator, "]\n", .{});
 
-        try w.print("tx_hashes = [\n", .{});
+        try list.print(self.allocator, "tx_hashes = [\n", .{});
         for (tx_hashes, 0..) |h, i| {
             const h_hex = try crypto.bytesToHex(self.allocator, &h);
             defer self.allocator.free(h_hex);
-            try w.print("  \"0x{s}\"{s}\n", .{ h_hex, if (i == 4) "" else "," });
+            try list.print(self.allocator, "  \"0x{s}\"{s}\n", .{ h_hex, if (i == 4) "" else "," });
         }
-        try w.print("]\n", .{});
+        try list.print(self.allocator, "]\n", .{});
 
-        try w.print("siblings = [\n", .{});
+        try list.print(self.allocator, "siblings = [\n", .{});
         for (log_indices, 0..) |idx, i| {
             const log = self.change_logs.items[idx];
-            try w.print("  [\n", .{});
+            try list.print(self.allocator, "  [\n", .{});
             for (log.siblings, 0..) |p, j| {
                 const p_hex = try crypto.bytesToHex(self.allocator, &p);
                 defer self.allocator.free(p_hex);
-                try w.print("    \"0x{s}\"{s}\n", .{ p_hex, if (j == log.siblings.len - 1) "" else "," });
+                try list.print(self.allocator, "    \"0x{s}\"{s}\n", .{ p_hex, if (j == log.siblings.len - 1) "" else "," });
             }
-            try w.print("  ]{s}\n", .{ if (i == 4) "" else "," });
+            try list.print(self.allocator, "  ]{s}\n", .{ if (i == 4) "" else "," });
         }
-        try w.print("]\n", .{});
+        try list.print(self.allocator, "]\n", .{});
 
-        try file_writer.writeAll(list.items);
+        const _io = std.Io.Threaded.global_single_threaded.io();
+        try file_writer.writeStreamingAll(_io, list.items);
     }
 
 };

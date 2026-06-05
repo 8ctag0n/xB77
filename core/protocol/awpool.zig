@@ -17,8 +17,8 @@ pub const AWPool = struct {
     pub fn init(allocator: std.mem.Allocator) AWPool {
         return .{
             .allocator = allocator,
-            .buy_orders = .{},
-            .sell_orders = .{},
+            .buy_orders = .empty,
+            .sell_orders = .empty,
         };
     }
 
@@ -117,7 +117,7 @@ pub const AWPool = struct {
         //  REGISTRO REAL EN EL LEDGER PRIVADO
         if (self.store) |s| {
             s.record(.{
-                .timestamp = std.time.milliTimestamp(),
+                .timestamp = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds(),
                 .chain = awp.fromAwpChain(sell.asset.chain),
                 .entry_type = .match,
                 .description = "P2P Match Settled",
