@@ -32,7 +32,7 @@ const ProgramTarget = struct {
     cursor: ?[]u8 = null,
 };
 
-pub fn watch(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn watch(cli: *const Cli, args: []const [:0]const u8) !void {
     const allocator = cli.allocator;
 
     var rpc_url: []const u8 = DEFAULT_RPC;
@@ -58,10 +58,10 @@ pub fn watch(cli: *const Cli, args: []const [:0]u8) !void {
     var rpc_url_owned: ?[]u8 = null;
     defer if (rpc_url_owned) |r| allocator.free(r);
     if (std.mem.eql(u8, rpc_url, DEFAULT_RPC)) {
-        if (std.process.getEnvVarOwned(allocator, "XB77_RPC")) |env_rpc| {
-            rpc_url_owned = env_rpc;
+        if (@as(?[]const u8, if (std.c.getenv("XB77_RPC")) |_p| std.mem.span(_p) else null)) |env_rpc| {
+            rpc_url_owned = @constCast(env_rpc);
             rpc_url = env_rpc;
-        } else |_| {}
+        }
     }
     if (std.mem.eql(u8, gw_url, DEFAULT_GW)) {
         gw_url = cli.gateway_url;
@@ -70,10 +70,10 @@ pub fn watch(cli: *const Cli, args: []const [:0]u8) !void {
     var token_owned: ?[]u8 = null;
     defer if (token_owned) |t| allocator.free(t);
     var token: []const u8 = DEFAULT_TOKEN;
-    if (std.process.getEnvVarOwned(allocator, "XB77_INGEST_TOKEN")) |env_t| {
-        token_owned = env_t;
+    if (@as(?[]const u8, if (std.c.getenv("XB77_INGEST_TOKEN")) |_p| std.mem.span(_p) else null)) |env_t| {
+        token_owned = @constCast(env_t);
         token = env_t;
-    } else |_| {}
+    }
 
     std.debug.print("[WATCH] program:  {s}\n", .{GATEWAY_PROGRAM_ID});
     std.debug.print("[WATCH] rpc:      {s}\n", .{rpc_url});
@@ -90,11 +90,11 @@ pub fn watch(cli: *const Cli, args: []const [:0]u8) !void {
         const pid_path = "/tmp/xb77-gateway-watch.pid";
         var pid_file = std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), pid_path, .{ .truncate = true }) catch null;
         if (pid_file) |*f| {
-            defer f.close();
+            defer f.close(std.Io.Threaded.global_single_threaded.io());
             const pid = std.os.linux.getpid();
             var buf: [16]u8 = undefined;
             const written = try std.fmt.bufPrint(&buf, "{d}\n", .{pid});
-            _ = f.writeAll(written) catch {};
+            _ = f.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), written) catch {};
         }
     }
 
@@ -124,22 +124,21 @@ pub fn watch(cli: *const Cli, args: []const [:0]u8) !void {
 
             var payload = std.ArrayListUnmanaged(u8).empty;
             defer payload.deinit(allocator);
-            const w = payload.writer(allocator);
-            try w.writeAll("{\"pipelines\":[");
+            try payload.appendSlice(allocator, "{\"pipelines\":[");
             var first: bool = true;
             var j: usize = sigs.len;
             while (j > 0) {
                 j -= 1;
                 const e = sigs[j];
-                if (!first) try w.writeByte(',');
+                if (!first) try payload.append(allocator, ',');
                 first = false;
                 const verdict: []const u8 = if (e.err_present) "FAILED" else "VALID";
-                try w.print(
+                try payload.print(allocator,
                     \\{{"signature":"{s}","slot":{d},"block_time":{?d},"verdict":"{s}","kind":"{s}"}}
                 ,
                     .{ e.signature, e.slot, e.block_time, verdict, t.kind });
             }
-            try w.writeAll("]}");
+            try payload.appendSlice(allocator, "]}");
 
             const headers = [_]HttpHeader{
                 .{ .name = "Content-Type", .value = "application/json" },
@@ -159,6 +158,6 @@ pub fn watch(cli: *const Cli, args: []const [:0]u8) !void {
         }
 
         if (once) return;
-        std.Thread.sleep(interval_s * std.time.ns_per_s);
+        std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(interval_s * std.time.ns_per_s) }, .awake) catch {};
     }
 }

@@ -22,7 +22,6 @@ pub fn mcp(cli: *const Cli) !void {
     
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
     defer ctx.deinit();
-    ctx.brain.constitution = &ctx.constitution;
     ctx.mesh_manager.store = &ctx.store;
 
     try mcp_server.run(cli.allocator, &ctx);
@@ -33,7 +32,6 @@ pub fn serve(cli: *const Cli) !void {
     
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
     defer ctx.deinit();
-    ctx.brain.constitution = &ctx.constitution;
     ctx.mesh_manager.store = &ctx.store;
 
     var engine = core.kernel.Engine.init(cli.allocator, &ctx);
@@ -41,11 +39,11 @@ pub fn serve(cli: *const Cli) !void {
 
     // Loop de vida infinita hasta SIGINT
     while (engine.is_running) {
-        std.Thread.sleep(1 * std.time.ns_per_s);
+        std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(1 * std.time.ns_per_s) }, .awake) catch {};
     }
 }
 
-pub fn merchant(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn merchant(cli: *const Cli, args: []const [:0]const u8) !void {
     if (args.len < 1) {
         std.debug.print(
             \\Uso: xb77 merchant <comando> [opciones]
@@ -122,10 +120,12 @@ fn generateBlink(cli: *const Cli, ctx: *core.context.AgentContext) !void {
 }
 
 fn readLine(file: std.Io.File, buffer: []u8) ![]const u8 {
+    const io = std.Io.Threaded.global_single_threaded.io();
     var pos: usize = 0;
     while (pos < buffer.len) {
         var byte_buf: [1]u8 = undefined;
-        const n = try file.read(&byte_buf);
+        var bufs = [_][]u8{&byte_buf};
+        const n = try file.readStreaming(io, &bufs);
         if (n == 0) break;
         if (byte_buf[0] == '\n') break;
         buffer[pos] = byte_buf[0];

@@ -4,7 +4,7 @@
 const std = @import("std");
 const Cli = @import("../flags.zig").Cli;
 
-pub fn spawn(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn spawn(cli: *const Cli, args: []const [:0]const u8) !void {
     _ = cli;
     if (args.len < 1) {
         std.debug.print("Uso: xb77 spawn <nombre_agente>\n", .{});

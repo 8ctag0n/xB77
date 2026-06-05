@@ -16,7 +16,7 @@ const WHT = esc ++ "[1;37m";
 const RED = esc ++ "[1;31m";
 const RST = esc ++ "[0m";
 
-pub fn pay(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn pay(cli: *const Cli, args: []const [:0]const u8) !void {
     if (args.len < 2) {
         std.debug.print(DIM ++ "Usage: " ++ RST ++ WHT ++ "xb77 pay <dest_pk> <amount>\n" ++ RST, .{});
         return;
@@ -77,17 +77,17 @@ pub fn pay(cli: *const Cli, args: []const [:0]u8) !void {
     std.debug.print("\n   " ++ CYAN ++ "GHOST_RECEIPT" ++ RST ++ " generado. Memoria anclada.\n\n", .{});
 }
 
-pub fn batch(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn batch(cli: *const Cli, args: []const [:0]const u8) !void {
     _ = cli;
     _ = args;
 }
 
-pub fn shield(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn shield(cli: *const Cli, args: []const [:0]const u8) !void {
     _ = cli;
     _ = args;
 }
 
-pub fn receipt(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn receipt(cli: *const Cli, args: []const [:0]const u8) !void {
     var config = try core.engine.config.Config.load(cli.allocator, cli.config_path);
     defer config.deinit(cli.allocator);
 
@@ -101,13 +101,15 @@ pub fn receipt(cli: *const Cli, args: []const [:0]u8) !void {
         return;
     };
     defer file.close(std.Io.Threaded.global_single_threaded.io());
-    const content = try file.readToEndAlloc(cli.allocator, 8 * 1024 * 1024);
+    var read_buf: [65536]u8 = undefined;
+    var r_iface = file.reader(std.Io.Threaded.global_single_threaded.io(), &read_buf).interface;
+    const content = try r_iface.allocRemaining(cli.allocator, .unlimited);
     defer cli.allocator.free(content);
 
     var picked: ?std.json.Parsed(std.json.Value) = null;
     defer if (picked) |*p| p.deinit();
 
-    var it = std.mem.splitBackwardsScalar(u8, std.mem.trimRight(u8, content, "\n"), '\n');
+    var it = std.mem.splitBackwardsScalar(u8, std.mem.trimEnd(u8, content, "\n"), '\n');
     while (it.next()) |raw_line| {
         const line = std.mem.trim(u8, raw_line, " \t\r\n");
         if (line.len == 0) continue;

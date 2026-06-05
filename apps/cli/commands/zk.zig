@@ -24,7 +24,7 @@ const VERIFIER_PROGRAM_ID = "3Pf4tiicGAijnhCbxRvmtQLbxxcL5hb7emxw1qjpZX7j";
 const DEFAULT_RPC = "http://127.0.0.1:8899";
 const DEFAULT_PACKAGE = "zk_receipt";
 
-pub fn run(cli: *const Cli, cmd_args: []const [:0]u8) !void {
+pub fn run(cli: *const Cli, cmd_args: []const [:0]const u8) !void {
     if (cmd_args.len == 0) { usage(); return; }
     const sub = cmd_args[0];
     const rest = cmd_args[1..];
@@ -62,13 +62,12 @@ fn usage() void {
 /// Runs `nargo prove` inside the xb77-zk podman container against
 /// `circuits/<package>/`. Returns the absolute proof path on success.
 fn proveCircuit(allocator: std.mem.Allocator, package: []const u8, skip_prove: bool) ![]u8 {
-    const cwd = try std.fs.cwd().realpathAlloc(allocator, ".");
-    defer allocator.free(cwd);
-    const circuit_dir = try std.fmt.allocPrint(allocator, "{s}/circuits/{s}", .{ cwd, package });
+    const circuit_dir = try std.fmt.allocPrint(allocator, "circuits/{s}", .{package});
     defer allocator.free(circuit_dir);
 
     // Verify the circuit exists.
-    std.fs.accessAbsolute(circuit_dir, .{}) catch return error.CircuitNotFound;
+    const _io_access = std.Io.Threaded.global_single_threaded.io();
+    std.Io.Dir.cwd().access(_io_access, circuit_dir, .{}) catch return error.CircuitNotFound;
 
     const proof_path = try std.fmt.allocPrint(allocator, "circuits/{s}/proofs/{s}.proof", .{ package, package });
 
@@ -92,18 +91,17 @@ fn proveCircuit(allocator: std.mem.Allocator, package: []const u8, skip_prove: b
     std.debug.print("[ZK] proving package '{s}' in {s}...\n", .{ package, circuit_dir });
     std.debug.print("[ZK] podman run --rm -v {s} -w /work xb77-zk prove\n", .{mount_arg});
 
-    var child = std.process.Child.init(&[_][]const u8{
+    const _argv_zk = [_][]const u8{
         "podman", "run", "--rm",
         "-v",     mount_arg,
         "-w",     "/work",
         "xb77-zk", "prove",
-    }, allocator);
-    child.stdout_behavior = .Inherit;
-    child.stderr_behavior = .Inherit;
-
-    const term = try child.spawnAndWait();
+    };
+    const _io_zk = std.Io.Threaded.global_single_threaded.io();
+    var child = try std.process.spawn(_io_zk, .{ .argv = &_argv_zk });
+    const term = try child.wait(_io_zk);
     switch (term) {
-        .Exited => |code| if (code != 0) {
+        .exited => |code| if (code != 0) {
             std.debug.print("[ZK] podman exited non-zero: {d}\n", .{code});
             return error.ProveFailed;
         },
@@ -113,7 +111,7 @@ fn proveCircuit(allocator: std.mem.Allocator, package: []const u8, skip_prove: b
     return proof_path;
 }
 
-fn prove(cli: *const Cli, args: []const [:0]u8) !void {
+fn prove(cli: *const Cli, args: []const [:0]const u8) !void {
     const allocator = cli.allocator;
     var package: []const u8 = DEFAULT_PACKAGE;
     var also_upload: bool = false;
@@ -135,7 +133,7 @@ fn prove(cli: *const Cli, args: []const [:0]u8) !void {
     const proof_path = try proveCircuit(allocator, package, skip_prove);
     defer allocator.free(proof_path);
 
-    const stat = try std.fs.cwd().statFile(proof_path);
+    const stat = try std.Io.Dir.cwd().statFile(std.Io.Threaded.global_single_threaded.io(), proof_path, .{});
     std.debug.print("[ZK] OK  proof generated: {s} ({d} bytes)\n", .{ proof_path, stat.size });
 
     if (also_upload) {
@@ -143,7 +141,7 @@ fn prove(cli: *const Cli, args: []const [:0]u8) !void {
     }
 }
 
-fn upload(cli: *const Cli, args: []const [:0]u8) !void {
+fn upload(cli: *const Cli, args: []const [:0]const u8) !void {
     var proof_path: []const u8 = "circuits/zk_receipt/proofs/zk_receipt.proof";
     var rpc_url: []const u8 = DEFAULT_RPC;
     var i: usize = 0;
@@ -157,7 +155,7 @@ fn upload(cli: *const Cli, args: []const [:0]u8) !void {
     try uploadProof(cli, proof_path, rpc_url);
 }
 
-fn proveAndUpload(cli: *const Cli, args: []const [:0]u8) !void {
+fn proveAndUpload(cli: *const Cli, args: []const [:0]const u8) !void {
     const allocator = cli.allocator;
     var package: []const u8 = DEFAULT_PACKAGE;
     var rpc_url: []const u8 = DEFAULT_RPC;
@@ -184,10 +182,10 @@ fn uploadProof(cli: *const Cli, proof_path: []const u8, rpc_url_in: []const u8) 
     var rpc_url_owned: ?[]u8 = null;
     defer if (rpc_url_owned) |r| allocator.free(r);
     if (std.mem.eql(u8, rpc_url, DEFAULT_RPC)) {
-        if (std.process.getEnvVarOwned(allocator, "XB77_RPC")) |env_rpc| {
-            rpc_url_owned = env_rpc;
+        if (@as(?[]const u8, if (std.c.getenv("XB77_RPC")) |_p| std.mem.span(_p) else null)) |env_rpc| {
+            rpc_url_owned = @constCast(env_rpc);
             rpc_url = env_rpc;
-        } else |_| {}
+        }
     }
 
     std.debug.print("[ZK] uploading {s} → {s}\n", .{ proof_path, VERIFIER_PROGRAM_ID });
@@ -196,7 +194,8 @@ fn uploadProof(cli: *const Cli, proof_path: []const u8, rpc_url_in: []const u8) 
     const file = try std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), proof_path, .{});
     defer file.close(std.Io.Threaded.global_single_threaded.io());
     var read_buf: [1024]u8 = undefined;
-    const proof_bytes = try file.reader(std.Io.Threaded.global_single_threaded.io(), &read_buf).interface.allocRemaining(allocator, .unlimited);
+    var _r = file.reader(std.Io.Threaded.global_single_threaded.io(), &read_buf);
+    const proof_bytes = try _r.interface.allocRemaining(allocator, .unlimited);
     defer allocator.free(proof_bytes);
     std.debug.print("[ZK] proof: {d} bytes\n", .{proof_bytes.len});
 

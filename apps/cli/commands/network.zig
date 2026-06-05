@@ -6,7 +6,7 @@ const std = @import("std");
 const core = @import("core");
 const Cli = @import("../flags.zig").Cli;
 
-pub fn mesh(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn mesh(cli: *const Cli, args: []const [:0]const u8) !void {
     if (args.len >= 1 and std.mem.eql(u8, args[0], "discover")) {
         return meshDiscover(cli, args[1..]);
     }
@@ -39,7 +39,7 @@ fn meshList(cli: *const Cli) !void {
     std.debug.print("\nMesh Health: {s}\n", .{if (ctx.mesh_manager.countPeers() > 0) "Synchronizing" else "Isolated"});
 }
 
-fn meshDiscover(cli: *const Cli, args: []const [:0]u8) !void {
+fn meshDiscover(cli: *const Cli, args: []const [:0]const u8) !void {
     if (args.len < 1) {
         std.debug.print("Uso: mesh discover <query>\n", .{});
         return;
@@ -53,23 +53,24 @@ fn meshDiscover(cli: *const Cli, args: []const [:0]u8) !void {
     var socket_path_buf: [64]u8 = undefined;
     const socket_path = try std.fmt.bufPrint(&socket_path_buf, "/tmp/xb77_znode_{d}.sock", .{config.mesh_port});
 
-    const sock = try std.posix.socket(std.posix.AF.UNIX, std.posix.SOCK.STREAM, 0);
-    defer std.posix.close(sock);
-    const address = try std.net.Address.initUnix(socket_path);
-    try std.posix.connect(sock, &address.any, address.getOsSockLen());
-
-    var stream = std.net.Stream{ .handle = sock };
+    const io = std.Io.Threaded.global_single_threaded.io();
+    const ua = try std.Io.net.UnixAddress.init(socket_path);
+    const stream = try ua.connect(io);
+    defer stream.close(io);
 
     var encoder = core.awp.AwpEncoder.init(cli.allocator);
     defer encoder.deinit();
 
     const msg = try encoder.encodeServiceDiscovery(.{ .query = query });
-    _ = try stream.write(msg);
+    var write_buf: [4096]u8 = undefined;
+    var w = stream.writer(io, &write_buf);
+    try w.interface.writeAll(msg);
+    try w.interface.flush();
 
     std.debug.print(" Discovery intent sent to local Z-Node. Watch the agent logs for results.\n", .{});
 }
 
-pub fn deploy(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn deploy(cli: *const Cli, args: []const [:0]const u8) !void {
     _ = args;
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
     defer ctx.deinit();
@@ -78,10 +79,12 @@ pub fn deploy(cli: *const Cli, args: []const [:0]u8) !void {
 
     const file = try std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), cli.config_path, .{});
     defer file.close(std.Io.Threaded.global_single_threaded.io());
-    const config_toml = try file.readToEndAlloc(cli.allocator, 1024 * 64);
+    var _rdbuf: [65536]u8 = undefined;
+    var _reader = file.reader(std.Io.Threaded.global_single_threaded.io(), &_rdbuf);
+    const config_toml = try _reader.interface.allocRemaining(cli.allocator, .unlimited);
     defer cli.allocator.free(config_toml);
 
-    const timestamp = std.time.milliTimestamp();
+    const timestamp = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds();
     const sol_kp = ctx.vaults.ops.sol_kp;
 
     // Sign: pubkey || timestamp || sha256(config_toml).
@@ -105,22 +108,20 @@ pub fn deploy(cli: *const Cli, args: []const [:0]u8) !void {
         .is_custodial = true,
     };
 
-    var json_list = std.ArrayListUnmanaged(u8).empty;
-    defer json_list.deinit(cli.allocator);
-    try json_list.writer(cli.allocator).print("{f}", .{std.json.fmt(manifest, .{})});
-    const json_body = json_list.items;
+    const json_body = try std.json.Stringify.valueAlloc(cli.allocator, manifest, .{});
+    defer cli.allocator.free(json_body);
 
     var http = core.net.http.HttpClient.init(cli.allocator);
     const gateway_url = "https://gateway.xb77.io/deploy";
 
     std.debug.print(" Sincronizando con el Edge en {s}...\n", .{gateway_url});
     var resp = http.post(gateway_url, json_body) catch |err| {
-        if (std.process.getEnvVarOwned(cli.allocator, "XB77_DEMO")) |val| {
+        if (@as(?[]const u8, if (std.c.getenv("XB77_DEMO")) |_p| std.mem.span(_p) else null)) |val| {
             cli.allocator.free(val);
             std.debug.print(" [DEMO] Ignorando error de red ({}) y simulando éxito.\n", .{err});
             std.debug.print(" ¡Despliegue exitoso! Tu agente ya es omnipresente.\n", .{});
             return;
-        } else |_| {}
+        }
         std.debug.print(" Error de conexión: {}\n", .{err});
         return;
     };
@@ -133,7 +134,14 @@ pub fn deploy(cli: *const Cli, args: []const [:0]u8) !void {
     }
 }
 
-pub fn link(cli: *const Cli, args: []const [:0]u8) !void {
+
+fn writeFileAll(path: []const u8, data: []const u8) !void {
+    const io = std.Io.Threaded.global_single_threaded.io();
+    const file = try std.Io.Dir.cwd().createFile(io, path, .{ .truncate = true });
+    defer file.close(io);
+    try file.writeStreamingAll(io, data);
+}
+pub fn link(cli: *const Cli, args: []const [:0]const u8) !void {
     if (args.len < 1) {
         std.debug.print("Uso: xb77 link <code>\n", .{});
         return;
@@ -149,9 +157,9 @@ pub fn link(cli: *const Cli, args: []const [:0]u8) !void {
     std.debug.print("\n Vinculando Agente {s} con Telegram...\n", .{pubkey_str});
 
     const sdk = core.sdk_core;
-    const timestamp = @as(u64, @intCast(std.time.milliTimestamp()));
+    const timestamp = @as(u64, @intCast(std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds()));
     var nonce: [12]u8 = undefined;
-    std.crypto.random.bytes(&nonce);
+    std.Io.Threaded.global_single_threaded.io().random(&nonce);
 
     const payload = try std.fmt.allocPrint(cli.allocator, "{{\"link_code\":\"{s}\"}}", .{code});
     defer cli.allocator.free(payload);
@@ -206,7 +214,7 @@ pub fn exportRemote(cli: *const Cli) !void {
     defer ctx.deinit();
 
     const sol_kp = ctx.vaults.ops.sol_kp;
-    const timestamp = std.time.milliTimestamp();
+    const timestamp = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds();
 
     std.debug.print("\n Iniciando Sovereign Export para el Agente {s}...\n", .{try core.crypto.pubkeyToString(cli.allocator, &sol_kp.public)});
 
@@ -220,15 +228,14 @@ pub fn exportRemote(cli: *const Cli) !void {
         .signature = signature,
     };
 
-    var json_list = std.ArrayListUnmanaged(u8).empty;
-    defer json_list.deinit(cli.allocator);
-    try json_list.writer(cli.allocator).print("{f}", .{std.json.fmt(req, .{})});
+    const json_req_body = try std.json.Stringify.valueAlloc(cli.allocator, req, .{});
+    defer cli.allocator.free(json_req_body);
 
     var http = core.net.http.HttpClient.init(cli.allocator);
     const export_url = "https://gateway.xb77.io/export";
 
     std.debug.print(" Descargando estado desde el Edge...\n", .{});
-    var resp = http.post(export_url, json_list.items) catch |err| {
+    var resp = http.post(export_url, json_req_body) catch |err| {
         std.debug.print(" Error de conexión: {}\n", .{err});
         return;
     };
@@ -248,7 +255,7 @@ pub fn exportRemote(cli: *const Cli) !void {
 
     const ledger_path = try std.fs.path.join(cli.allocator, &[_][]const u8{ base_path, "ledger.jsonl" });
     defer cli.allocator.free(ledger_path);
-    try std.fs.cwd().writeFile(.{ .sub_path = ledger_path, .data = data.ledger_jsonl });
+    try writeFileAll(ledger_path, data.ledger_jsonl);
 
     const history_files = [_][2][]const u8{
         .{ "ops", data.ops_history },
@@ -258,7 +265,7 @@ pub fn exportRemote(cli: *const Cli) !void {
     for (history_files) |h| {
         const h_path = try std.fs.path.join(cli.allocator, &[_][]const u8{ base_path, h[0] });
         defer cli.allocator.free(h_path);
-        try std.fs.cwd().writeFile(.{ .sub_path = h_path, .data = h[1] });
+        try writeFileAll(h_path, h[1]);
     }
 
     const vault_path = try std.fs.path.join(cli.allocator, &[_][]const u8{ base_path, "state.vault" });
@@ -268,7 +275,7 @@ pub fn exportRemote(cli: *const Cli) !void {
     defer cli.allocator.free(vault_bin);
     try std.base64.standard.Decoder.decode(vault_bin, data.state_vault_b64);
 
-    try std.fs.cwd().writeFile(.{ .sub_path = vault_path, .data = vault_bin });
+    try writeFileAll(vault_path, vault_bin);
 
     std.debug.print(" ¡Exportación completada! El estado local ha sido sincronizado.\n", .{});
 }
@@ -280,7 +287,7 @@ pub fn packageLocal(cli: *const Cli) !void {
     std.debug.print("\n--- xB77 Sovereign Export ({s}) ---\n", .{cli.config_path});
     std.debug.print("Empaquetando estado y llaves desde: {s}\n", .{ctx.config.vaults.path});
 
-    const ts = std.time.timestamp();
+    const ts = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toSeconds();
     var out_name_buf: [128]u8 = undefined;
     const out_name = try std.fmt.bufPrint(&out_name_buf, "xb77_sovereign_backup_{d}.tar.gz", .{ts});
 
@@ -292,11 +299,11 @@ pub fn packageLocal(cli: *const Cli) !void {
         cli.config_path,
     };
 
-    var child = std.process.Child.init(&argv, cli.allocator);
-    try child.spawn();
-    const term = try child.wait();
+    const io = std.Io.Threaded.global_single_threaded.io();
+    var child = try std.process.spawn(io, .{ .argv = &argv });
+    const term = try child.wait(io);
 
-    if (term == .Exited and term.Exited == 0) {
+    if (term == .exited and term.exited == 0) {
         std.debug.print(" Sovereign Export COMPLETADO: {s}\n", .{out_name});
         std.debug.print("Este blob contiene su Merkle Tree y sus llaves privadas WDK.\n", .{});
         std.debug.print("GUÁRDELO EN UN LUGAR SEGURO. ES SU SOBERANÍA.\n", .{});

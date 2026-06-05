@@ -22,7 +22,7 @@ const anchor_cmd = @import("gateway_anchor.zig");
 const submit_cmd = @import("gateway_submit.zig");
 const watch_cmd = @import("gateway_watch.zig");
 
-pub fn run(cli: *const Cli, cmd_args: []const [:0]u8) !void {
+pub fn run(cli: *const Cli, cmd_args: []const [:0]const u8) !void {
     if (cmd_args.len == 0) { usage(); return; }
     const sub = cmd_args[0];
     const rest = cmd_args[1..];
@@ -96,7 +96,7 @@ fn meta(cli: *const Cli) !void {
 // ───────────────────────────────────────────────────────────────────────
 // register_agent  — unsigned bootstrap (per contract §2.1)
 // ───────────────────────────────────────────────────────────────────────
-fn register(cli: *const Cli, args: []const [:0]u8) !void {
+fn register(cli: *const Cli, args: []const [:0]const u8) !void {
     var intent: []const u8 = "merchant";
     var i: usize = 0;
     while (i < args.len) : (i += 1) {
@@ -120,7 +120,7 @@ fn register(cli: *const Cli, args: []const [:0]u8) !void {
     const url = try std.fmt.allocPrint(
         cli.allocator,
         "{s}/api/v1/actions/register_agent",
-        .{ std.mem.trimRight(u8, cli.gateway_url, "/") },
+        .{ std.mem.trimEnd(u8, cli.gateway_url, "/") },
     );
     defer cli.allocator.free(url);
 
@@ -151,8 +151,8 @@ fn runSigned(
     const privkey: [64]u8 = ctx.vaults.ops.sol_kp.secret;
 
     var nonce: [12]u8 = undefined;
-    std.crypto.random.bytes(&nonce);
-    const ts_ms: u64 = @intCast(std.time.milliTimestamp());
+    std.Io.Threaded.global_single_threaded.io().random(&nonce);
+    const ts_ms: u64 = @intCast(std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds());
 
     const req = try sdk.buildSignedRequest(
         cli.allocator, cli.gateway_url, action, payload_json, privkey, ts_ms, nonce,
@@ -217,9 +217,9 @@ fn runSigned(
 
 /// Returns owned hex string with the gateway pubkey, or null if unavailable.
 fn resolveGatewayPubkey(cli: *const Cli) !?[]u8 {
-    if (std.process.getEnvVarOwned(cli.allocator, "XB77_GATEWAY_PUBKEY")) |env_hex| {
-        return env_hex;
-    } else |_| {}
+    if (@as(?[]const u8, if (std.c.getenv("XB77_GATEWAY_PUBKEY")) |_p| std.mem.span(_p) else null)) |env_hex| {
+        return try cli.allocator.dupe(u8, env_hex);
+    }
 
     // Fall back to GET /_meta and extract `gateway_pubkey_hex`.
     var http = HttpClient.init(cli.allocator);
@@ -239,7 +239,7 @@ fn resolveGatewayPubkey(cli: *const Cli) !?[]u8 {
 // ───────────────────────────────────────────────────────────────────────
 // submit_order / claim_credits / query_pulse
 // ───────────────────────────────────────────────────────────────────────
-fn order(cli: *const Cli, args: []const [:0]u8) !void {
+fn order(cli: *const Cli, args: []const [:0]const u8) !void {
     var side: []const u8 = "buy";
     var chain: []const u8 = "solana";
     var symbol: []const u8 = "USDC";
@@ -265,7 +265,7 @@ fn order(cli: *const Cli, args: []const [:0]u8) !void {
     try runSigned(cli, .submit_order, payload);
 }
 
-fn claim(cli: *const Cli, args: []const [:0]u8) !void {
+fn claim(cli: *const Cli, args: []const [:0]const u8) !void {
     var proof: []const u8 = "proof-cli-stub";
     var i: usize = 0;
     while (i < args.len) : (i += 1) {
@@ -285,7 +285,7 @@ fn pulse(cli: *const Cli) !void {
 // ───────────────────────────────────────────────────────────────────────
 // unsigned reads
 // ───────────────────────────────────────────────────────────────────────
-fn reads(cli: *const Cli, args: []const [:0]u8) !void {
+fn reads(cli: *const Cli, args: []const [:0]const u8) !void {
     const which = if (args.len >= 1) args[0] else "pulse";
     var ctx_opt: ?core.context.AgentContext = null;
     defer if (ctx_opt) |*c| c.deinit();
@@ -314,7 +314,7 @@ fn reads(cli: *const Cli, args: []const [:0]u8) !void {
     };
 
     var http = HttpClient.init(cli.allocator);
-    const url = try std.fmt.allocPrint(cli.allocator, "{s}{s}", .{ std.mem.trimRight(u8, cli.gateway_url, "/"), path });
+    const url = try std.fmt.allocPrint(cli.allocator, "{s}{s}", .{ std.mem.trimEnd(u8, cli.gateway_url, "/"), path });
     defer cli.allocator.free(url);
     var resp = try http.get(url);
     defer resp.deinit();

@@ -9,8 +9,10 @@ pub fn watch(cli: *const Cli) !void {
     var ctx = try core.context.AgentContext.init(cli.allocator, cli.config_path, cli.password);
     defer ctx.deinit();
 
+    const io = std.Io.Threaded.global_single_threaded.io();
     const stdout_file = std.Io.File.stdout();
-    var stdout_wrapper = stdout_file.writer(&.{});
+    var stdout_buf: [65536]u8 = undefined;
+    var stdout_wrapper = stdout_file.writer(io, &stdout_buf);
     const stdout = &stdout_wrapper.interface;
 
     try stdout.print("\x1b[2J\x1b[H\x1b[?25l", .{});
@@ -59,16 +61,18 @@ pub fn watch(cli: *const Cli) !void {
 
     while (true) {
         // Tail ledger.jsonl
-        if (std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), ledger_path, .{})) |file| {
-            defer file.close(std.Io.Threaded.global_single_threaded.io());
-            const stat = file.stat() catch null;
+        if (std.Io.Dir.cwd().openFile(io, ledger_path, .{}) catch null) |file| {
+            defer file.close(io);
+            const stat = file.stat(io) catch null;
             if (stat) |s| {
                 if (s.size < ledger_offset) ledger_offset = 0;
                 if (s.size > ledger_offset) {
-                    file.seekTo(ledger_offset) catch {};
+                    var pos = ledger_offset;
                     while (true) {
-                        const n = file.read(&read_buf) catch 0;
+                        var rslices = [1][]u8{read_buf[0..]};
+                        const n = file.readPositional(io, &rslices, pos) catch 0;
                         if (n == 0) break;
+                        pos += n;
                         for (read_buf[0..n]) |c| {
                             if (c == '\n') {
                                 if (line_acc_len > 0) {
@@ -92,16 +96,16 @@ pub fn watch(cli: *const Cli) !void {
                     ledger_offset = s.size;
                 }
             }
-        } else |_| {}
+        }
 
         // Tail agent.log (last line only)
-        if (std.Io.Dir.cwd().openFile(std.Io.Threaded.global_single_threaded.io(), log_path, .{})) |file| {
-            defer file.close(std.Io.Threaded.global_single_threaded.io());
-            const stat = file.stat() catch null;
+        if (std.Io.Dir.cwd().openFile(io, log_path, .{}) catch null) |file| {
+            defer file.close(io);
+            const stat = file.stat(io) catch null;
             if (stat) |s| {
                 const start: u64 = if (s.size > 512) s.size - 512 else 0;
-                file.seekTo(start) catch {};
-                const n = file.read(&read_buf) catch 0;
+                var rslices2 = [1][]u8{read_buf[0..]};
+                const n = file.readPositional(io, &rslices2, start) catch 0;
                 if (n > 0) {
                     var last_nl: usize = 0;
                     var i: usize = 0;
@@ -117,7 +121,7 @@ pub fn watch(cli: *const Cli) !void {
                     }
                 }
             }
-        } else |_| {}
+        }
 
         // Render
         try stdout.print("\x1b[H\x1b[J", .{});
@@ -172,8 +176,9 @@ pub fn watch(cli: *const Cli) !void {
         }
 
         try stdout.print("\n\x1b[1;30mPress Ctrl+C to exit.\x1b[0m\n", .{});
+        stdout.flush() catch {};
 
-        std.Thread.sleep(1_000_000_000);
+        std.Io.sleep(io, .{ .nanoseconds = @intCast(1_000_000_000) }, .awake) catch {};
         tick +%= 1;
     }
 }

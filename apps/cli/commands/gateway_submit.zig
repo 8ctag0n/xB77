@@ -27,7 +27,7 @@ const GATEWAY_PROGRAM_ID = "83nPgEhrzKaDSXCoWQCkYau66KUnVeFSQF32LPfyL3s4";
 const DEFAULT_RPC = "http://127.0.0.1:8899";
 const DEFAULT_IDL = "idls/xb77_gateway.json";
 
-pub fn submitOrder(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn submitOrder(cli: *const Cli, args: []const [:0]const u8) !void {
     const allocator = cli.allocator;
 
     var rpc_url: []const u8 = DEFAULT_RPC;
@@ -50,16 +50,16 @@ pub fn submitOrder(cli: *const Cli, args: []const [:0]u8) !void {
     var rpc_url_owned: ?[]u8 = null;
     defer if (rpc_url_owned) |r| allocator.free(r);
     if (std.mem.eql(u8, rpc_url, DEFAULT_RPC)) {
-        if (std.process.getEnvVarOwned(allocator, "XB77_RPC")) |env_rpc| {
-            rpc_url_owned = env_rpc;
+        if (@as(?[]const u8, if (std.c.getenv("XB77_RPC")) |_p| std.mem.span(_p) else null)) |env_rpc| {
+            rpc_url_owned = @constCast(env_rpc);
             rpc_url = env_rpc;
-        } else |_| {}
+        }
     }
 
     if (order_id == 0) {
         // Pseudo-random nonzero u64.
         var seed_bytes: [8]u8 = undefined;
-        std.crypto.random.bytes(&seed_bytes);
+        std.Io.Threaded.global_single_threaded.io().random(&seed_bytes);
         order_id = std.mem.readInt(u64, &seed_bytes, .little);
         if (order_id == 0) order_id = 1;
     }
@@ -67,7 +67,7 @@ pub fn submitOrder(cli: *const Cli, args: []const [:0]u8) !void {
 
     // Random 32-byte nullifier (must be nonzero).
     var nullifier: [32]u8 = undefined;
-    std.crypto.random.bytes(&nullifier);
+    std.Io.Threaded.global_single_threaded.io().random(&nullifier);
     if (std.mem.allEqual(u8, &nullifier, 0)) nullifier[0] = 1;
 
     std.debug.print("[SUBMIT] profile:  {s}\n", .{cli.profile});
@@ -92,7 +92,7 @@ pub fn submitOrder(cli: *const Cli, args: []const [:0]u8) !void {
     const recipient: [32]u8 = kp.public;
 
     // Load IDL and encode SubmitPrivateOrder.
-    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), allocator, idl_path, 64 * 1024);
+    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), idl_path, allocator, std.Io.Limit.limited(64 * 1024));
     defer allocator.free(idl_json);
 
     const IdlClientT = onchain.IdlClient;
@@ -151,7 +151,7 @@ pub fn submitOrder(cli: *const Cli, args: []const [:0]u8) !void {
         rpc.requestAirdrop(payer_addr, 1_000_000_000) catch |e| {
             std.debug.print("[SUBMIT] airdrop failed: {any}\n", .{e});
         };
-        std.Thread.sleep(2 * std.time.ns_per_s);
+        std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(2 * std.time.ns_per_s) }, .awake) catch {};
     }
 
     const blockhash = try rpc.getLatestBlockhash();
@@ -210,7 +210,7 @@ pub fn submitOrder(cli: *const Cli, args: []const [:0]u8) !void {
 /// `xb77 gateway init` — one-time bootstrap of the xb77_gateway state PDA.
 /// Idempotent: checks getAccountInfo first; if owner == gateway_program, exit ok.
 /// Uses the current profile's keypair as the admin.
-pub fn initGateway(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn initGateway(cli: *const Cli, args: []const [:0]const u8) !void {
     const allocator = cli.allocator;
 
     var rpc_url: []const u8 = DEFAULT_RPC;
@@ -227,10 +227,10 @@ pub fn initGateway(cli: *const Cli, args: []const [:0]u8) !void {
     var rpc_url_owned: ?[]u8 = null;
     defer if (rpc_url_owned) |r| allocator.free(r);
     if (std.mem.eql(u8, rpc_url, DEFAULT_RPC)) {
-        if (std.process.getEnvVarOwned(allocator, "XB77_RPC")) |env_rpc| {
-            rpc_url_owned = env_rpc;
+        if (@as(?[]const u8, if (std.c.getenv("XB77_RPC")) |_p| std.mem.span(_p) else null)) |env_rpc| {
+            rpc_url_owned = @constCast(env_rpc);
             rpc_url = env_rpc;
-        } else |_| {}
+        }
     }
 
     std.debug.print("[INIT] profile:  {s}\n", .{cli.profile});
@@ -278,11 +278,11 @@ pub fn initGateway(cli: *const Cli, args: []const [:0]u8) !void {
         rpc.requestAirdrop(payer_addr, 5_000_000_000) catch |e| {
             std.debug.print("[INIT] airdrop failed: {any}\n", .{e});
         };
-        std.Thread.sleep(2 * std.time.ns_per_s);
+        std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(2 * std.time.ns_per_s) }, .awake) catch {};
     }
 
     // Encode InitGateway via IDL.
-    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), allocator, idl_path, 64 * 1024);
+    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), idl_path, allocator, std.Io.Limit.limited(64 * 1024));
     defer allocator.free(idl_json);
 
     var client = try onchain.IdlClient.init(allocator, idl_json);

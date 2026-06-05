@@ -2,7 +2,7 @@ const std = @import("std");
 const core = @import("core");
 const Cli = @import("../flags.zig").Cli;
 
-pub fn execute(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn execute(cli: *const Cli, args: []const [:0]const u8) !void {
     if (args.len < 1) {
         std.debug.print("Usage: xb77 intent \"<natural_language_command>\"\n", .{});
         std.debug.print("Example: xb77 intent \"Deposit 50 USDC to the main liquidity pool\"\n", .{});

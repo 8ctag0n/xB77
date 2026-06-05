@@ -96,7 +96,7 @@ pub fn status(cli: *const Cli) !void {
     }
 
     // --- [2] SOVEREIGN BRAIN (QVAC) ---
-    const use_shim = if (std.process.getEnvVarOwned(cli.allocator, "XB77_USE_BRAIN_SHIM") catch null) |val| blk: {
+    const use_shim = if (@as(?[]const u8, if (std.c.getenv("XB77_USE_BRAIN_SHIM")) |_p| std.mem.span(_p) else null)) |val| blk: {
         const is_shim = std.mem.eql(u8, val, "1");
         cli.allocator.free(val);
         break :blk is_shim;
@@ -139,7 +139,7 @@ pub fn state(cli: *const Cli) !void {
     std.debug.print(RST ++ "\n" ++ LIME ++ "INTEGRITY_VERIFIED" ++ RST ++ "\n\n", .{});
 }
 
-pub fn credits(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn credits(cli: *const Cli, args: []const [:0]const u8) !void {
     if (args.len > 0 and std.mem.eql(u8, args[0], "topup")) {
         try topup(cli);
         return;
@@ -190,7 +190,7 @@ fn topup(cli: *const Cli) !void {
     std.debug.print(GOLD ++ "╚══════════════════════════════════════════════════════════════╝" ++ RST ++ "\n\n", .{});
 }
 
-pub fn identity(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn identity(cli: *const Cli, args: []const [:0]const u8) !void {
     if (args.len < 1) {
         std.debug.print(
             \\Uso: xb77 identity <comando> [opciones]
@@ -228,7 +228,11 @@ pub fn identity(cli: *const Cli, args: []const [:0]u8) !void {
 
         var json_list = std.ArrayListUnmanaged(u8).empty;
         defer json_list.deinit(cli.allocator);
-        try json_list.writer(cli.allocator).print("{any}", .{std.json.fmt(payload, .{})});
+        {
+            const _json = try std.json.Stringify.valueAlloc(cli.allocator, payload, .{});
+            defer cli.allocator.free(_json);
+            try json_list.appendSlice(cli.allocator, _json);
+        }
 
         var http = core.net.http.HttpClient.init(cli.allocator);
         const url = "https://gateway.xb77.io/identity/claim";

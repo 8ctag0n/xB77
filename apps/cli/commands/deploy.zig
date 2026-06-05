@@ -9,7 +9,7 @@ const PURPLE = "\x1b[35m";
 const RST = "\x1b[0m";
 const DIM = "\x1b[2m";
 
-pub fn run(cli: *Cli, args: []const [:0]u8) !void {
+pub fn run(cli: *Cli, args: []const [:0]const u8) !void {
     _ = cli;
     var target: []const u8 = "cloudflare";
     if (args.len > 0) target = args[0];
@@ -27,19 +27,19 @@ pub fn run(cli: *Cli, args: []const [:0]u8) !void {
 fn deployToCloudflare() !void {
     std.debug.print("\n{s}1/4{s} Compiling WASM Kernel... ", .{ CYAN, RST });
     // Simulamos la compilación
-    std.Thread.sleep(1 * std.time.ns_per_s);
+    std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(1 * std.time.ns_per_s) }, .awake) catch {};
     std.debug.print("DONE\n", .{});
 
     std.debug.print("{s}2/4{s} Encrypting Sovereign Vault... ", .{ CYAN, RST });
-    std.Thread.sleep(1 * std.time.ns_per_s);
+    std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(1 * std.time.ns_per_s) }, .awake) catch {};
     std.debug.print("DONE\n", .{});
 
     std.debug.print("{s}3/4{s} Preparing Wrangler Environment... ", .{ CYAN, RST });
-    std.Thread.sleep(1 * std.time.ns_per_s);
+    std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(1 * std.time.ns_per_s) }, .awake) catch {};
     std.debug.print("DONE\n", .{});
 
     std.debug.print("{s}4/4{s} Pushing to Cloudflare Workers... ", .{ CYAN, RST });
-    std.Thread.sleep(2 * std.time.ns_per_s);
+    std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(2 * std.time.ns_per_s) }, .awake) catch {};
     std.debug.print("SUCCESS\n", .{});
 
     std.debug.print("\n{s}{s}[DEPLOYED]{s} Agent is now live at: {s}https://agent-77.workers.dev{s}\n", .{ PURPLE, BOLD, RST, CYAN, RST });

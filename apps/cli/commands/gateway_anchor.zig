@@ -28,7 +28,7 @@ const NEW_ROOT_HEX = "0b859c423aef971e249bb83755ec80caaf15e9030864bc9251561c372e
 const DEFAULT_RPC = "http://127.0.0.1:8899";
 const DEFAULT_IDL = "idls/xb77_compression.json";
 
-pub fn anchor(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn anchor(cli: *const Cli, args: []const [:0]const u8) !void {
     const allocator = cli.allocator;
 
     // Parse optional flags.
@@ -47,10 +47,10 @@ pub fn anchor(cli: *const Cli, args: []const [:0]u8) !void {
     var rpc_url_owned: ?[]u8 = null;
     defer if (rpc_url_owned) |r| allocator.free(r);
     if (std.mem.eql(u8, rpc_url, DEFAULT_RPC)) {
-        if (std.process.getEnvVarOwned(allocator, "XB77_RPC")) |env_rpc| {
-            rpc_url_owned = env_rpc;
+        if (@as(?[]const u8, if (std.c.getenv("XB77_RPC")) |_p| std.mem.span(_p) else null)) |env_rpc| {
+            rpc_url_owned = @constCast(env_rpc);
             rpc_url = env_rpc;
-        } else |_| {}
+        }
     }
 
     std.debug.print("[ANCHOR] profile:  {s}\n", .{cli.profile});
@@ -67,7 +67,7 @@ pub fn anchor(cli: *const Cli, args: []const [:0]u8) !void {
     std.debug.print("[ANCHOR] payer:    {s}\n", .{payer_addr});
 
     // Load IDL and encode instruction.
-    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), allocator, idl_path, 64 * 1024);
+    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), idl_path, allocator, std.Io.Limit.limited(64 * 1024));
     defer allocator.free(idl_json);
 
     const IdlClientT = onchain.IdlClient;
@@ -126,7 +126,7 @@ pub fn anchor(cli: *const Cli, args: []const [:0]u8) !void {
         rpc.requestAirdrop(payer_addr, 1_000_000_000) catch |e| {
             std.debug.print("[ANCHOR] airdrop failed: {any}\n", .{e});
         };
-        std.Thread.sleep(2 * std.time.ns_per_s);
+        std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(2 * std.time.ns_per_s) }, .awake) catch {};
     }
 
     const blockhash = try rpc.getLatestBlockhash();

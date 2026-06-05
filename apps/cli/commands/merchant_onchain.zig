@@ -19,7 +19,7 @@ const REGISTRY_PROGRAM_ID = "HxjcLS4gkccTWD3VeM9Vc4NkQ4rjxtDHR2Lwby6NL6b1";
 const DEFAULT_RPC = "http://127.0.0.1:8899";
 const DEFAULT_IDL = "idls/xb77_registry.json";
 
-pub fn register(cli: *const Cli, args: []const [:0]u8) !void {
+pub fn register(cli: *const Cli, args: []const [:0]const u8) !void {
     const allocator = cli.allocator;
 
     var merchant_id: []const u8 = "";
@@ -48,10 +48,10 @@ pub fn register(cli: *const Cli, args: []const [:0]u8) !void {
     var rpc_url_owned: ?[]u8 = null;
     defer if (rpc_url_owned) |r| allocator.free(r);
     if (std.mem.eql(u8, rpc_url, DEFAULT_RPC)) {
-        if (std.process.getEnvVarOwned(allocator, "XB77_RPC")) |env_rpc| {
+        if (@as(?[]const u8, if (std.c.getenv("XB77_RPC")) |_p| std.mem.span(_p) else null)) |env_rpc| {
             rpc_url_owned = env_rpc;
             rpc_url = env_rpc;
-        } else |_| {}
+        }
     }
 
     std.debug.print("[MERCHANT-REG] id:      {s}\n", .{merchant_id});
@@ -77,7 +77,7 @@ pub fn register(cli: *const Cli, args: []const [:0]u8) !void {
     std.debug.print("[MERCHANT-REG] PDA:     {s}\n", .{m_pda_str});
 
     // Encode InitMerchant via IDL.
-    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), allocator, idl_path, 64 * 1024);
+    const idl_json = try std.Io.Dir.cwd().readFileAlloc(std.Io.Threaded.global_single_threaded.io(), idl_path, allocator, std.Io.Limit.limited(64 * 1024));
     defer allocator.free(idl_json);
 
     var client = try onchain.IdlClient.init(allocator, idl_json);
@@ -110,7 +110,7 @@ pub fn register(cli: *const Cli, args: []const [:0]u8) !void {
     if (balance < 10_000_000) {
         std.debug.print("[MERCHANT-REG] requesting airdrop...\n", .{});
         rpc.requestAirdrop(payer_addr, 1_000_000_000) catch {};
-        std.Thread.sleep(2 * std.time.ns_per_s);
+        std.Io.sleep(std.Io.Threaded.global_single_threaded.io(), .{ .nanoseconds = @intCast(2 * std.time.ns_per_s) }, .awake) catch {};
     }
 
     const blockhash = try rpc.getLatestBlockhash();
