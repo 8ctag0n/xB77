@@ -19,7 +19,7 @@ pub const ZkReceipt = struct {
         recipient: union(enum) { sol: types.Pubkey, evm: types.EthAddress },
     ) !ZkReceipt {
         var salt: [32]u8 = undefined;
-        std.crypto.random.bytes(&salt);
+        std.Io.Threaded.global_single_threaded.io().random(&salt);
 
         var rb: [32]u8 = [_]u8{0} ** 32;
         switch (recipient) {

@@ -206,7 +206,7 @@ pub const Vault = struct {
             return false;
         }
 
-        const now = std.time.milliTimestamp();
+        const now = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds();
         const one_day_ms = 24 * 60 * 60 * 1000;
         var spent_today: u64 = 0;
 
@@ -227,7 +227,7 @@ pub const Vault = struct {
     }
 
     pub fn recordSpend(self: *Vault, amount: u64, asset: types.Asset) !void {
-        const ts = std.time.milliTimestamp();
+        const ts = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds();
         try self.history.append(self.allocator, .{
             .timestamp = ts,
             .amount = amount,
@@ -236,11 +236,10 @@ pub const Vault = struct {
 
         const file = try std.Io.Dir.cwd().createFile(std.Io.Threaded.global_single_threaded.io(), self.storage_path, .{ .truncate = false });
         defer file.close(std.Io.Threaded.global_single_threaded.io());
-        try file.seekFromEnd(0);
-        
         var fmt_buf: [256]u8 = undefined;
         const line = try std.fmt.bufPrint(&fmt_buf, "{d},{d},{s}\n", .{ ts, amount, asset.symbol });
-        try file.writeStreamingAll(std.Io.Threaded.global_single_threaded.io(), line);
+        const vault_end = try file.length(std.Io.Threaded.global_single_threaded.io());
+        try std.Io.File.writePositionalAll(file, std.Io.Threaded.global_single_threaded.io(), line, vault_end);
     }
 };
 
@@ -286,8 +285,6 @@ pub const VaultSet = struct {
 /// log lines that would otherwise pollute the cinematic demo. Real errors
 /// keep propagating via return values.
 fn isQuietMode(allocator: std.mem.Allocator) bool {
-    if (std.process.getEnvVarOwned(allocator, "XB77_DEMO")) |val| {
-        allocator.free(val);
-        return true;
-    } else |_| return false;
+    _ = allocator;
+    return std.c.getenv("XB77_DEMO") != null;
 }

@@ -35,7 +35,7 @@ pub const SovereignSwap = struct {
         peer: [32]u8,
     ) !SovereignSwap {
         var secret: [32]u8 = undefined;
-        std.crypto.random.bytes(&secret);
+        std.Io.Threaded.global_single_threaded.io().random(&secret);
         
         var hash: [32]u8 = undefined;
         var hasher = std.crypto.hash.sha2.Sha256.init(.{});
@@ -43,7 +43,7 @@ pub const SovereignSwap = struct {
         hasher.final(&hash);
         
         var id: [32]u8 = undefined;
-        std.crypto.random.bytes(&id);
+        std.Io.Threaded.global_single_threaded.io().random(&id);
 
         return .{
             .id = id,

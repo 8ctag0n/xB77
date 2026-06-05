@@ -109,7 +109,7 @@ pub fn buildSignedRequest(
     const sig_bytes = signature.toBytes();
 
     // URL: {base}/api/v1/actions/{action_path}
-    const base_trimmed = std.mem.trimRight(u8, gateway_base, "/");
+    const base_trimmed = std.mem.trimEnd(u8, gateway_base, "/");
     const action_path = action.path();
     const url = std.fmt.allocPrint(
         allocator,

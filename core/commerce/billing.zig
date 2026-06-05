@@ -42,6 +42,6 @@ pub const BillingManager = struct {
     pub fn processDeposit(status: *CreditStatus, lamports: u64) void {
         const credits = solToCredits(lamports);
         status.balance += credits;
-        status.last_update = std.time.milliTimestamp();
+        status.last_update = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds();
     }
 };

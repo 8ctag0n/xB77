@@ -22,7 +22,7 @@ pub const Constitution = struct {
             .max_slippage_bps = 100, // 1% default
             .emergency_stop = false,
             .blocked_contracts = std.StringHashMap(void).init(allocator),
-            .rules = .{},
+            .rules = std.ArrayListUnmanaged([]const u8).empty,
             .mutex = .init,
         };
     }
@@ -51,6 +51,21 @@ pub const Constitution = struct {
         self.mutex.lock(io) catch return true; // Fail safe
         defer self.mutex.unlock(io);
         return self.blocked_contracts.contains(address);
+    }
+
+    pub fn update(self: *Constitution, emergency_stop: bool, max_slippage_bps: u16) void {
+        self.emergency_stop = emergency_stop;
+        self.max_slippage_bps = max_slippage_bps;
+    }
+
+    pub fn isActionAllowed(self: *Constitution, address: []const u8) bool {
+        return !self.isBlocked(address) and !self.emergency_stop;
+    }
+
+    pub fn validateToll(self: *const Constitution, amount: u64, memo: []const u8) bool {
+        _ = memo;
+        if (self.emergency_stop) return false;
+        return amount <= self.guardian_threshold_lamports;
     }
 
     pub fn addRule(self: *Constitution, rule: []const u8) !void {

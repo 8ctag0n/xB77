@@ -43,9 +43,9 @@ pub fn seal(plain: []const u8, password: []const u8, out: []u8) Error!void {
     if (out.len < sealedSize(plain.len)) return Error.OutputBufferTooSmall;
 
     var salt: [SALT_LEN]u8 = undefined;
-    std.crypto.random.bytes(&salt);
+    std.Io.Threaded.global_single_threaded.io().random(&salt);
     var nonce: [NONCE_LEN]u8 = undefined;
-    std.crypto.random.bytes(&nonce);
+    std.Io.Threaded.global_single_threaded.io().random(&nonce);
 
     var key: [DERIVED_KEY_LEN]u8 = undefined;
     pbkdf2(&key, password, &salt, PBKDF2_ITERS, HmacSha256) catch return Error.BlobCorrupt;

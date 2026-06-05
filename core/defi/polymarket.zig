@@ -61,7 +61,7 @@ pub fn buildArbitrageOrder(
     maker_addr: types.EthAddress
 ) PolymarketOrder {
     var salt_bytes: [32]u8 = undefined;
-    std.crypto.random.bytes(&salt_bytes);
+    std.Io.Threaded.global_single_threaded.io().random(&salt_bytes);
     const salt = std.mem.readInt(u256, &salt_bytes, .big);
 
     return PolymarketOrder{

@@ -131,7 +131,7 @@ pub const PaymentRouter = struct {
             }
             
             try self.store.record(.{
-                .timestamp = std.time.milliTimestamp(),
+                .timestamp = std.Io.Timestamp.now(std.Io.Threaded.global_single_threaded.io(), .real).toMilliseconds(),
                 .chain = .solana,
                 .entry_type = .receipt,
                 .description = if (mb_sig != null) "ShadowWire HFT Payment" else "Ghost Payment Settlement",
@@ -164,7 +164,7 @@ pub const PaymentRouter = struct {
         } else {
             // SPL Token Transfer (USDT, etc)
             const mint_addr = request.asset.address orelse return error.MissingTokenAddress;
-            const tx_bytes = try tx_mod.buildSplTransferTx(self.allocator, v.sol_kp.public, mint_addr, v.sol_kp.public, request.recipient.sol, request.amount, blockhash);
+            const tx_bytes = try tx_mod.buildSplTransferTx(self.allocator, v.sol_kp.public, &mint_addr, v.sol_kp.public, request.recipient.sol, request.amount, blockhash);
             defer self.allocator.free(tx_bytes);
             const signature = crypto.sign(tx_bytes[65..], &v.sol_kp);
             @memcpy(tx_bytes[1..65], &signature);

@@ -3,6 +3,7 @@ const crypto = @import("../security/crypto.zig");
 const types = @import("../protocol/types.zig");
 const store_mod = @import("../protocol/store.zig");
 const semantic = @import("../security/semantic.zig");
+const awp = @import("awp");
 
 pub const BrainInsight = struct {
     decision: []const u8,
@@ -22,7 +23,7 @@ pub const BrainInsight = struct {
         errdefer list.deinit(allocator);
 
         var id_hex: [64]u8 = undefined;
-        _ = std.fmt.bufPrint(&id_hex, "{x}", .{std.fmt.fmtSliceEscapeLower(self.decision)}) catch unreachable;
+        _ = std.fmt.bufPrint(&id_hex, "{s}", .{self.decision}) catch unreachable;
 
         try list.print(allocator, "🧠 *xB77 Brain Insight*\n\n", .{});
         try list.print(allocator, "✅ *Decision:* {s}\n", .{self.decision});
@@ -38,7 +39,7 @@ pub const BrainInsight = struct {
         errdefer list.deinit(allocator);
 
         var id_hex: [64]u8 = undefined;
-        _ = std.fmt.bufPrint(&id_hex, "{x}", .{std.fmt.fmtSliceEscapeLower(self.decision)}) catch unreachable;
+        _ = std.fmt.bufPrint(&id_hex, "{s}", .{self.decision}) catch unreachable;
 
         try list.print(allocator, " ARC SWARM REASONING TRACE\n", .{});
         try list.print(allocator, "---------------------------\n", .{});
@@ -99,5 +100,15 @@ pub const Brain = struct {
     pub fn reasonWithGemma(self: *Brain, directive: []const u8) !BrainInsight {
         std.debug.print("\n[BRAIN ]  Thinking (Gemma-2B local)...", .{});
         return self.interpret(directive);
+    }
+
+    pub fn negotiate(self: *Brain, query: []const u8, app_manager: anytype, merchant: anytype) !?awp.AppQuoteMsg {
+        _ = self; _ = query; _ = app_manager; _ = merchant;
+        return null;
+    }
+
+    pub fn shouldAccept(self: *Brain, quote: awp.AppQuoteMsg) bool {
+        _ = self; _ = quote;
+        return false;
     }
 };
