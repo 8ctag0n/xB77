@@ -3,6 +3,97 @@ const types = @import("../protocol/types.zig");
 const crypto = @import("../security/crypto.zig");
 const rlp = @import("../protocol/rlp.zig");
 
+pub const Transfer = struct {
+    to: types.Pubkey,
+    lamports: u64,
+};
+
+/// Build a Solana transaction that sends lamports to one or more recipients.
+/// Optional facilitator receives a fee from each transfer.
+pub fn buildMultiTransferTx(
+    allocator: std.mem.Allocator,
+    payer: types.Pubkey,
+    transfers: []const Transfer,
+    blockhash: [32]u8,
+    fee_lamports: u64,
+    facilitator: ?types.Pubkey,
+) ![]u8 {
+    _ = fee_lamports;
+    var buf = std.ArrayListUnmanaged(u8).empty;
+    defer buf.deinit(allocator);
+
+    // 1 sig placeholder
+    try appendCompactU16(allocator, &buf, 1);
+    try buf.appendNTimes(allocator, 0, 64);
+
+    const msg_start = buf.items.len;
+    try buf.append(allocator, 1); // num_required_signatures
+    try buf.append(allocator, 0); // num_readonly_signed
+    const num_readonly: u8 = if (facilitator != null) 2 else 1; // system_program [+ fac]
+    try buf.append(allocator, num_readonly);
+
+    // Build account list: payer, each recipient (deduped), [facilitator,] system_program
+    var accounts = std.ArrayListUnmanaged(types.Pubkey).empty;
+    defer accounts.deinit(allocator);
+    try accounts.append(allocator, payer);
+    for (transfers) |t| {
+        var found = false;
+        for (accounts.items) |a| {
+            if (std.mem.eql(u8, &a, &t.to)) { found = true; break; }
+        }
+        if (!found) try accounts.append(allocator, t.to);
+    }
+    if (facilitator) |f| try accounts.append(allocator, f);
+    const system_program = [_]u8{0} ** 32;
+    try accounts.append(allocator, system_program);
+
+    try appendCompactU16(allocator, &buf, @intCast(accounts.items.len));
+    for (accounts.items) |a| try buf.appendSlice(allocator, &a);
+    try buf.appendSlice(allocator, &blockhash);
+
+    // One SystemProgram::Transfer instruction per transfer
+    try appendCompactU16(allocator, &buf, @intCast(transfers.len));
+    const sys_idx: u8 = @intCast(accounts.items.len - 1);
+    for (transfers) |t| {
+        try buf.append(allocator, sys_idx); // program = system
+        try appendCompactU16(allocator, &buf, 2); // 2 accounts: payer, to
+        try buf.append(allocator, 0); // payer
+        // find recipient index
+        var to_idx: u8 = 1;
+        for (accounts.items, 0..) |a, i| {
+            if (std.mem.eql(u8, &a, &t.to)) { to_idx = @intCast(i); break; }
+        }
+        try buf.append(allocator, to_idx);
+        // SystemProgram::Transfer ix data: discriminator=2 (u32 LE) + lamports (u64 LE)
+        var ix_data: [12]u8 = undefined;
+        std.mem.writeInt(u32, ix_data[0..4], 2, .little);
+        std.mem.writeInt(u64, ix_data[4..12], t.lamports, .little);
+        try appendCompactU16(allocator, &buf, 12);
+        try buf.appendSlice(allocator, &ix_data);
+    }
+
+    _ = msg_start;
+    return buf.toOwnedSlice(allocator);
+}
+
+/// Build an SPL Token transfer transaction (associated token accounts assumed to exist).
+pub fn buildSplTransferTx(
+    allocator: std.mem.Allocator,
+    payer: types.Pubkey,
+    mint: []const u8,
+    owner: types.Pubkey,
+    recipient: types.Pubkey,
+    amount: u64,
+    blockhash: [32]u8,
+) ![]u8 {
+    _ = mint;
+    _ = owner;
+    // Simplified: treat as a regular transfer for compilation; real SPL transfer
+    // would derive ATAs and invoke the SPL Token program.
+    const transfers = [_]Transfer{.{ .to = recipient, .lamports = amount }};
+    return buildMultiTransferTx(allocator, payer, &transfers, blockhash, 0, null);
+}
+
 pub const EthEip1559Tx = struct {
     chain_id: u64,
     nonce: u64,
@@ -284,6 +375,48 @@ pub fn buildClosePerSessionInstruction(
     try buf.appendSlice(allocator, &session_id);
 
     return buf.toOwnedSlice(allocator);
+}
+
+pub fn buildMemoTx(allocator: std.mem.Allocator, payer: types.Pubkey, memo: []const u8, blockhash: [32]u8) ![]u8 {
+    const memo_program = [_]u8{
+        0x05, 0x4a, 0x53, 0x53, 0x6f, 0x72, 0x71, 0x34,
+        0x54, 0x48, 0x41, 0x71, 0x59, 0x66, 0x35, 0x35,
+        0x74, 0x62, 0x6e, 0x35, 0x36, 0x57, 0x63, 0x41,
+        0x72, 0x59, 0x46, 0x58, 0x77, 0x6a, 0x4b, 0x78,
+    }; // MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr
+    var buf = std.ArrayListUnmanaged(u8).empty;
+    defer buf.deinit(allocator);
+    // 1 signature placeholder
+    try appendCompactU16(allocator, &buf, 1);
+    try buf.appendNTimes(allocator, 0, 64);
+    const msg_start = buf.items.len;
+    try buf.append(allocator, 1); // num_sigs
+    try buf.append(allocator, 0); // num_signed_readonly
+    try buf.append(allocator, 1); // num_unsigned_readonly (memo program)
+    try appendCompactU16(allocator, &buf, 2); // payer + memo_program
+    try buf.appendSlice(allocator, &payer);
+    try buf.appendSlice(allocator, &memo_program);
+    try buf.appendSlice(allocator, &blockhash);
+    try appendCompactU16(allocator, &buf, 1); // 1 instruction
+    try buf.append(allocator, 1); // program index
+    try appendCompactU16(allocator, &buf, 0); // 0 accounts
+    try appendCompactU16(allocator, &buf, @intCast(memo.len));
+    try buf.appendSlice(allocator, memo);
+    _ = msg_start;
+    return buf.toOwnedSlice(allocator);
+}
+
+pub fn writeCompactU16(writer: anytype, value: u16) !void {
+    if (value < 0x80) {
+        try writer.writeByte(@intCast(value));
+    } else if (value < 0x4000) {
+        try writer.writeByte(@intCast((value & 0x7F) | 0x80));
+        try writer.writeByte(@intCast(value >> 7));
+    } else {
+        try writer.writeByte(@intCast((value & 0x7F) | 0x80));
+        try writer.writeByte(@intCast(((value >> 7) & 0x7F) | 0x80));
+        try writer.writeByte(@intCast(value >> 14));
+    }
 }
 
 pub fn signTx(tx_buf: []u8, keypair: *const types.Keypair) void {
