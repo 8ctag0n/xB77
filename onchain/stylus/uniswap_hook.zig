@@ -137,7 +137,7 @@ fn initOwner() void {
     var slot: [32]u8 = [_]u8{0} ** 32;
     @memcpy(slot[12..32], &sender);
     Stylus.sstore(SLOT_OWNER, slot);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 }
 
 // ── setConstitution(address constitution) ─────────────────────────────────
@@ -149,7 +149,7 @@ fn handleSetConstitution(data: []const u8) i32 {
     if (data.len < 32) return REVERT;
 
     Stylus.sstore(SLOT_CONSTITUTION, data[0..32][0..32].*);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 
     returnOne();
     return SUCCESS;
@@ -226,7 +226,7 @@ fn handleAfterSwap(alloc: std.mem.Allocator, data: []const u8) i32 {
     var updated: [32]u8 = undefined;
     std.mem.writeInt(u256, &updated, current + volume, .big);
     Stylus.sstore(slot, updated);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 
     // Emit SwapSettled(agent, volume)
     var log_data: [64]u8 = [_]u8{0} ** 64;

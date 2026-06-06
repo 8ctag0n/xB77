@@ -125,7 +125,7 @@ fn initOwner() void {
     var slot: [32]u8 = [_]u8{0} ** 32;
     @memcpy(slot[12..32], &sender);
     Stylus.sstore(SLOT_OWNER, slot);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 }
 
 fn handleSetConstitution(data: []const u8) i32 {
@@ -133,7 +133,7 @@ fn handleSetConstitution(data: []const u8) i32 {
     if (!std.mem.eql(u8, &getOwner(), &Stylus.getSender())) return REVERT;
     if (data.len < 32) return REVERT;
     Stylus.sstore(SLOT_CONSTITUTION, data[0..32][0..32].*);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
     returnOne();
     return SUCCESS;
 }
@@ -198,7 +198,7 @@ fn handleSupply(alloc: std.mem.Allocator, data: []const u8) i32 {
 
     const agent = Stylus.getSender();
     addGDP(agent, amount);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 
     var log: [64]u8 = [_]u8{0} ** 64;
     @memset(log[0..12], 0); @memcpy(log[12..32], &agent);
@@ -228,7 +228,7 @@ fn handleBorrow(alloc: std.mem.Allocator, data: []const u8) i32 {
 
     const agent = Stylus.getSender();
     addGDP(agent, amount);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 
     var log: [64]u8 = [_]u8{0} ** 64;
     @memset(log[0..12], 0); @memcpy(log[12..32], &agent);
@@ -307,7 +307,7 @@ fn handleFlashLoan(alloc: std.mem.Allocator, data: []const u8) i32 {
 
     const agent = Stylus.getSender();
     addGDP(agent, amount);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 
     var log: [64]u8 = [_]u8{0} ** 64;
     @memset(log[0..12], 0); @memcpy(log[12..32], &agent);

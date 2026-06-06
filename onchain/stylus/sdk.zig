@@ -13,13 +13,17 @@ const IS_WASM = builtin.cpu.arch == .wasm32;
 
 /// Real Arbitrum Stylus host imports (used in production WASM builds)
 const real_hooks = struct {
+    // Required by Stylus VM: the runtime instruments memory.grow via this import.
+    // Must appear in the WASM imports section for cargo-stylus activation to succeed.
+    pub extern "vm_hooks" fn pay_for_memory_grow(pages: u16) void;
+
     pub extern "vm_hooks" fn read_args(dest: [*]u8) void;
     pub extern "vm_hooks" fn write_result(data: [*]const u8, len: usize) void;
     pub extern "vm_hooks" fn exit_early(status: i32) noreturn;
 
     pub extern "vm_hooks" fn storage_load_bytes32(key: [*]const u8, dest: [*]u8) void;
     pub extern "vm_hooks" fn storage_cache_bytes32(key: [*]const u8, value: [*]const u8) void;
-    pub extern "vm_hooks" fn storage_flush_cache() void;
+    pub extern "vm_hooks" fn storage_flush_cache(clear: u32) void;
 
     pub extern "vm_hooks" fn msg_sender(dest: [*]u8) void;
     pub extern "vm_hooks" fn msg_value(dest: [*]u8) void;
@@ -28,12 +32,15 @@ const real_hooks = struct {
     pub extern "vm_hooks" fn chainid() i64;
 
     pub extern "vm_hooks" fn native_keccak256(data: [*]const u8, len: usize, dest: [*]u8) void;
-    pub extern "vm_hooks" fn emit_log(data: [*]const u8, len: usize, topics: [*]const u8, topics_len: usize) void;
+    // Layout: [topic_0..topic_N][unindexed_data], topics = count of leading 32-byte topic slots.
+    pub extern "vm_hooks" fn emit_log(data: [*]const u8, len: u32, topics: u32) void;
 
-    pub extern "vm_hooks" fn static_call_contract(address: [*]const u8, data: [*]const u8, data_len: usize, gas: i64) i32;
-    pub extern "vm_hooks" fn call_contract(address: [*]const u8, value: [*]const u8, data: [*]const u8, data_len: usize, gas: i64) i32;
-    pub extern "vm_hooks" fn return_data_size() usize;
-    pub extern "vm_hooks" fn read_return_data(dest: [*]u8, offset: usize, len: usize) void;
+    // Stylus 0.10+ signatures — validated by cargo-stylus check.
+    // call_contract param order: contract, data, data_len, value, gas, return_data_len
+    pub extern "vm_hooks" fn static_call_contract(contract: [*]const u8, data: [*]const u8, data_len: u32, gas: u64, return_data_len: *u32) u8;
+    pub extern "vm_hooks" fn call_contract(contract: [*]const u8, data: [*]const u8, data_len: u32, value: [*]const u8, gas: u64, return_data_len: *u32) u8;
+    pub extern "vm_hooks" fn return_data_size() u32;
+    pub extern "vm_hooks" fn read_return_data(dest: [*]u8, offset: u32, len: u32) u32;
     pub extern "vm_hooks" fn contract_address(dest: [*]u8) void;
 };
 
@@ -90,29 +97,36 @@ pub const Stylus = struct {
         vm_hooks.storage_cache_bytes32(&key, &value);
     }
 
+    // Emit an EVM log. topics are indexed (max 4), data is unindexed.
+    // Internally builds [topic_0..topic_N][data] and calls emit_log once.
     pub fn log(data: []const u8, topics: []const [32]u8) void {
-        vm_hooks.emit_log(data.ptr, data.len, @ptrCast(topics.ptr), topics.len);
+        var buf: [4 * 32 + 256]u8 = undefined;
+        const topics_bytes = topics.len * 32;
+        @memcpy(buf[0..topics_bytes], @as([*]const u8, @ptrCast(topics.ptr))[0..topics_bytes]);
+        const n = @min(data.len, 256);
+        @memcpy(buf[topics_bytes..topics_bytes + n], data[0..n]);
+        vm_hooks.emit_log(&buf, @intCast(topics_bytes + n), @intCast(topics.len));
     }
 
     // ── External calls ─────────────────────────────────────────────────────
 
     /// Static call to an EVM precompile or contract. Returns output bytes.
     pub fn callPrecompile(alloc: std.mem.Allocator, address: [20]u8, input: []const u8) ![]u8 {
-        const success = vm_hooks.static_call_contract(&address, input.ptr, input.len, 1_000_000);
+        var ret_len: u32 = 0;
+        const success = vm_hooks.static_call_contract(&address, input.ptr, @intCast(input.len), 1_000_000, &ret_len);
         if (success != 0) return error.CallFailed;
-        const size = vm_hooks.return_data_size();
-        const out = try alloc.alloc(u8, size);
-        vm_hooks.read_return_data(out.ptr, 0, size);
+        const out = try alloc.alloc(u8, ret_len);
+        _ = vm_hooks.read_return_data(out.ptr, 0, ret_len);
         return out;
     }
 
     /// Static call to any external contract.
     pub fn staticCall(alloc: std.mem.Allocator, address: [20]u8, input: []const u8) ![]u8 {
-        const success = vm_hooks.static_call_contract(&address, input.ptr, input.len, 500_000);
+        var ret_len: u32 = 0;
+        const success = vm_hooks.static_call_contract(&address, input.ptr, @intCast(input.len), 500_000, &ret_len);
         if (success != 0) return error.StaticCallFailed;
-        const size = vm_hooks.return_data_size();
-        const out = try alloc.alloc(u8, size);
-        vm_hooks.read_return_data(out.ptr, 0, size);
+        const out = try alloc.alloc(u8, ret_len);
+        _ = vm_hooks.read_return_data(out.ptr, 0, ret_len);
         return out;
     }
 
@@ -120,11 +134,11 @@ pub const Stylus = struct {
     pub fn callContract(alloc: std.mem.Allocator, address: [20]u8, value_wei: u256, input: []const u8) ![]u8 {
         var value_bytes: [32]u8 = undefined;
         std.mem.writeInt(u256, &value_bytes, value_wei, .big);
-        const success = vm_hooks.call_contract(&address, &value_bytes, input.ptr, input.len, 500_000);
+        var ret_len: u32 = 0;
+        const success = vm_hooks.call_contract(&address, input.ptr, @intCast(input.len), &value_bytes, 500_000, &ret_len);
         if (success != 0) return error.CallFailed;
-        const size = vm_hooks.return_data_size();
-        const out = try alloc.alloc(u8, size);
-        vm_hooks.read_return_data(out.ptr, 0, size);
+        const out = try alloc.alloc(u8, ret_len);
+        _ = vm_hooks.read_return_data(out.ptr, 0, ret_len);
         return out;
     }
 

@@ -109,6 +109,8 @@ pub fn mockCall(addr: [20]u8, calldata_selector: [4]u8, response: []const u8) vo
 
 // ── vm_hooks implementations ────────────────────────────────────────────────
 
+pub fn pay_for_memory_grow(_: u16) void {}
+
 pub fn read_args(dest: [*]u8) void {
     @memcpy(dest[0..input_len], input_buf[0..input_len]);
 }
@@ -139,7 +141,7 @@ pub fn storage_cache_bytes32(key: [*]const u8, value: [*]const u8) void {
     storage.put(k, v) catch {};
 }
 
-pub fn storage_flush_cache() void {
+pub fn storage_flush_cache(_: u32) void {
     // In the mock, cache == persistent storage — nothing to flush.
 }
 
@@ -164,24 +166,30 @@ pub fn native_keccak256(data: [*]const u8, len: usize, dest: [*]u8) void {
     @memcpy(dest[0..32], &hash);
 }
 
-pub fn emit_log(data: [*]const u8, len: usize, topics: [*]const u8, topics_len: usize) void {
-    const data_copy = allocator.dupe(u8, data[0..len]) catch return;
-    const topics_copy = allocator.alloc([32]u8, topics_len) catch {
+// data layout: [topic_0][topic_1]...[topic_N][unindexed bytes], topics = count of leading topics
+pub fn emit_log(data: [*]const u8, len: u32, topics: u32) void {
+    const n: usize = len;
+    const t: usize = topics;
+    const topics_bytes = t * 32;
+    const data_copy = allocator.dupe(u8, data[0..n]) catch return;
+    const topics_copy = allocator.alloc([32]u8, t) catch {
         allocator.free(data_copy);
         return;
     };
-    for (0..topics_len) |i| {
-        @memcpy(&topics_copy[i], topics[i * 32 .. i * 32 + 32]);
+    for (0..t) |i| {
+        @memcpy(&topics_copy[i], data[i * 32 ..][0..32]);
     }
+    _ = topics_bytes;
     logs.append(allocator, .{ .data = data_copy, .topics = topics_copy }) catch {};
 }
 
 pub fn static_call_contract(
     address: [*]const u8,
     data: [*]const u8,
-    data_len: usize,
-    _gas: i64,
-) i32 {
+    data_len: u32,
+    _gas: u64,
+    out_ret_len: *u32,
+) u8 {
     _ = _gas;
     var key: u64 = 0;
     for (address[0..8]) |b| key = (key << 8) | b;
@@ -192,33 +200,40 @@ pub fn static_call_contract(
         const n = @min(resp.len, return_data_buf.len);
         @memcpy(return_data_buf[0..n], resp[0..n]);
         return_data_len = n;
-        return 0; // success
+        out_ret_len.* = @intCast(n);
+        return 0;
     }
-    // Default: return [0..0..1] (truthy 32-byte response = approved)
+    // Default: truthy 32-byte response
     return_data_buf = [_]u8{0} ** 4096;
     return_data_buf[31] = 1;
     return_data_len = 32;
+    out_ret_len.* = 32;
     return 0;
 }
 
 pub fn call_contract(
     address: [*]const u8,
-    _: [*]const u8,
     data: [*]const u8,
-    data_len: usize,
-    gas: i64,
-) i32 {
-    return static_call_contract(address, data, data_len, gas);
+    data_len: u32,
+    _: [*]const u8,
+    gas: u64,
+    out_ret_len: *u32,
+) u8 {
+    return static_call_contract(address, data, data_len, gas, out_ret_len);
 }
 
-pub fn return_data_size() usize {
-    return return_data_len;
+pub fn return_data_size() u32 {
+    return @intCast(return_data_len);
 }
 
-pub fn read_return_data(dest: [*]u8, offset: usize, len: usize) void {
-    const end = @min(offset + len, return_data_len);
-    if (offset >= return_data_len) return;
-    @memcpy(dest[0 .. end - offset], return_data_buf[offset..end]);
+pub fn read_return_data(dest: [*]u8, offset: u32, len: u32) u32 {
+    const off: usize = offset;
+    const n: usize = len;
+    if (off >= return_data_len) return 0;
+    const end = @min(off + n, return_data_len);
+    const copied = end - off;
+    @memcpy(dest[0..copied], return_data_buf[off..end]);
+    return @intCast(copied);
 }
 
 pub fn contract_address(dest: [*]u8) void {

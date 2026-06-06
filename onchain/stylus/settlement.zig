@@ -122,7 +122,7 @@ fn initOwner() void {
     var slot: [32]u8 = [_]u8{0} ** 32;
     @memcpy(slot[12..32], &sender);
     Stylus.sstore(SLOT_OWNER, slot);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 }
 
 fn isOwner() bool {
@@ -168,7 +168,7 @@ fn handleSettle(allocator: std.mem.Allocator, data: []const u8) i32 {
     if (!ok) return REVERT;
 
     addGDP(agentSlot(sender), amount);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 
     emitSettled(sender, amount, commitment);
     returnOne();
@@ -220,7 +220,7 @@ fn handleBatchSettle(allocator: std.mem.Allocator, data: []const u8) i32 {
     std.mem.writeInt(u256, log[64..96][0..32], total, .big);
     Stylus.log(&log, &.{TOPIC_BATCH});
 
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
     returnOne();
     return SUCCESS;
 }
@@ -244,7 +244,7 @@ fn handleSettleFromChain(allocator: std.mem.Allocator, data: []const u8) i32 {
 
     addGDP(agentSlot(arb_agent),                 amount);
     addGDP(crossChainSlot(chain_id, agent_id),   amount);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 
     // CrossChainSettlement(sourceChain, agentId, arbitrumAgent, amount)
     var xlog: [128]u8 = [_]u8{0} ** 128;
@@ -275,7 +275,7 @@ fn handleCCTP(data: []const u8) i32 {
     const amount = std.mem.readInt(u256, data[body_off + 52 .. body_off + 84][0..32], .big);
 
     addGDP(agentSlot(agent), amount);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 
     emitSettled(agent, amount, com);
 

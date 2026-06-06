@@ -143,7 +143,7 @@ fn storeConstitution(vec: Semantic.FixedVector) void {
         }
         Stylus.sstore(constitutionSlot(@intCast(part)), slot_data);
     }
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 }
 
 fn constitutionIsSet() bool {
@@ -233,7 +233,7 @@ fn handleRegisterPeer(data: []const u8) i32 {
     @memcpy(&peer_hash, data[32..64]);
 
     Stylus.sstore(peerSlot(chain_id), peer_hash);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 
     // Emit PeerRegistered(chainId, peerHash)
     var log_data: [64]u8 = [_]u8{0} ** 64;

@@ -78,6 +78,7 @@ const PROOF_MIN_LEN: usize = PROOF_HDR_SIZE + G1_SIZE + G1_SIZE;
 // ── Entrypoint ────────────────────────────────────────────────────────────────
 
 pub export fn user_entrypoint(args_len: usize) i32 {
+    vm.pay_for_memory_grow(0);
     run(args_len) catch |err| {
         const msg = @errorName(err);
         vm.write_result(msg.ptr, msg.len);
@@ -121,7 +122,7 @@ fn handle_initialize(data: []const u8) !void {
     var flag = [_]u8{0} ** 32;
     flag[31] = 1;
     vm.storage_cache_bytes32(&SLOT_INIT, &flag);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 
     vm.write_result(&[_]u8{}, 0);
 }
@@ -167,7 +168,8 @@ fn handle_verify_and_anchor(data: []const u8) !void {
     @memcpy(call_buf[100..][0..proof_len], proof[0..proof_len]);
 
     const zero_value = [_]u8{0} ** 32;
-    const status = vm.call_contract(&anchor_addr, &zero_value, &call_buf, 100 + proof_len, 100_000);
+    var ret_len: u32 = 0;
+    const status = vm.call_contract(&anchor_addr, &call_buf, 100 + proof_len, &zero_value, 100_000, &ret_len);
     if (status != 0) return error.AnchorCallFailed;
 
     vm.write_result(&[_]u8{}, 0);
@@ -257,14 +259,13 @@ fn verifyNoirProof(proof: []const u8, public_root: [32]u8) bool {
     @memcpy(pairing_input[0..64],  pi_z);
     pairing_input[64..192].* = BN254_G2_GENERATOR;
 
-    const status = vm.static_call_contract(&EC_PAIRING, &pairing_input, 192, 100_000);
+    var ret_len: u32 = 0;
+    const status = vm.static_call_contract(&EC_PAIRING, &pairing_input, 192, 100_000, &ret_len);
     if (status != 0) return false;
-
-    const ret_size = vm.return_data_size();
-    if (ret_size < 32) return false;
+    if (ret_len < 32) return false;
 
     var ret: [32]u8 = undefined;
-    vm.read_return_data(&ret, 0, 32);
+    _ = vm.read_return_data(&ret, 0, 32);
     return ret[31] == 1;
 }
 
@@ -301,7 +302,7 @@ fn incrementVerifyCount() void {
     const cur = std.mem.readInt(u64, word[24..32], .big);
     std.mem.writeInt(u64, word[24..32], cur + 1, .big);
     vm.storage_cache_bytes32(&SLOT_VERIFY_COUNT, &word);
-    vm.storage_flush_cache();
+    vm.storage_flush_cache(0);
 }
 
 fn emitProofVerified(public_root: [32]u8, valid: bool) void {
@@ -311,7 +312,7 @@ fn emitProofVerified(public_root: [32]u8, valid: bool) void {
     const topics = [2][32]u8{ EV_PROOF_VERIFIED, public_root };
     var data: [32]u8 = [_]u8{0} ** 32;
     data[31] = if (valid) 1 else 0;
-    vm.emit_log(&data, data.len, @ptrCast(&topics), topics.len);
+    Stylus.log(&data, &topics);
 }
 
 // Decode the first element of the bytes32[] array from ABI-encoded params.
