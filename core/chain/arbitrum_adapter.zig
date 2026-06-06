@@ -3,6 +3,7 @@ const core = @import("../core.zig");
 const types = @import("../protocol/types.zig");
 const evm = @import("evm.zig");
 const semantic = @import("../security/semantic.zig");
+const crypto = @import("../security/crypto.zig");
 
 const SEL_VALIDATE_SEMANTIC = [_]u8{ 0x12, 0x34, 0x56, 0x78 }; // Placeholder
 const SEL_BRIDGE_VERIFY     = [_]u8{ 0x3a, 0x4b, 0x5c, 0x6d };
@@ -73,15 +74,6 @@ pub const ArbitrumAdapter = struct {
         _ = self;
     }
 
-    fn toHex(buf: []u8, bytes: []const u8) []const u8 {
-        const charset = "0123456789abcdef";
-        for (bytes, 0..) |b, i| {
-            buf[i * 2] = charset[b >> 4];
-            buf[i * 2 + 1] = charset[b & 15];
-        }
-        return buf[0 .. bytes.len * 2];
-    }
-
     // ── Stylus constitution calls ───────────────────────────────────────────
 
     pub fn check_constitution(self: *ArbitrumAdapter, intent: semantic.Semantic.FixedVector) !PreFlightResult {
@@ -96,7 +88,7 @@ pub const ArbitrumAdapter = struct {
         }
 
         var hex_tmp: [1024]u8 = undefined;
-        const hex_str = toHex(&hex_tmp, payload.items);
+        const hex_str = crypto.bytesToHexBuf(&hex_tmp, payload.items);
 
         const result_hex = try self.evm_client.callView(self.constitution_address, hex_str);
         defer self.allocator.free(result_hex);
@@ -127,7 +119,7 @@ pub const ArbitrumAdapter = struct {
         try payload.appendSlice(self.allocator, &proof);
 
         var hex_tmp: [1024]u8 = undefined;
-        const hex_str = toHex(&hex_tmp, payload.items);
+        const hex_str = crypto.bytesToHexBuf(&hex_tmp, payload.items);
 
         const result_hex = try self.evm_client.callView(self.constitution_address, hex_str);
         defer self.allocator.free(result_hex);
@@ -146,7 +138,7 @@ pub const ArbitrumAdapter = struct {
         @memcpy(payload[4..36], &new_root);
 
         var hex_tmp: [80]u8 = undefined;
-        const hex_str = toHex(&hex_tmp, &payload);
+        const hex_str = crypto.bytesToHexBuf(&hex_tmp, &payload);
 
         return self.evm_client.sendTx(STYLUS_ANCHOR_ADDR, hex_str);
     }
@@ -155,7 +147,7 @@ pub const ArbitrumAdapter = struct {
     pub fn getStateRoot(self: *ArbitrumAdapter) ![32]u8 {
         var payload: [4]u8 = SEL_GET_ROOT;
         var hex_tmp: [10]u8 = undefined;
-        const hex_str = toHex(&hex_tmp, &payload);
+        const hex_str = crypto.bytesToHexBuf(&hex_tmp, &payload);
 
         const result_hex = try self.evm_client.callViewStr(STYLUS_ANCHOR_ADDR, hex_str);
         defer self.allocator.free(result_hex);
@@ -186,7 +178,7 @@ pub const ArbitrumAdapter = struct {
         @memcpy(payload[68..100], &commitment);
 
         var hex_tmp: [200 + 10]u8 = undefined;
-        const hex_str = toHex(&hex_tmp, &payload);
+        const hex_str = crypto.bytesToHexBuf(&hex_tmp, &payload);
 
         return self.evm_client.sendTx(STYLUS_SETTLEMENT_ADDR, hex_str);
     }
@@ -228,7 +220,7 @@ pub const ArbitrumAdapter = struct {
 
         const hex_payload = try self.allocator.alloc(u8, total * 2 + 2);
         defer self.allocator.free(hex_payload);
-        const hex_str = toHex(hex_payload, payload);
+        const hex_str = crypto.bytesToHexBuf(hex_payload, payload);
 
         const result_hex = try self.evm_client.callViewStr(STYLUS_ZK_VERIFIER_ADDR, hex_str);
         defer self.allocator.free(result_hex);
@@ -248,7 +240,7 @@ pub const ArbitrumAdapter = struct {
         try payload.appendSlice(self.allocator, &padded);
 
         var hex_tmp: [1024]u8 = undefined;
-        const hex_str = toHex(&hex_tmp, payload.items);
+        const hex_str = crypto.bytesToHexBuf(&hex_tmp, payload.items);
 
         const result_hex = try self.evm_client.callView(settlement, hex_str);
         defer self.allocator.free(result_hex);

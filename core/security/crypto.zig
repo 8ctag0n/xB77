@@ -189,6 +189,17 @@ pub fn bytesToHex(allocator: std.mem.Allocator, bytes: []const u8) ![]u8 {
     return result;
 }
 
+/// Write hex encoding of `bytes` into `buf` (caller ensures buf.len >= bytes.len * 2).
+/// Returns the written slice. No allocation.
+pub fn bytesToHexBuf(buf: []u8, bytes: []const u8) []const u8 {
+    const hex_chars = "0123456789abcdef";
+    for (bytes, 0..) |byte, i| {
+        buf[i * 2]     = hex_chars[byte >> 4];
+        buf[i * 2 + 1] = hex_chars[byte & 0x0f];
+    }
+    return buf[0 .. bytes.len * 2];
+}
+
 pub fn verify(message: []const u8, signature_bytes: *const types.Signature, pubkey_bytes: *const types.Pubkey) bool {
     const sig = Ed25519.Signature.fromBytes(signature_bytes.*);
     const pk = Ed25519.PublicKey.fromBytes(pubkey_bytes.*) catch return false;
