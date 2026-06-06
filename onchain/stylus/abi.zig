@@ -62,12 +62,21 @@ pub const Decoder = struct {
         return self.word();
     }
 
+    // Read current word as a usize offset (for dynamic array heads).
+    // Bounds checking happens at the callsite (e.g. DynArray.read).
+    pub fn offset(self: *Decoder) !usize {
+        const w = try self.word();
+        const v = std.mem.readInt(u256, &w, .big);
+        if (v > std.math.maxInt(usize)) return error.InvalidOffset;
+        return @intCast(v);
+    }
+
     // Dynamic bytes: head is offset, tail has uint256 len + padded data.
     pub fn bytes(self: *Decoder) ![]const u8 {
         const off_word = try self.word();
-        const offset = std.mem.readInt(u256, &off_word, .big);
-        if (offset > self.data.len) return error.InvalidOffset;
-        const off: usize = @intCast(offset);
+        const raw_off = std.mem.readInt(u256, &off_word, .big);
+        if (raw_off > self.data.len) return error.InvalidOffset;
+        const off: usize = @intCast(raw_off);
 
         if (off + 32 > self.data.len) return error.UnexpectedEof;
         const len_word = self.data[off..][0..32];
@@ -77,6 +86,55 @@ pub const Decoder = struct {
 
         if (off + 32 + n > self.data.len) return error.UnexpectedEof;
         return self.data[off + 32 ..][0..n];
+    }
+};
+
+// ── DynArray ─────────────────────────────────────────────────────────────────
+//
+// Represents an ABI-encoded dynamic array of fixed-size elements (address,
+// uint256, bytes32) located at `array_offset` within the full calldata slice.
+// Layout: [uint256 length][element_0][element_1]...
+//
+// Usage:
+//   var dec = Decoder.init(params);
+//   const agents = try DynArray.read(params, try dec.offset());
+//   const amounts = try DynArray.read(params, try dec.offset());
+//   for (0..agents.len()) |i| { const a = try agents.address(i); ... }
+
+pub const DynArray = struct {
+    data: []const u8,
+    base: usize,  // byte offset to the length word within data
+    count: usize,
+
+    pub fn read(data: []const u8, array_offset: usize) !DynArray {
+        if (array_offset + 32 > data.len) return error.UnexpectedEof;
+        const len_word = data[array_offset..][0..32];
+        const count = std.mem.readInt(u256, len_word, .big);
+        if (count > 256) return error.TooLarge;
+        const n: usize = @intCast(count);
+        if (array_offset + 32 + n * 32 > data.len) return error.UnexpectedEof;
+        return .{ .data = data, .base = array_offset, .count = n };
+    }
+
+    pub fn len(self: DynArray) usize { return self.count; }
+
+    fn elemWord(self: DynArray, i: usize) ![32]u8 {
+        if (i >= self.count) return error.IndexOutOfBounds;
+        const elem_off = self.base + 32 + i * 32;
+        return self.data[elem_off..][0..32].*;
+    }
+
+    pub fn address(self: DynArray, i: usize) ![20]u8 {
+        const w = try self.elemWord(i);
+        return w[12..32].*;
+    }
+
+    pub fn uint256(self: DynArray, i: usize) ![32]u8 {
+        return self.elemWord(i);
+    }
+
+    pub fn bytes32(self: DynArray, i: usize) ![32]u8 {
+        return self.elemWord(i);
     }
 };
 

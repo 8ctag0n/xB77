@@ -199,6 +199,18 @@ pub fn build(b: *std.Build) void {
     const stylus_test_step = b.step("test-stylus", "Run Stylus contract tests locally (no chain needed)");
     stylus_test_step.dependOn(&run_stylus_tests.step);
 
+    // ABI unit tests (no vm_hooks dependency — runs natively)
+    const abi_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("onchain/stylus/test_abi.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const run_abi_tests = b.addRunArtifact(abi_tests);
+    const abi_test_step = b.step("test-abi", "Run ABI encoder/decoder unit tests");
+    abi_test_step.dependOn(&run_abi_tests.step);
+
     // --- SDK Core WASM (xb77_core.wasm) ---
     // Stateless SDK surface compiled to wasm32-wasi. Wrappers (TS/Py/Rust)
     // polyfill the small set of WASI imports actually used. See

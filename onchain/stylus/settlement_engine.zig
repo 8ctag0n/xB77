@@ -117,17 +117,37 @@ fn handle_settle(data: []const u8) !void {
 }
 
 fn handle_batch_settle(data: []const u8) !void {
-    // Dynamic arrays: each array head is an offset.
-    // For simplicity we decode up to 32 entries.
-    // Full dynamic array decoding would require recursive offset resolution.
-    _ = data;
+    // ABI: batchSettle(address[] agents, uint256[] amounts, bytes32[] commitments)
+    // Head: three offset words (96 bytes).
+    // Each offset points to an array: [uint256 count][elem_0]...[elem_n-1]
+    var dec = abi.Decoder.init(data);
+    const agents_off      = try dec.offset();
+    const amounts_off     = try dec.offset();
+    const commitments_off = try dec.offset();
 
-    // Emit batch event marker
+    const agents      = try abi.DynArray.read(data, agents_off);
+    const amounts     = try abi.DynArray.read(data, amounts_off);
+    const commitments = try abi.DynArray.read(data, commitments_off);
+
+    if (agents.len() != amounts.len() or agents.len() != commitments.len())
+        return error.ArrayLengthMismatch;
+
+    const n = agents.len();
+    for (0..n) |i| {
+        const agent      = try agents.address(i);
+        const amount_raw = try amounts.uint256(i);
+        const commitment = try commitments.bytes32(i);
+        emitSettled(agent, amount_raw, commitment);
+        accumulateSettled(amount_raw);
+    }
+
+    // Emit BatchSettled(uint256 count)
     const ev_sig = abi.selector("BatchSettled(uint256)");
-    var log_buf: [32 + 32]u8 = undefined;
+    var log_buf: [64]u8 = undefined;
     @memset(log_buf[0..28], 0);
     @memcpy(log_buf[0..4], &ev_sig);
-    @memset(log_buf[32..64], 0);
+    @memset(log_buf[32..56], 0);
+    std.mem.writeInt(u64, log_buf[56..64], n, .big);
     host.emit_log(&log_buf, 64, 1);
 
     host.write_result(&[_]u8{}, 0);
