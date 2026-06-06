@@ -25,6 +25,7 @@ const settlement   = @import("settlement.zig");
 const univ4_hook   = @import("uniswap_hook.zig");
 const aave_guard   = @import("aave_guard.zig");
 const gmx_guard    = @import("gmx_guard.zig");
+const zk_verifier  = @import("zk_verifier.zig");
 
 // ── Test helpers ───────────────────────────────────────────────────────────
 
@@ -1022,4 +1023,157 @@ test "semantic: constitution rejects at 80% similarity threshold" {
     const sim = Semantic.cosineSimilarityFixed(borderline, toxic);
     // Similarity should be high (>8000) → constitution would reject
     try std.testing.expect(sim > 8000);
+}
+
+
+// ── ZK VERIFIER TESTS ──────────────────────────────────────────────────────
+
+fn callZK(len: usize) i32 {
+    return zk_verifier.user_entrypoint(@intCast(len));
+}
+
+// ABI-encode verifyProof(bytes proof, bytes32[] publicInputs).
+// Layout: sel(4) | head(64) | proof_tail | array_tail
+fn buildVerifyProof(sel: [4]u8, proof: []const u8, public_root: [32]u8, buf: []u8) usize {
+    @memset(buf[0..@min(buf.len, 2048)], 0);
+    @memcpy(buf[0..4], &sel);
+
+    const proof_offset: usize = 64; // 2 head words × 32
+    const proof_padded = ((proof.len + 31) / 32) * 32;
+    const arr_offset: usize = proof_offset + 32 + proof_padded;
+
+    // head[0]: uint256(proof_offset)
+    std.mem.writeInt(u256, buf[4..36][0..32], proof_offset, .big);
+    // head[1]: uint256(arr_offset)
+    std.mem.writeInt(u256, buf[36..68][0..32], arr_offset, .big);
+
+    // proof tail: uint256(len) + data
+    const pt = 4 + proof_offset;
+    std.mem.writeInt(u256, buf[pt..pt + 32][0..32], proof.len, .big);
+    @memcpy(buf[pt + 32 ..][0..proof.len], proof);
+
+    // array tail: uint256(1) + element
+    const at = 4 + arr_offset;
+    std.mem.writeInt(u256, buf[at..at + 32][0..32], 1, .big);
+    @memcpy(buf[at + 32 ..][0..32], &public_root);
+
+    return 4 + arr_offset + 32 + 32;
+}
+
+// Minimal valid-structure proof (224 bytes):
+//   header[0..32]   circuit_size word = 8 (power of 2)
+//   header[32..64]  pub_input_offset word = 0 (default)
+//   header[64..96]  pub_inputs_hash = 0xAB...
+//   W1[96..160]     first wire commitment = 0xCD...
+//   PI_Z[160..224]  KZG opening proof     = 0xEF...
+fn makeMinimalProof(buf: *[224]u8) void {
+    @memset(buf, 0);
+    buf[31] = 8; // circuit_size = 8 (power of 2, ≥ 4)
+    @memset(buf[64..96], 0xAB); // pub_inputs_hash
+    @memset(buf[96..160], 0xCD); // W1
+    @memset(buf[160..224], 0xEF); // PI_Z
+}
+
+test "zk_verifier: initialize stores circuitHash" {
+    mock.init();
+    mock.reset();
+    mock.setSender([_]u8{0xAD} ** 20);
+
+    var buf: [4096]u8 = undefined;
+    @memset(&buf, 0);
+    const sel = @import("abi.zig").selector("initialize(address,bytes32)");
+    @memcpy(buf[0..4], &sel);
+    // address word: 12 zero bytes + 20 address bytes (0xAD)
+    @memset(buf[4..16], 0);
+    @memset(buf[16..36], 0xAD);
+    // circuit_hash word
+    @memset(buf[36..68], 0x42);
+    mock.setInput(buf[0..68]);
+    try std.testing.expectEqual(@as(i32, 0), callZK(68));
+}
+
+test "zk_verifier: verifyProof rejects proof shorter than header (96 bytes)" {
+    mock.init();
+    mock.reset();
+
+    const sel = @import("abi.zig").selector("verifyProof(bytes,bytes32[])");
+    var buf: [4096]u8 = undefined;
+    var proof: [63]u8 = [_]u8{0xAA} ** 63;
+    const public_root: [32]u8 = [_]u8{0x11} ** 32;
+    const len = buildVerifyProof(sel, &proof, public_root, &buf);
+    mock.setInput(buf[0..len]);
+    try std.testing.expectEqual(@as(i32, 0), callZK(len));
+    const out = mock.getOutput();
+    try std.testing.expect(out.len == 32);
+    try std.testing.expectEqual(@as(u8, 0), out[31]);
+}
+
+test "zk_verifier: verifyProof rejects invalid circuit_size (not power-of-2)" {
+    mock.init();
+    mock.reset();
+
+    const sel = @import("abi.zig").selector("verifyProof(bytes,bytes32[])");
+    var buf: [4096]u8 = undefined;
+    var proof: [224]u8 = undefined;
+    makeMinimalProof(&proof);
+    proof[31] = 7; // 7 is not a power of 2
+    const public_root: [32]u8 = [_]u8{0x11} ** 32;
+    const len = buildVerifyProof(sel, &proof, public_root, &buf);
+    mock.setInput(buf[0..len]);
+    _ = callZK(len);
+    const out = mock.getOutput();
+    try std.testing.expectEqual(@as(u8, 0), out[31]);
+}
+
+test "zk_verifier: verifyProof rejects all-zero W1 (G1 identity commitment)" {
+    mock.init();
+    mock.reset();
+
+    const sel = @import("abi.zig").selector("verifyProof(bytes,bytes32[])");
+    var buf: [4096]u8 = undefined;
+    var proof: [224]u8 = undefined;
+    makeMinimalProof(&proof);
+    @memset(proof[96..160], 0); // zero out W1 → identity point
+    const public_root: [32]u8 = [_]u8{0x11} ** 32;
+    const len = buildVerifyProof(sel, &proof, public_root, &buf);
+    mock.setInput(buf[0..len]);
+    _ = callZK(len);
+    const out = mock.getOutput();
+    try std.testing.expectEqual(@as(u8, 0), out[31]);
+}
+
+test "zk_verifier: verifyProof rejects all-zero PI_Z (G1 identity opening proof)" {
+    mock.init();
+    mock.reset();
+
+    const sel = @import("abi.zig").selector("verifyProof(bytes,bytes32[])");
+    var buf: [4096]u8 = undefined;
+    var proof: [224]u8 = undefined;
+    makeMinimalProof(&proof);
+    @memset(proof[160..224], 0); // zero out PI_Z → identity point
+    const public_root: [32]u8 = [_]u8{0x11} ** 32;
+    const len = buildVerifyProof(sel, &proof, public_root, &buf);
+    mock.setInput(buf[0..len]);
+    _ = callZK(len);
+    const out = mock.getOutput();
+    try std.testing.expectEqual(@as(u8, 0), out[31]);
+}
+
+test "zk_verifier: verifyProof accepts valid-structure proof (mock ecPairing returns 1)" {
+    mock.init();
+    mock.reset();
+
+    const sel = @import("abi.zig").selector("verifyProof(bytes,bytes32[])");
+    var buf: [4096]u8 = undefined;
+    var proof: [224]u8 = undefined;
+    makeMinimalProof(&proof);
+    const public_root: [32]u8 = [_]u8{0x11} ** 32;
+    const len = buildVerifyProof(sel, &proof, public_root, &buf);
+    mock.setInput(buf[0..len]);
+    const rc = callZK(len);
+    try std.testing.expectEqual(@as(i32, 0), rc);
+    // mock static_call_contract returns true (1) by default → proof accepted
+    const out = mock.getOutput();
+    try std.testing.expect(out.len == 32);
+    try std.testing.expectEqual(@as(u8, 1), out[31]);
 }
