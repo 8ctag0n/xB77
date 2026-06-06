@@ -18,7 +18,7 @@ pub fn buildMultiTransferTx(
     fee_lamports: u64,
     facilitator: ?types.Pubkey,
 ) ![]u8 {
-    _ = fee_lamports;
+    const use_compute_budget = fee_lamports > 0;
     var buf = std.ArrayListUnmanaged(u8).empty;
     defer buf.deinit(allocator);
 
@@ -29,10 +29,11 @@ pub fn buildMultiTransferTx(
     const msg_start = buf.items.len;
     try buf.append(allocator, 1); // num_required_signatures
     try buf.append(allocator, 0); // num_readonly_signed
-    const num_readonly: u8 = if (facilitator != null) 2 else 1; // system_program [+ fac]
+    var num_readonly: u8 = if (facilitator != null) 2 else 1; // system_program [+ fac]
+    if (use_compute_budget) num_readonly += 1;
     try buf.append(allocator, num_readonly);
 
-    // Build account list: payer, each recipient (deduped), [facilitator,] system_program
+    // Build account list: payer, each recipient (deduped), [facilitator,] system_program, [compute_budget]
     var accounts = std.ArrayListUnmanaged(types.Pubkey).empty;
     defer accounts.deinit(allocator);
     try accounts.append(allocator, payer);
@@ -46,14 +47,32 @@ pub fn buildMultiTransferTx(
     if (facilitator) |f| try accounts.append(allocator, f);
     const system_program = [_]u8{0} ** 32;
     try accounts.append(allocator, system_program);
+    if (use_compute_budget) {
+        const cb = try crypto.stringToPubkey(allocator, "ComputeBudget111111111111111111111111111111");
+        try accounts.append(allocator, cb);
+    }
 
     try appendCompactU16(allocator, &buf, @intCast(accounts.items.len));
     for (accounts.items) |a| try buf.appendSlice(allocator, &a);
     try buf.appendSlice(allocator, &blockhash);
 
-    // One SystemProgram::Transfer instruction per transfer
-    try appendCompactU16(allocator, &buf, @intCast(transfers.len));
-    const sys_idx: u8 = @intCast(accounts.items.len - 1);
+    // Instructions: [ComputeBudget::SetComputeUnitPrice] + N SystemProgram::Transfer
+    const num_ix: u16 = @intCast(transfers.len + @intFromBool(use_compute_budget));
+    try appendCompactU16(allocator, &buf, num_ix);
+
+    if (use_compute_budget) {
+        const cb_idx: u8 = @intCast(accounts.items.len - 1);
+        try buf.append(allocator, cb_idx);
+        try appendCompactU16(allocator, &buf, 0); // no accounts
+        // SetComputeUnitPrice: discriminator=3, micro_lamports u64 LE
+        var cb_data: [9]u8 = undefined;
+        cb_data[0] = 3;
+        std.mem.writeInt(u64, cb_data[1..9], fee_lamports, .little);
+        try appendCompactU16(allocator, &buf, 9);
+        try buf.appendSlice(allocator, &cb_data);
+    }
+
+    const sys_idx: u8 = @intCast(accounts.items.len - 1 - @intFromBool(use_compute_budget));
     for (transfers) |t| {
         try buf.append(allocator, sys_idx); // program = system
         try appendCompactU16(allocator, &buf, 2); // 2 accounts: payer, to

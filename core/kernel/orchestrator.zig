@@ -126,7 +126,7 @@ pub const Orchestrator = struct {
     pub fn processUsage(self: *Orchestrator, agent_id: types.Pubkey, report: telemetry.TelemetryReport) !u64 {
         const cost = report.calculateCost();
         
-        if (std.posix.getenv("XB77_DEMO") != null) {
+        if (getenv("XB77_DEMO") != null) {
             return 1000000;
         }
 
@@ -177,8 +177,7 @@ pub const Orchestrator = struct {
     /// Verifica si un agente tiene permitido operar.
     pub fn canOperate(self: *Orchestrator, agent_id: types.Pubkey) bool {
         // En modo DEMO, todos los agentes tienen crédito infinito para que la presentación no falle.
-        if (@as(?[]const u8, if (std.c.getenv("XB77_DEMO")) |_p| std.mem.span(_p) else null)) |val| {
-            self.allocator.free(val);
+        if (getenv("XB77_DEMO") != null) {
             return true;
         }
 
@@ -199,3 +198,17 @@ pub const Orchestrator = struct {
         return balance >= 50; 
     }
 };
+
+fn getenv(key: []const u8) ?[]const u8 {
+    const block = std.Io.Threaded.global_single_threaded.environ.process_environ.block;
+    for (block.slice) |opt_entry| {
+        const entry_ptr = opt_entry orelse continue;
+        var i: usize = 0;
+        while (entry_ptr[i] != 0 and entry_ptr[i] != '=') : (i += 1) {}
+        if (!std.mem.eql(u8, entry_ptr[0..i], key)) continue;
+        var end: usize = i + 1;
+        while (entry_ptr[end] != 0) : (end += 1) {}
+        return entry_ptr[i + 1 .. end];
+    }
+    return null;
+}
