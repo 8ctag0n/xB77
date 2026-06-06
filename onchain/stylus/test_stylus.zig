@@ -1177,3 +1177,25 @@ test "zk_verifier: verifyProof accepts valid-structure proof (mock ecPairing ret
     try std.testing.expect(out.len == 32);
     try std.testing.expectEqual(@as(u8, 1), out[31]);
 }
+
+test "zk_verifier: verifyProof rejects when ecPairing returns 0 (invalid proof)" {
+    mock.init();
+    mock.reset();
+
+    // Configure mock: ecPairing precompile (0x...08) returns [0..0] (false) for our PI_Z
+    // PI_Z in makeMinimalProof = [0xEF ** 64], so first 4 bytes = 0xEFEFEFEF
+    const EC_PAIRING: [20]u8 = @import("sdk.zig").Stylus.ADDR_ECPAIRING;
+    var false_resp: [32]u8 = [_]u8{0} ** 32; // ecPairing returns 0 = invalid
+    mock.mockCall(EC_PAIRING, [4]u8{ 0xEF, 0xEF, 0xEF, 0xEF }, &false_resp);
+
+    const sel = @import("abi.zig").selector("verifyProof(bytes,bytes32[])");
+    var buf: [4096]u8 = undefined;
+    var proof: [224]u8 = undefined;
+    makeMinimalProof(&proof);
+    const public_root: [32]u8 = [_]u8{0x11} ** 32;
+    const len = buildVerifyProof(sel, &proof, public_root, &buf);
+    mock.setInput(buf[0..len]);
+    _ = callZK(len);
+    const out = mock.getOutput();
+    try std.testing.expectEqual(@as(u8, 0), out[31]); // must be rejected
+}
