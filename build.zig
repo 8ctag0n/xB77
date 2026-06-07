@@ -682,4 +682,12 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_onchain_unit_tests.step);
     test_step.dependOn(&run_agora_arc_unit_tests.step);
     test_step.dependOn(&run_semantic_unit_tests.step);
+
+    // ── e2e ZK Stylus test step (runs scripts/e2e_zk_stylus.sh) ──────────────
+    // Requires a running Arbitrum Nitro dev node: docker compose up -d nitro
+    const e2e_step = b.step("test-e2e", "Run e2e ZK Stylus flows against local Nitro node");
+    const e2e_cmd = b.addSystemCommand(&.{ "bash", "scripts/e2e_zk_stylus.sh", "--skip-build" });
+    e2e_step.dependOn(&install_zk_verifier.step);
+    e2e_step.dependOn(&install_verifier_registry.step);
+    e2e_step.dependOn(&e2e_cmd.step);
 }
