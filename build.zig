@@ -655,10 +655,12 @@ pub fn build(b: *std.Build) void {
     // ── New Stylus contracts: anchor, settlement_engine, zk_verifier ─────────
     const install_anchor     = StylusContract.add(b, "xb77_anchor",            "onchain/stylus/anchor.zig",            core_module, stylus_target);
     const install_settlement_engine = StylusContract.add(b, "xb77_settlement_engine", "onchain/stylus/settlement_engine.zig", core_module, stylus_target);
-    const install_zk_verifier= StylusContract.add(b, "xb77_zk_verifier",       "onchain/stylus/zk_verifier.zig",       core_module, stylus_target);
+    const install_zk_verifier     = StylusContract.add(b, "xb77_zk_verifier",      "onchain/stylus/zk_verifier.zig",      core_module, stylus_target);
+    const install_verifier_registry = StylusContract.add(b, "xb77_verifier_registry", "onchain/stylus/verifier_registry.zig", core_module, stylus_target);
     stylus_step.dependOn(&install_anchor.step);
     stylus_step.dependOn(&install_settlement_engine.step);
     stylus_step.dependOn(&install_zk_verifier.step);
+    stylus_step.dependOn(&install_verifier_registry.step);
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_crypto_unit_tests.step);
