@@ -1199,3 +1199,50 @@ test "zk_verifier: verifyProof rejects when ecPairing returns 0 (invalid proof)"
     const out = mock.getOutput();
     try std.testing.expectEqual(@as(u8, 0), out[31]); // must be rejected
 }
+
+test "zk_verifier: Groth16 proof (type 0x01) accepted with mock precompiles returning 1" {
+    mock.init();
+    mock.reset();
+
+    const sel = @import("abi.zig").selector("verifyProof(bytes,bytes32[])");
+    var buf: [4096]u8 = undefined;
+
+    // Groth16 proof: type(0x01) | A(64 non-zero) | B(128 non-zero) | C(64 non-zero)
+    var proof: [257]u8 = undefined;
+    @memset(&proof, 0);
+    proof[0] = 0x01; // Groth16 type discriminator
+    @memset(proof[1..65],    0xA1); // A = valid non-identity G1
+    @memset(proof[65..193],  0xB2); // B = valid non-identity G2
+    @memset(proof[193..257], 0xC3); // C = valid non-identity G1
+
+    // 3 public inputs (field elements)
+    const public_root: [32]u8 = [_]u8{0x11} ** 32;
+    const len = buildVerifyProof(sel, &proof, public_root, &buf);
+    mock.setInput(buf[0..len]);
+
+    const rc = callZK(len);
+    try std.testing.expectEqual(@as(i32, 0), rc);
+    // mock ecMul, ecAdd, ecPairing all return truthy by default → Groth16 check passes
+    const out = mock.getOutput();
+    try std.testing.expect(out.len == 32);
+    try std.testing.expectEqual(@as(u8, 1), out[31]);
+}
+
+test "zk_verifier: Groth16 proof too short (< 257 bytes) is rejected" {
+    mock.init();
+    mock.reset();
+
+    const sel = @import("abi.zig").selector("verifyProof(bytes,bytes32[])");
+    var buf: [4096]u8 = undefined;
+
+    var proof: [200]u8 = undefined;
+    @memset(&proof, 0);
+    proof[0] = 0x01; // Groth16 type byte but too short
+
+    const public_root: [32]u8 = [_]u8{0x22} ** 32;
+    const len = buildVerifyProof(sel, &proof, public_root, &buf);
+    mock.setInput(buf[0..len]);
+    _ = callZK(len);
+    const out = mock.getOutput();
+    try std.testing.expectEqual(@as(u8, 0), out[31]); // rejected
+}
