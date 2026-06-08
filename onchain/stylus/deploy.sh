@@ -10,10 +10,15 @@ OUT_DIR="zig-out/bin"
 DEPLOY_OUT="onchain/stylus/deployed_addresses.env"
 
 CONTRACTS=(
+  "xb77_zk_verifier"
+  "xb77_verifier_registry"
   "xb77_anchor"
   "xb77_settlement_engine"
-  "xb77_zk_verifier"
   "groth16_verifier"
+  "constitution"
+  "uniswap_hook"
+  "aave_guard"
+  "gmx_guard"
 )
 
 MODE="${1:-check}"

@@ -66,10 +66,11 @@ fn run(args_len: usize) !void {
     if (args_len < 4) return error.InvalidCalldata;
 
     var calldata: [8192]u8 = undefined;
-    host.read_args(&calldata);
+    const read_len = @min(args_len, calldata.len);
+    host.read_args(calldata[0..read_len].ptr);
 
     const sel = calldata[0..4].*;
-    const params = calldata[4..args_len];
+    const params = calldata[4..@min(args_len, read_len)];
 
     if (std.mem.eql(u8, &sel, &SEL_INITIALIZE))     return handle_initialize(params);
     if (std.mem.eql(u8, &sel, &SEL_SETTLE))         return handle_settle(params);
