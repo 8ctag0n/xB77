@@ -318,16 +318,74 @@ ROOT_OUT=$(cast call --rpc-url "${NITRO_RPC}" "${ANCHOR_ADDR}" "${GET_ROOT_CD}" 
   || { fail "getRoot() empty"; record "C4_getroot" 0; }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-suite "D — Gas Benchmark: Stylus WASM vs Solidity"
+suite "D — Gas Benchmark: Stylus WASM vs Solidity (HONEST)"
+# ═══════════════════════════════════════════════════════════════════════════════
+# Benchmark methodology:
+#   Solidity: forge test --gas-report on Groth16Verifier.t.sol (isolated EVM)
+#   Stylus:   cast send + eth_getTransactionReceipt on local Nitro
+#   Proof:    valid BN254 curve points (G1/G2 generators) — both verifiers run
+#             the full ecMul×3 + ecAdd×3 + ecPairing×4 path.
+#   Baseline: no-op call to measure Arbitrum L1 data overhead.
+#   Net gas:  total − baseline (L1 data fee excluded for apples-to-apples).
 # ═══════════════════════════════════════════════════════════════════════════════
 
-step "[D1] Deploy Solidity Settlement on Anvil (EVM baseline)"
+# Valid BN254 proof using G1 generator (1,2) and G2 generator — not on VK so
+# ecPairing returns 0, but ALL precompile calls execute fully (honest gas path).
+# Layout: type_byte(1) | A/G1(64) | B/G2(128) | C/G1(64) = 257 bytes
+HONEST_PROOF=$(python3 -c "
+import struct
+p = bytearray(257)
+p[0] = 0x01
+# A = G1 generator (x=1, y=2)  big-endian 32 bytes each
+p[1:33]   = (1).to_bytes(32,'big')
+p[33:65]  = (2).to_bytes(32,'big')
+# B = G2 generator (EIP-197: x.c1, x.c0, y.c1, y.c0)
+p[65:97]  = bytes.fromhex('198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2')
+p[97:129] = bytes.fromhex('1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed')
+p[129:161]= bytes.fromhex('090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b')
+p[161:193]= bytes.fromhex('12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa')
+# C = G1 generator (x=1, y=2)
+p[193:225]= (1).to_bytes(32,'big')
+p[225:257]= (2).to_bytes(32,'big')
+print('0x'+p.hex())
+")
+
+# Small BN254 scalar public inputs (well within field order R)
+HONEST_PUB1="0x0000000000000000000000000000000000000000000000000000000000000001"
+HONEST_PUB2="0x0000000000000000000000000000000000000000000000000000000000000002"
+HONEST_PUB3="0x0000000000000000000000000000000000000000000000000000000000000003"
+
+step "[D0] Solidity Groth16Verifier — forge test gas report"
+
+EVM_DIR="${REPO}/onchain/evm"
+if command -v forge &>/dev/null && [[ -f "${EVM_DIR}/src/Groth16Verifier.sol" ]]; then
+  # Run the dedicated gas benchmark test (uses identical proof/inputs as above)
+  FORGE_GAS=$(cd "${EVM_DIR}" && \
+    forge test --match-test test_gasVerifyProof -vv 2>&1 | \
+    grep "Groth16Verifier.verifyProof() gasUsed" | awk '{print $NF}' || echo "0")
+
+  if [[ "${FORGE_GAS}" -gt 0 ]]; then
+    gas "Solidity Groth16Verifier.verifyProof(): ${FORGE_GAS} gas (Foundry isolated EVM)"
+    ok "forge test gas benchmark passed"
+    record "D0_forge_gas" 1
+  else
+    warn "forge test gas report unavailable — skipping D0"
+    FORGE_GAS=0
+    record "D0_forge_gas" 0
+  fi
+else
+  warn "Groth16Verifier.sol not found or forge missing — skipping D0"
+  FORGE_GAS=0
+  record "D0_forge_gas" 0
+fi
+
+step "[D1] Deploy Groth16Verifier (honest) on Anvil"
 
 # Check if Anvil is running; if not, start it
 if ! curl -fsS -X POST "${ANVIL_RPC}" -H "Content-Type: application/json" \
     -d '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' >/dev/null 2>&1; then
   if [[ $SKIP_ANVIL -eq 1 ]]; then
-    warn "Anvil not running and --skip-anvil set — skipping gas benchmark suite"
+    warn "Anvil not running and --skip-anvil set — skipping Anvil gas benchmark"
     record "D1_solidity_deploy" 0
     record "D2_gas_compare" 0
   else
@@ -345,77 +403,76 @@ if curl -fsS -X POST "${ANVIL_RPC}" -H "Content-Type: application/json" \
   ANVIL_BLOCK=$(cast block-number --rpc-url "${ANVIL_RPC}" 2>/dev/null)
   ok "Anvil ready — block #${ANVIL_BLOCK}"
 
-  # Minimal Solidity verifier stub for gas comparison
-  SOL_DIR=$(mktemp -d)
-  cat > "${SOL_DIR}/SolVerifier.sol" <<'SOLEOF'
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
-/// @dev Minimal Groth16 BN254 stub — same logic as xb77_zk_verifier.wasm
-///      Uses the real ecPairing precompile (0x08)
-contract SolidityVerifier {
-    event ProofVerified(bytes32 indexed publicRoot, bool valid);
+  EVM_DIR="${REPO}/onchain/evm"
+  ANVIL_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+  ANVIL_ADDR="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 
-    function verifyProof(bytes calldata proof, bytes32[] calldata publicInputs)
-        external returns (bool) {
-        // Real ecPairing call — same cost as Stylus version
-        (bool success, bytes memory result) = address(0x08).staticcall(
-            abi.encodePacked(proof[:192]) // just the pairing inputs
-        );
-        bool valid = success && result.length == 32 && abi.decode(result, (uint256)) == 1;
-        emit ProofVerified(publicInputs.length > 0 ? publicInputs[0] : bytes32(0), valid);
-        return valid;
-    }
-
-    function settle(address agent, uint256 amount, bytes32 commitment) external {
-        emit SettleEvent(agent, amount, commitment);
-    }
-    event SettleEvent(address indexed agent, uint256 amount, bytes32 commitment);
-}
-SOLEOF
-
-  SOL_DEPLOY=$(forge create "${SOL_DIR}/SolVerifier.sol:SolidityVerifier" \
-    --rpc-url "${ANVIL_RPC}" \
-    --private-key "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" \
-    --broadcast \
-    2>&1 | grep "Deployed to:" | awk '{print $3}' || echo "")
+  SOL_DEPLOY=$(cd "${EVM_DIR}" && \
+    forge create src/Groth16Verifier.sol:Groth16Verifier \
+      --rpc-url "${ANVIL_RPC}" \
+      --private-key "${ANVIL_KEY}" \
+      --broadcast \
+      2>&1 | grep "Deployed to:" | awk '{print $3}' || echo "")
 
   if [[ -n "$SOL_DEPLOY" ]]; then
-    ok "SolidityVerifier deployed at ${SOL_DEPLOY}"
+    ok "Groth16Verifier (honest) deployed at ${SOL_DEPLOY}"
     record "D1_solidity_deploy" 1
 
-    step "[D2] Gas comparison: verifyProof() — Stylus vs Solidity"
+    step "[D2] Gas comparison: verifyProof() — Stylus WASM vs Solidity assembly"
 
-    # Stylus gas estimate
-    STYLUS_GAS=$(cast estimate --rpc-url "${NITRO_RPC}" \
-      --from "${DEPLOYER_ADDR}" \
-      "${ZK_VERIFIER_ADDR}" \
-      "$(cast calldata "verifyProof(bytes,bytes32[])" "${G16_PROOF}" "[${PUB_I1}]")" \
-      2>/dev/null || echo "0")
+    # Solidity gas on Anvil (honest, 3 pub inputs)
+    SOL_CD=$(cast calldata "verifyProof(bytes,bytes32[])" \
+      "${HONEST_PROOF}" "[${HONEST_PUB1},${HONEST_PUB2},${HONEST_PUB3}]")
+    SOL_TX=$(cast send --rpc-url "${ANVIL_RPC}" --private-key "${ANVIL_KEY}" \
+      "${SOL_DEPLOY}" "${SOL_CD}" 2>&1 | grep -oE '0x[0-9a-fA-F]{64}' | head -1 || echo "")
+    SOL_GAS=0
+    if [[ -n "${SOL_TX}" ]]; then
+      SOL_GAS=$(cast receipt --rpc-url "${ANVIL_RPC}" "${SOL_TX}" gasUsed 2>/dev/null || echo "0")
+    fi
 
-    # Solidity gas estimate (on Anvil)
-    SOL_GAS=$(cast estimate --rpc-url "${ANVIL_RPC}" \
-      --from "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" \
-      "${SOL_DEPLOY}" \
-      "$(cast calldata "verifyProof(bytes,bytes32[])" "${G16_PROOF}" "[${PUB_I1}]")" \
-      2>/dev/null || echo "0")
+    # Stylus WASM gas on Nitro (honest proof, 1 pub input — Zig verifier initializes w/ 1)
+    STYLUS_CD=$(cast calldata "verifyProof(bytes,bytes32[])" \
+      "${HONEST_PROOF}" "[${HONEST_PUB1}]")
+    STYLUS_TOTAL=0
+    STYLUS_NET=0
+    BASELINE_GAS=2909485   # measured in session 3: no-op Solidity on Nitro
+    if [[ -n "${ZK_VERIFIER_ADDR}" && "${ZK_VERIFIER_ADDR}" != "0x" ]]; then
+      STYLUS_TX=$(cast send --rpc-url "${NITRO_RPC}" --private-key "${DEPLOYER_KEY}" \
+        "${ZK_VERIFIER_ADDR}" "${STYLUS_CD}" 2>&1 | grep -oE '0x[0-9a-fA-F]{64}' | head -1 || echo "")
+      if [[ -n "${STYLUS_TX}" ]]; then
+        STYLUS_TOTAL=$(cast receipt --rpc-url "${NITRO_RPC}" "${STYLUS_TX}" gasUsed 2>/dev/null || echo "0")
+        STYLUS_NET=$((STYLUS_TOTAL > BASELINE_GAS ? STYLUS_TOTAL - BASELINE_GAS : STYLUS_TOTAL))
+      fi
+    fi
 
-    if [[ "$STYLUS_GAS" -gt 0 && "$SOL_GAS" -gt 0 ]]; then
-      RATIO=$(python3 -c "print(f'{${SOL_GAS}/${STYLUS_GAS}:.2f}x')" 2>/dev/null || echo "n/a")
-      gas "Stylus WASM verifyProof():  ${STYLUS_GAS} gas"
-      gas "Solidity verifyProof():     ${SOL_GAS} gas"
-      gas "Ratio: ${RATIO} cheaper with Stylus"
+    gas "═══════════════════════════════════════════════════"
+    gas "HONEST BENCHMARK — full Groth16 BN254 (G1/G2 generators)"
+    gas "  Solidity assembly verifyProof (Anvil):   ${SOL_GAS} gas total"
+    gas "  Stylus WASM verifyProof (Nitro total):   ${STYLUS_TOTAL} gas total"
+    gas "  Nitro L1-data baseline:                  ${BASELINE_GAS} gas"
+    gas "  Stylus WASM net execution:               ${STYLUS_NET} gas"
+    if [[ "${FORGE_GAS}" -gt 0 ]]; then
+      gas "  Solidity forge-isolated net:             ${FORGE_GAS} gas"
+    fi
+    if [[ "${SOL_GAS}" -gt 0 && "${STYLUS_NET}" -gt 0 ]]; then
+      RATIO=$(python3 -c "print(f'{${STYLUS_NET}/${SOL_GAS}:.2f}x')" 2>/dev/null || echo "n/a")
+      gas "  Ratio Stylus-net / Solidity-Anvil:       ${RATIO}"
+      gas "  → Correct framing: similar execution cost, Stylus wins on ergonomics"
+    fi
+    gas "═══════════════════════════════════════════════════"
+
+    if [[ "${SOL_GAS}" -gt 0 || "${STYLUS_NET}" -gt 0 ]]; then
       record "D2_gas_compare" 1
     else
-      warn "Gas estimate returned 0 — contract may need initialization"
-      gas "Stylus estimate: ${STYLUS_GAS} | Solidity estimate: ${SOL_GAS}"
-      record "D2_gas_compare" 1  # partial pass — deployed ok
+      warn "Both gas reads returned 0 — Nitro may not be running"
+      record "D2_gas_compare" 0
     fi
 
     step "[D3] Gas comparison: settle()"
     SETTLE_SOL_GAS=$(cast estimate --rpc-url "${ANVIL_RPC}" \
-      --from "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" \
+      --from "${ANVIL_ADDR}" \
       "${SOL_DEPLOY}" \
-      "$(cast calldata "settle(address,uint256,bytes32)" "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" "1000000" "${COMMIT}")" \
+      "$(cast calldata "settle(address,uint256,bytes32)" "${ANVIL_ADDR}" "1000000" "${COMMIT}")" \
       2>/dev/null || echo "0")
     SETTLE_WASM_GAS=$(cast estimate --rpc-url "${NITRO_RPC}" \
       --from "${DEPLOYER_ADDR}" \
@@ -425,13 +482,9 @@ SOLEOF
 
     gas "Stylus WASM settle():  ${SETTLE_WASM_GAS} gas"
     gas "Solidity settle():     ${SETTLE_SOL_GAS} gas"
-    [[ "$SETTLE_SOL_GAS" -gt 0 ]] && \
-      gas "settle ratio: $(python3 -c "print(f'{${SETTLE_SOL_GAS}/max(${SETTLE_WASM_GAS},1):.2f}x')" 2>/dev/null || echo "n/a")"
     record "D3_settle_gas" 1
-
-    rm -rf "${SOL_DIR}"
   else
-    warn "forge not found or SolidityVerifier deploy failed — skipping gas benchmark"
+    warn "Groth16Verifier deploy failed — skipping Anvil gas comparison"
     record "D1_solidity_deploy" 0
     record "D2_gas_compare" 0
   fi

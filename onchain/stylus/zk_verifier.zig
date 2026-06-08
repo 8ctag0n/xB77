@@ -25,6 +25,7 @@
 const std = @import("std");
 const sdk = @import("sdk.zig");
 const abi = @import("abi.zig");
+const g1_mod = @import("bn254/g1.zig");
 
 const vm     = sdk.vm_hooks;
 const Stylus = sdk.Stylus;
@@ -247,29 +248,25 @@ fn negateG1(point: *[G1_SIZE]u8) void {
     }
 }
 
-// ecMul(G1 point, scalar): calls precompile 0x07, returns null on failure.
+// ecMul(G1 point, scalar) — pure WASM BN254, zero precompile calls.
 fn ecMulG1(point: [G1_SIZE]u8, scalar: [32]u8) ?[G1_SIZE]u8 {
-    var buf: [96]u8 = undefined;
-    @memcpy(buf[0..64], &point);
-    @memcpy(buf[64..96], &scalar);
-    var ret_len: u32 = 0;
-    const status = vm.static_call_contract(&EC_MUL, &buf, 96, 200_000, &ret_len);
-    if (status != 0) return null;
+    const p = g1_mod.G1.fromAffineBytes(&point);
+    // Scalar: 32 big-endian bytes → [4]u64 little-endian limbs
+    var sc: [4]u64 = .{ 0, 0, 0, 0 };
+    for (0..4) |i| {
+        sc[i] = std.mem.readInt(u64, scalar[24 - i * 8 ..][0..8], .big);
+    }
     var result: [G1_SIZE]u8 = undefined;
-    _ = vm.read_return_data(&result, 0, 64);
+    p.scalarMul(sc).toAffineBytes(&result);
     return result;
 }
 
-// ecAdd(G1 a, G1 b): calls precompile 0x06, returns null on failure.
+// ecAdd(G1 a, G1 b) — pure WASM BN254, zero precompile calls.
 fn ecAddG1(a: [G1_SIZE]u8, b: [G1_SIZE]u8) ?[G1_SIZE]u8 {
-    var buf: [128]u8 = undefined;
-    @memcpy(buf[0..64], &a);
-    @memcpy(buf[64..128], &b);
-    var ret_len: u32 = 0;
-    const status = vm.static_call_contract(&EC_ADD, &buf, 128, 100_000, &ret_len);
-    if (status != 0) return null;
+    const pa = g1_mod.G1.fromAffineBytes(&a);
+    const pb = g1_mod.G1.fromAffineBytes(&b);
     var result: [G1_SIZE]u8 = undefined;
-    _ = vm.read_return_data(&result, 0, 64);
+    pa.addJac(pb).toAffineBytes(&result);
     return result;
 }
 
