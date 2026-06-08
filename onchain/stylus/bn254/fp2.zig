@@ -79,6 +79,11 @@ pub const Fp2 = struct {
         };
     }
 
+    /// Multiply by a base-field scalar: (c0+c1·u) * s = c0·s + c1·s·u
+    pub fn mulByFp(a: Fp2, b: fp.Fp) Fp2 {
+        return .{ .c0 = fp.mul(a.c0, b), .c1 = fp.mul(a.c1, b) };
+    }
+
     pub fn isZero(a: Fp2) bool {
         return fp.isZero(a.c0) and fp.isZero(a.c1);
     }

@@ -235,6 +235,18 @@ pub fn build(b: *std.Build) void {
     const bn254_fp2_test_step = b.step("test-bn254-g2", "Run BN254 Fp2 + G2 arithmetic unit tests");
     bn254_fp2_test_step.dependOn(&run_bn254_fp2_tests.step);
 
+    // BN254 pairing unit tests (fp6 + fp12 + optimal Ate)
+    const bn254_pairing_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("onchain/stylus/bn254/pairing.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const run_bn254_pairing_tests = b.addRunArtifact(bn254_pairing_tests);
+    const bn254_pairing_test_step = b.step("test-bn254-pairing", "Run BN254 optimal Ate pairing + Fp6/Fp12 unit tests");
+    bn254_pairing_test_step.dependOn(&run_bn254_pairing_tests.step);
+
     // --- SDK Core WASM (xb77_core.wasm) ---
     // Stateless SDK surface compiled to wasm32-wasi. Wrappers (TS/Py/Rust)
     // polyfill the small set of WASI imports actually used. See

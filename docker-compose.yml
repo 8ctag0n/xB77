@@ -11,12 +11,12 @@ version: "3.9"
 #   docker compose up -d nitro
 #   scripts/e2e_zk_stylus.sh
 #
-# Fallback (sandboxed envs without cgroup namespaces — e.g. CI containers):
-#   MOUNT=$(podman image mount docker.io/offchainlabs/nitro-node:v3.2.1-d81324d)
-#   $MOUNT/usr/local/bin/nitro --dev --http.addr=0.0.0.0 --http.port=8547 \
+# Fallback (sandboxed envs without Docker — binary extracted via skopeo):
+#   nitro --dev --http.addr=0.0.0.0 --http.port=8547 \
 #     --http.api=net,web3,eth,arb,debug --http.vhosts='*' --ws.addr=0.0.0.0 \
 #     --ws.port=8548 --ws.origins='*' --node.staker.enable=false \
 #     --persistent.chain=/tmp/nitro-data &
+#   (binary at /usr/local/bin/nitro, machines at /home/user/target/machines/)
 #
 # Env:
 #   NITRO_IMAGE  — override Nitro node image (default offchainlabs/nitro-node:v3.2.1-d81324d)
