@@ -5,9 +5,11 @@ const evm = @import("evm.zig");
 const semantic = @import("../security/semantic.zig");
 const crypto = @import("../security/crypto.zig");
 
-const SEL_VALIDATE_SEMANTIC = [_]u8{ 0x12, 0x34, 0x56, 0x78 }; // Placeholder
-const SEL_BRIDGE_VERIFY     = [_]u8{ 0x3a, 0x4b, 0x5c, 0x6d };
-const SEL_GET_AGENT_GDP     = [_]u8{ 0xf1, 0xe2, 0xd3, 0xc4 };
+// Match main.zig (constitution) hardcoded selectors exactly
+const SEL_VALIDATE_SEMANTIC = [_]u8{ 0xab, 0xcd, 0xef, 0x01 }; // 0xabcdef01
+const SEL_BRIDGE_VERIFY     = [_]u8{ 0x3a, 0x4b, 0x5c, 0x6d }; // 0x3a4b5c6d
+// keccak4("getBalance(address)") — settlement_engine.zig
+const SEL_GET_AGENT_GDP     = [_]u8{ 0xf8, 0xb2, 0xcb, 0x4f };
 
 // ── Stylus contract selectors (comptime keccak256) ────────────────────────────
 fn keccak4(comptime sig: []const u8) [4]u8 {
@@ -21,11 +23,26 @@ const SEL_GET_ROOT     = keccak4("getRoot()");
 const SEL_SETTLE       = keccak4("settle(address,uint256,bytes32)");
 const SEL_VERIFY_PROOF = keccak4("verifyProof(bytes,bytes32[])");
 
-// Stylus contract addresses — populated after deploy via onchain/stylus/deploy.sh.
-// The CLI reads these from env vars XB77_ANCHOR_ADDR, XB77_SETTLEMENT_ADDR, etc.
+// Stylus contract addresses — read at startup from env vars (set by deploy.sh output).
+// Override with: export XB77_ANCHOR_ADDR=0x... XB77_SETTLEMENT_ADDR=0x... etc.
 pub var STYLUS_ANCHOR_ADDR:      []const u8 = "0x0000000000000000000000000000000000000000";
 pub var STYLUS_SETTLEMENT_ADDR:  []const u8 = "0x0000000000000000000000000000000000000000";
 pub var STYLUS_ZK_VERIFIER_ADDR: []const u8 = "0x0000000000000000000000000000000000000000";
+
+/// Load contract addresses from environment variables.
+/// Call once at startup before using ArbitrumAdapter.
+/// Reads: XB77_ANCHOR_ADDR, XB77_SETTLEMENT_ADDR, XB77_ZK_VERIFIER_ADDR
+pub fn loadAddrsFromEnv(allocator: std.mem.Allocator) void {
+    if (std.process.getEnvVarOwned(allocator, "XB77_ANCHOR_ADDR")) |v| {
+        STYLUS_ANCHOR_ADDR = v;
+    } else |_| {}
+    if (std.process.getEnvVarOwned(allocator, "XB77_SETTLEMENT_ADDR")) |v| {
+        STYLUS_SETTLEMENT_ADDR = v;
+    } else |_| {}
+    if (std.process.getEnvVarOwned(allocator, "XB77_ZK_VERIFIER_ADDR")) |v| {
+        STYLUS_ZK_VERIFIER_ADDR = v;
+    } else |_| {}
+}
 
 pub const PreFlightResult = struct {
     approved: bool,

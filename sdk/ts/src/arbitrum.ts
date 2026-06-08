@@ -66,12 +66,17 @@ const SEL_REGISTER_PEER     = "0x9c0d1e2f" as Hex;
 const SEL_SET_CONSTITUTION  = "0x1a2b3c4d" as Hex;
 const SEL_GET_CONSTITUTION  = "0x5e6f7a8b" as Hex;
 
-// ── Settlement selectors (match onchain/stylus/settlement.zig) ────────────
-const SEL_SETTLE            = "0xd8bff5a5" as Hex;
-const SEL_BATCH_SETTLE      = "0x12345678" as Hex;
-const SEL_SETTLE_FROM_CHAIN = "0xabcd1234" as Hex;
-const SEL_GET_AGENT_GDP     = "0xf4a9e3b1" as Hex;
-const SEL_GET_XCHAIN_GDP    = "0xe5b8d2c3" as Hex;
+// ── Settlement selectors (match onchain/stylus/settlement_engine.zig) ─────
+// keccak4("settle(address,uint256,bytes32)")
+const SEL_SETTLE            = "0x0f4d42f7" as Hex;
+// keccak4("batchSettle(address[],uint256[],bytes32[])")
+const SEL_BATCH_SETTLE      = "0x7da382ab" as Hex;
+// keccak4("handleReceiveMessage(uint32,bytes32,bytes)")
+const SEL_SETTLE_FROM_CHAIN = "0x96abeb70" as Hex;
+// keccak4("getBalance(address)")
+const SEL_GET_AGENT_GDP     = "0xf8b2cb4f" as Hex;
+// keccak4("totalSettled()")
+const SEL_GET_XCHAIN_GDP    = "0xeace4c91" as Hex;
 
 // ── Types ─────────────────────────────────────────────────────────────────
 export type IntentVector = readonly number[]; // int32[128]
@@ -266,18 +271,18 @@ function buildSetConstitutionData(vector: IntentVector): Hex {
   return concatHex([SEL_SET_CONSTITUTION, encodeIntentVector(vector)]);
 }
 
-function buildSettleData(amount: bigint, commitment: Hex): Hex {
+function buildSettleData(agent: Hex, amount: bigint, commitment: Hex): Hex {
   const encoded = encodeAbiParameters(
-    [{ type: "uint256" }, { type: "bytes32" }],
-    [amount, commitment],
+    [{ type: "address" }, { type: "uint256" }, { type: "bytes32" }],
+    [agent, amount, commitment],
   );
   return concatHex([SEL_SETTLE, encoded]);
 }
 
-function buildBatchSettleData(amounts: bigint[], commitments: Hex[]): Hex {
+function buildBatchSettleData(agents: Hex[], amounts: bigint[], commitments: Hex[]): Hex {
   const encoded = encodeAbiParameters(
-    [{ type: "uint256[]" }, { type: "bytes32[]" }],
-    [amounts, commitments],
+    [{ type: "address[]" }, { type: "uint256[]" }, { type: "bytes32[]" }],
+    [agents, amounts, commitments],
   );
   return concatHex([SEL_BATCH_SETTLE, encoded]);
 }
@@ -1011,12 +1016,13 @@ export class XB77ArbitrumClient {
    */
   async settle(
     agentClient: Awaited<ReturnType<typeof this.createAgentClient>>,
+    agentAddress: Hex,
     amountUsdc: bigint,
     commitment: Hex,
   ): Promise<SettleResult> {
     const hash = await agentClient.sendTransaction({
       to: this.settlementAddress,
-      data: buildSettleData(amountUsdc, commitment),
+      data: buildSettleData(agentAddress, amountUsdc, commitment),
     });
     return { hash, amount: amountUsdc, commitment };
   }
@@ -1027,13 +1033,14 @@ export class XB77ArbitrumClient {
    */
   async batchSettle(
     agentClient: Awaited<ReturnType<typeof this.createAgentClient>>,
-    settlements: Array<{ amount: bigint; commitment: Hex }>,
+    settlements: Array<{ agent: Hex; amount: bigint; commitment: Hex }>,
   ): Promise<Hash> {
+    const agents = settlements.map((s) => s.agent);
     const amounts = settlements.map((s) => s.amount);
     const commitments = settlements.map((s) => s.commitment);
     return agentClient.sendTransaction({
       to: this.settlementAddress,
-      data: buildBatchSettleData(amounts, commitments),
+      data: buildBatchSettleData(agents, amounts, commitments),
     });
   }
 
