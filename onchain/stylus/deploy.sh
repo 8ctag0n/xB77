@@ -13,6 +13,7 @@ CONTRACTS=(
   "xb77_anchor"
   "xb77_settlement_engine"
   "xb77_zk_verifier"
+  "groth16_verifier"
 )
 
 MODE="${1:-check}"

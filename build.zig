@@ -173,11 +173,12 @@ pub fn build(b: *std.Build) void {
         }
     };
 
-    const install_constitution = StylusContract.add(b, "constitution",    "onchain/stylus/main.zig",         core_module, stylus_target);
-    const install_settlement   = StylusContract.add(b, "settlement",      "onchain/stylus/settlement.zig",   core_module, stylus_target);
-    const install_univ4_hook   = StylusContract.add(b, "uniswap_hook",    "onchain/stylus/uniswap_hook.zig", core_module, stylus_target);
-    const install_aave_guard   = StylusContract.add(b, "aave_guard",      "onchain/stylus/aave_guard.zig",   core_module, stylus_target);
-    const install_gmx_guard    = StylusContract.add(b, "gmx_guard",       "onchain/stylus/gmx_guard.zig",    core_module, stylus_target);
+    const install_constitution  = StylusContract.add(b, "constitution",     "onchain/stylus/main.zig",              core_module, stylus_target);
+    const install_settlement    = StylusContract.add(b, "settlement",       "onchain/stylus/settlement.zig",        core_module, stylus_target);
+    const install_univ4_hook    = StylusContract.add(b, "uniswap_hook",    "onchain/stylus/uniswap_hook.zig",      core_module, stylus_target);
+    const install_aave_guard    = StylusContract.add(b, "aave_guard",      "onchain/stylus/aave_guard.zig",        core_module, stylus_target);
+    const install_gmx_guard     = StylusContract.add(b, "gmx_guard",       "onchain/stylus/gmx_guard.zig",        core_module, stylus_target);
+    const install_groth16       = StylusContract.add(b, "groth16_verifier","onchain/stylus/groth16_verifier.zig", core_module, stylus_target);
 
     const stylus_step = b.step("stylus", "Build all Zig-native Arbitrum Stylus contracts");
     stylus_step.dependOn(&install_constitution.step);
@@ -185,6 +186,7 @@ pub fn build(b: *std.Build) void {
     stylus_step.dependOn(&install_univ4_hook.step);
     stylus_step.dependOn(&install_aave_guard.step);
     stylus_step.dependOn(&install_gmx_guard.step);
+    stylus_step.dependOn(&install_groth16.step);
 
     // Stylus local test suite (native build, uses mock_hooks.zig)
     const stylus_tests = b.addTest(.{
@@ -246,6 +248,40 @@ pub fn build(b: *std.Build) void {
     const run_bn254_pairing_tests = b.addRunArtifact(bn254_pairing_tests);
     const bn254_pairing_test_step = b.step("test-bn254-pairing", "Run BN254 optimal Ate pairing + Fp6/Fp12 unit tests");
     bn254_pairing_test_step.dependOn(&run_bn254_pairing_tests.step);
+
+    // BN254 Groth16 verifier unit tests
+    const groth16_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("onchain/stylus/bn254/groth16.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const run_groth16_tests = b.addRunArtifact(groth16_tests);
+    const groth16_test_step = b.step("test-groth16", "Run Groth16 verifier unit tests");
+    groth16_test_step.dependOn(&run_groth16_tests.step);
+
+    const groth16_heavy_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("onchain/stylus/bn254/groth16_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const run_groth16_heavy = b.addRunArtifact(groth16_heavy_tests);
+    const groth16_heavy_step = b.step("test-groth16-heavy", "Golden vectors, tamper, invariants, stress");
+    groth16_heavy_step.dependOn(&run_groth16_heavy.step);
+
+    const groth16_contract_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("onchain/stylus/test_groth16_verifier.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const run_groth16_contract = b.addRunArtifact(groth16_contract_tests);
+    const groth16_contract_step = b.step("test-groth16-contract", "Integration tests for the Stylus contract (mock_hooks)");
+    groth16_contract_step.dependOn(&run_groth16_contract.step);
 
     // --- SDK Core WASM (xb77_core.wasm) ---
     // Stateless SDK surface compiled to wasm32-wasi. Wrappers (TS/Py/Rust)
