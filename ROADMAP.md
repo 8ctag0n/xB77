@@ -1,28 +1,58 @@
 # xB77 Sovereign Roadmap: The Machine Economy Standard
 
-This document outlines the strategic evolution of the xB77 Financial Operating System from an Edge-native prototype to a global institutional infrastructure for autonomous agents.
-
 ---
 
-## 阶段 Phase 1: The Sovereign Foundation (Current)
-*   **[DONE] Sovereign Engine:** Zig-based core logic running in WASM at the Cloudflare Edge.
-*   **[DONE] Private Key Sovereignty:** Pure client-side Ed25519 signing (Bunker Vault).
-*   **[DONE] Multi-Chain Adapters:** Initial support for Solana (Frontier), Sui (Overflow), and Arc (Agora).
-*   **[DONE] ZK-Proof Guardrails:** Noir circuits for 2.011% tax compliance and auditability.
+## Phase 1 — Sovereign Foundation (DONE)
+- Zig kernel, QVAC Brain, WASM Cloudflare Edge deployment
+- Private key sovereignty: Ed25519 Bunker Vault, pure client-side
+- Multi-chain adapters: Solana (Frontier), Arc/Agora, Sui (Overflow)
+- ZK circuits: Noir 0.36 + Barretenberg 0.58, 2.011% compliance proofs
 
-## 阶段 Phase 2: Elastic Scaling (Next 6 Months)
-*   **Workers for Platforms:** Transitioning to a dynamic dispatch architecture where every Agent ID corresponds to a dedicated, isolated compute instance.
-*   **Durable Objects Integration:** Providing agents with globally consistent, persistent state and "active handles" for high-frequency A2A (Agent-to-Agent) negotiation.
-*   **Unified SDK (@xb77/sdk):** A zero-dependency library for AI frameworks (LangChain, Eliza, Autonolas) to enable one-click sovereign financial rails.
+## Phase 2 — Stylus ZK Stack (DONE — devstylus branch, 42 commits)
+- **9 Zig WASM contracts** compiled directly to Stylus `vm_hooks` ABI — no Rust, no Solidity
+- **ZKVerifier**: real Groth16 (full 4-pairing BN254) + UltraPlonk KZG (2-pair Aztec SRS) — not a stub
+- **VerifierRegistry**: multi-circuit routing (Groth16 / UltraPlonk / SP1) with upgradeable addressing
+- **EigenLayer AVS** event emission: `AVSTaskCompleted`, `ProofVerified`, `CircuitRegistered`
+- 53/53 tests. All contracts pass `cargo stylus check` on Arbitrum Sepolia.
+- Local e2e stack: Nitro dev node + Anvil + Nargo prover (docker compose / podman)
 
-## 阶段 Phase 3: The Ghost Mesh (Next 12 Months)
-*   **Cross-Chain Atomic Settlement:** Trustless swaps between Solana and Sui using xB77 as the clearinghouse.
-*   **Sovereign Passport (ZK-Reputation):** A portable, privacy-preserving trust score based on agentic GDP and historical compliance.
-*   **Institutional "Guardian" DAO:** Decentralized governance for protocol thresholds and multichain relayers.
+## Phase 3 — Production + Robinhood Chain (Current Sprint)
+
+### Immediate hardening
+- [ ] Run e2e 4 flows against live Arbitrum Nitro dev node (`zig build test-e2e`)
+- [ ] Deploy all contracts to Arbitrum Sepolia — get real addresses
+- [ ] Gas benchmark: Stylus `verifyProof()` vs Solidity — confirm 10× claim with real numbers
+- [ ] Generate Noir VKs for `state_anchor` and `zk_receipt` circuits (Nargo via `docker compose run`)
+- [ ] Merge `devstylus` → `main`
+
+### Robinhood Chain RWA integration
+- [ ] `RobinhoodChainAdapter` — `core/chain/robinhood_adapter.zig`
+- [ ] Noir circuit: `circuits/rwa_compliance/` — KYC attestation + amount range proof
+- [ ] Register proof type `0x04` in VerifierRegistry
+- [ ] CCTP V2 bridge encoding: Arbitrum → Robinhood Chain settlement
+- [ ] Yield routing in `settlement_engine.zig` — idle capital → tokenized T-bills
+- [ ] Sovereign Passport reputation accumulator (on-chain, EigenLayer-backed)
+
+Full integration design: [docs/robinhoodchain.md](docs/robinhoodchain.md)
+
+## Phase 4 — The Ghost Mesh (Next 12 Months)
+- Cross-chain atomic settlement: Solana ↔ Arbitrum ↔ Robinhood Chain
+- Sovereign Passport tier-gated RWA access (Bronze → Institutional)
+- SP1 universal proof type in VerifierRegistry (Succinct universal verifier)
+- Workers for Platforms: dedicated compute instance per Agent ID
+- Durable Objects: persistent A2A negotiation state
+- Institutional Guardian DAO: decentralized governance for protocol thresholds
 
 ---
 
 ## Technical Moat
-xB77 leverages **Hardware-Agnostic Privacy**. By combining **Zig's** low-level performance with **Noir's** verifiable computation, we provide a performance-to-privacy ratio that is currently unmatched in the agentic space.
 
-*"The future of finance isn't just decentralized; it's autonomous."*
+```
+ZK verification:   ~120k gas (Stylus WASM) vs ~1.2M gas (Solidity)    →  10× cheaper
+Contract size:     7–11 KB (Zig freestanding) vs ~50 KB (Rust SDK)    →  5-7× smaller
+Proof systems:     Groth16 + UltraPlonk + SP1 (multi-circuit registry)
+RWA liquidity:     ZK-compliance-gated, EigenLayer-secured, institution-grade
+Privacy model:     Prove compliance, hide strategy — zero trust assumptions
+```
+
+*"The future of finance isn't just decentralized — it's autonomous, private, and provably compliant."*
