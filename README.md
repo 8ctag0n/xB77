@@ -192,7 +192,126 @@ xB77 documents what's real vs. what's roadmap:
 - **Gas benchmark vs Solidity:** target 10× savings confirmed in test environment; real number pending Sepolia deploy.
 - **Robinhood Chain:** architecture designed, integration in progress — [full integration doc](docs/robinhoodchain.md).
 - **2.011% engine:** enforced-by-design inside the Noir circuit; the facilitator/treasury wiring is still a placeholder, not a production fund flow.
-- **Sepolia deploy:** contracts pass `cargo stylus check` — deploy pending funded key.
+- **Sepolia deploy:** 9/9 contracts pass `cargo stylus check` — deploy pending funded key.
+- **Gas benchmark (honest):** pure WASM BN254 pairing ~42M gas (exceeds Stylus ink cap); hybrid WASM MSM + ecPairing precompile ~215k gas. True novelty is for curves without precompiles (BLS12-381, BabyJubJub).
+- **Selectors:** all ABI selectors verified against keccak4 — TypeScript SDK and Zig adapter in sync.
+
+---
+
+## Sprint plan — Arbitrum Open House (4 days)
+
+```
+ DAY 1                    DAY 2                    DAY 3            DAY 4
+ ───────────────────────  ───────────────────────  ───────────────  ────────────
+ Deploy to Sepolia        Bootstrap initialize     e2e --sepolia    Submission
+   ./deploy.sh deploy       verifier_registry        ZK verify        repo link
+   9 contracts              constitution addr        anchor root      addresses
+   ~0.02 ETH needed         guards addr              settle USDC      demo video
+                          loadAddrsFromEnv()         4 full flows
+                          XB77_ANCHOR_ADDR=...
+```
+
+## End-to-end flow (what needs to work before Open House)
+
+```
+ Agent (off-chain)                    Arbitrum Sepolia (on-chain)
+ ─────────────────                    ──────────────────────────
+ 1. Generate tx intent
+ 2. Noir circuit → ZK proof ──────►  xb77_zk_verifier.verifyProof(bytes,bytes32[])
+ 3. Verified root ◄──────────────────  └─► emit ProofVerified (EigenLayer AVS)
+ 4. Anchor batch root ────────────►  xb77_anchor.anchorRoot(bytes32)
+ 5. Settle USDC ──────────────────►  xb77_settlement_engine.settle(address,uint256,bytes32)
+ 6. Constitution check ───────────►  constitution.validateSemantic(int32[128])
+                                        └─► approve / reject
+```
+
+## What's tested vs what's not
+
+```
+ ✅ TESTED (automated)              ❌ NOT TESTED (manual only / zero tests)
+ ──────────────────────────────     ──────────────────────────────────────
+ BN254 arithmetic (63/63)          Full agent → proof → verify → settle flow
+ Groth16 verifier (63/63)          core/kernel/prover.zig (zero tests)
+ Contract mock_hooks (59/59)       Orchestrator real execution
+ Stylus check Sepolia (9/9)        Mesh / P2P
+ Crypto / keystore / compression   CLI against live RPC
+ SDK TS gateway (mock KV)          Node + agent + memory persistence e2e
+```
+
+## Phase 5–7 roadmap
+
+```
+ Phase 5 — ZK-friendly primitives (no-precompile curves)
+ ────────────────────────────────────────────────────────
+ 5a. Poseidon hash in WASM
+     BN254 Fr field arithmetic → ~50k gas vs ~2-5M gas Solidity
+     Used by: zkSync, Polygon, Mina, all Circom-based systems
+
+ 5b. BabyJubJub + EdDSA
+     Twisted Edwards curve over BN254 scalar field
+     No precompile on any EVM chain → WASM is the only viable option
+     Enables: Circom-generated proof verification, privacy-preserving sigs
+
+ Phase 6 — BLS12-381 pairing
+ ────────────────────────────────────────────────────────
+     No precompile on Arbitrum (EIP-2537 not deployed)
+     Groth16 on BLS12-381 → first viable on-chain verifier for Arbitrum
+     Used by: Ethereum PoS, Zcash Sapling, Filecoin
+
+     Optimization path for BN254 pure WASM:
+       current:  4 × pairing.ate()    = ~42M gas (breaks ink cap)
+       target:   millerLoopMulti(4)   = ~20M gas (under ink cap ✓)
+       +precomp: fixed VK G2 lines    = ~12M gas (2.8× total speedup)
+
+ Phase 7 — Production hardening
+ ────────────────────────────────────────────────────────
+     SDK Zig → connect to arbitrum_adapter (currently on Unix sockets)
+     e2e settlement flows (settle, batchSettle, anchorRoot)
+     Prover tests (core/kernel/prover.zig)
+     Robinhood Chain RWA integration
+     EigenLayer AVS reputation accumulation
+```
+
+## Architecture (current)
+
+```
+ ┌─────────────────────────────────────────────────────────────────────┐
+ │                        xB77 Sovereign OS                           │
+ │                                                                     │
+ │  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────────┐   │
+ │  │   CLI    │   │ Gateway  │   │   MCP    │   │   Web App    │   │
+ │  │ (Zig)   │   │ (WASM/JS)│   │ (Zig)   │   │ (Cloudflare) │   │
+ │  └────┬─────┘   └────┬─────┘   └────┬─────┘   └──────┬───────┘   │
+ │       └──────────────┴──────────────┴─────────────────┘           │
+ │                              │                                      │
+ │                    ┌─────────▼─────────┐                           │
+ │                    │   core/kernel     │                           │
+ │                    │  orchestrator     │                           │
+ │                    │  prover (Noir)    │                           │
+ │                    │  intelligence     │                           │
+ │                    └─────────┬─────────┘                           │
+ │                              │                                      │
+ │          ┌───────────────────┼───────────────────┐                 │
+ │          │                   │                   │                 │
+ │   ┌──────▼──────┐   ┌───────▼──────┐   ┌───────▼──────┐          │
+ │   │   Solana    │   │   Arbitrum   │   │  Sui / Arc   │          │
+ │   │  (Anchor)   │   │   Stylus     │   │ (Move / Yul) │          │
+ │   └─────────────┘   └──────┬───────┘   └──────────────┘          │
+ │                             │                                      │
+ │              ┌──────────────┼───────────────────┐                 │
+ │              │              │                   │                 │
+ │   ┌──────────▼───┐ ┌───────▼──────┐ ┌─────────▼────────┐        │
+ │   │ zk_verifier  │ │    anchor    │ │ settlement_engine │        │
+ │   │  6.5 KB ✓    │ │  2.6 KB ✓   │ │    3.7 KB ✓      │        │
+ │   └──────────────┘ └─────────────┘ └──────────────────┘         │
+ │   ┌──────────────┐ ┌─────────────┐ ┌──────────────────┐         │
+ │   │  constitution│ │ v_registry  │ │  groth16_verifier│         │
+ │   │  2.4 KB ✓    │ │  2.8 KB ✓  │ │    5.3 KB ✓      │         │
+ │   └──────────────┘ └─────────────┘ └──────────────────┘         │
+ │                    + uniswap_hook, aave_guard, gmx_guard          │
+ │                    9/9 pass cargo stylus check (Sepolia) ✓        │
+ └─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
