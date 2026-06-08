@@ -50,7 +50,7 @@ produces all nine. **No Rust SDK, no Solidity, no allocator.**
 - **UltraPlonk KZG**: 2-pair check `e(PI_Z,[τ]G2)·e(-W1,G2_gen)==1` with Aztec Ignition SRS
 - Proof discriminator: `proof[0]=0x00` → UltraPlonk, `proof[0]=0x01` → Groth16
 
-Gas cost: **~120k gas** for Groth16 verification. Equivalent Solidity Groth16 verifier: ~1.2M gas. **10× cheaper.**
+Gas cost (measured, local Nitro): **3.57M gas** Stylus vs **34.35M gas** Solidity — **9.63× cheaper** for `verifyProof()`. Parity for simple storage ops (expected — SSTORE cost is fixed by EVM). Production numbers improve with ArbOS contract caching.
 
 ### EigenLayer AVS integration
 
