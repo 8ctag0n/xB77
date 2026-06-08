@@ -1,0 +1,8 @@
+[package]
+name = "xb77-stylus-deploy"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "xb77_stylus_deploy"
+path = "src/lib.rs"
