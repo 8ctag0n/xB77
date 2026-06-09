@@ -738,6 +738,28 @@ pub fn build(b: *std.Build) void {
     local_arb_test_exe.root_module.addImport("core", core_module);
     b.installArtifact(local_arb_test_exe);
 
+    const anvil_e2e_exe = b.addExecutable(.{
+        .name = "anvil-e2e",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/anvil_e2e.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    anvil_e2e_exe.root_module.addImport("core", core_module);
+    anvil_e2e_exe.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11", "-fno-stack-check", "-fPIC", "-fno-sanitize=all", "-fno-asynchronous-unwind-tables", "-fno-unwind-tables"} });
+    anvil_e2e_exe.root_module.addIncludePath(b.path("deps"));
+    anvil_e2e_exe.root_module.addIncludePath(.{ .cwd_relative = "/usr/include" });
+    anvil_e2e_exe.root_module.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
+    for ([_][]const u8{ "/usr/lib/x86_64-linux-gnu", "/usr/lib/aarch64-linux-gnu" }) |multiarch| {
+        if (std.Io.Dir.accessAbsolute(b.graph.io, multiarch, .{})) |_| {
+            anvil_e2e_exe.root_module.addLibraryPath(.{ .cwd_relative = multiarch });
+        } else |_| {}
+    }
+    anvil_e2e_exe.root_module.linkSystemLibrary("c", .{});
+    anvil_e2e_exe.root_module.linkSystemLibrary("curl", .{});
+    b.installArtifact(anvil_e2e_exe);
+
     // ── New Stylus contracts: anchor, settlement_engine, zk_verifier ─────────
     const install_anchor     = StylusContract.add(b, "xb77_anchor",            "onchain/stylus/anchor.zig",            core_module, stylus_target);
     const install_settlement_engine = StylusContract.add(b, "xb77_settlement_engine", "onchain/stylus/settlement_engine.zig", core_module, stylus_target);

@@ -13,6 +13,7 @@ const SEL_GET_AGENT_GDP     = [_]u8{ 0xf8, 0xb2, 0xcb, 0x4f };
 
 // ── Stylus contract selectors (comptime keccak256) ────────────────────────────
 fn keccak4(comptime sig: []const u8) [4]u8 {
+    @setEvalBranchQuota(100000);
     var hash: [32]u8 = undefined;
     std.crypto.hash.sha3.Keccak256.hash(sig, &hash, .{});
     return hash[0..4].*;
