@@ -207,9 +207,29 @@ const ProtocolHandler = struct {
                 try w.interface.writeAll(encoder.buf.items);
                 try w.interface.flush();
             },
+            .order => { _ = try decoder.decodeOrder(); },
+            .signal => { _ = try decoder.decodeSignal(); },
+            .transfer => { _ = try decoder.decodeTransfer(); },
+            .swap_request => { _ = try decoder.decodeSwapRequest(); },
+            .swap_lock => { _ = try decoder.decodeSwapLock(); },
+            .swap_reveal => { _ = try decoder.decodeSwapReveal(); },
+            .state_query => { _ = try decoder.decodeStateQuery(); },
+            .state_response => { _ = try decoder.decodeStateResponse(); },
+            .account_gossip => { _ = try decoder.decodeAccountGossip(); },
+            .delta_sync => { _ = try decoder.decodeDeltaSync(self.allocator); },
+            .app_hire => { _ = try decoder.decodeAppHire(); },
+            .app_escrow_lock => { _ = try decoder.decodeAppEscrowLock(); },
+            .app_escrow_release => { _ = try decoder.decodeAppEscrowRelease(); },
+            .app_dispute_open => { _ = try decoder.decodeAppDisputeOpen(); },
+            .app_dispute_resolve => { _ = try decoder.decodeAppDisputeResolve(); },
+            .app_plan => { _ = try decoder.decodeAppPlan(); },
+            .service_discovery => { _ = try decoder.decodeServiceDiscovery(); },
+            .loan_offer => { _ = try decoder.decodeLoanOffer(); },
+            .loan_accept => { _ = try decoder.decodeLoanAccept(); },
+            .loan_settle => { _ = try decoder.decodeLoanSettle(); },
             else => {
-                std.debug.print("[Protocol]  Opcode 0x{x} skipped (not relevant for bridge).\n", .{opcode});
-                decoder.pos += 1;
+                std.debug.print("[Protocol]  Opcode 0x{x} unknown — stopping parse.\n", .{opcode});
+                return;
             },
         }
     }

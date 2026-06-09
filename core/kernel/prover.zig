@@ -36,7 +36,6 @@ pub const SovereignProver = struct {
 
         // 1. Ejecutar Nargo Prove para el recibo individual
         const mock_mode = @as(?[]const u8, if (std.c.getenv("XB77_MOCK_PROVER")) |_p| std.mem.span(_p) else null);
-        defer if (mock_mode) |m| self.allocator.free(m);
 
         if (mock_mode != null) {
             std.debug.print("\n[PROVER]  MOCK_MODE: Individual ZK-Receipt verified (zk_rcpt_0x42).", .{});
@@ -136,7 +135,6 @@ pub const SovereignProver = struct {
 
             // 2. Ejecutar Nargo Prove vía el wrapper script
             const mock_mode = @as(?[]const u8, if (std.c.getenv("XB77_MOCK_PROVER")) |_p| std.mem.span(_p) else null);
-            defer if (mock_mode) |m| self.allocator.free(m);
 
             if (mock_mode != null) {
                 std.debug.print("\n[PROVER]  MOCK MODE: Skipping real Nargo/Solana call.", .{});
