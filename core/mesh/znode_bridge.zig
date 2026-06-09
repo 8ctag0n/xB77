@@ -7,6 +7,12 @@ const store = @import("../protocol/store.zig");
 const mesh = @import("../mesh/mesh.zig");
 const awpool = @import("../protocol/awpool.zig");
 const swap = @import("../commerce/swap.zig");
+const arbitrum = @import("../chain/arbitrum_adapter.zig");
+
+fn arbRpcUrl(config: anytype) []const u8 {
+    if (std.c.getenv("XB77_ARB_RPC")) |p| return std.mem.span(p);
+    return config.rpc.base;
+}
 
 pub fn startBridge(engine_ptr: anytype) !void {
     if (comptime builtin.target.os.tag == .wasi or builtin.target.cpu.arch == .wasm32) return;
@@ -74,7 +80,10 @@ fn handleConnection(engine: anytype, stream: std.Io.net.Stream, is_local: bool) 
         const opcode = decoder.data[decoder.pos];
         handler.handle(opcode, &decoder) catch |err| {
             std.debug.print("[Protocol]  Error handling message 0x{x}: {any}\n", .{opcode, err});
-            break;
+            // WriteFailed = client closed after sending burst; decode succeeded and
+            // side-effects applied, safe to continue with remaining messages.
+            // Any other error means the decoder state is unknown — stop.
+            if (err != error.WriteFailed) break;
         };
     }
 }
@@ -195,12 +204,30 @@ const ProtocolHandler = struct {
                 std.debug.print("\n[SETTLE]  agent={x} amount={d} commitment={x}\n", .{
                     msg.agent[0..4].*, msg.amount, msg.commitment[0..4].*,
                 });
+
+                const rpc = arbRpcUrl(self.engine_ptr.ctx.config);
+                var arb = arbitrum.ArbitrumAdapter.init(
+                    self.allocator,
+                    arbitrum.STYLUS_SETTLEMENT_ADDR,
+                    rpc,
+                );
+                defer arb.deinit();
+
+                const confidence: u8 = if (arb.settlePayment(msg.agent, msg.amount, msg.commitment)) |tx_hash| blk: {
+                    defer self.allocator.free(tx_hash);
+                    std.debug.print("\n[SETTLE]  on-chain OK tx={s}\n", .{tx_hash});
+                    break :blk 100;
+                } else |err| blk: {
+                    std.debug.print("\n[SETTLE]  on-chain error={any} (confidence=0)\n", .{err});
+                    break :blk 0;
+                };
+
                 var encoder = awp.AwpEncoder.init(self.allocator);
                 defer encoder.deinit();
                 _ = try encoder.encodeSignal(.{
                     .asset = .{ .chain = .arbitrum, .symbol = "USDC" },
                     .signal = .hold,
-                    .confidence = 100,
+                    .confidence = confidence,
                 });
                 var wb: [64]u8 = undefined;
                 var w = self.stream.writer(io, &wb);
