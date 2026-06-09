@@ -190,6 +190,22 @@ const ProtocolHandler = struct {
             .anchor_root => {
                 const msg = try decoder.decodeAnchorRoot();
                 try self.store.updateL1Anchor(msg.new_root);
+
+                const rpc = arbRpcUrl(self.engine_ptr.ctx.config);
+                var arb = arbitrum.ArbitrumAdapter.init(
+                    self.allocator,
+                    arbitrum.STYLUS_ANCHOR_ADDR,
+                    rpc,
+                );
+                defer arb.deinit();
+
+                if (arb.anchorStateRoot(msg.new_root)) |tx_hash| {
+                    defer self.allocator.free(tx_hash);
+                    std.debug.print("\n[ANCHOR]  on-chain OK tx={s}\n", .{tx_hash});
+                } else |err| {
+                    std.debug.print("\n[ANCHOR]  on-chain error={any}\n", .{err});
+                }
+
                 var encoder = awp.AwpEncoder.init(self.allocator);
                 defer encoder.deinit();
                 _ = try encoder.encodeStateResponse(msg.batch_index, msg.new_root, self.store.tree.getRoot(), &.{});
@@ -197,7 +213,7 @@ const ProtocolHandler = struct {
                 var w = self.stream.writer(io, &wb);
                 try w.interface.writeAll(encoder.buf.items);
                 try w.interface.flush();
-                std.debug.print("\n[ANCHOR]  Root anchored batch={d} root={x}\n", .{ msg.batch_index, msg.new_root[0..4].* });
+                std.debug.print("\n[ANCHOR]  batch={d} root={x}\n", .{ msg.batch_index, msg.new_root[0..4].* });
             },
             .settle => {
                 const msg = try decoder.decodeSettle();
