@@ -489,6 +489,20 @@ pub fn build(b: *std.Build) void {
     ghost_payment_e2e_tests.root_module.linkSystemLibrary("c", .{});
     const run_ghost_payment_e2e_tests = b.addRunArtifact(ghost_payment_e2e_tests);
 
+    // --- Full Local E2E (all systems connected) ---
+    const e2e_full_local_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/e2e_full_local.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    e2e_full_local_tests.root_module.addImport("core", core_module);
+    e2e_full_local_tests.root_module.addCSourceFile(.{ .file = b.path("deps/cmt_core.c"), .flags = &.{"-std=c11"} });
+    e2e_full_local_tests.root_module.addIncludePath(b.path("deps"));
+    e2e_full_local_tests.root_module.linkSystemLibrary("c", .{});
+    const run_e2e_full_local_tests = b.addRunArtifact(e2e_full_local_tests);
+
     // --- RPC Check Utility ---
     const rpc_check = b.addExecutable(.{
         .name = "rpc-check",
@@ -750,6 +764,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_orchestrator_e2e_tests.step);
     test_step.dependOn(&run_orchestrator_potent_e2e_tests.step);
     test_step.dependOn(&run_ghost_payment_e2e_tests.step);
+    test_step.dependOn(&run_e2e_full_local_tests.step);
     test_step.dependOn(&run_negotiation_unit_tests.step);
     test_step.dependOn(&run_onchain_unit_tests.step);
     test_step.dependOn(&run_agora_arc_unit_tests.step);

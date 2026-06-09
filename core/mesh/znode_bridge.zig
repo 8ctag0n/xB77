@@ -160,6 +160,49 @@ const ProtocolHandler = struct {
             .loan_request => {
                 _ = try decoder.decodeLoanRequest();
             },
+            .zk_verify => {
+                const msg = try decoder.decodeZkVerify();
+                const valid = verifyZkProof(msg.proof, "groth16");
+                var result_leaf = [_]u8{0} ** 32;
+                result_leaf[0] = if (valid) @as(u8, 0x01) else 0x00;
+                var encoder = awp.AwpEncoder.init(self.allocator);
+                defer encoder.deinit();
+                _ = try encoder.encodeStateResponse(0, result_leaf, msg.public_root, &.{});
+                var wb: [512]u8 = undefined;
+                var w = self.stream.writer(io, &wb);
+                try w.interface.writeAll(encoder.buf.items);
+                try w.interface.flush();
+                std.debug.print("\n[ZK    ]  verifyProof circuit={x} valid={}\n", .{ msg.circuit_id[0..4].*, valid });
+            },
+            .anchor_root => {
+                const msg = try decoder.decodeAnchorRoot();
+                try self.store.updateL1Anchor(msg.new_root);
+                var encoder = awp.AwpEncoder.init(self.allocator);
+                defer encoder.deinit();
+                _ = try encoder.encodeStateResponse(msg.batch_index, msg.new_root, self.store.tree.getRoot(), &.{});
+                var wb: [512]u8 = undefined;
+                var w = self.stream.writer(io, &wb);
+                try w.interface.writeAll(encoder.buf.items);
+                try w.interface.flush();
+                std.debug.print("\n[ANCHOR]  Root anchored batch={d} root={x}\n", .{ msg.batch_index, msg.new_root[0..4].* });
+            },
+            .settle => {
+                const msg = try decoder.decodeSettle();
+                std.debug.print("\n[SETTLE]  agent={x} amount={d} commitment={x}\n", .{
+                    msg.agent[0..4].*, msg.amount, msg.commitment[0..4].*,
+                });
+                var encoder = awp.AwpEncoder.init(self.allocator);
+                defer encoder.deinit();
+                _ = try encoder.encodeSignal(.{
+                    .asset = .{ .chain = .arbitrum, .symbol = "USDC" },
+                    .signal = .hold,
+                    .confidence = 100,
+                });
+                var wb: [64]u8 = undefined;
+                var w = self.stream.writer(io, &wb);
+                try w.interface.writeAll(encoder.buf.items);
+                try w.interface.flush();
+            },
             else => {
                 std.debug.print("[Protocol]  Opcode 0x{x} skipped (not relevant for bridge).\n", .{opcode});
                 decoder.pos += 1;

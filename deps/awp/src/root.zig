@@ -34,6 +34,11 @@ pub const MessageType = enum(u8) {
     loan_offer = 0x19,
     loan_accept = 0x1A,
     loan_settle = 0x1B,
+
+    // --- Sovereign Settlement (ZK + Anchor + USDC) ---
+    zk_verify   = 0x1C,
+    anchor_root = 0x1D,
+    settle      = 0x1E,
 };
 
 pub const RawYellowstoneMsg = struct {
@@ -109,6 +114,25 @@ pub const LoanAcceptMsg = struct {
 pub const LoanSettleMsg = struct {
     amount_paid: u64,
     lender_id: [32]u8,
+};
+
+// --- Sovereign Settlement Messages ---
+
+pub const ZkVerifyMsg = struct {
+    circuit_id: [32]u8,
+    public_root: [32]u8,
+    proof: []const u8, // slice into decoder buffer — valid until next decode call
+};
+
+pub const AnchorRootMsg = struct {
+    new_root: [32]u8,
+    batch_index: u64,
+};
+
+pub const SettleMsg = struct {
+    agent: [20]u8,
+    amount: u64,
+    commitment: [32]u8,
 };
 
 pub const DeltaSyncMsg = struct {
@@ -500,6 +524,30 @@ pub const AwpEncoder = struct {
         try self.writeByte(@intFromEnum(MessageType.loan_settle));
         try self.writeVarint(msg.amount_paid);
         try self.buf.appendSlice(self.allocator, &msg.lender_id);
+        return self.buf.items;
+    }
+
+    pub fn encodeZkVerify(self: *AwpEncoder, msg: ZkVerifyMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.zk_verify));
+        try self.buf.appendSlice(self.allocator, &msg.circuit_id);
+        try self.buf.appendSlice(self.allocator, &msg.public_root);
+        try self.writeVarint(msg.proof.len);
+        try self.buf.appendSlice(self.allocator, msg.proof);
+        return self.buf.items;
+    }
+
+    pub fn encodeAnchorRoot(self: *AwpEncoder, msg: AnchorRootMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.anchor_root));
+        try self.buf.appendSlice(self.allocator, &msg.new_root);
+        try self.writeVarint(msg.batch_index);
+        return self.buf.items;
+    }
+
+    pub fn encodeSettle(self: *AwpEncoder, msg: SettleMsg) ![]u8 {
+        try self.writeByte(@intFromEnum(MessageType.settle));
+        try self.buf.appendSlice(self.allocator, &msg.agent);
+        try self.writeVarint(msg.amount);
+        try self.buf.appendSlice(self.allocator, &msg.commitment);
         return self.buf.items;
     }
 };
@@ -1001,5 +1049,54 @@ pub const AwpDecoder = struct {
             .amount_paid = amount_paid,
             .lender_id = lender_id,
         };
+    }
+
+    pub fn decodeZkVerify(self: *AwpDecoder) !ZkVerifyMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.zk_verify)) return error.InvalidMessageType;
+
+        var circuit_id: [32]u8 = undefined;
+        @memcpy(&circuit_id, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        var public_root: [32]u8 = undefined;
+        @memcpy(&public_root, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        const proof_len = try self.readVarint();
+        if (self.pos + proof_len > self.data.len) return error.UnexpectedEndOfStream;
+        const proof = self.data[self.pos .. self.pos + proof_len];
+        self.pos += proof_len;
+
+        return ZkVerifyMsg{ .circuit_id = circuit_id, .public_root = public_root, .proof = proof };
+    }
+
+    pub fn decodeAnchorRoot(self: *AwpDecoder) !AnchorRootMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.anchor_root)) return error.InvalidMessageType;
+
+        var new_root: [32]u8 = undefined;
+        @memcpy(&new_root, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        const batch_index = try self.readVarint();
+        return AnchorRootMsg{ .new_root = new_root, .batch_index = batch_index };
+    }
+
+    pub fn decodeSettle(self: *AwpDecoder) !SettleMsg {
+        const msg_type = try self.readByte();
+        if (msg_type != @intFromEnum(MessageType.settle)) return error.InvalidMessageType;
+
+        var agent: [20]u8 = undefined;
+        @memcpy(&agent, self.data[self.pos..][0..20]);
+        self.pos += 20;
+
+        const amount = try self.readVarint();
+
+        var commitment: [32]u8 = undefined;
+        @memcpy(&commitment, self.data[self.pos..][0..32]);
+        self.pos += 32;
+
+        return SettleMsg{ .agent = agent, .amount = amount, .commitment = commitment };
     }
 };
