@@ -14,6 +14,7 @@ const strategist = @import("../kernel/strategist.zig");
 const prover_mod = @import("../kernel/prover.zig");
 const http_bridge = @import("../kernel/http_bridge.zig");
 const magicblock = @import("../chain/magicblock.zig");
+const arbitrum_adapter = @import("../chain/arbitrum_adapter.zig");
 
 pub const Engine = struct {
     allocator: std.mem.Allocator,
@@ -89,6 +90,9 @@ pub const Engine = struct {
             }
         }.run, .{&self.http_telemetry});
         http_thread.detach();
+
+        // Wire Arbitrum contract addresses from env before bridge starts
+        arbitrum_adapter.loadAddrsFromEnv(self.allocator);
 
         // Local Bridge
         if (comptime builtin.target.os.tag != .wasi) {

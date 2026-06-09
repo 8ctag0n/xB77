@@ -59,14 +59,18 @@ fn handleConnection(engine: anytype, stream: std.Io.net.Stream, is_local: bool) 
     defer stream.close(io);
     var rb: [8192]u8 = undefined;
     var r = stream.reader(io, &rb);
-    var buf: [8192]u8 = undefined;
-    const bytes_read = try r.interface.readSliceShort(&buf);
-    if (bytes_read == 0) return;
 
-    var decoder = awp.AwpDecoder.init(buf[0..bytes_read]);
+    // 4-byte LE frame header: client sends [len:u32LE][payload]
+    const len_bytes = try r.interface.takeArray(4);
+    const payload_len = std.mem.readInt(u32, len_bytes, .little);
+    if (payload_len == 0 or payload_len > 8192) return error.InvalidFrameLength;
+
+    const payload = try r.interface.take(payload_len);
+
+    var decoder = awp.AwpDecoder.init(payload);
     var handler = ProtocolHandler.init(engine, stream, is_local);
 
-    while (decoder.pos < bytes_read) {
+    while (decoder.pos < payload.len) {
         const opcode = decoder.data[decoder.pos];
         handler.handle(opcode, &decoder) catch |err| {
             std.debug.print("[Protocol]  Error handling message 0x{x}: {any}\n", .{opcode, err});

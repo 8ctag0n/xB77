@@ -32,16 +32,10 @@ pub var STYLUS_ZK_VERIFIER_ADDR: []const u8 = "0x0000000000000000000000000000000
 /// Load contract addresses from environment variables.
 /// Call once at startup before using ArbitrumAdapter.
 /// Reads: XB77_ANCHOR_ADDR, XB77_SETTLEMENT_ADDR, XB77_ZK_VERIFIER_ADDR
-pub fn loadAddrsFromEnv(allocator: std.mem.Allocator) void {
-    if (std.process.getEnvVarOwned(allocator, "XB77_ANCHOR_ADDR")) |v| {
-        STYLUS_ANCHOR_ADDR = v;
-    } else |_| {}
-    if (std.process.getEnvVarOwned(allocator, "XB77_SETTLEMENT_ADDR")) |v| {
-        STYLUS_SETTLEMENT_ADDR = v;
-    } else |_| {}
-    if (std.process.getEnvVarOwned(allocator, "XB77_ZK_VERIFIER_ADDR")) |v| {
-        STYLUS_ZK_VERIFIER_ADDR = v;
-    } else |_| {}
+pub fn loadAddrsFromEnv(_: std.mem.Allocator) void {
+    if (std.c.getenv("XB77_ANCHOR_ADDR")) |p| STYLUS_ANCHOR_ADDR = std.mem.span(p);
+    if (std.c.getenv("XB77_SETTLEMENT_ADDR")) |p| STYLUS_SETTLEMENT_ADDR = std.mem.span(p);
+    if (std.c.getenv("XB77_ZK_VERIFIER_ADDR")) |p| STYLUS_ZK_VERIFIER_ADDR = std.mem.span(p);
 }
 
 pub const PreFlightResult = struct {
