@@ -54,11 +54,6 @@ fn listenMesh(engine: anytype) !void {
     }
 }
 
-fn verifyZkProof(proof: []const u8, package: []const u8) bool {
-    std.debug.print("\n[ZK-REAL]  Verifying Proof ({} bytes, package: {s})...", .{proof.len, package});
-    if (proof.len < 64) return false;
-    return true;
-}
 
 fn handleConnection(engine: anytype, stream: std.Io.net.Stream, is_local: bool) !void {
     const io = std.Io.Threaded.global_single_threaded.io();
@@ -175,7 +170,20 @@ const ProtocolHandler = struct {
             },
             .zk_verify => {
                 const msg = try decoder.decodeZkVerify();
-                const valid = verifyZkProof(msg.proof, "groth16");
+
+                const rpc = arbRpcUrl(self.engine_ptr.ctx.config);
+                var arb = arbitrum.ArbitrumAdapter.init(
+                    self.allocator,
+                    arbitrum.STYLUS_ZK_VERIFIER_ADDR,
+                    rpc,
+                );
+                defer arb.deinit();
+
+                const valid = arb.verifyZKProof(msg.proof, msg.public_root) catch |err| blk: {
+                    std.debug.print("\n[ZK    ]  on-chain error={any} (fallback=false)\n", .{err});
+                    break :blk false;
+                };
+
                 var result_leaf = [_]u8{0} ** 32;
                 result_leaf[0] = if (valid) @as(u8, 0x01) else 0x00;
                 var encoder = awp.AwpEncoder.init(self.allocator);

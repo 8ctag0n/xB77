@@ -23,7 +23,7 @@ El stack tiene tres capas bien diferenciadas en términos de madurez:
 
 | # | Stub | Archivo:línea | Qué falsifica | ¿Existe implementación real? | Costo para producción |
 |---|------|---------------|---------------|------------------------------|-----------------------|
-| 1 | `verifyZkProof()` en bridge | `core/mesh/znode_bridge.zig:57-61` | `proof.len >= 64 → true` | ✅ `onchain/stylus/zk_verifier.zig` (UltraPlonk+Groth16 completo) + `ArbitrumAdapter.verifyZKProof()` ya codificado | Conectar: 5 líneas igual que `.settle` |
+| 1 | ~~`verifyZkProof()` en bridge~~ | ~~`core/mesh/znode_bridge.zig:57-61`~~ | ~~`proof.len >= 64 → true`~~ | ✅ CERRADO — llama `ArbitrumAdapter.verifyZKProof()` → `callViewStr` on-chain | — |
 | 2 | Prueba ZK individual (`XB77_MOCK_PROVER=1`) | `core/kernel/prover.zig:40-46` | Imprime "MOCK_MODE: verified" sin ejecutar nargo | ✅ `circuits/zk_receipt/` (7 circuitos Noir), `scripts/nargo.sh` | Instalar nargo + quitar guard |
 | 3 | Batch anchor en prover | `core/kernel/prover.zig:139-143` | Imprime `mock_batch_anchor_sig_777...` | ✅ `ArbitrumAdapter.anchorStateRoot()` ya funciona (bridge lo llama), `onchain/stylus/anchor.zig` completo | Llamar `ArbitrumAdapter.anchorStateRoot()` desde prover |
 | 4 | `sendTx` sin firma | `core/chain/evm.zig:111-130` | `eth_sendTransaction` (cuenta desbloqueada Anvil) | ✅ `core/security/crypto.zig:146` tiene `signEthMessage(hash, sk)` y ECDSA secp256k1 | Escribir capa RLP tx + usar `eth_sendRawTransaction` |
@@ -38,7 +38,7 @@ El stack tiene tres capas bien diferenciadas en términos de madurez:
 
 | Opcode | Hex | Bridge → local | Bridge → on-chain | Test automatizado |
 |--------|-----|----------------|--------------------|-------------------|
-| `zk_verify` | `0x1C` | ✅ decodifica, responde | ❌ stub `proof.len >= 64` | ❌ |
+| `zk_verify` | `0x1C` | ✅ decodifica, responde | ✅ llama `verifyZKProof()` on-chain | ❌ |
 | `anchor_root` | `0x1D` | ✅ guarda en store | ✅ llama `anchorStateRoot()` | `tests/znode_e2e.zig` ✅ |
 | `settle` | `0x1E` | ✅ decodifica | ✅ llama `settlePayment()` | `tests/znode_e2e.zig` ✅ |
 | `handshake` | `0x01` | ✅ responde ACK | — | — |
