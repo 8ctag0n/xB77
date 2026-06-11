@@ -2,6 +2,13 @@ const std = @import("std");
 const crypto = @import("../security/crypto.zig");
 const types = @import("../protocol/types.zig");
 const http = @import("../mesh/http.zig");
+const tx_mod = @import("../protocol/tx.zig");
+const poseidon = @import("../security/poseidon.zig");
+const bn254 = @import("../security/bn254.zig");
+
+/// xb77_compression program — verifies a Merkle state transition on-chain via
+/// the native Poseidon BN254 syscall (no ZK proof needed on Solana).
+const COMPRESSION_PROGRAM_ID = "6ZN4omyZdzbfmqSKacCUjVpTnLhYmUhabUu2jzo4EknN";
 
 pub const SignatureInfo = struct {
     signature: []const u8,
@@ -173,10 +180,195 @@ pub const SolanaClient = struct {
         proof: []const u8,
         signer: anytype,
     ) ![]u8 {
-        _ = initial_root; _ = final_root; _ = batch_indices;
-        _ = batch_siblings; _ = amounts; _ = entry_types;
-        _ = tx_hashes; _ = total_tax; _ = proof; _ = signer;
-        return try self.allocator.dupe(u8, "stub_anchor_sig_not_implemented");
+        // The xb77_compression program verifies one Merkle transition per ix via
+        // the Poseidon syscall — it does not consume a ZK proof, so `proof` and
+        // `total_tax` (circuit-only public inputs) are unused on this path.
+        _ = proof;
+        _ = total_tax;
+        _ = initial_root;
+
+        const program_id = try crypto.stringToPubkey(self.allocator, COMPRESSION_PROGRAM_ID);
+
+        var last_sig: ?[]u8 = null;
+        errdefer if (last_sig) |s| self.allocator.free(s);
+
+        var i: usize = 0;
+        while (i < 5) : (i += 1) {
+            // Recompute leaf and climb to this transition's post-root, exactly as
+            // the on-chain program will, so we can assert consistency and supply
+            // `new_root`. All field elements go on the wire big-endian (the program
+            // hashes with Endianness::BigEndian); the CMT stores them little-endian.
+            const tx_hash_field = std.mem.readInt(u256, &tx_hashes[i], .little) % bn254.Fr.P;
+            const node = computeTransitionRoot(
+                amounts[i],
+                entry_types[i],
+                tx_hash_field,
+                batch_indices[i],
+                batch_siblings[i],
+            );
+
+            // On the last transition the recomputed root must equal final_root.
+            if (i == 4) {
+                const final_field = std.mem.readInt(u256, &final_root, .little);
+                if (node != final_field) return error.BatchRootMismatch;
+            }
+
+            const ix_data = try buildVerifyTransitionData(
+                self.allocator,
+                node,
+                batch_indices[i],
+                batch_siblings[i],
+                amounts[i],
+                entry_types[i],
+                tx_hash_field,
+            );
+            defer self.allocator.free(ix_data);
+
+            const blockhash = try self.getLatestBlockhash();
+            const tx_bytes = try buildCompressionTx(self.allocator, signer.public, program_id, ix_data, blockhash, 600_000);
+            defer self.allocator.free(tx_bytes);
+
+            const signed_tx = try signTx(self.allocator, tx_bytes, signer);
+            defer self.allocator.free(signed_tx);
+
+            const sig = try self.sendTransaction(signed_tx);
+            if (last_sig) |s| self.allocator.free(s);
+            last_sig = sig;
+        }
+
+        return last_sig orelse error.NoTransitionsAnchored;
+    }
+
+    /// Recompute a transition's post-root: leaf = Poseidon((amount<<8)|type, tx_hash),
+    /// then climb the Merkle co-path. Sibling bytes are little-endian field elements
+    /// (CMT storage); the returned root is the field element value. Mirrors both
+    /// cmt.append and the on-chain xb77_compression climb.
+    pub fn computeTransitionRoot(
+        amount: u64,
+        entry_type: u8,
+        tx_hash_field: u256,
+        index: u64,
+        siblings_le: [14][32]u8,
+    ) u256 {
+        const amount_combined = (@as(u256, amount) << 8) | @as(u256, entry_type);
+        var node = poseidon.Poseidon.hash2(amount_combined, tx_hash_field);
+        for (siblings_le, 0..) |sib_le, j| {
+            const sib: u256 = @bitCast(sib_le);
+            const bit = (index >> @intCast(j)) & 1;
+            node = if (bit == 1)
+                poseidon.Poseidon.hash2(sib, node)
+            else
+                poseidon.Poseidon.hash2(node, sib);
+        }
+        return node;
+    }
+
+    /// wincode-encode CompressionInstruction::VerifyTransition. Field elements
+    /// (new_root, siblings, tx_hash) are written big-endian to match the program's
+    /// Poseidon BigEndian convention; amount/type are sent raw (the program packs).
+    fn buildVerifyTransitionData(
+        allocator: std.mem.Allocator,
+        new_root_field: u256,
+        index: u64,
+        siblings_le: [14][32]u8,
+        amount: u64,
+        entry_type: u8,
+        tx_hash_field: u256,
+    ) ![]u8 {
+        var buf = std.ArrayListUnmanaged(u8).empty;
+        errdefer buf.deinit(allocator);
+
+        var w8: [8]u8 = undefined;
+        var w32: [32]u8 = undefined;
+
+        // disc u32 LE = 0 (VerifyTransition)
+        var disc: [4]u8 = undefined;
+        std.mem.writeInt(u32, &disc, 0, .little);
+        try buf.appendSlice(allocator, &disc);
+
+        // old_root [32] — ignored by verify_transition(), send zeros
+        try buf.appendNTimes(allocator, 0, 32);
+
+        // new_root [32] big-endian
+        std.mem.writeInt(u256, &w32, new_root_field, .big);
+        try buf.appendSlice(allocator, &w32);
+
+        // index u64 LE
+        std.mem.writeInt(u64, &w8, index, .little);
+        try buf.appendSlice(allocator, &w8);
+
+        // siblings: len u64 LE = 14, then each [32] big-endian
+        std.mem.writeInt(u64, &w8, siblings_le.len, .little);
+        try buf.appendSlice(allocator, &w8);
+        for (siblings_le) |sib_le| {
+            const sib: u256 = @bitCast(sib_le);
+            std.mem.writeInt(u256, &w32, sib, .big);
+            try buf.appendSlice(allocator, &w32);
+        }
+
+        // amount u64 LE, type u8 (program packs (amount<<8)|type itself)
+        std.mem.writeInt(u64, &w8, amount, .little);
+        try buf.appendSlice(allocator, &w8);
+        try buf.append(allocator, entry_type);
+
+        // tx_hash [32] big-endian
+        std.mem.writeInt(u256, &w32, tx_hash_field, .big);
+        try buf.appendSlice(allocator, &w32);
+
+        return buf.toOwnedSlice(allocator);
+    }
+
+    /// Build a Solana tx with a ComputeBudget limit ix + one VerifyTransition ix.
+    fn buildCompressionTx(
+        allocator: std.mem.Allocator,
+        signer: types.Pubkey,
+        program_id: types.Pubkey,
+        instruction_data: []const u8,
+        recent_blockhash: [32]u8,
+        cu_limit: u32,
+    ) ![]u8 {
+        const cb_program = try crypto.stringToPubkey(allocator, "ComputeBudget111111111111111111111111111111");
+
+        var buf = std.ArrayListUnmanaged(u8).empty;
+        errdefer buf.deinit(allocator);
+
+        // Signatures (1 placeholder, filled by signTx)
+        try tx_mod.appendCompactU16(allocator, &buf, 1);
+        try buf.appendNTimes(allocator, 0, 64);
+
+        // Message header: 1 signer, 0 readonly signed, 2 readonly unsigned
+        try buf.append(allocator, 1);
+        try buf.append(allocator, 0);
+        try buf.append(allocator, 2);
+
+        // Account keys: signer (writable signer), program (ro), cb_program (ro)
+        try tx_mod.appendCompactU16(allocator, &buf, 3);
+        try buf.appendSlice(allocator, &signer);
+        try buf.appendSlice(allocator, &program_id);
+        try buf.appendSlice(allocator, &cb_program);
+
+        // Recent blockhash
+        try buf.appendSlice(allocator, &recent_blockhash);
+
+        // Instructions (2)
+        try tx_mod.appendCompactU16(allocator, &buf, 2);
+
+        // ix0: ComputeBudget SetComputeUnitLimit
+        try buf.append(allocator, 2); // program idx (cb_program)
+        try tx_mod.appendCompactU16(allocator, &buf, 0); // accounts
+        try tx_mod.appendCompactU16(allocator, &buf, 5); // data len
+        try buf.append(allocator, 2); // discriminant (SetComputeUnitLimit)
+        var limit_buf: [4]u8 = undefined;
+        std.mem.writeInt(u32, &limit_buf, cu_limit, .little);
+        try buf.appendSlice(allocator, &limit_buf);
+
+        // ix1: compression VerifyTransition (no accounts)
+        try buf.append(allocator, 1); // program idx
+        try tx_mod.appendCompactU16(allocator, &buf, 0); // accounts
+        try tx_mod.appendCompactU16(allocator, &buf, @intCast(instruction_data.len));
+        try buf.appendSlice(allocator, instruction_data);
+
+        return buf.toOwnedSlice(allocator);
     }
 
     pub fn getCompressedBalanceByOwner(self: *SolanaClient, address: []const u8) !u64 {

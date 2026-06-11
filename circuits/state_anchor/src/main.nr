@@ -22,8 +22,11 @@ fn main(
         // 1. Verify and accumulate Infra Tax (2.011%)
         current_tax += (amounts[i] * 2011) / 100000;
 
-        // 2. Reconstruct new_leaf from pre-image
-        let amount_combined = ((amounts[i] as u128) << 8 | (entry_types[i] as u128)) as Field;
+        // 2. Reconstruct new_leaf from pre-image.
+        // Pack amount (64 bits) and entry_type (8 bits): (amount << 8) | entry_type.
+        // Computed in Field arithmetic (Noir has no u128); since entry_type < 256
+        // this equals amount*256 + entry_type bit-for-bit (matches store.zig poseidonHash).
+        let amount_combined = (amounts[i] as Field) * 256 + (entry_types[i] as Field);
         let new_leaf = std::hash::poseidon::bn254::hash_2([amount_combined, tx_hashes[i]]);
 
         // 3. Verify transition: current_root must have an empty leaf at indices[i]

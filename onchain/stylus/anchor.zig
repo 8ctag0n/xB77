@@ -5,9 +5,11 @@
 //!
 //! ABI:
 //!   initialize(address owner)
+//!   setVerifier(address zkVerifier)                     → owner-only
 //!   anchorRoot(bytes32 newRoot)                         → emits RootAnchored
-//!   verifyAndAnchor(bytes32 newRoot, bytes proof)       → emits RootAnchored
+//!   verifyAndAnchor(bytes32 newRoot, bytes proof)       → verifies on-chain, emits RootAnchored
 //!   getRoot() returns (bytes32)
+//!   getVerifier() returns (address)
 //!   getBatchCount() returns (uint64)
 //!
 //! Storage layout:
@@ -15,6 +17,7 @@
 //!   slot 0x01: owner         (bytes32, address in lower 20 bytes)
 //!   slot 0x02: batchCount    (bytes32, uint64 in lower 8 bytes)
 //!   slot 0x03: initialized   (bytes32, bool in last byte)
+//!   slot 0x04: zkVerifier    (bytes32, address in lower 20 bytes)
 
 const std  = @import("std");
 const host = @import("host.zig");
@@ -23,10 +26,15 @@ const abi  = @import("abi.zig");
 // ── Selectors (comptime keccak256) ───────────────────────────────────────────
 
 const SEL_INITIALIZE       = abi.selector("initialize(address)");
+const SEL_SET_VERIFIER     = abi.selector("setVerifier(address)");
 const SEL_ANCHOR_ROOT      = abi.selector("anchorRoot(bytes32)");
 const SEL_VERIFY_AND_ANCHOR= abi.selector("verifyAndAnchor(bytes32,bytes)");
 const SEL_GET_ROOT         = abi.selector("getRoot()");
+const SEL_GET_VERIFIER     = abi.selector("getVerifier()");
 const SEL_GET_BATCH_COUNT  = abi.selector("getBatchCount()");
+
+// Downstream ZKVerifier contract: verifyProof(bytes proof, bytes32[] publicInputs) → bool
+const SEL_VERIFY_PROOF     = abi.selector("verifyProof(bytes,bytes32[])");
 
 // ── Storage slots ─────────────────────────────────────────────────────────────
 
@@ -34,6 +42,7 @@ const SLOT_ROOT:        [32]u8 = slot(0);
 const SLOT_OWNER:       [32]u8 = slot(1);
 const SLOT_BATCH_COUNT: [32]u8 = slot(2);
 const SLOT_INIT:        [32]u8 = slot(3);
+const SLOT_VERIFIER:    [32]u8 = slot(4);
 
 fn slot(n: u8) [32]u8 {
     var s = [_]u8{0} ** 32;
@@ -68,9 +77,11 @@ fn run(args_len: usize) !void {
     const sel = calldata[0..4].*;
 
     if (std.mem.eql(u8, &sel, &SEL_INITIALIZE))        return handle_initialize(calldata[4..args_len]);
+    if (std.mem.eql(u8, &sel, &SEL_SET_VERIFIER))      return handle_set_verifier(calldata[4..args_len]);
     if (std.mem.eql(u8, &sel, &SEL_ANCHOR_ROOT))       return handle_anchor_root(calldata[4..args_len]);
     if (std.mem.eql(u8, &sel, &SEL_VERIFY_AND_ANCHOR)) return handle_verify_and_anchor(calldata[4..args_len]);
     if (std.mem.eql(u8, &sel, &SEL_GET_ROOT))          return handle_get_root();
+    if (std.mem.eql(u8, &sel, &SEL_GET_VERIFIER))      return handle_get_verifier();
     if (std.mem.eql(u8, &sel, &SEL_GET_BATCH_COUNT))   return handle_get_batch_count();
 
     return error.UnknownSelector;
@@ -107,6 +118,19 @@ fn handle_anchor_root(data: []const u8) !void {
     try storeRoot(new_root);
 }
 
+fn handle_set_verifier(data: []const u8) !void {
+    try assertOwner();
+
+    var dec = abi.Decoder.init(data);
+    const verifier_addr = try dec.address();
+
+    var word = [_]u8{0} ** 32;
+    @memcpy(word[12..32], &verifier_addr);
+    host.storage_store_bytes32(&SLOT_VERIFIER, &word);
+
+    host.write_result(&[_]u8{}, 0);
+}
+
 fn handle_verify_and_anchor(data: []const u8) !void {
     try assertOwner();
 
@@ -114,18 +138,82 @@ fn handle_verify_and_anchor(data: []const u8) !void {
     const new_root = try dec.bytes32();
     const proof    = try dec.bytes();
 
-    // Proof sanity: must be non-empty and plausible length for a UltraPlonk proof.
-    // Full on-chain verification via BN254 precompile is done in ZKVerifier contract.
-    // This contract trusts that the caller has already verified the proof there.
     if (proof.len == 0) return error.EmptyProof;
 
+    // Load the registered ZKVerifier address — fail closed if unset.
+    var vw: [32]u8 = undefined;
+    host.storage_load_bytes32(&SLOT_VERIFIER, &vw);
+    var verifier_addr: [20]u8 = undefined;
+    @memcpy(&verifier_addr, vw[12..32]);
+    var nonzero = false;
+    for (verifier_addr) |b| {
+        if (b != 0) { nonzero = true; break; }
+    }
+    if (!nonzero) return error.VerifierNotSet;
+
+    // Encode verifyProof(bytes proof, bytes32[] publicInputs = [new_root]) and
+    // verify the batch transition proof on-chain (BN254 pairing in ZKVerifier).
+    // The root is anchored ONLY if the proof verifies — a bad proof reverts.
+    var call_buf: [8192]u8 = undefined;
+    const call_len = buildVerifyProofCall(&call_buf, proof, new_root);
+    if (call_len == 0) return error.ProofTooLarge;
+
+    var ret_len: u32 = 0;
+    const status = host.static_call_contract(
+        &verifier_addr,
+        &call_buf,
+        @intCast(call_len),
+        500_000,
+        &ret_len,
+    );
+    if (status != 0 or ret_len < 32) return error.ProofRejected;
+
+    var ret: [32]u8 = undefined;
+    _ = host.read_return_data(&ret, 0, 32);
+    if (ret[31] != 1) return error.ProofRejected;
+
     try storeRoot(new_root);
+}
+
+/// Encode verifyProof(bytes proof, bytes32[] publicInputs) calldata with a single
+/// public input (the anchored root). Returns total length incl. selector, or 0 if
+/// it would overflow `buf`.
+fn buildVerifyProofCall(buf: []u8, proof: []const u8, root: [32]u8) usize {
+    const proof_padded = ((proof.len + 31) / 32) * 32;
+    const total = 4 + 32 + 32 + 32 + proof_padded + 32 + 32;
+    if (total > buf.len) return 0;
+
+    @memset(buf[0..total], 0);
+    @memcpy(buf[0..4], &SEL_VERIFY_PROOF);
+    // head word 0: proof offset = 0x40 (relative to args start)
+    buf[35] = 0x40;
+    // head word 1: array offset = 64 + 32 + proof_padded
+    const arr_offset: u64 = 64 + 32 + proof_padded;
+    std.mem.writeInt(u64, buf[60..68][0..8], arr_offset, .big);
+    // proof length
+    std.mem.writeInt(u64, buf[92..100][0..8], @intCast(proof.len), .big);
+    // proof data (zero-padded by the @memset above)
+    @memcpy(buf[100..][0..proof.len], proof);
+    // array length = 1
+    const arr_start = 100 + proof_padded;
+    buf[arr_start + 31] = 1;
+    // array[0] = root
+    @memcpy(buf[arr_start + 32 ..][0..32], &root);
+
+    return total;
 }
 
 fn handle_get_root() !void {
     var root: [32]u8 = undefined;
     host.storage_load_bytes32(&SLOT_ROOT, &root);
     host.write_result(&root, 32);
+}
+
+fn handle_get_verifier() !void {
+    var word: [32]u8 = undefined;
+    host.storage_load_bytes32(&SLOT_VERIFIER, &word);
+    // ABI: address right-aligned in a 32-byte word
+    host.write_result(&word, 32);
 }
 
 fn handle_get_batch_count() !void {

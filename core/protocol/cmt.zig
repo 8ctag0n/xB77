@@ -105,35 +105,36 @@ pub const ConcurrentMerkleTree = struct {
     pub fn append(self: *ConcurrentMerkleTree, leaf: [32]u8) !void {
         if (self.rightmost_index >= (@as(u64, 1) << @intCast(self.depth))) return CMTError.TreeFull;
 
-        var node = leaf;
         const index = self.rightmost_index;
-        
-        // El punto donde el nuevo append intersecta con el árbol existente
-        const intersection_level = if (index == 0) self.depth else @as(u8, @intCast(@ctz(index)));
+
+        // Canonical incremental-Merkle append (Tornado/Semaphore "filledSubtrees").
+        // rightmost_proof[j] holds the frontier node at level j — the left sibling
+        // that a future right-child insertion at that level will hash against.
+        // The co-path recorded in `siblings` is leaf-independent, so the circuit can
+        // reconstruct both the pre-image root (leaf = 0) and the post root (new leaf)
+        // from the same siblings. This is what makes the append chain verifiable.
+        var node = leaf;
+        var current_index = index;
 
         var siblings = try self.allocator.alloc([32]u8, self.depth);
         errdefer self.allocator.free(siblings);
 
         var j: u8 = 0;
         while (j < self.depth) : (j += 1) {
-            if (j < intersection_level) {
-                // Nodo en sub-árbol vacío
+            if (current_index & 1 == 0) {
+                // Left child: right sibling is the empty subtree at this level.
+                // Remember this node as the frontier for the next right-child insert.
                 const empty = try self.computeEmptyNode(j);
                 siblings[j] = empty;
-                node = self.hashNodes(node, empty, false); // node es left, empty es right
-                self.rightmost_proof.items[j] = empty;
-            } else if (j == intersection_level) {
-                // Nodo crítico de intersección
-                const sibling = self.rightmost_proof.items[j];
-                siblings[j] = sibling;
-                node = self.hashNodes(node, sibling, true); // node es right, sibling es left
+                self.rightmost_proof.items[j] = node;
+                node = self.hashNodes(node, empty, false); // node left, empty right
             } else {
-                // Reutilizar nodos de la prueba derecha
+                // Right child: left sibling is the stored frontier node.
                 const sibling = self.rightmost_proof.items[j];
                 siblings[j] = sibling;
-                const node_is_right = (index >> @intCast(j)) & 1 == 1;
-                node = self.hashNodes(node, sibling, node_is_right);
+                node = self.hashNodes(node, sibling, true); // sibling left, node right
             }
+            current_index >>= 1;
         }
 
         // Actualizar el estado global
@@ -320,11 +321,24 @@ pub const ConcurrentMerkleTree = struct {
         var list = std.ArrayListUnmanaged(u8).empty;
         defer list.deinit(self.allocator);
 
-        const initial_root_hex = try crypto.bytesToHex(self.allocator, &initial_root);
+        // CMT nodes are stored as little-endian byte encodings of BN254 field
+        // elements (hashNodes uses @bitCast on a LE host). Noir's Prover.toml
+        // expects big-endian field-element hex, so every 32-byte value is
+        // byte-reversed on the way out. Without this the circuit sees inputs
+        // that exceed the field modulus / fail the transition constraints.
+        const beHex = struct {
+            fn f(alloc: std.mem.Allocator, v: [32]u8) ![]u8 {
+                var be: [32]u8 = undefined;
+                for (v, 0..) |b, k| be[31 - k] = b;
+                return crypto.bytesToHex(alloc, &be);
+            }
+        }.f;
+
+        const initial_root_hex = try beHex(self.allocator, initial_root);
         defer self.allocator.free(initial_root_hex);
         try list.print(self.allocator, "initial_root = \"0x{s}\"\n", .{initial_root_hex});
 
-        const final_root_hex = try crypto.bytesToHex(self.allocator, &final_root);
+        const final_root_hex = try beHex(self.allocator, final_root);
         defer self.allocator.free(final_root_hex);
         try list.print(self.allocator, "final_root = \"0x{s}\"\n", .{final_root_hex});
 
@@ -351,7 +365,7 @@ pub const ConcurrentMerkleTree = struct {
 
         try list.print(self.allocator, "tx_hashes = [\n", .{});
         for (tx_hashes, 0..) |h, i| {
-            const h_hex = try crypto.bytesToHex(self.allocator, &h);
+            const h_hex = try beHex(self.allocator, h);
             defer self.allocator.free(h_hex);
             try list.print(self.allocator, "  \"0x{s}\"{s}\n", .{ h_hex, if (i == 4) "" else "," });
         }
@@ -362,7 +376,7 @@ pub const ConcurrentMerkleTree = struct {
             const log = self.change_logs.items[idx];
             try list.print(self.allocator, "  [\n", .{});
             for (log.siblings, 0..) |p, j| {
-                const p_hex = try crypto.bytesToHex(self.allocator, &p);
+                const p_hex = try beHex(self.allocator, p);
                 defer self.allocator.free(p_hex);
                 try list.print(self.allocator, "    \"0x{s}\"{s}\n", .{ p_hex, if (j == log.siblings.len - 1) "" else "," });
             }

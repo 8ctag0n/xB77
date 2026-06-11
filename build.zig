@@ -342,6 +342,14 @@ pub fn build(b: *std.Build) void {
     store_unit_tests.root_module.linkSystemLibrary("c", .{});
     const run_store_unit_tests = b.addRunArtifact(store_unit_tests);
 
+    // Dedicated step to regenerate circuits/state_anchor/Prover.toml from a real
+    // CMT run (gated by XB77_GEN_ANCHOR so it's skipped in the normal test suite).
+    const gen_anchor_run = b.addRunArtifact(store_unit_tests);
+    gen_anchor_run.setEnvironmentVariable("XB77_GEN_ANCHOR", "1");
+    gen_anchor_run.has_side_effects = true;
+    const gen_anchor_step = b.step("gen-anchor-witness", "Regenerate state_anchor Prover.toml from a real CMT run");
+    gen_anchor_step.dependOn(&gen_anchor_run.step);
+
     const zk_unit_tests = b.addTest(.{
         .root_module = b.createModule(.{
             .root_source_file = b.path("tests/zk_test.zig"),
