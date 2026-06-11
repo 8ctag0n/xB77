@@ -2,6 +2,21 @@ const std = @import("std");
 const core = @import("core");
 const ArbitrumAdapter = core.chain.arbitrum_adapter.ArbitrumAdapter;
 const arbitrum = core.chain.arbitrum_adapter;
+const evm = core.chain.evm;
+const types = core.protocol.types;
+
+// Anvil account 0 — deterministic, well-known test key, never use on mainnet.
+const ANVIL_SK = [32]u8{
+    0xac, 0x09, 0x74, 0xbe, 0xc3, 0x9a, 0x17, 0xe3,
+    0x6b, 0xa4, 0xa6, 0xb4, 0xd2, 0x38, 0xff, 0x94,
+    0x4b, 0xac, 0xb4, 0x78, 0xcb, 0xed, 0x5e, 0xfc,
+    0xae, 0x78, 0x4d, 0x7b, 0xf4, 0xf2, 0xff, 0x80,
+};
+const ANVIL_ADDR = types.EthAddress{
+    0xf3, 0x9f, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xf6,
+    0xf4, 0xce, 0x6a, 0xb8, 0x82, 0x72, 0x79, 0xcf,
+    0xff, 0xb9, 0x22, 0x66,
+};
 
 // Reads contract addresses from env, falls back to Anvil deterministic defaults
 // (nonce 0,1,2 from 0xf39F... — same every fresh Anvil run).
@@ -85,6 +100,51 @@ pub fn main() !void {
         };
         std.debug.print("  valid: {}\n", .{valid});
         std.debug.assert(valid == true);
+        std.debug.print("  PASS\n\n", .{});
+    }
+
+    // ── Test 5: sendSignedTx — real EIP-155 RLP signing ──────────────────────
+    std.debug.print("Test 5: sendSignedTx() — EIP-155 signed via RLP\n", .{});
+    {
+        const kp = types.EthKeypair{ .secret = ANVIL_SK, .address = ANVIL_ADDR };
+        var signed_adapter = ArbitrumAdapter.init(allocator, anchor_addr, rpc_url).withSigning(kp);
+        defer signed_adapter.deinit();
+
+        const new_root = [_]u8{0xAB} ** 32;
+        const tx_hash = signed_adapter.anchorStateRoot(new_root) catch |err| {
+            std.debug.print("  FAIL anchorStateRoot signed: {any}\n", .{err});
+            return err;
+        };
+        defer allocator.free(tx_hash);
+        std.debug.print("  tx_hash: {s}\n", .{tx_hash});
+        std.debug.assert(tx_hash.len >= 66); // "0x" + 64 hex
+
+        // Verify state was actually updated on-chain
+        const root = signed_adapter.getStateRoot() catch |err| {
+            std.debug.print("  FAIL getStateRoot: {any}\n", .{err});
+            return err;
+        };
+        std.debug.print("  root on-chain: {x}\n", .{root});
+        std.debug.assert(std.mem.eql(u8, &root, &new_root));
+        std.debug.print("  PASS\n\n", .{});
+    }
+
+    // ── Test 6: settlePayment signed ─────────────────────────────────────────
+    std.debug.print("Test 6: settlePayment() — EIP-155 signed\n", .{});
+    {
+        const kp = types.EthKeypair{ .secret = ANVIL_SK, .address = ANVIL_ADDR };
+        var signed_adapter = ArbitrumAdapter.init(allocator, settlement_addr, rpc_url).withSigning(kp);
+        defer signed_adapter.deinit();
+
+        const agent      = [_]u8{0xCA} ** 20;
+        const commitment = [_]u8{0xFE} ** 32;
+        const tx_hash = signed_adapter.settlePayment(agent, 1_000_000, commitment) catch |err| {
+            std.debug.print("  FAIL settlePayment signed: {any}\n", .{err});
+            return err;
+        };
+        defer allocator.free(tx_hash);
+        std.debug.print("  tx_hash: {s}\n", .{tx_hash});
+        std.debug.assert(tx_hash.len >= 66);
         std.debug.print("  PASS\n\n", .{});
     }
 
