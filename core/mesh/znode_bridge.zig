@@ -206,6 +206,7 @@ const ProtocolHandler = struct {
                     rpc,
                 );
                 defer arb.deinit();
+                if (self.engine_ptr.ctx.vaults.ops.eth_kp) |kp| arb.eth_kp = kp;
 
                 if (arb.anchorStateRoot(msg.new_root)) |tx_hash| {
                     defer self.allocator.free(tx_hash);
@@ -236,6 +237,7 @@ const ProtocolHandler = struct {
                     rpc,
                 );
                 defer arb.deinit();
+                if (self.engine_ptr.ctx.vaults.ops.eth_kp) |kp| arb.eth_kp = kp;
 
                 const confidence: u8 = if (arb.settlePayment(msg.agent, msg.amount, msg.commitment)) |tx_hash| blk: {
                     defer self.allocator.free(tx_hash);

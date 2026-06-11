@@ -64,6 +64,7 @@ pub const ArbitrumAdapter = struct {
     allocator: std.mem.Allocator,
     constitution_address: []const u8,
     evm_client: evm.EvmClient,
+    eth_kp: ?types.EthKeypair = null,
 
     pub fn init(allocator: std.mem.Allocator, constitution_addr: []const u8, rpc_url: []const u8) ArbitrumAdapter {
         return .{
@@ -71,6 +72,21 @@ pub const ArbitrumAdapter = struct {
             .constitution_address = constitution_addr,
             .evm_client = evm.EvmClient.init(allocator, rpc_url),
         };
+    }
+
+    // Set signing key — returns a copy with the key attached.
+    pub fn withSigning(self: ArbitrumAdapter, kp: types.EthKeypair) ArbitrumAdapter {
+        var a = self;
+        a.eth_kp = kp;
+        return a;
+    }
+
+    // Dispatches to sendSignedTx when a key is present, sendTx otherwise (Anvil/dev).
+    fn txSend(self: *ArbitrumAdapter, to_str: []const u8, data_hex: []const u8) ![]u8 {
+        if (self.eth_kp) |kp| {
+            return self.evm_client.sendSignedTx(to_str, data_hex, kp.secret, kp.address);
+        }
+        return self.evm_client.sendTx(to_str, data_hex);
     }
 
     pub const Provider = struct {
@@ -152,7 +168,7 @@ pub const ArbitrumAdapter = struct {
         var hex_tmp: [80]u8 = undefined;
         const hex_str = crypto.bytesToHexBuf(&hex_tmp, &payload);
 
-        return self.evm_client.sendTx(STYLUS_ANCHOR_ADDR, hex_str);
+        return self.txSend(STYLUS_ANCHOR_ADDR, hex_str);
     }
 
     /// Read the current compression state root from the anchor contract.
@@ -192,7 +208,7 @@ pub const ArbitrumAdapter = struct {
         var hex_tmp: [200 + 10]u8 = undefined;
         const hex_str = crypto.bytesToHexBuf(&hex_tmp, &payload);
 
-        return self.evm_client.sendTx(STYLUS_SETTLEMENT_ADDR, hex_str);
+        return self.txSend(STYLUS_SETTLEMENT_ADDR, hex_str);
     }
 
     /// Verify a Noir ZK proof on-chain via the ZKVerifier Stylus contract.
