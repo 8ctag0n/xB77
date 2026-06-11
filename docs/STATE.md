@@ -1,21 +1,18 @@
 # xB77 — Estado real del stack (Open House sprint)
 
-> Documento generado post-sesión de debugging profunda.  
-> Fecha: 2026-06-09 | Rama: devstylus | Commit base: 8770094
+> Última actualización: 2026-06-11 | Rama: devstylus | Commit base: afc5663
 
 ---
 
 ## TL;DR honesto
 
-El stack tiene tres capas bien diferenciadas en términos de madurez:
-
 | Capa | Estado |
 |------|--------|
 | **WASM on-chain** (Stylus contracts) | Completos, validados, no desplegados |
-| **Bridge AWP → chain** (settle, anchor) | Conectados y probados contra Anvil |
+| **Bridge AWP → chain** (settle, anchor, zk_verify) | ✅ Los 3 conectados on-chain |
+| **Firma de transacciones** | ✅ EIP-155 RLP signing — validado contra Anvil |
 | **Generación de pruebas ZK** | Mockeada (`XB77_MOCK_PROVER=1`) |
-| **Firma de transacciones** | Sin firmar (`eth_sendTransaction`, solo Anvil) |
-| **Deploy en Sepolia** | Bloqueado (wallet ops sin ETH) |
+| **Deploy en Sepolia** | Bloqueado — esperando ETH en `0x64a33...b02` |
 
 ---
 
@@ -26,7 +23,7 @@ El stack tiene tres capas bien diferenciadas en términos de madurez:
 | 1 | ~~`verifyZkProof()` en bridge~~ | ~~`core/mesh/znode_bridge.zig:57-61`~~ | ~~`proof.len >= 64 → true`~~ | ✅ CERRADO — llama `ArbitrumAdapter.verifyZKProof()` → `callViewStr` on-chain | — |
 | 2 | Prueba ZK individual (`XB77_MOCK_PROVER=1`) | `core/kernel/prover.zig:40-46` | Imprime "MOCK_MODE: verified" sin ejecutar nargo | ✅ `circuits/zk_receipt/` (7 circuitos Noir), `scripts/nargo.sh` | Instalar nargo + quitar guard |
 | 3 | Batch anchor en prover | `core/kernel/prover.zig:139-143` | Imprime `mock_batch_anchor_sig_777...` | ✅ `ArbitrumAdapter.anchorStateRoot()` ya funciona (bridge lo llama), `onchain/stylus/anchor.zig` completo | Llamar `ArbitrumAdapter.anchorStateRoot()` desde prover |
-| 4 | `sendTx` sin firma | `core/chain/evm.zig:111-130` | `eth_sendTransaction` (cuenta desbloqueada Anvil) | ✅ `core/security/crypto.zig:146` tiene `signEthMessage(hash, sk)` y ECDSA secp256k1 | Escribir capa RLP tx + usar `eth_sendRawTransaction` |
+| 4 | ~~`sendTx` sin firma~~ | ~~`core/chain/evm.zig:111-130`~~ | ~~`eth_sendTransaction` Anvil~~  | ✅ CERRADO — `sendSignedTx()` EIP-155 completo; `ArbitrumAdapter.txSend()` despacha según key | — |
 | 5 | `canOperate()` bypass | `XB77_DEMO=1` → `core/kernel/orchestrator.zig:129` | Retorna `true` sin verificar balance | ✅ `syncBalance()` hace llamada HTTP real al Gateway; billing logic existe | Configurar Gateway URL + fondear wallet ops |
 | 6 | `constitution.similarity` | `core/chain/arbitrum_adapter.zig:113` | `.similarity = 0` siempre | Parcial — `check_constitution()` hace RPC real, `approved` correcto; solo similarity no parseado | Parsear segundo word del ABI return |
 | 7 | Stylus en Sepolia | — | Stubs Solidity en Anvil (`/tmp/xb77_stubs/`) | ✅ Los 3 contratos pasan `cargo stylus check --no-verify` | Fondear `0x64a33...b02` con ~0.02 Sepolia ETH; `deploy.sh deploy` |
@@ -88,61 +85,52 @@ znode_e2e (5/5 opcodes)
 
 ---
 
-## Pasos para la competencia (Open House, 4 días)
+## Próxima sesión — checklist de cierre para Open House
 
-### Día 0: prereqs (~2h)
-1. **Fondear wallet ops**: `cast send 0x64a33493e335b611473434639f920853f2ce2b02 --value 0.05ether` desde cualquier cuenta Sepolia
-2. `rustup target add wasm32-unknown-unknown` (ya hecho en dev env)
-3. `cargo update` en `onchain/stylus/rust-shim/` (ya hecho)
+### Desbloqueante externo (no es código)
+```bash
+# Fondear wallet ops con Sepolia ETH desde cualquier faucet:
+# - cloud.google.com/application/web3/faucet/ethereum/sepolia  (no requiere nada)
+# - sepoliafaucet.com  (requiere cuenta Alchemy)
+# Wallet: 0x64a33493e335b611473434639f920853f2ce2b02
+# Mínimo: 0.02 ETH — recomendado: 0.05 ETH para 2-3 intentos de deploy
 
-### Día 1: Deploy a Sepolia (~3h)
+# Verificar que llegó:
+cast balance 0x64a33493e335b611473434639f920853f2ce2b02 \
+  --rpc-url https://sepolia-rollup.arbitrum.io/rpc
+```
+
+### Paso 1 — Deploy a Arbitrum Sepolia (~1h)
 ```bash
 cd onchain/stylus
-./deploy.sh deploy  # 9 contratos, ~0.02 ETH total
-# Output: XB77_ANCHOR_ADDR, XB77_SETTLEMENT_ADDR, XB77_ZK_VERIFIER_ADDR
-export XB77_ANCHOR_ADDR=0x...
-export XB77_SETTLEMENT_ADDR=0x...
-export XB77_ZK_VERIFIER_ADDR=0x...
+./deploy.sh deploy
+# Guarda las 3 direcciones que imprime en .env.sepolia
 ```
 
-### Día 1: Conectar `zk_verify` on-chain (~30 min)
-En `core/mesh/znode_bridge.zig`, reemplazar stub `verifyZkProof()` (líneas 57-61):
-```zig
-// Antes (stub):
-fn verifyZkProof(proof: []const u8, package: []const u8) bool {
-    if (proof.len < 64) return false;
-    return true;
-}
+### Paso 2 — Stub #3: prover anchor firmado (~30 min)
+`core/kernel/prover.zig:139-143` imprime `mock_batch_anchor_sig_777...`.
+Reemplazar con llamada real a `ArbitrumAdapter.anchorStateRoot()` usando
+el `eth_kp` del vault — mismo patrón que los bridge handlers.
 
-// Después (real — mismo patrón que .settle):
-// En el handler .zk_verify, construir ArbitrumAdapter con STYLUS_ZK_VERIFIER_ADDR
-// y llamar arb.verifyZKProof(msg.proof, msg.public_root)
-```
-`ArbitrumAdapter.verifyZKProof()` ya está completamente implementado en `arbitrum_adapter.zig:200-243`.
-
-### Día 2: Firma de transacciones (~1 día)
-- `signEthMessage()` existe en `core/security/crypto.zig:146`
-- Falta: encoder RLP para raw tx (EIP-155 o EIP-1559)
-- Target: `core/chain/evm.zig::sendTx` → construir raw tx → `eth_sendRawTransaction`
-- Alternativa más rápida: usar library externa (alloy-rs via WASM, o simplificar a foundry-compatible hex encoding)
-
-### Día 3: E2E contra Sepolia
+### Paso 3 — E2E contra Sepolia (~30 min)
 ```bash
+source .env.sepolia
 XB77_ARB_RPC=https://sepolia-rollup.arbitrum.io/rpc \
-XB77_ANCHOR_ADDR=0x... \
-XB77_SETTLEMENT_ADDR=0x... \
-XB77_ZK_VERIFIER_ADDR=0x... \
-XB77_DEMO=1 \
+XB77_DEMO=1 XB77_MOCK_PROVER=1 \
 ./zig-out/bin/xb77 serve
-```
-Flujo completo (terminal 2):
-```
-SDK → zk_verify → anchor_root → settle (contra contratos reales en Sepolia)
+# Terminal 2: SDK burst — settle + anchor_root + zk_verify
+# Verificar tx hashes en Arbiscan
 ```
 
-### Día 4: Demo video + submission
-- Grabar flujo: `./zig-out/bin/xb77 serve` → SDK envía burst de 3 opcodes → on-chain txs en Arbiscan
-- Links: contract addresses, tx hashes, repo
+### Paso 4 — Status bar del nodo (~2h)
+Implementar `core/kernel/statusbar.zig` con stats atómicos (settle/anchor/zk counts,
+last tx hash, uptime, RPC, modo). Se imprime cada 3s desde el engine loop.
+Hace el demo video significativamente más impresionante.
+
+### Paso 5 — Demo video + submission (~2h)
+- Grabar: `serve` arranca → SDK envía burst → status bar muestra counters incrementar
+  → Arbiscan muestra 3 tx hashes reales
+- Submission: contract addresses, tx hashes, repo link, 3-min video
 
 ---
 
