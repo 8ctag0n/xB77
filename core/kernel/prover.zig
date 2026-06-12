@@ -3,6 +3,8 @@ const core = @import("../core.zig");
 const cmt = @import("../protocol/cmt.zig");
 const solana = @import("../chain/solana.zig");
 const types = @import("../protocol/types.zig");
+const arbitrum = @import("../chain/arbitrum_adapter.zig");
+const statusbar = @import("../kernel/statusbar.zig");
 
 const store_mod = @import("../protocol/store.zig");
 
@@ -17,6 +19,8 @@ pub const SovereignProver = struct {
     // Para la demo del hackathon, usaremos un lote de 5
     anchor_threshold: u64 = 5,
     last_anchored_index: u64 = 0,
+    arb_rpc_url: ?[]const u8 = null,
+    eth_kp: ?types.EthKeypair = null,
 
     pub fn init(allocator: std.mem.Allocator, s: *store_mod.Store, sol: *solana.SolanaClient) SovereignProver {
         return .{
@@ -137,9 +141,8 @@ pub const SovereignProver = struct {
             const mock_mode = @as(?[]const u8, if (std.c.getenv("XB77_MOCK_PROVER")) |_p| std.mem.span(_p) else null);
 
             if (mock_mode != null) {
-                std.debug.print("\n[PROVER]  MOCK MODE: Skipping real Nargo/Solana call.", .{});
-                const fake_sig = "mock_batch_anchor_sig_777777777777777777777777777777777777";
-                std.debug.print("\n[PROVER]  Sovereign Batch Anchored. L1 Sig: {s}", .{fake_sig});
+                std.debug.print("\n[PROVER]  MOCK MODE: Skipping Nargo, anchoring root on-chain.", .{});
+                self.arbAnchor(final_root);
                 self.last_anchored_index += 5;
                 return;
             }
@@ -185,20 +188,36 @@ pub const SovereignProver = struct {
 
             const sig = try self.sol_client.anchorMeshState(
                 initial_root,
-                final_root, 
+                final_root,
                 batch_indices,
                 batch_siblings,
                 amounts,
                 entry_types,
                 tx_hashes,
                 total_tax,
-                real_proof, 
+                real_proof,
                 signer
             );
             defer self.allocator.free(sig);
-            
-            std.debug.print("\n[PROVER]  Sovereign Batch Anchored. L1 Sig: {s}", .{sig});
+
+            std.debug.print("\n[PROVER]  Sovereign Batch Anchored (Solana). Sig: {s}", .{sig});
+            self.arbAnchor(final_root);
             self.last_anchored_index += 5;
+        }
+    }
+
+    /// Anchor the final root on Arbitrum Stylus. No-ops if arb_rpc_url is not set.
+    fn arbAnchor(self: *SovereignProver, root: [32]u8) void {
+        const rpc = self.arb_rpc_url orelse return;
+        var arb = arbitrum.ArbitrumAdapter.init(self.allocator, arbitrum.STYLUS_ANCHOR_ADDR, rpc);
+        defer arb.deinit();
+        if (self.eth_kp) |kp| arb.eth_kp = kp;
+        if (arb.anchorStateRoot(root)) |tx_hash| {
+            defer self.allocator.free(tx_hash);
+            statusbar.onAnchor(tx_hash);
+            std.debug.print("\n[PROVER]  Sovereign Batch Anchored (Arbitrum). tx={s}", .{tx_hash});
+        } else |err| {
+            std.debug.print("\n[PROVER]  Arbitrum anchor error={any}", .{err});
         }
     }
 };

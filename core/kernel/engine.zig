@@ -12,6 +12,7 @@ const anchor = @import("../chain/anchor.zig");
 const mesh = @import("../mesh/mesh.zig");
 const strategist = @import("../kernel/strategist.zig");
 const prover_mod = @import("../kernel/prover.zig");
+const statusbar = @import("../kernel/statusbar.zig");
 const http_bridge = @import("../kernel/http_bridge.zig");
 const magicblock = @import("../chain/magicblock.zig");
 const arbitrum_adapter = @import("../chain/arbitrum_adapter.zig");
@@ -39,7 +40,12 @@ pub const Engine = struct {
             .is_running = false,
             .awpool = pool,
             .anchor_service = anchor.AnchorService.init(allocator, &ctx.store),
-            .prover = prover_mod.SovereignProver.init(allocator, &ctx.store, &ctx.sol_client),
+            .prover = blk: {
+                var p = prover_mod.SovereignProver.init(allocator, &ctx.store, &ctx.sol_client);
+                p.arb_rpc_url = if (std.c.getenv("XB77_ARB_RPC")) |r| std.mem.span(r) else ctx.config.rpc.base;
+                p.eth_kp = ctx.vaults.ops.eth_kp;
+                break :blk p;
+            },
             .http_telemetry = http_bridge.HttpBridge.init(allocator, ctx),
             .strategist = strategist.Strategist.init(allocator, &ctx.store),
             .mb_client = magicblock.MagicBlockSDK.init(allocator, "https://devnet.magicblock.app"),
@@ -64,6 +70,10 @@ pub const Engine = struct {
         
         const eth_addr = try self.ctx.vaults.ops.address(.base, self.allocator);
         defer self.allocator.free(eth_addr);
+
+        const mock = std.c.getenv("XB77_MOCK_PROVER") != null;
+        const arb_rpc = if (std.c.getenv("XB77_ARB_RPC")) |r| std.mem.span(r) else self.ctx.config.rpc.base;
+        statusbar.init(mock, arb_rpc);
 
         std.debug.print("\n[Kernel] xB77 Sovereign OS - Kernel Starting v0.1.0\n", .{});
         std.debug.print("         ----------------------------------------\n", .{});
@@ -108,7 +118,8 @@ pub const Engine = struct {
             }
 
             try self.tick();
-            
+            statusbar.render();
+
             if (tick_count > 0 and tick_count % 3 == 0) {
                 const report = self.ctx.telemetry.endSession();
                 const balance = try self.ctx.orchestrator.processUsage(sol_kp.public, report);

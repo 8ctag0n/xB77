@@ -1,13 +1,39 @@
 #!/usr/bin/env bash
 # xB77 Stylus contracts deploy script
-# Usage: ./onchain/stylus/deploy.sh [check|estimate|deploy]
-# Requires: cargo-stylus, DEPLOYER_KEY env var, Sepolia ETH
+# Usage: ./onchain/stylus/deploy.sh [check|estimate|deploy] [--chain sepolia|robinhood]
+# Requires: cargo-stylus, DEPLOYER_KEY env var, testnet ETH
 
 set -euo pipefail
 
-RPC="${XB77_RPC:-https://sepolia-rollup.arbitrum.io/rpc}"
+# Parse args: first positional = mode, --chain <name> = target chain
+MODE="check"
+CHAIN="sepolia"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --chain) CHAIN="$2"; shift 2 ;;
+    build|check|estimate|deploy) MODE="$1"; shift ;;
+    *) echo "Unknown arg: $1"; exit 1 ;;
+  esac
+done
+
+case "$CHAIN" in
+  sepolia)
+    RPC="${XB77_RPC:-https://sepolia-rollup.arbitrum.io/rpc}"
+    CHAIN_LABEL="Arbitrum Sepolia"
+    DEPLOY_OUT="onchain/stylus/deployed_addresses.env"
+    ;;
+  robinhood)
+    RPC="${XB77_RPC:-https://rpc.testnet.chain.robinhood.com}"
+    CHAIN_LABEL="Robinhood Chain Testnet"
+    DEPLOY_OUT="onchain/stylus/deployed_addresses_robinhood.env"
+    ;;
+  *)
+    echo "Unknown chain: $CHAIN. Use sepolia or robinhood."
+    exit 1
+    ;;
+esac
+
 OUT_DIR="zig-out/bin"
-DEPLOY_OUT="onchain/stylus/deployed_addresses.env"
 
 CONTRACTS=(
   "xb77_zk_verifier"
@@ -20,8 +46,6 @@ CONTRACTS=(
   "aave_guard"
   "gmx_guard"
 )
-
-MODE="${1:-check}"
 
 build_wasm() {
   echo ">>> Building Stylus WASM contracts..."
@@ -86,15 +110,17 @@ case "$MODE" in
 
   check)
     build_wasm
+    echo ">>> Target: $CHAIN_LABEL ($RPC)"
     for name in "${CONTRACTS[@]}"; do
       check_contract "$name"
     done
     echo ""
-    echo "All contracts passed Stylus validation."
+    echo "All contracts passed Stylus validation on $CHAIN_LABEL."
     ;;
 
   estimate)
     build_wasm
+    echo ">>> Target: $CHAIN_LABEL ($RPC)"
     for name in "${CONTRACTS[@]}"; do
       estimate_contract "$name"
     done
@@ -103,12 +129,13 @@ case "$MODE" in
   deploy)
     build_wasm
 
+    echo ">>> Target: $CHAIN_LABEL ($RPC)"
     for name in "${CONTRACTS[@]}"; do
       check_contract "$name"
     done
 
     echo "" > "$DEPLOY_OUT"
-    echo "# xB77 Stylus contract addresses — Arbitrum Sepolia" >> "$DEPLOY_OUT"
+    echo "# xB77 Stylus contract addresses — $CHAIN_LABEL" >> "$DEPLOY_OUT"
     echo "# Generated: $(date -u)" >> "$DEPLOY_OUT"
 
     for name in "${CONTRACTS[@]}"; do
@@ -121,7 +148,7 @@ case "$MODE" in
     ;;
 
   *)
-    echo "Usage: $0 [build|check|estimate|deploy]"
+    echo "Usage: $0 [build|check|estimate|deploy] [--chain sepolia|robinhood]"
     exit 1
     ;;
 esac

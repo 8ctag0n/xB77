@@ -8,6 +8,7 @@ const mesh = @import("../mesh/mesh.zig");
 const awpool = @import("../protocol/awpool.zig");
 const swap = @import("../commerce/swap.zig");
 const arbitrum = @import("../chain/arbitrum_adapter.zig");
+const statusbar = @import("../kernel/statusbar.zig");
 
 fn arbRpcUrl(config: anytype) []const u8 {
     if (std.c.getenv("XB77_ARB_RPC")) |p| return std.mem.span(p);
@@ -193,6 +194,7 @@ const ProtocolHandler = struct {
                 var w = self.stream.writer(io, &wb);
                 try w.interface.writeAll(encoder.buf.items);
                 try w.interface.flush();
+                if (valid) statusbar.onZkVerify();
                 std.debug.print("\n[ZK    ]  verifyProof circuit={x} valid={}\n", .{ msg.circuit_id[0..4].*, valid });
             },
             .anchor_root => {
@@ -210,6 +212,7 @@ const ProtocolHandler = struct {
 
                 if (arb.anchorStateRoot(msg.new_root)) |tx_hash| {
                     defer self.allocator.free(tx_hash);
+                    statusbar.onAnchor(tx_hash);
                     std.debug.print("\n[ANCHOR]  on-chain OK tx={s}\n", .{tx_hash});
                 } else |err| {
                     std.debug.print("\n[ANCHOR]  on-chain error={any}\n", .{err});
@@ -241,6 +244,7 @@ const ProtocolHandler = struct {
 
                 const confidence: u8 = if (arb.settlePayment(msg.agent, msg.amount, msg.commitment)) |tx_hash| blk: {
                     defer self.allocator.free(tx_hash);
+                    statusbar.onSettle(tx_hash);
                     std.debug.print("\n[SETTLE]  on-chain OK tx={s}\n", .{tx_hash});
                     break :blk 100;
                 } else |err| blk: {
