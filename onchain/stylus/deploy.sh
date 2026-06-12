@@ -41,10 +41,6 @@ CONTRACTS=(
   "xb77_anchor"
   "xb77_settlement_engine"
   "groth16_verifier"
-  "constitution"
-  "uniswap_hook"
-  "aave_guard"
-  "gmx_guard"
 )
 
 build_wasm() {
@@ -92,7 +88,7 @@ deploy_contract() {
     --endpoint "$RPC" \
     --private-key "${DEPLOYER_KEY:?DEPLOYER_KEY not set}" \
     --no-verify) \
-    2>&1 | grep -E "deployed at|contract address" | grep -oE "0x[0-9a-fA-F]{40}" | head -1)
+    2>&1 | grep -oE "0x[0-9a-fA-F]{40}" | head -1)
 
   if [[ -z "$addr" ]]; then
     echo "    [ERROR] Could not parse deployed address"

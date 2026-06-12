@@ -92,11 +92,11 @@ znode_e2e (5/5 opcodes)
 # Fondear wallet ops con Sepolia ETH desde cualquier faucet:
 # - cloud.google.com/application/web3/faucet/ethereum/sepolia  (no requiere nada)
 # - sepoliafaucet.com  (requiere cuenta Alchemy)
-# Wallet: 0x64a33493e335b611473434639f920853f2ce2b02
+# Wallet: 0x8d82FB4f03857c3040d42450CAE2E0dCe9f94F1c
 # Mínimo: 0.02 ETH — recomendado: 0.05 ETH para 2-3 intentos de deploy
 
 # Verificar que llegó:
-cast balance 0x64a33493e335b611473434639f920853f2ce2b02 \
+cast balance 0x8d82FB4f03857c3040d42450CAE2E0dCe9f94F1c \
   --rpc-url https://sepolia-rollup.arbitrum.io/rpc
 ```
 

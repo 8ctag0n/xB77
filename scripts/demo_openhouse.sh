@@ -137,6 +137,15 @@ export XB77_ARB_RPC="$RPC"
 export XB77_DEMO=1
 export XB77_MOCK_PROVER=1
 
+# Initialize anchor contract (idempotente — no-op si ya está inicializado)
+if [[ $DRY_RUN -eq 0 ]] && [[ -n "${DEPLOYER_KEY:-}" ]]; then
+  DEPLOYER_ADDR=$(cast wallet address --private-key "$DEPLOYER_KEY" 2>/dev/null || echo "")
+  if [[ -n "$DEPLOYER_ADDR" ]]; then
+    cast send --rpc-url "$RPC" --private-key "$DEPLOYER_KEY" \
+      "$ANCHOR_ADDR" "initialize(address)" "$DEPLOYER_ADDR" >/dev/null 2>&1 || true
+  fi
+fi
+
 # ── Start node ────────────────────────────────────────────────────────────────
 step "Arrancando xB77 Sovereign Node"
 
@@ -204,15 +213,14 @@ printf "\n${YLW}${BLD}━━━ ACT 2: STATE ANCHOR ━━━━━━━━━�
 printf "  Prover comprime N transiciones → ancla root en Anchor.anchorRoot()\n\n"
 
 # Simulated batch root (CMT final root after 5 transitions)
-BATCH_ROOT="0xdedededededededededededededededededededededededededededededededede"
+BATCH_ROOT="0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 
 if [[ $DRY_RUN -eq 0 ]]; then
-  ANCHOR_DATA=$(cast calldata "anchorRoot(bytes32)" "$BATCH_ROOT")
   ANCHOR_TX=$(cast send \
     --rpc-url "$RPC" \
     --private-key "$DEPLOYER_KEY" \
     "$ANCHOR_ADDR" \
-    "$ANCHOR_DATA" \
+    "anchorRoot(bytes32)" "$BATCH_ROOT" \
     2>/dev/null | grep -oE '0x[0-9a-fA-F]{64}' | head -1 || echo "")
 
   if [[ -n "$ANCHOR_TX" ]]; then
@@ -233,38 +241,25 @@ sleep 1
 printf "\n${YLW}${BLD}━━━ ACT 3: ZK PROOF VERIFICATION ━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RST}\n"
 printf "  UltraPlonk proof (122k gates) → ZKVerifier.verifyProof() on-chain\n\n"
 
-# Minimal UltraPlonk proof structure (type byte 0x00 + commitments)
-ZK_PROOF="0x$(python3 -c "
-p = bytearray(225)
-p[0] = 0x00        # UltraPlonk type
-p[1:33] = bytes([0xab]*32)   # circuit_size / W1 lo
-p[33:97] = bytes([0xcd]*64)  # W2
-p[97:161] = bytes([0xef]*64) # PI_Z
-print(p.hex())
-" 2>/dev/null || printf '00' && python3 -c "print('ab'*112)" 2>/dev/null || echo "00ab")"
-
+# Minimal Groth16 proof: 0x01 + A(64) + B(128) + C(64) = 257 bytes
+ZK_PROOF="0x01$(python3 -c "print('a1'*64 + 'b2'*128 + 'c3'*64)")"
 PUB_ROOT="$BATCH_ROOT"
+PUB2="0x1111111111111111111111111111111111111111111111111111111111111111"
+PUB3="0x2222222222222222222222222222222222222222222222222222222222222222"
 
 if [[ $DRY_RUN -eq 0 ]]; then
-  ZK_DATA=$(cast calldata "verifyProof(bytes,bytes32[])" "$ZK_PROOF" "[$PUB_ROOT]")
-  ZK_RESULT=$(cast call \
-    --rpc-url "$RPC" \
-    "$ZK_VERIFIER_ADDR" \
-    "$ZK_DATA" \
-    2>/dev/null || echo "0x")
-  ok "verifyProof() → result: $ZK_RESULT"
-
-  # Send as tx to emit ProofVerified event (visible en Arbiscan)
   ZK_TX=$(cast send \
     --rpc-url "$RPC" \
     --private-key "$DEPLOYER_KEY" \
     "$ZK_VERIFIER_ADDR" \
-    "$ZK_DATA" \
+    "verifyProof(bytes,bytes32[])" "$ZK_PROOF" "[$PUB_ROOT,$PUB2,$PUB3]" \
     2>/dev/null | grep -oE '0x[0-9a-fA-F]{64}' | head -1 || echo "")
 
   if [[ -n "$ZK_TX" ]]; then
-    ok "verifyProof() tx → evento ProofVerified emitido"
+    ok "verifyProof() tx → evento emitido"
     arbiscan "$ZK_TX"
+  else
+    warn "verifyProof() — tx no confirmada"
   fi
 else
   ok "verifyProof() → DRY RUN"
