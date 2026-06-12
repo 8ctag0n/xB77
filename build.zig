@@ -283,6 +283,18 @@ pub fn build(b: *std.Build) void {
     const groth16_contract_step = b.step("test-groth16-contract", "Integration tests for the Stylus contract (mock_hooks)");
     groth16_contract_step.dependOn(&run_groth16_contract.step);
 
+    // UltraPlonk state_anchor verifier integration test
+    const up_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("onchain/stylus/test_ultraplonk.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const run_up_tests = b.addRunArtifact(up_tests);
+    const up_test_step = b.step("test-ultraplonk", "UltraPlonk state_anchor verifier integration test");
+    up_test_step.dependOn(&run_up_tests.step);
+
     // --- SDK Core WASM (xb77_core.wasm) ---
     // Stateless SDK surface compiled to wasm32-wasi. Wrappers (TS/Py/Rust)
     // polyfill the small set of WASI imports actually used. See

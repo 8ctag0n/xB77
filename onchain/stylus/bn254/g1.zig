@@ -133,6 +133,11 @@ pub const G1 = struct {
         return .{ .x = x3, .y = y3, .z = z3 };
     }
 
+    /// Negate: (X:Y:Z) → (X:−Y:Z)
+    pub fn neg(self: G1) G1 {
+        return .{ .x = self.x, .y = fp.neg(self.y), .z = self.z };
+    }
+
     /// Scalar multiplication: s · self  (double-and-add, MSB first)
     /// scalar: 4×u64 little-endian (same wire format as EIP-197 scalar field)
     pub fn scalarMul(self: G1, scalar: [4]u64) G1 {
