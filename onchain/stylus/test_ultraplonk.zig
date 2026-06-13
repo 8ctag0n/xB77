@@ -9,7 +9,8 @@ const mock = @import("mock_hooks.zig");
 const up   = @import("ultraplonk_state_anchor.zig");
 
 fn readProof(alloc: std.mem.Allocator) ![]u8 {
-    return std.fs.cwd().readFileAlloc(alloc, "circuits/state_anchor/target/proof", 4096);
+    const io = std.Io.Threaded.global_single_threaded.io();
+    return std.Io.Dir.cwd().readFileAlloc(io, "circuits/state_anchor/target/proof", alloc, @enumFromInt(4096));
 }
 
 test "state_anchor proof is valid" {

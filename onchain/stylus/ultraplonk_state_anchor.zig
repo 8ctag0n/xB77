@@ -218,17 +218,17 @@ const Nu = struct { v: [31]fr.Fr, raw30: [32]u8 };
 fn nuChallenges(c_v0_raw: [32]u8) Nu {
     var r: Nu = undefined;
     r.v[0] = fr.fromBytes32(&c_v0_raw);
+    // All v_i = keccak(c_v0 ‖ i) — base is ALWAYS c_v0, never chained.
+    // v29 and v30 both use suffix 0x1d (intentional in Barretenberg v0.58).
     var buf: [33]u8 = undefined;
     @memcpy(buf[0..32], &c_v0_raw);
     var i: u8 = 1;
     while (i <= 29) : (i += 1) {
         buf[32] = i;
-        const raw = sdk.keccak256(&buf);
-        r.v[i] = fr.fromBytes32(&raw);
-        @memcpy(buf[0..32], &raw);
+        r.v[i] = fr.fromBytes32(&sdk.Stylus.keccak256(&buf));
     }
-    buf[32] = 0x1d;
-    const raw30 = sdk.keccak256(&buf);
+    buf[32] = 0x1d; // v30 = same as v29 (Barretenberg quirk)
+    const raw30 = sdk.Stylus.keccak256(&buf);
     r.v[30] = fr.fromBytes32(&raw30);
     r.raw30 = raw30;
     return r;
@@ -250,7 +250,7 @@ pub fn verifyStateAnchor(full_proof: []const u8) bool {
     var init_buf: [8]u8 = undefined;
     std.mem.writeInt(u32, init_buf[0..4], @as(u32, VK_N), .big);
     std.mem.writeInt(u32, init_buf[4..8], VK_NUM_INPUTS, .big);
-    const c0 = sdk.keccak256(&init_buf);
+    const c0 = sdk.Stylus.keccak256(&init_buf);
 
     // ── Round 1: ETA — keccak(c0 ‖ pub0 ‖ pub1 ‖ pub2 ‖ W1 ‖ W2 ‖ W3) ───────
     var eta_buf: [32 + 3*32 + 3*64]u8 = undefined;
@@ -259,7 +259,7 @@ pub fn verifyStateAnchor(full_proof: []const u8) bool {
     @memcpy(eta_buf[64..96], pub1);
     @memcpy(eta_buf[96..128], pub2);
     @memcpy(eta_buf[128..320], proof[0..192]); // W1(64)+W2(64)+W3(64)
-    const c_eta = sdk.keccak256(&eta_buf);
+    const c_eta = sdk.Stylus.keccak256(&eta_buf);
     const eta   = fr.fromBytes32(&c_eta);
     const eta2  = fr.mul(eta, eta);
     const eta3  = fr.mul(eta2, eta);
@@ -268,21 +268,21 @@ pub fn verifyStateAnchor(full_proof: []const u8) bool {
     var beta_buf: [32 + 128]u8 = undefined;
     @memcpy(beta_buf[0..32], &c_eta);
     @memcpy(beta_buf[32..160], proof[192..320]); // W4(64)+S(64)
-    const c_beta = sdk.keccak256(&beta_buf);
+    const c_beta = sdk.Stylus.keccak256(&beta_buf);
     const beta   = fr.fromBytes32(&c_beta);
 
     // ── Round 3: GAMMA — keccak(c_beta ‖ 0x01) ───────────────────────────────
     var gam_buf: [33]u8 = undefined;
     @memcpy(gam_buf[0..32], &c_beta);
     gam_buf[32] = 0x01;
-    const c_gamma = sdk.keccak256(&gam_buf);
+    const c_gamma = sdk.Stylus.keccak256(&gam_buf);
     const gamma   = fr.fromBytes32(&c_gamma);
 
     // ── Round 4: ALPHA — keccak(c_gamma ‖ Z ‖ Z_LKP) ────────────────────────
     var alp_buf: [32 + 128]u8 = undefined;
     @memcpy(alp_buf[0..32], &c_gamma);
     @memcpy(alp_buf[32..160], proof[320..448]); // Z(64)+Z_LKP(64)
-    const c_alpha = sdk.keccak256(&alp_buf);
+    const c_alpha = sdk.Stylus.keccak256(&alp_buf);
     const alpha   = fr.fromBytes32(&c_alpha);
     const alpha2  = fr.mul(alpha, alpha);
     const alpha3  = fr.mul(alpha2, alpha);
@@ -292,7 +292,7 @@ pub fn verifyStateAnchor(full_proof: []const u8) bool {
     var zeta_buf: [32 + 4*64]u8 = undefined;
     @memcpy(zeta_buf[0..32], &c_alpha);
     @memcpy(zeta_buf[32..288], proof[448..704]); // T1+T2+T3+T4
-    const c_zeta = sdk.keccak256(&zeta_buf);
+    const c_zeta = sdk.Stylus.keccak256(&zeta_buf);
     const zeta   = fr.fromBytes32(&c_zeta);
 
     // ── Precomputed zeta powers ───────────────────────────────────────────────
@@ -367,7 +367,6 @@ pub fn verifyStateAnchor(full_proof: []const u8) bool {
         fr.add(fr.add(fr.add(fr.add(fr.add(perm_id, plkp_id), arith_id), sort_id), ell_id), aux_id),
         zp_inv
     );
-
     // ── NU challenges — keccak(c_zeta ‖ quot_eval ‖ 41 evals) ───────────────
     var nu_buf: [32 + 32 + 41*32]u8 = undefined;
     @memcpy(nu_buf[0..32], &c_zeta);
@@ -375,7 +374,7 @@ pub fn verifyStateAnchor(full_proof: []const u8) bool {
     fr.toBytes32(quot_eval, &quot_bytes);
     @memcpy(nu_buf[32..64], &quot_bytes);
     @memcpy(nu_buf[64..], proof[EVAL_OFF..EVAL_OFF + 41*32]);
-    const c_v0_raw = sdk.keccak256(&nu_buf);
+    const c_v0_raw = sdk.Stylus.keccak256(&nu_buf);
     const nu = nuChallenges(c_v0_raw);
 
     // ── U challenge — keccak(c_v30 ‖ PI_Z ‖ PI_Z_OMEGA) ─────────────────────
@@ -385,7 +384,7 @@ pub fn verifyStateAnchor(full_proof: []const u8) bool {
     @memcpy(u_buf[0..32], &nu.raw30);
     @memcpy(u_buf[32..96],  piz);
     @memcpy(u_buf[96..160], pizom);
-    const c_u = sdk.keccak256(&u_buf);
+    const c_u = sdk.Stylus.keccak256(&u_buf);
     const u   = fr.fromBytes32(&c_u);
 
     // ── Batch commitment accumulator ──────────────────────────────────────────
@@ -409,16 +408,24 @@ pub fn verifyStateAnchor(full_proof: []const u8) bool {
         acc = acc.addJac(loadG1(proof, proof_commits[i]).scalarMul(rawLimbs(up1v[i])));
     }
 
-    // Step 3: vⱼ for VK fixed points (v7..v30)
-    const vk_pts = [23]G1P{
+    // Step 3a: vⱼ for VK fixed points opened only at ζ (v7..v20, v25..v29)
+    const vk_zeta_pts = [19]G1P{
         VK_Q1, VK_Q2, VK_Q3, VK_Q4, VK_QM, VK_QC, VK_QARITH, VK_QSORT,
         VK_QELLIPTIC, VK_QAUX,
         VK_SIGMA1, VK_SIGMA2, VK_SIGMA3, VK_SIGMA4,
-        VK_TABLE1, VK_TABLE2, VK_TABLE3, VK_TABLE4, VK_TABLE_TYPE,
+        VK_TABLE_TYPE,
         VK_ID1, VK_ID2, VK_ID3, VK_ID4,
     };
-    for (0..23) |i| {
-        acc = acc.addJac(G1.fromAffineBytes(&vk_pts[i]).scalarMul(rawLimbs(nu.v[7 + i])));
+    // v7..v20: Q1..SIGMA4 (14 pts), v25: TABLE_TYPE, v26..v29: ID1..ID4
+    const vk_zeta_idx = [19]u8{ 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 26, 27, 28, 29 };
+    for (0..19) |i| {
+        acc = acc.addJac(G1.fromAffineBytes(&vk_zeta_pts[i]).scalarMul(rawLimbs(nu.v[vk_zeta_idx[i]])));
+    }
+
+    // Step 3b: (u+1)·vⱼ for TABLE1-TABLE4 (opened at both ζ and ζ·ω, v21..v24)
+    const tbl_pts = [4]G1P{ VK_TABLE1, VK_TABLE2, VK_TABLE3, VK_TABLE4 };
+    for (0..4) |i| {
+        acc = acc.addJac(G1.fromAffineBytes(&tbl_pts[i]).scalarMul(rawLimbs(fr.mul(up1, nu.v[21 + i]))));
     }
 
     // Step 4: subtract [1]·batch_eval
@@ -426,8 +433,8 @@ pub fn verifyStateAnchor(full_proof: []const u8) bool {
     acc = acc.addJac(G1.fromAffineBytes(&G1_GEN).scalarMul(rawLimbs(batch_ev)).neg());
 
     // This is PAIRING_RHS (before adding PI_Z·ζ + PI_Z_OMEGA·u·ζ·ω)
-    const PI_Z_pt   = G1.fromAffineBytes(piz[0..64]);
-    const PI_ZW_pt  = G1.fromAffineBytes(pizom[0..64]);
+    const PI_Z_pt   = g1FromProofBytes(piz[0..64]);
+    const PI_ZW_pt  = g1FromProofBytes(pizom[0..64]);
     const u_zeta_om = fr.mul(fr.mul(u, zeta), omega);
     acc = acc.addJac(PI_Z_pt.scalarMul(rawLimbs(zeta)));
     acc = acc.addJac(PI_ZW_pt.scalarMul(rawLimbs(u_zeta_om)));
@@ -504,7 +511,6 @@ fn plookup(
     eta: fr.Fr, eta2: fr.Fr, eta3: fr.Fr,
     ab: fr.Fr, l_start: fr.Fr, l_end: fr.Fr, plkp_delta: fr.Fr,
 ) fr.Fr {
-    _ = alpha;
     // f = η·q3 + (w3+qc·w3w); f = f·η + (w2+qm·w2w); f = f·η + (w1+q2·w1w)
     var f = fr.mul(eta, ev.q3);
     f = fr.add(f, fr.add(ev.w3, fr.mul(ev.qc, ev.w3w)));
@@ -521,7 +527,7 @@ fn plookup(
     var num = fr.add(fr.mul(f, ev.tblty), gamma);
     num = fr.mul(num, fr.add(fr.add(t, fr.mul(tw, beta)), gam_beta));
     num = fr.mul(num, fr.add(beta, fr.ONE));
-    const tmp = fr.mul(alpha2, l_start);
+    const tmp = fr.mul(alpha, l_start); // α¹·L_start (Solidity C_ALPHA_LOC, not C_ALPHA_SQR_LOC)
     num = fr.add(num, tmp);
     num = fr.mul(num, ev.zlkp);
     num = fr.sub(num, tmp);
@@ -772,8 +778,16 @@ fn computePlookupDelta(delta_base: fr.Fr) fr.Fr {
 
 // ── Misc helpers ───────────────────────────────────────────────────────────────
 
+// Barretenberg proof format stores G1 affine as (y ‖ x), swapped vs standard.
+fn g1FromProofBytes(raw: *const [64]u8) G1 {
+    var swapped: [64]u8 = undefined;
+    @memcpy(swapped[0..32], raw[32..64]); // x
+    @memcpy(swapped[32..64], raw[0..32]); // y
+    return G1.fromAffineBytes(&swapped);
+}
+
 fn loadG1(proof: []const u8, idx: usize) G1 {
-    return G1.fromAffineBytes(proof[idx*64..idx*64+64][0..64]);
+    return g1FromProofBytes(proof[idx*64..idx*64+64][0..64]);
 }
 
 fn frPowU64(base: fr.Fr, exp: u64) fr.Fr {
