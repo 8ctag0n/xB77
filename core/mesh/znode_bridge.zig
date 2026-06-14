@@ -210,12 +210,25 @@ const ProtocolHandler = struct {
                 defer arb.deinit();
                 if (self.engine_ptr.ctx.vaults.ops.eth_kp) |kp| arb.eth_kp = kp;
 
-                if (arb.anchorStateRoot(msg.new_root)) |tx_hash| {
-                    defer self.allocator.free(tx_hash);
-                    statusbar.onAnchor(tx_hash);
-                    std.debug.print("\n[ANCHOR]  on-chain OK tx={s}\n", .{tx_hash});
-                } else |err| {
-                    std.debug.print("\n[ANCHOR]  on-chain error={any}\n", .{err});
+                if (msg.proof) |proof| {
+                    // Proof presente: verificar en ultraplonk_state_anchor y luego anclar
+                    std.debug.print("\n[ANCHOR]  ZK proof presente ({d} bytes) — verificando on-chain...\n", .{proof.len});
+                    if (arb.verifyAndAnchorRoot(proof, msg.new_root)) |tx_hash| {
+                        defer self.allocator.free(tx_hash);
+                        statusbar.onAnchor(tx_hash);
+                        std.debug.print("\n[ANCHOR]  ZK verify+anchor OK tx={s}\n", .{tx_hash});
+                    } else |err| {
+                        std.debug.print("\n[ANCHOR]  ZK verify+anchor error={any}\n", .{err});
+                    }
+                } else {
+                    // Sin proof: anclar directamente (backward compat)
+                    if (arb.anchorStateRoot(msg.new_root)) |tx_hash| {
+                        defer self.allocator.free(tx_hash);
+                        statusbar.onAnchor(tx_hash);
+                        std.debug.print("\n[ANCHOR]  on-chain OK tx={s}\n", .{tx_hash});
+                    } else |err| {
+                        std.debug.print("\n[ANCHOR]  on-chain error={any}\n", .{err});
+                    }
                 }
 
                 var encoder = awp.AwpEncoder.init(self.allocator);

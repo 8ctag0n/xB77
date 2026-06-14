@@ -127,6 +127,8 @@ pub const ZkVerifyMsg = struct {
 pub const AnchorRootMsg = struct {
     new_root: [32]u8,
     batch_index: u64,
+    /// Optional ZK proof to verify before anchoring. null = anchor without ZK.
+    proof: ?[]const u8 = null,
 };
 
 pub const SettleMsg = struct {
@@ -540,6 +542,13 @@ pub const AwpEncoder = struct {
         try self.writeByte(@intFromEnum(MessageType.anchor_root));
         try self.buf.appendSlice(self.allocator, &msg.new_root);
         try self.writeVarint(msg.batch_index);
+        if (msg.proof) |p| {
+            try self.writeByte(1);
+            try self.writeVarint(p.len);
+            try self.buf.appendSlice(self.allocator, p);
+        } else {
+            try self.writeByte(0);
+        }
         return self.buf.items;
     }
 
@@ -1080,7 +1089,18 @@ pub const AwpDecoder = struct {
         self.pos += 32;
 
         const batch_index = try self.readVarint();
-        return AnchorRootMsg{ .new_root = new_root, .batch_index = batch_index };
+
+        var proof: ?[]const u8 = null;
+        if (self.pos < self.data.len) {
+            const has_proof = try self.readByte();
+            if (has_proof == 1) {
+                const proof_len = try self.readVarint();
+                proof = self.data[self.pos..self.pos + proof_len];
+                self.pos += proof_len;
+            }
+        }
+
+        return AnchorRootMsg{ .new_root = new_root, .batch_index = batch_index, .proof = proof };
     }
 
     pub fn decodeSettle(self: *AwpDecoder) !SettleMsg {

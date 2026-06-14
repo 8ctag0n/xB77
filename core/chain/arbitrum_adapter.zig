@@ -261,6 +261,15 @@ pub const ArbitrumAdapter = struct {
         return last_byte == 1;
     }
 
+    /// Verify a UltraPlonk proof on-chain then anchor the root if valid.
+    /// Two-step: verifyUltraplonk() → anchorStateRoot(). Both need signing key set.
+    /// Returns the anchor tx hash on success, error.ProofRejected if proof is invalid.
+    pub fn verifyAndAnchorRoot(self: *ArbitrumAdapter, proof: []const u8, new_root: [32]u8) ![]u8 {
+        const valid = try self.verifyUltraplonk(proof);
+        if (!valid) return error.ProofRejected;
+        return self.anchorStateRoot(new_root);
+    }
+
     /// Verify a 2240-byte UltraPlonk proof directly on the ultraplonk_state_anchor
     /// Stylus contract. ABI: verifyProof(bytes) → bool (selector 0x55c265fe).
     /// proof must be the full 2240-byte output from `bb prove` (includes public inputs).
