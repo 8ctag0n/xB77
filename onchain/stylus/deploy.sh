@@ -88,6 +88,7 @@ deploy_contract() {
     --wasm-file "../../$wasm" \
     --endpoint "$RPC" \
     --private-key "${DEPLOYER_KEY:?DEPLOYER_KEY not set}" \
+    --max-fee-per-gas-gwei "${MAX_FEE_GWEI:-0.1}" \
     --no-verify) \
     2>&1 | grep -oE "0x[0-9a-fA-F]{40}" | head -1)
 
