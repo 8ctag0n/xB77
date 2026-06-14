@@ -41,6 +41,7 @@ CONTRACTS=(
   "xb77_anchor"
   "xb77_settlement_engine"
   "groth16_verifier"
+  "ultraplonk_state_anchor"
 )
 
 build_wasm() {

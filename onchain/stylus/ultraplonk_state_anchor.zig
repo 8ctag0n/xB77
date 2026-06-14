@@ -830,3 +830,50 @@ fn vkG2(comptime x1: u256, comptime x0: u256, comptime y1: u256, comptime y0: u2
     @memcpy(b[96..128], &u256be(y0));
     return b;
 }
+
+// ── Stylus entrypoint ─────────────────────────────────────────────────────────
+
+const abi     = @import("abi.zig");
+const builtin = @import("builtin");
+
+const SEL_VERIFY_PROOF = abi.selector("verifyProof(bytes)");
+
+comptime {
+    if (builtin.cpu.arch == .wasm32) {
+        @export(&user_entrypoint, .{ .name = "user_entrypoint" });
+    }
+}
+
+pub fn user_entrypoint(args_len: usize) callconv(if (builtin.cpu.arch == .wasm32) @as(std.builtin.CallingConvention, .{ .wasm_mvp = .{} }) else .auto) i32 {
+    vm.pay_for_memory_grow(0);
+    run(args_len) catch |err| {
+        const msg = @errorName(err);
+        vm.write_result(msg.ptr, msg.len);
+        return 1;
+    };
+    return 0;
+}
+
+fn run(args_len: usize) !void {
+    if (args_len < 4) return error.InvalidCalldata;
+
+    var calldata: [4096]u8 = undefined;
+    const read_len = @min(args_len, calldata.len);
+    vm.read_args(calldata[0..read_len].ptr);
+
+    const sel = calldata[0..4].*;
+    if (!std.mem.eql(u8, &sel, &SEL_VERIFY_PROOF)) return error.UnknownSelector;
+
+    // ABI-decode verifyProof(bytes): offset at [4..36], length at [36..68], data at [68..]
+    if (args_len < 68) return error.InvalidCalldata;
+    const blob_len = std.mem.readInt(u32, calldata[64..68], .big);
+    const blob_start: usize = 68;
+    const blob_end = blob_start + blob_len;
+    if (blob_end > read_len) return error.BlobTooShort;
+
+    const valid = verifyStateAnchor(calldata[blob_start..blob_end]);
+
+    var ret = [_]u8{0} ** 32;
+    ret[31] = if (valid) 1 else 0;
+    vm.write_result(&ret, 32);
+}

@@ -178,7 +178,8 @@ pub fn build(b: *std.Build) void {
     const install_univ4_hook    = StylusContract.add(b, "uniswap_hook",    "onchain/stylus/uniswap_hook.zig",      core_module, stylus_target);
     const install_aave_guard    = StylusContract.add(b, "aave_guard",      "onchain/stylus/aave_guard.zig",        core_module, stylus_target);
     const install_gmx_guard     = StylusContract.add(b, "gmx_guard",       "onchain/stylus/gmx_guard.zig",        core_module, stylus_target);
-    const install_groth16       = StylusContract.add(b, "groth16_verifier","onchain/stylus/groth16_verifier.zig", core_module, stylus_target);
+    const install_groth16       = StylusContract.add(b, "groth16_verifier",       "onchain/stylus/groth16_verifier.zig",        core_module, stylus_target);
+    const install_ultraplonk    = StylusContract.add(b, "ultraplonk_state_anchor","onchain/stylus/ultraplonk_state_anchor.zig", core_module, stylus_target);
 
     const stylus_step = b.step("stylus", "Build all Zig-native Arbitrum Stylus contracts");
     stylus_step.dependOn(&install_constitution.step);
@@ -187,6 +188,7 @@ pub fn build(b: *std.Build) void {
     stylus_step.dependOn(&install_aave_guard.step);
     stylus_step.dependOn(&install_gmx_guard.step);
     stylus_step.dependOn(&install_groth16.step);
+    stylus_step.dependOn(&install_ultraplonk.step);
 
     // Stylus local test suite (native build, uses mock_hooks.zig)
     const stylus_tests = b.addTest(.{
