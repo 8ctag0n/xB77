@@ -1,0 +1,9 @@
+{"t":1781409073020,"type":"agent_init","agent":"0x1111609fb886f6728ed83382be5b9999b8b87fee","name":"cybercore","color":"#00ffff"}
+{"t":1781409073364,"type":"agent_init","agent":"0x222287feeea911c65a10b7984e37667a53ba9 -","name":"shadowfin","color":"#ff00ff"}
+{"t":1781409073704,"type":"agent_init","agent":"0x33336639c72398e5067231e43030009ab9d56e7d","name":"ironvault","color":"#00ff88"}
+{"t":1781409074061,"type":"agent_init","agent":"0x4444ed1c1cdd7ddd22db659efe156b62a5e2d418","name":"neonpulse","color":"#ffaa00"}
+{"t":1781409074419,"type":"mission","agent":"0x1111609fb886f6728ed83382be5b9999b8b87fee","name":"cybercore","text":"Scanning arbitrage delta across Robinhood ↔ Sepolia"}
+{"t":1781409074671,"type":"mission","agent":"0x222287feeea911c65a10b7984e37667a53ba9 -","name":"shadowfin","text":"Accumulating USDC position via dark pool routing"}
+{"t":1781409074923,"type":"mission","agent":"0x33336639c72398e5067231e43030009ab9d56e7d","name":"ironvault","text":"Hedging volatility with synthetic perp exposure"}
+{"t":1781409075184,"type":"mission","agent":"0x4444ed1c1cdd7ddd22db659efe156b62a5e2d418","name":"neonpulse","text":"Executing cross-agent liquidity provision"}
+{"t":1781409075445,"type":"trade","from":"0x1111609fb886f6728ed83382be5b9999b8b87fee","from_name":"cybercore","to":"0x222287feeea911c65a10b7984e37667a53ba9 -","to_name":"shadowfin","amount":0.0042,"token":"ETH","tx":"0xd77473ed27c7c60d7d2551f79c57a6fc7e247a6e587b9b7e74549d2a3faf06d2","chain":"robinhood"}

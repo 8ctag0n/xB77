@@ -26,11 +26,11 @@ RBH_RPC="${RBH_RPC:-https://rpc.testnet.chain.robinhood.com}"
 DEPLOYER_KEY="${DEPLOYER_KEY:?Setear DEPLOYER_KEY}"
 PROOF_FILE="${PROOF_FILE:-circuits/state_anchor/target/proof}"
 
-# Contratos Arbitrum Sepolia
-ARB_ULTRAPLONK="${ARB_ULTRAPLONK:-${XB77_ULTRAPLONK_ADDR:-0x4f6b0cc18145dadb738e563a4881d4488b75cd19}}"
-ARB_ANCHOR="${ARB_ANCHOR:-${XB77_ANCHOR_ADDR:-0x5eefda08e5c7d1ba355fcdb61a024f8caa07c9d4}}"
+# Contratos Arbitrum Sepolia — hardcodeados para no ser pisados por el env de Robinhood
+ARB_ULTRAPLONK="${ARB_ULTRAPLONK:-0x4f6b0cc18145dadb738e563a4881d4488b75cd19}"
+ARB_ANCHOR="${ARB_ANCHOR:-0x5eefda08e5c7d1ba355fcdb61a024f8caa07c9d4}"
 
-# Contratos Robinhood
+# Contratos Robinhood — usa ULTRAPLONK_STATE_ANCHOR_ADDR (var distinta a XB77_ULTRAPLONK_ADDR)
 RBH_ULTRAPLONK="${RBH_ULTRAPLONK:-${ULTRAPLONK_STATE_ANCHOR_ADDR:-0xfb25b9ffb8d2b818a309ea95104fc36eacee755f}}"
 RBH_ANCHOR="${RBH_ANCHOR:-${XB77_ANCHOR_ADDR_RBH:-0x21cc1b8f180f7ea9dc43fdd5da07cd35bb81268d}}"
 
@@ -63,7 +63,7 @@ AGENTS=(cybercore shadowfin ironvault neonpulse)
 
 # Addresses sintéticas derivadas del deployer (para el JSONL — no necesitan fondos)
 A_CYBERCORE="0x1111$(echo $DEPLOYER_KEY | sha256sum | head -c 36)"
-A_SHADOWFIN="0x2222$(echo $DEPLOYER_KEY | sha256sum | tail -c 37 | head -c 36)"
+A_SHADOWFIN="0x2222$(echo "${DEPLOYER_KEY}s" | sha256sum | head -c 36)"
 A_IRONVAULT="0x3333$(echo "${DEPLOYER_KEY}x" | sha256sum | head -c 36)"
 A_NEONPULSE="0x4444$(echo "${DEPLOYER_KEY}y" | sha256sum | head -c 36)"
 
@@ -146,7 +146,7 @@ for trade in "${TRADES[@]}"; do
   emit "{\"t\":$(now_ms),\"type\":\"trade\",\"from\":\"${from_addr}\",\"from_name\":\"${from}\",\"to\":\"${to_addr}\",\"to_name\":\"${to}\",\"amount\":${amount},\"token\":\"${token}\",\"tx\":\"${tx_hash}\",\"chain\":\"robinhood\"}"
   log "  ${YL}[AWP:trade]${NC} ${from} → ${to}: ${BD}${amount} ${token}${NC}"
   sleep 0.15
-  (( trade_count++ ))
+  trade_count=$((trade_count + 1))
 done
 
 # ═══════════════════════════════════════════════════════════════════════════
