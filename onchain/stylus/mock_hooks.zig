@@ -60,6 +60,10 @@ var return_data_len: usize    = 0;
 
 var initialized = false;
 
+/// When set, ecPairing precompile returns this fixed value instead of running real crypto.
+/// null = run real BN254 pairing (default). Set via forceEcPairingResult().
+var ec_pairing_override: ?bool = null;
+
 // ── Test harness control API ────────────────────────────────────────────────
 
 pub fn init() void {
@@ -70,8 +74,13 @@ pub fn init() void {
     initialized = true;
 }
 
+/// Override the ecPairing precompile result for tests that need synthetic inputs.
+/// Call reset() to clear.
+pub fn forceEcPairingResult(result: bool) void { ec_pairing_override = result; }
+
 pub fn reset() void {
     if (!initialized) { init(); return; }
+    ec_pairing_override = null;
     storage.clearRetainingCapacity();
     for (logs.items) |log| {
         allocator.free(log.data);
@@ -201,19 +210,23 @@ pub fn static_call_contract(
     // Input: N * 192 bytes (64-byte G1 affine + 128-byte G2 affine per pair)
     // Output: 32 bytes, [31]=1 if ∏ate(Pᵢ,Qᵢ)==1, else 0
     if (address[19] == 0x08 and data_len % 192 == 0) {
-        const n_pairs = data_len / 192;
-        var acc = fp12.Fp12.ONE;
-        var i: u32 = 0;
-        while (i < n_pairs) : (i += 1) {
-            const base = i * 192;
-            const g1_bytes = data[base..][0..64];
-            const g2_bytes = data[base + 64..][0..128];
-            const p = g1.G1.fromAffineBytes(g1_bytes);
-            const q = g2.G2.fromAffineBytes(g2_bytes);
-            acc = fp12.Fp12.mul(acc, pairing.ate(p, q));
-        }
         return_data_buf = [_]u8{0} ** 4096;
-        return_data_buf[31] = if (fp12.Fp12.eql(acc, fp12.Fp12.ONE)) 1 else 0;
+        if (ec_pairing_override) |forced| {
+            return_data_buf[31] = if (forced) 1 else 0;
+        } else {
+            const n_pairs = data_len / 192;
+            var acc = fp12.Fp12.ONE;
+            var i: u32 = 0;
+            while (i < n_pairs) : (i += 1) {
+                const base = i * 192;
+                const g1_bytes = data[base..][0..64];
+                const g2_bytes = data[base + 64..][0..128];
+                const p = g1.G1.fromAffineBytes(g1_bytes);
+                const q = g2.G2.fromAffineBytes(g2_bytes);
+                acc = fp12.Fp12.mul(acc, pairing.ate(p, q));
+            }
+            return_data_buf[31] = if (fp12.Fp12.eql(acc, fp12.Fp12.ONE)) 1 else 0;
+        }
         return_data_len = 32;
         out_ret_len.* = 32;
         return 0;

@@ -1162,6 +1162,7 @@ test "zk_verifier: verifyProof rejects all-zero PI_Z (G1 identity opening proof)
 test "zk_verifier: verifyProof accepts valid-structure proof (mock ecPairing returns 1)" {
     mock.init();
     mock.reset();
+    mock.forceEcPairingResult(true); // synthetic proof bytes — force pairing result
 
     const sel = @import("abi.zig").selector("verifyProof(bytes,bytes32[])");
     var buf: [4096]u8 = undefined;
@@ -1172,7 +1173,6 @@ test "zk_verifier: verifyProof accepts valid-structure proof (mock ecPairing ret
     mock.setInput(buf[0..len]);
     const rc = callZK(len);
     try std.testing.expectEqual(@as(i32, 0), rc);
-    // mock static_call_contract returns true (1) by default → proof accepted
     const out = mock.getOutput();
     try std.testing.expect(out.len == 32);
     try std.testing.expectEqual(@as(u8, 1), out[31]);
@@ -1203,6 +1203,7 @@ test "zk_verifier: verifyProof rejects when ecPairing returns 0 (invalid proof)"
 test "zk_verifier: Groth16 proof (type 0x01) accepted with mock precompiles returning 1" {
     mock.init();
     mock.reset();
+    mock.forceEcPairingResult(true); // synthetic G1/G2 bytes — force pairing result
 
     const sel = @import("abi.zig").selector("verifyProof(bytes,bytes32[])");
     var buf: [4096]u8 = undefined;
