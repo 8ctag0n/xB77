@@ -19,10 +19,13 @@ const Cli = @import("../flags.zig").Cli;
 
 const crypto_mod = core.crypto;
 const context_mod = core.context;
+const arb = core.chain.arbitrum_adapter;
 
-const VERIFIER_PROGRAM_ID = "3Pf4tiicGAijnhCbxRvmtQLbxxcL5hb7emxw1qjpZX7j";
-const DEFAULT_RPC = "http://127.0.0.1:8899";
-const DEFAULT_PACKAGE = "zk_receipt";
+const VERIFIER_PROGRAM_ID  = "3Pf4tiicGAijnhCbxRvmtQLbxxcL5hb7emxw1qjpZX7j";
+const DEFAULT_RPC          = "http://127.0.0.1:8899";
+const DEFAULT_ARB_RPC      = "https://sepolia-rollup.arbitrum.io/rpc";
+const DEFAULT_PACKAGE      = "zk_receipt";
+const DEFAULT_STATE_ANCHOR_PROOF = "circuits/state_anchor/target/proof";
 
 pub fn run(cli: *const Cli, cmd_args: []const [:0]const u8) !void {
     if (cmd_args.len == 0) { usage(); return; }
@@ -35,6 +38,8 @@ pub fn run(cli: *const Cli, cmd_args: []const [:0]const u8) !void {
         try upload(cli, rest);
     } else if (std.mem.eql(u8, sub, "run")) {
         try proveAndUpload(cli, rest);
+    } else if (std.mem.eql(u8, sub, "verify-arb")) {
+        try verifyArb(cli, rest);
     } else {
         std.debug.print("Unknown zk subcommand: {s}\n", .{sub});
         usage();
@@ -52,11 +57,17 @@ fn usage() void {
         \\      Upload an existing .proof file to the verifier and trigger verify.
         \\  run [--package P] [--rpc URL] [--skip-prove]
         \\      Convenience: prove then upload in one command.
+        \\  verify-arb [--proof PATH] [--arb-rpc URL]
+        \\      Verify a UltraPlonk proof on-chain via ultraplonk_state_anchor (Arbitrum Stylus).
+        \\      Default proof: circuits/state_anchor/target/proof (2240 bytes).
+        \\      Default RPC:   Arbitrum Sepolia.
         \\
         \\Env:
         \\  XB77_RPC              Solana RPC (default {s})
+        \\  XB77_ARB_RPC          Arbitrum RPC (default {s})
+        \\  XB77_ULTRAPLONK_ADDR  ultraplonk_state_anchor contract address
         \\
-    , .{DEFAULT_RPC});
+    , .{ DEFAULT_RPC, DEFAULT_ARB_RPC });
 }
 
 /// Runs `nargo prove` inside the xb77-zk podman container against
@@ -238,4 +249,60 @@ fn uploadProof(cli: *const Cli, proof_path: []const u8, rpc_url_in: []const u8) 
     std.debug.print("[ZK]   chunks: {d}\n", .{result.write_sigs.len});
     std.debug.print("[ZK]   verify: {s}\n", .{result.verify_sig});
     std.debug.print("[ZK] (validator log shows verdict GREEN)\n", .{});
+}
+
+/// verify-arb: verifica un proof UltraPlonk on-chain en Arbitrum Stylus.
+/// Lee XB77_ULTRAPLONK_ADDR del entorno y llama verifyProof(bytes) → bool.
+fn verifyArb(cli: *const Cli, args: []const [:0]const u8) !void {
+    const allocator = cli.allocator;
+
+    var proof_path: []const u8 = DEFAULT_STATE_ANCHOR_PROOF;
+    var arb_rpc: []const u8 = if (std.c.getenv("XB77_ARB_RPC")) |p| std.mem.span(p) else DEFAULT_ARB_RPC;
+
+    var i: usize = 0;
+    while (i < args.len) : (i += 1) {
+        if (std.mem.eql(u8, args[i], "--proof") and i + 1 < args.len) {
+            proof_path = args[i + 1]; i += 1;
+        } else if (std.mem.eql(u8, args[i], "--arb-rpc") and i + 1 < args.len) {
+            arb_rpc = args[i + 1]; i += 1;
+        }
+    }
+
+    // Cargar dirección del contrato desde env
+    arb.loadAddrsFromEnv(allocator);
+    const contract_addr = arb.STYLUS_ULTRAPLONK_ADDR;
+
+    const is_zero = std.mem.eql(u8, contract_addr, "0x0000000000000000000000000000000000000000");
+    if (is_zero) {
+        std.debug.print(
+            \\[ZK] Error: XB77_ULTRAPLONK_ADDR no está seteado.
+            \\     Corré primero: source onchain/stylus/deployed_addresses.env
+            \\
+        , .{});
+        return error.MissingContractAddress;
+    }
+
+    // Leer proof del disco
+    const io = std.Io.Threaded.global_single_threaded.io();
+    const proof_bytes = try std.Io.Dir.cwd().readFileAlloc(io, proof_path, allocator, @enumFromInt(8192));
+    defer allocator.free(proof_bytes);
+
+    std.debug.print("[ZK] verify-arb\n", .{});
+    std.debug.print("[ZK]   proof:    {s} ({d} bytes)\n", .{ proof_path, proof_bytes.len });
+    std.debug.print("[ZK]   contract: {s}\n", .{contract_addr});
+    std.debug.print("[ZK]   rpc:      {s}\n", .{arb_rpc});
+
+    var adapter = arb.ArbitrumAdapter.init(allocator, contract_addr, arb_rpc);
+    defer adapter.deinit();
+
+    const valid = adapter.verifyUltraplonk(proof_bytes) catch |err| {
+        std.debug.print("[ZK] Error al llamar el contrato: {any}\n", .{err});
+        return err;
+    };
+
+    if (valid) {
+        std.debug.print("[ZK] RESULTADO: VÁLIDO ✓ (proof verificada on-chain)\n", .{});
+    } else {
+        std.debug.print("[ZK] RESULTADO: INVÁLIDO ✗\n", .{});
+    }
 }

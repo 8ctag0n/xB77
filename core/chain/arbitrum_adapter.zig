@@ -19,24 +19,27 @@ fn keccak4(comptime sig: []const u8) [4]u8 {
     return hash[0..4].*;
 }
 
-const SEL_ANCHOR_ROOT  = keccak4("anchorRoot(bytes32)");
-const SEL_GET_ROOT     = keccak4("getRoot()");
-const SEL_SETTLE       = keccak4("settle(address,uint256,bytes32)");
-const SEL_VERIFY_PROOF = keccak4("verifyProof(bytes,bytes32[])");
+const SEL_ANCHOR_ROOT       = keccak4("anchorRoot(bytes32)");
+const SEL_GET_ROOT          = keccak4("getRoot()");
+const SEL_SETTLE            = keccak4("settle(address,uint256,bytes32)");
+const SEL_VERIFY_PROOF      = keccak4("verifyProof(bytes,bytes32[])");
+const SEL_VERIFY_ULTRAPLONK = keccak4("verifyProof(bytes)");  // 0x55c265fe — ultraplonk_state_anchor
 
 // Stylus contract addresses — read at startup from env vars (set by deploy.sh output).
 // Override with: export XB77_ANCHOR_ADDR=0x... XB77_SETTLEMENT_ADDR=0x... etc.
 pub var STYLUS_ANCHOR_ADDR:      []const u8 = "0x0000000000000000000000000000000000000000";
 pub var STYLUS_SETTLEMENT_ADDR:  []const u8 = "0x0000000000000000000000000000000000000000";
 pub var STYLUS_ZK_VERIFIER_ADDR: []const u8 = "0x0000000000000000000000000000000000000000";
+pub var STYLUS_ULTRAPLONK_ADDR:  []const u8 = "0x0000000000000000000000000000000000000000";
 
 /// Load contract addresses from environment variables.
 /// Call once at startup before using ArbitrumAdapter.
-/// Reads: XB77_ANCHOR_ADDR, XB77_SETTLEMENT_ADDR, XB77_ZK_VERIFIER_ADDR
+/// Reads: XB77_ANCHOR_ADDR, XB77_SETTLEMENT_ADDR, XB77_ZK_VERIFIER_ADDR, XB77_ULTRAPLONK_ADDR
 pub fn loadAddrsFromEnv(_: std.mem.Allocator) void {
-    if (std.c.getenv("XB77_ANCHOR_ADDR")) |p| STYLUS_ANCHOR_ADDR = std.mem.span(p);
-    if (std.c.getenv("XB77_SETTLEMENT_ADDR")) |p| STYLUS_SETTLEMENT_ADDR = std.mem.span(p);
+    if (std.c.getenv("XB77_ANCHOR_ADDR"))      |p| STYLUS_ANCHOR_ADDR      = std.mem.span(p);
+    if (std.c.getenv("XB77_SETTLEMENT_ADDR"))  |p| STYLUS_SETTLEMENT_ADDR  = std.mem.span(p);
     if (std.c.getenv("XB77_ZK_VERIFIER_ADDR")) |p| STYLUS_ZK_VERIFIER_ADDR = std.mem.span(p);
+    if (std.c.getenv("XB77_ULTRAPLONK_ADDR"))  |p| STYLUS_ULTRAPLONK_ADDR  = std.mem.span(p);
 }
 
 pub const PreFlightResult = struct {
@@ -251,6 +254,39 @@ pub const ArbitrumAdapter = struct {
         const hex_str = crypto.bytesToHexBuf(hex_payload, payload);
 
         const result_hex = try self.evm_client.callViewStr(STYLUS_ZK_VERIFIER_ADDR, hex_str);
+        defer self.allocator.free(result_hex);
+
+        if (result_hex.len < 64) return false;
+        const last_byte = try std.fmt.parseInt(u8, result_hex[result_hex.len - 2 ..], 16);
+        return last_byte == 1;
+    }
+
+    /// Verify a 2240-byte UltraPlonk proof directly on the ultraplonk_state_anchor
+    /// Stylus contract. ABI: verifyProof(bytes) → bool (selector 0x55c265fe).
+    /// proof must be the full 2240-byte output from `bb prove` (includes public inputs).
+    /// Set XB77_ULTRAPLONK_ADDR env var before calling.
+    pub fn verifyUltraplonk(self: *ArbitrumAdapter, proof: []const u8) !bool {
+        // ABI encode: verifyProof(bytes)
+        //   [0..3]   selector
+        //   [4..35]  offset = 0x20
+        //   [36..67] length = proof.len
+        //   [68..]   proof data (padded to 32-byte boundary)
+        const proof_padded = ((proof.len + 31) / 32) * 32;
+        const total = 4 + 32 + 32 + proof_padded;
+        const payload = try self.allocator.alloc(u8, total);
+        defer self.allocator.free(payload);
+        @memset(payload, 0);
+
+        @memcpy(payload[0..4], &SEL_VERIFY_ULTRAPLONK);
+        payload[35] = 0x20;
+        std.mem.writeInt(u64, payload[60..68][0..8], @intCast(proof.len), .big);
+        @memcpy(payload[68..][0..proof.len], proof);
+
+        const hex_payload = try self.allocator.alloc(u8, total * 2 + 2);
+        defer self.allocator.free(hex_payload);
+        const hex_str = crypto.bytesToHexBuf(hex_payload, payload);
+
+        const result_hex = try self.evm_client.callViewStr(STYLUS_ULTRAPLONK_ADDR, hex_str);
         defer self.allocator.free(result_hex);
 
         if (result_hex.len < 64) return false;
