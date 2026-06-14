@@ -98,6 +98,14 @@ deploy_contract() {
 
   echo "    Deployed: $addr"
   echo "export ${name^^}_ADDR=$addr" >> "$DEPLOY_OUT"
+
+  # También emitir el alias XB77_* que lee arbitrum_adapter.zig
+  case "$name" in
+    xb77_anchor)              echo "export XB77_ANCHOR_ADDR=$addr"      >> "$DEPLOY_OUT" ;;
+    xb77_settlement_engine)   echo "export XB77_SETTLEMENT_ADDR=$addr"  >> "$DEPLOY_OUT" ;;
+    xb77_zk_verifier)         echo "export XB77_ZK_VERIFIER_ADDR=$addr" >> "$DEPLOY_OUT" ;;
+    ultraplonk_state_anchor)  echo "export XB77_ULTRAPLONK_ADDR=$addr"  >> "$DEPLOY_OUT" ;;
+  esac
 }
 
 case "$MODE" in
