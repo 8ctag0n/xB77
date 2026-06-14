@@ -1,196 +1,461 @@
 import React from "react";
 import { useCurrentFrame, AbsoluteFill, interpolate, spring } from "remotion";
-import type { AnchorEvent } from "../data/parseEvents";
-import { theme } from "../styles/theme";
+import type { Event, AnchorEvent } from "../data/parseEvents";
+import { DataPulse } from "../components/DataPulse";
 
 interface AnchorProps {
-  events: AnchorEvent[];
+  events: Event[];
 }
 
-const HexRing: React.FC<{ radius: number; color: string; opacity: number; rotate: number }> = ({
-  radius, color, opacity, rotate,
+const SCENE_START = 1200;
+const ROOT_HASH = "0x190d33b12f986f961f9c5b4e7f98cae2c7b66a0e4f1c3d2e5a8b9c0d1e2f3a4";
+
+function truncateTx(tx: string): string {
+  return `${tx.slice(0, 14)}...${tx.slice(-8)}`;
+}
+
+interface AnchorPanelProps {
+  event: AnchorEvent;
+  localFrame: number;
+  panelStartFrame: number;
+  panelX: number;
+  panelY: number;
+  color: string;
+}
+
+const AnchorPanel: React.FC<AnchorPanelProps> = ({
+  event,
+  localFrame,
+  panelStartFrame,
+  panelX,
+  panelY,
+  color,
 }) => {
-  const N = 6;
-  const points = Array.from({ length: N }, (_, i) => {
-    const a = (Math.PI / 3) * i + rotate;
-    return `${radius * Math.cos(a)},${radius * Math.sin(a)}`;
-  }).join(" ");
-  return <polygon points={points} fill="none" stroke={color} strokeWidth={1.5} opacity={opacity} />;
+  const pf = Math.max(0, localFrame - panelStartFrame);
+
+  const panelOpacity = interpolate(pf, [0, 25], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const slideY = interpolate(pf, [0, 30], [30, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const checkScale = spring({
+    frame: Math.max(0, pf - 20),
+    fps: 30,
+    config: { damping: 10, stiffness: 90, mass: 0.9 },
+  });
+
+  const detailsOpacity = interpolate(pf, [30, 55], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const panelW = 720;
+  const panelH = 280;
+  const cornerSize = 14;
+  const adjustedY = panelY + slideY;
+
+  const clipPath = [
+    `${panelX + cornerSize},${adjustedY}`,
+    `${panelX + panelW - cornerSize},${adjustedY}`,
+    `${panelX + panelW},${adjustedY + cornerSize}`,
+    `${panelX + panelW},${adjustedY + panelH - cornerSize}`,
+    `${panelX + panelW - cornerSize},${adjustedY + panelH}`,
+    `${panelX + cornerSize},${adjustedY + panelH}`,
+    `${panelX},${adjustedY + panelH - cornerSize}`,
+    `${panelX},${adjustedY + cornerSize}`,
+  ].join(" ");
+
+  const cx = panelX + panelW / 2;
+
+  return (
+    <g opacity={panelOpacity}>
+      <polygon
+        points={clipPath}
+        fill="#040410"
+        stroke={color}
+        strokeWidth={1.5}
+        style={{ filter: `drop-shadow(0 0 10px ${color}50)` }}
+      />
+      <polygon points={clipPath} fill={color} opacity={0.03} />
+
+      <line
+        x1={panelX + 20}
+        y1={adjustedY + 36}
+        x2={panelX + panelW - 20}
+        y2={adjustedY + 36}
+        stroke={color}
+        strokeWidth={0.5}
+        opacity={0.3}
+      />
+
+      <text
+        x={cx}
+        y={adjustedY + 26}
+        textAnchor="middle"
+        fill={color}
+        fontSize={18}
+        fontFamily="'JetBrains Mono', monospace"
+        fontWeight="700"
+        letterSpacing={2}
+        style={{ filter: `drop-shadow(0 0 8px ${color})` }}
+      >
+        {event.chain}
+      </text>
+
+      <g
+        transform={`translate(${panelX + 56}, ${adjustedY + 80}) scale(${checkScale})`}
+        opacity={detailsOpacity}
+      >
+        <circle
+          r={22}
+          fill="none"
+          stroke="#00ff88"
+          strokeWidth={2}
+          style={{ filter: "drop-shadow(0 0 8px #00ff88)" }}
+        />
+        <text x={0} y={8} textAnchor="middle" fill="#00ff88" fontSize={22} fontWeight="700">
+          ✓
+        </text>
+      </g>
+
+      <g opacity={detailsOpacity}>
+        <text
+          x={panelX + 92}
+          y={adjustedY + 73}
+          fill="#00ff88"
+          fontSize={15}
+          fontFamily="'JetBrains Mono', monospace"
+          fontWeight="700"
+          letterSpacing={1}
+          style={{ filter: "drop-shadow(0 0 6px #00ff88)" }}
+        >
+          RootAnchored ✓
+        </text>
+
+        <text
+          x={panelX + 30}
+          y={adjustedY + 130}
+          fill="#666688"
+          fontSize={10}
+          fontFamily="'JetBrains Mono', monospace"
+          letterSpacing={1}
+        >
+          BLOCK
+        </text>
+        <text
+          x={panelX + 85}
+          y={adjustedY + 130}
+          fill="#aaaacc"
+          fontSize={12}
+          fontFamily="'JetBrains Mono', monospace"
+          fontWeight="700"
+        >
+          #{event.block.toLocaleString()}
+        </text>
+
+        <text
+          x={panelX + 30}
+          y={adjustedY + 158}
+          fill="#666688"
+          fontSize={10}
+          fontFamily="'JetBrains Mono', monospace"
+          letterSpacing={1}
+        >
+          TX
+        </text>
+        <text
+          x={panelX + 56}
+          y={adjustedY + 158}
+          fill="#7777aa"
+          fontSize={10}
+          fontFamily="'JetBrains Mono', monospace"
+        >
+          {truncateTx(event.tx)}
+        </text>
+
+        <text
+          x={panelX + 30}
+          y={adjustedY + 186}
+          fill="#666688"
+          fontSize={10}
+          fontFamily="'JetBrains Mono', monospace"
+          letterSpacing={1}
+        >
+          ROOT
+        </text>
+        <text
+          x={panelX + 72}
+          y={adjustedY + 186}
+          fill="#7777aa"
+          fontSize={10}
+          fontFamily="'JetBrains Mono', monospace"
+        >
+          {`${event.root.slice(0, 12)}...${event.root.slice(-6)}`}
+        </text>
+      </g>
+    </g>
+  );
 };
 
 export const Anchor: React.FC<AnchorProps> = ({ events }) => {
   const frame = useCurrentFrame();
-  const fps = 30;
+  const localFrame = frame - SCENE_START;
 
-  const rbhEv = events.find((e) => e.chain === "robinhood");
-  const arbEv = events.find((e) => e.chain === "arbitrum_sepolia" || e.chain === "arbitrum");
+  const anchorEvents = events.filter((e): e is AnchorEvent => e.type === "anchor");
 
-  const titleOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
+  const titleOpacity = interpolate(localFrame, [0, 25], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
-  // Phase timeline
-  const RBH_ANCHOR_START = 20;
-  const ARB_ANCHOR_START = 140;
-  const FINAL_START = 300;
+  const rootOpacity = interpolate(localFrame, [15, 40], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
-  const rbhScale = spring({ frame: Math.max(0, frame - RBH_ANCHOR_START), fps, config: { damping: 8, stiffness: 60 } });
-  const arbScale = spring({ frame: Math.max(0, frame - ARB_ANCHOR_START), fps, config: { damping: 8, stiffness: 60 } });
-  const finalScale = spring({ frame: Math.max(0, frame - FINAL_START), fps, config: { damping: 6, stiffness: 40 } });
+  const finalMsgOpacity = interpolate(localFrame, [300, 340], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
-  const rotate = (frame / fps) * 0.4;
-  const rotate2 = -(frame / fps) * 0.25;
+  const finalMsgScale = spring({
+    frame: Math.max(0, localFrame - 300),
+    fps: 30,
+    config: { damping: 14, stiffness: 60, mass: 1.2 },
+  });
 
-  const root = rbhEv?.root ?? "0x4a3f21c88d0f92e0b3a1c0d5f7e2a9b4c6d3e1f0a8b2c4d6e8f0a2b4c6d8e0f2";
+  const scanlineY = ((localFrame * 3.5) % 1080);
 
   return (
-    <AbsoluteFill style={{ background: theme.bg, fontFamily: theme.font }}>
-      {/* Animated center orb */}
-      <svg style={{ position: "absolute", inset: 0, width: 1920, height: 1080 }}>
-        <g transform="translate(960, 580)">
-          {/* Outer hex rings */}
-          {[200, 260, 320].map((r, i) => (
-            <HexRing
-              key={i}
-              radius={r}
-              color={i % 2 === 0 ? "#00ff88" : "#00ffff"}
-              opacity={0.08 + Math.sin(frame / 20 + i) * 0.03}
-              rotate={rotate * (i % 2 === 0 ? 1 : -1)}
-            />
-          ))}
+    <AbsoluteFill style={{ background: "#000000" }}>
+      <svg
+        width={1920}
+        height={1080}
+        viewBox="0 0 1920 1080"
+        style={{ position: "absolute", top: 0, left: 0 }}
+      >
+        <defs>
+          <pattern id="ancgrid" width={45} height={45} patternUnits="userSpaceOnUse">
+            <path d="M 45 0 L 0 0 0 45" fill="none" stroke="#0a0a14" strokeWidth={0.5} />
+          </pattern>
+          <radialGradient id="ancGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#001100" stopOpacity={0.5} />
+            <stop offset="100%" stopColor="#000000" stopOpacity={0} />
+          </radialGradient>
+        </defs>
 
-          {/* Core glow */}
-          <circle cx={0} cy={0} r={80}
-            fill="#00ff88" opacity={0.06 + Math.sin(frame / 15) * 0.02}
-            style={{ filter: "blur(20px)" }} />
-          <circle cx={0} cy={0} r={48}
-            fill="#0a0a0a" stroke="#00ff88" strokeWidth={2}
-            style={{ filter: "drop-shadow(0 0 16px #00ff88)" }} />
-          <text x={0} y={6} textAnchor="middle" fill="#00ff88" fontSize={12} fontWeight={700} letterSpacing={3}>
-            ROOT
+        <rect width={1920} height={1080} fill="url(#ancgrid)" />
+        <rect width={1920} height={1080} fill="url(#ancGlow)" />
+
+        <rect x={0} y={scanlineY} width={1920} height={1.5} fill="#00ff88" opacity={0.03} />
+
+        <g opacity={0.3}>
+          <line x1={0} y1={0} x2={80} y2={0} stroke="#00ff88" strokeWidth={1} />
+          <line x1={0} y1={0} x2={0} y2={80} stroke="#00ff88" strokeWidth={1} />
+          <line x1={1920} y1={0} x2={1840} y2={0} stroke="#00ff88" strokeWidth={1} />
+          <line x1={1920} y1={0} x2={1920} y2={80} stroke="#00ff88" strokeWidth={1} />
+          <line x1={0} y1={1080} x2={80} y2={1080} stroke="#00ff88" strokeWidth={1} />
+          <line x1={0} y1={1080} x2={0} y2={1000} stroke="#00ff88" strokeWidth={1} />
+          <line x1={1920} y1={1080} x2={1840} y2={1080} stroke="#00ff88" strokeWidth={1} />
+          <line x1={1920} y1={1080} x2={1920} y2={1000} stroke="#00ff88" strokeWidth={1} />
+        </g>
+
+        <g opacity={titleOpacity}>
+          <text
+            x={960}
+            y={92}
+            textAnchor="middle"
+            fill="#00ff88"
+            fontSize={40}
+            fontFamily="'JetBrains Mono', monospace"
+            fontWeight="700"
+            letterSpacing={4}
+            style={{ filter: "drop-shadow(0 0 14px #00ff88) drop-shadow(0 0 30px #00ff8860)" }}
+          >
+            State Root Anchored
+          </text>
+          <text
+            x={960}
+            y={126}
+            textAnchor="middle"
+            fill="#446644"
+            fontSize={13}
+            fontFamily="'JetBrains Mono', monospace"
+            letterSpacing={3}
+          >
+            On-Chain Finality — ZK Sovereign Rollup
+          </text>
+          <line x1={360} y1={144} x2={1560} y2={144} stroke="#00ff88" strokeWidth={0.5} opacity={0.25} />
+        </g>
+
+        <g opacity={rootOpacity}>
+          <text
+            x={960}
+            y={186}
+            textAnchor="middle"
+            fill="#446644"
+            fontSize={11}
+            fontFamily="'JetBrains Mono', monospace"
+            letterSpacing={2}
+          >
+            ROOT HASH
+          </text>
+          <text
+            x={960}
+            y={208}
+            textAnchor="middle"
+            fill="#559955"
+            fontSize={12}
+            fontFamily="'JetBrains Mono', monospace"
+          >
+            {ROOT_HASH}
           </text>
         </g>
+
+        {anchorEvents[0] && (
+          <AnchorPanel
+            event={anchorEvents[0]}
+            localFrame={localFrame}
+            panelStartFrame={30}
+            panelX={100}
+            panelY={240}
+            color="#ff4444"
+          />
+        )}
+        {anchorEvents[1] && (
+          <AnchorPanel
+            event={anchorEvents[1]}
+            localFrame={localFrame}
+            panelStartFrame={90}
+            panelX={1100}
+            panelY={240}
+            color="#4488ff"
+          />
+        )}
+
+        <DataPulse x={460} y={530} color="#ff4444" frame={localFrame} interval={70} />
+        <DataPulse x={1460} y={530} color="#4488ff" frame={localFrame + 25} interval={70} />
+
+        <line
+          x1={960}
+          y1={240}
+          x2={960}
+          y2={550}
+          stroke="#113311"
+          strokeWidth={1}
+          strokeDasharray="3 6"
+          opacity={interpolate(localFrame, [90, 110], [0, 0.6], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })}
+        />
+
+        {localFrame > 295 && (
+          <g
+            opacity={finalMsgOpacity}
+            transform={`translate(960, 760) scale(${finalMsgScale})`}
+          >
+            <rect x={-480} y={-40} width={960} height={88} rx={6} fill="#020208" stroke="#00ff88" strokeWidth={1.5} />
+            <rect x={-480} y={-40} width={960} height={88} rx={6} fill="#00ff88" opacity={0.04} />
+
+            <line x1={-480} y1={-40} x2={-450} y2={-40} stroke="#00ff88" strokeWidth={2} opacity={0.8} />
+            <line x1={-480} y1={-40} x2={-480} y2={-10} stroke="#00ff88" strokeWidth={2} opacity={0.8} />
+            <line x1={480} y1={-40} x2={450} y2={-40} stroke="#00ff88" strokeWidth={2} opacity={0.8} />
+            <line x1={480} y1={-40} x2={480} y2={-10} stroke="#00ff88" strokeWidth={2} opacity={0.8} />
+            <line x1={-480} y1={48} x2={-450} y2={48} stroke="#00ff88" strokeWidth={2} opacity={0.8} />
+            <line x1={-480} y1={48} x2={-480} y2={18} stroke="#00ff88" strokeWidth={2} opacity={0.8} />
+            <line x1={480} y1={48} x2={450} y2={48} stroke="#00ff88" strokeWidth={2} opacity={0.8} />
+            <line x1={480} y1={48} x2={480} y2={18} stroke="#00ff88" strokeWidth={2} opacity={0.8} />
+
+            <text
+              x={0}
+              y={-6}
+              textAnchor="middle"
+              fill="#00ff88"
+              fontSize={26}
+              fontFamily="'JetBrains Mono', monospace"
+              fontWeight="700"
+              letterSpacing={2}
+              style={{
+                filter:
+                  "drop-shadow(0 0 12px #00ff88) drop-shadow(0 0 30px #00ff8880) drop-shadow(0 0 60px #00ff8840)",
+              }}
+            >
+              xB77 Sovereign OS
+            </text>
+            <text
+              x={0}
+              y={28}
+              textAnchor="middle"
+              fill="#446644"
+              fontSize={14}
+              fontFamily="'JetBrains Mono', monospace"
+              letterSpacing={3}
+            >
+              ZK-Proven on Arbitrum
+            </text>
+          </g>
+        )}
+
+        <g
+          opacity={interpolate(localFrame, [120, 150], [0, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })}
+        >
+          {[
+            { label: "TRADES", value: "12" },
+            { label: "AGENTS", value: "4" },
+            { label: "CHAINS", value: "2" },
+            { label: "PROOF", value: "UltraPlonk" },
+          ].map((stat, i) => {
+            const sx = 200 + i * 380;
+            return (
+              <g key={stat.label}>
+                <text
+                  x={sx}
+                  y={890}
+                  textAnchor="middle"
+                  fill="#446644"
+                  fontSize={10}
+                  fontFamily="'JetBrains Mono', monospace"
+                  letterSpacing={2}
+                >
+                  {stat.label}
+                </text>
+                <text
+                  x={sx}
+                  y={914}
+                  textAnchor="middle"
+                  fill="#00ff88"
+                  fontSize={20}
+                  fontFamily="'JetBrains Mono', monospace"
+                  fontWeight="700"
+                  style={{ filter: "drop-shadow(0 0 6px #00ff88)" }}
+                >
+                  {stat.value}
+                </text>
+              </g>
+            );
+          })}
+        </g>
+
+        <text
+          x={1880}
+          y={1060}
+          textAnchor="end"
+          fill="#333333"
+          fontSize={10}
+          fontFamily="'JetBrains Mono', monospace"
+        >
+          {String(frame).padStart(4, "0")} / 1799
+        </text>
       </svg>
-
-      {/* Title area */}
-      <div style={{ position: "absolute", top: 60, left: 120, opacity: titleOpacity }}>
-        <div style={{ color: theme.green, fontSize: 13, letterSpacing: 6, marginBottom: 12 }}>
-          STATE ANCHOR PROTOCOL
-        </div>
-        <div style={{ color: "#ffffff", fontSize: 48, fontWeight: 700, letterSpacing: 2 }}>
-          On-Chain Root Commitment
-        </div>
-        <div style={{ color: theme.dim, fontSize: 18, marginTop: 8 }}>
-          Merkle root anchored immutably on both chains
-        </div>
-      </div>
-
-      {/* Root hash display */}
-      <div style={{
-        position: "absolute",
-        top: 220,
-        left: 120,
-        right: 120,
-        opacity: interpolate(frame, [10, 30], [0, 1], { extrapolateRight: "clamp" }),
-      }}>
-        <div style={{ color: theme.dim, fontSize: 11, letterSpacing: 4, marginBottom: 8 }}>STATE ROOT</div>
-        <div style={{
-          color: theme.green,
-          fontSize: 16,
-          fontFamily: theme.font,
-          letterSpacing: 1.5,
-          wordBreak: "break-all",
-          textShadow: `0 0 10px ${theme.green}`,
-        }}>
-          {root}
-        </div>
-      </div>
-
-      {/* Anchor cards */}
-      <div style={{ position: "absolute", bottom: 100, left: 120, right: 120, display: "flex", gap: 40 }}>
-        {/* Robinhood anchor */}
-        <div style={{
-          flex: 1,
-          background: "#060606",
-          border: `1px solid ${frame >= RBH_ANCHOR_START ? "#ff4444" : "#1a1a1a"}`,
-          borderRadius: 8,
-          padding: "28px 32px",
-          transform: `scale(${rbhScale})`,
-          transformOrigin: "bottom center",
-          boxShadow: frame >= RBH_ANCHOR_START ? "0 0 30px #ff444430" : "none",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#ff4444", boxShadow: "0 0 8px #ff4444" }} />
-            <div style={{ color: "#ff4444", fontSize: 12, letterSpacing: 4 }}>ROBINHOOD TESTNET</div>
-          </div>
-          <div style={{ color: theme.dim, fontSize: 11, letterSpacing: 2, marginBottom: 10 }}>TX HASH</div>
-          <div style={{ color: "#ffffff", fontSize: 13, wordBreak: "break-all", lineHeight: 1.5 }}>
-            {rbhEv?.tx ?? "0x21cc1b8f..."}
-          </div>
-          <div style={{ marginTop: 16, color: theme.green, fontSize: 24, fontWeight: 900, letterSpacing: 4, textShadow: `0 0 16px ${theme.green}` }}>
-            ⊕ ANCHORED
-          </div>
-          {rbhEv?.block && (
-            <div style={{ color: theme.dim, fontSize: 11, marginTop: 8 }}>
-              block #{rbhEv.block}
-            </div>
-          )}
-        </div>
-
-        {/* Arbitrum anchor */}
-        <div style={{
-          flex: 1,
-          background: "#060606",
-          border: `1px solid ${frame >= ARB_ANCHOR_START ? "#4488ff" : "#1a1a1a"}`,
-          borderRadius: 8,
-          padding: "28px 32px",
-          transform: `scale(${arbScale})`,
-          transformOrigin: "bottom center",
-          boxShadow: frame >= ARB_ANCHOR_START ? "0 0 30px #4488ff30" : "none",
-          opacity: interpolate(frame, [ARB_ANCHOR_START - 20, ARB_ANCHOR_START], [0, 1], { extrapolateRight: "clamp" }),
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#4488ff", boxShadow: "0 0 8px #4488ff" }} />
-            <div style={{ color: "#4488ff", fontSize: 12, letterSpacing: 4 }}>ARBITRUM SEPOLIA</div>
-          </div>
-          <div style={{ color: theme.dim, fontSize: 11, letterSpacing: 2, marginBottom: 10 }}>TX HASH</div>
-          <div style={{ color: "#ffffff", fontSize: 13, wordBreak: "break-all", lineHeight: 1.5 }}>
-            {arbEv?.tx ?? "0x5eefda08..."}
-          </div>
-          <div style={{ marginTop: 16, color: theme.green, fontSize: 24, fontWeight: 900, letterSpacing: 4, textShadow: `0 0 16px ${theme.green}` }}>
-            ⊕ ANCHORED
-          </div>
-          {arbEv?.block && (
-            <div style={{ color: theme.dim, fontSize: 11, marginTop: 8 }}>
-              block #{arbEv.block}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Final banner */}
-      {frame >= FINAL_START && (
-        <div style={{
-          position: "absolute",
-          top: "40%",
-          left: 0,
-          right: 0,
-          textAlign: "center",
-          transform: `scale(${finalScale})`,
-          opacity: interpolate(frame, [FINAL_START, FINAL_START + 20], [0, 1], { extrapolateRight: "clamp" }),
-        }}>
-          <div style={{
-            color: theme.green,
-            fontSize: 52,
-            fontWeight: 900,
-            letterSpacing: 8,
-            textShadow: `0 0 40px ${theme.green}, 0 0 80px ${theme.green}60`,
-          }}>
-            SOVEREIGN STATE PROVEN
-          </div>
-          <div style={{ color: theme.dim, fontSize: 18, marginTop: 16, letterSpacing: 4 }}>
-            xB77 · Cross-Chain ZK Settlement · Arbitrum Hackathon 2026
-          </div>
-        </div>
-      )}
     </AbsoluteFill>
   );
 };
